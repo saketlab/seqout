@@ -722,18 +722,6 @@ export default function SearchPageBody() {
                 </Text>
               </Flex>
 
-              {/* Top paginator */}
-              <Paginator
-                currentPage={safePage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                perPage={perPage}
-                onPerPageChange={setPerPage}
-                totalResults={filteredTotal}
-                loadedResults={allResults.length}
-                isFetching={isFetchingNextPage}
-              />
-
               {pageResults.length === 0 ? (
                 <Flex
                   align="center"
@@ -774,7 +762,7 @@ export default function SearchPageBody() {
                 ))
               )}
 
-              {/* Bottom paginator */}
+              {/* Paginator */}
               <Paginator
                 currentPage={safePage}
                 totalPages={totalPages}
