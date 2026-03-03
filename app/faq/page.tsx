@@ -6,15 +6,66 @@ import Image from "next/image";
 export const metadata: Metadata = {
   title: "About and FAQ",
   description:
-    "Learn about pysraweb - a fast exploration tool for GEO and SRA sequencing datasets. Frequently asked questions about data sources, features, and usage.",
+    "Learn about seqout - a fast exploration tool for GEO, SRA, ENA & ArrayExpress sequencing datasets. Frequently asked questions about data sources, features, and usage.",
   alternates: {
-    canonical: "https://pysraweb.saketlab.org/faq",
+    canonical: "https://seqout.org/faq",
   },
+};
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Where does seqout fetch its datasets from?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "We maintain a local mirror of all publicly available datasets on NCBI's FTP servers. This includes all SRA datasets and GEO datasets. We do not own or modify the original data.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does seqout download sequencing data?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. seqout only indexes and serves metadata. It does not download or host raw sequencing files such as FASTQ or BAM.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How is seqout different from browsing NCBI directly?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "seqout provides unified GEO, SRA, ENA & ArrayExpress metadata, relevance-ranked search, and consolidated tabular views, eliminating multi-page navigation and reducing discovery time.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is seqout suitable for large-scale searches?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. The backend is optimized for low-latency queries over millions of records, enabling fast filtering and comparison across studies.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Who is seqout intended for?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "seqout is designed for researchers who frequently explore public sequencing metadata and want faster, more structured discovery workflows.",
+      },
+    },
+  ],
 };
 
 export default function FAQ() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <SearchBar />
       <Flex
         gap="4"
@@ -28,14 +79,12 @@ export default function FAQ() {
           About
         </Text>
         <Text size={{ initial: "2", md: "3" }}>
-          pysraweb (<i>/paɪ ˌɛs ɑːr eɪ wɛb/</i>) is a web app for fast
-          exploration of datasets from the{" "}
-          <Link href="https://www.ncbi.nlm.nih.gov/sra">
-            Sequence Read Archive
-          </Link>{" "}
-          and{" "}
-          <Link href="https://www.ncbi.nlm.nih.gov/geo/">
-            Gene Expression Omnibus
+          seqout is a web app for fast exploration of datasets from{" "}
+          <Link href="https://www.ncbi.nlm.nih.gov/geo/">GEO</Link>,{" "}
+          <Link href="https://www.ncbi.nlm.nih.gov/sra">SRA</Link>,{" "}
+          <Link href="https://www.ebi.ac.uk/ena/browser/home">ENA</Link>, and{" "}
+          <Link href="https://www.ebi.ac.uk/biostudies/arrayexpress">
+            ArrayExpress
           </Link>{" "}
           featuring consolidated tabular views of experiment- and sample-level
           metadata, substantially reducing navigation overhead and enabling
@@ -46,7 +95,7 @@ export default function FAQ() {
         </Text>
         <Flex direction={"column"} gap={"3"}>
           <Text size={{ initial: "4", md: "6" }} weight={"medium"}>
-            Where does pysraweb fetch its datasets from?
+            Where does seqout fetch its datasets from?
           </Text>
           <Text size={{ initial: "2", md: "3" }}>
             We maintain a local mirror of all publicly available datasets on
@@ -62,20 +111,20 @@ export default function FAQ() {
 
         <Flex direction={"column"} gap={"3"}>
           <Text size={{ initial: "4", md: "6" }} weight={"medium"}>
-            Does pysraweb download sequencing data?
+            Does seqout download sequencing data?
           </Text>
           <Text size={{ initial: "2", md: "3" }}>
-            No. pysraweb only indexes and serves metadata. It does not download
+            No. seqout only indexes and serves metadata. It does not download
             or host raw sequencing files such as FASTQ or BAM.
           </Text>
         </Flex>
 
         <Flex direction={"column"} gap={"3"}>
           <Text size={{ initial: "4", md: "6" }} weight={"medium"}>
-            How is pysraweb different from browsing NCBI directly?
+            How is seqout different from browsing NCBI directly?
           </Text>
           <Text size={{ initial: "2", md: "3" }}>
-            pysraweb provides unified SRA and GEO metadata, relevance-ranked
+            seqout provides unified GEO, SRA, ENA & ArrayExpress metadata, relevance-ranked
             search, and consolidated tabular views, eliminating multi-page
             navigation and reducing discovery time.
           </Text>
@@ -83,7 +132,7 @@ export default function FAQ() {
 
         <Flex direction={"column"} gap={"3"}>
           <Text size={{ initial: "4", md: "6" }} weight={"medium"}>
-            Is pysraweb suitable for large-scale searches?
+            Is seqout suitable for large-scale searches?
           </Text>
           <Text size={{ initial: "2", md: "3" }}>
             Yes. The backend is optimized for low-latency queries over millions
@@ -92,10 +141,10 @@ export default function FAQ() {
         </Flex>
         <Flex direction={"column"} gap={"3"}>
           <Text size={{ initial: "4", md: "6" }} weight={"medium"}>
-            Who is pysraweb intended for?
+            Who is seqout intended for?
           </Text>
           <Text size={{ initial: "2", md: "3" }}>
-            pysraweb is designed for researchers who frequently explore public
+            seqout is designed for researchers who frequently explore public
             sequencing metadata and want faster, more structured discovery
             workflows.
           </Text>

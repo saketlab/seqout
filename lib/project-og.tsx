@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 const API_BASE_URL =
-  process.env.PYSRAWEB_API_BASE ?? "https://pysraweb.saketlab.org/api";
+  process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
 
 type ProjectKind = "geo" | "sra" | "ena" | "arrayexpress";
 
@@ -165,7 +165,7 @@ export async function generateProjectOgImage(
               display: "flex",
             }}
           >
-            pysraweb
+            seqout
           </div>
         </div>
 

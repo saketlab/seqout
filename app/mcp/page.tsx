@@ -27,9 +27,9 @@ export default function MCP() {
           >
             Model Context Protocol (MCP)
           </Link>{" "}
-          server that enables LLM chat clients to use pysraweb&apos;s features.
-          This provides easy and intuitive access to exploring datasets from GEO
-          and SRA.
+          server that enables LLM chat clients to use seqout&apos;s features.
+          This provides easy and intuitive access to exploring datasets from GEO,
+          SRA, ENA & ArrayExpress.
         </Text>
 
         <Callout.Root>
@@ -39,7 +39,7 @@ export default function MCP() {
           <Callout.Text size={{ initial: "2", md: "3" }}>
             Connect your LLM client using this URL:{" "}
             <Code variant="soft" size={{ initial: "1", md: "2" }}>
-              https://pysraweb.saketlab.org/api/mcp
+              https://seqout.org/api/mcp
             </Code>
           </Callout.Text>
         </Callout.Root>
@@ -87,9 +87,9 @@ export default function MCP() {
               }}
             >
               {`"mcpServers": {
-  "pysraweb": {
+  "seqout": {
     "command": "npx",
-    "args": ["-y", "mcp-remote", "https://pysraweb.saketlab.org/api/mcp"]
+    "args": ["-y", "mcp-remote", "https://seqout.org/api/mcp"]
   }
 }`}
             </Code>
@@ -98,8 +98,8 @@ export default function MCP() {
           <Text size={{ initial: "2", md: "3" }}>4. Restart Claude Desktop to apply the changes</Text>
 
           <Text size={{ initial: "2", md: "3" }}>
-            Once configured, you&apos;ll be able to search and explore GEO and
-            SRA datasets directly from Claude Desktop conversations.
+            Once configured, you&apos;ll be able to search and explore GEO, SRA,
+            ENA & ArrayExpress datasets directly from Claude Desktop conversations.
           </Text>
         </Flex>
       </Flex>

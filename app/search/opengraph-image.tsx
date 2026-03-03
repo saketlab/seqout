@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 const API_BASE_URL =
-  process.env.PYSRAWEB_API_BASE ?? "https://pysraweb.saketlab.org/api";
+  process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
 
 export const size = {
   width: 1200,
@@ -37,7 +37,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
   }
 
   const subtitle = !query
-    ? "Search GEO and SRA sequencing datasets"
+    ? "Search GEO, SRA, ENA & ArrayExpress sequencing datasets"
     : total !== null
       ? `${total.toLocaleString()} result${total === 1 ? "" : "s"} found`
       : "Search results";
@@ -104,7 +104,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
               display: "flex",
             }}
           >
-            pysraweb
+            seqout
           </div>
         </div>
 

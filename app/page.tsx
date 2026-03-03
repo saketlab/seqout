@@ -4,11 +4,11 @@ import { Flex } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "pysraweb - Search GEO and SRA Datasets",
+  title: "seqout - Search GEO, SRA, ENA & ArrayExpress Datasets",
   description:
-    "Search and explore millions of GEO and SRA sequencing datasets. Unified metadata views, relevance-ranked results, and consolidated sample tables for faster research.",
+    "Search and explore millions of GEO, SRA, ENA & ArrayExpress sequencing datasets. Unified metadata views, relevance-ranked results, and consolidated sample tables for faster research.",
   alternates: {
-    canonical: "https://pysraweb.saketlab.org",
+    canonical: "https://seqout.org",
   },
 };
 

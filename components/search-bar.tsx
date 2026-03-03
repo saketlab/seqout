@@ -172,7 +172,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
               src={
                 resolvedTheme === "light" ? "/logo-light.svg" : "/logo-dark.svg"
               }
-              alt="pysraweb"
+              alt="seqout"
               fill
               style={{ objectFit: "contain" }}
             />

@@ -126,9 +126,8 @@ export default async function OpengraphImage() {
                 display: "flex",
               }}
             >
-              <span style={{ color: "#1a1a1a" }}>py</span>
-              <span style={{ color: "#236598" }}>sra</span>
-              <span style={{ color: "#1a1a1a" }}>web</span>
+              <span style={{ color: "#236598" }}>seq</span>
+              <span style={{ color: "#1a1a1a" }}>out</span>
             </div>
           </div>
 
@@ -217,7 +216,7 @@ export default async function OpengraphImage() {
               display: "flex",
             }}
           >
-            pysraweb.saketlab.org
+            seqout.org
           </div>
         </div>
       </div>

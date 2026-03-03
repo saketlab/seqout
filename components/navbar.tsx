@@ -84,7 +84,7 @@ export default function Navabar() {
             <DropdownMenu.Item
               onSelect={() =>
                 window.open(
-                  "https://github.com/saketlab/pysraweb",
+                  "https://github.com/saketlab/seqout",
                   "_blank",
                   "noopener,noreferrer",
                 )

@@ -5,9 +5,9 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Map",
-  description: "2D accession map for GEO and SRA projects.",
+  description: "2D accession map for GEO, SRA, ENA & ArrayExpress projects.",
   alternates: {
-    canonical: "https://pysraweb.saketlab.org/map",
+    canonical: "https://seqout.org/map",
   },
 };
 

@@ -13,31 +13,63 @@ export const viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "pysraweb - Search GEO and SRA Datasets",
-    template: "%s | pysraweb",
+    default: "seqout - Search GEO, SRA, ENA & ArrayExpress Datasets",
+    template: "%s | seqout",
   },
   description:
-    "Fast exploration of GEO and SRA sequencing datasets. Search millions of experiments with unified metadata views, relevance-ranked results, and consolidated sample tables. Developed at Saket Lab, IIT Bombay.",
+    "Fast exploration of GEO, SRA, ENA & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views, relevance-ranked results, and consolidated sample tables. Developed at Saket Lab, IIT Bombay.",
+  applicationName: "seqout",
   keywords: [
+    "seqout",
+    "pysradb",
+    "pysraweb",
+    "SRA metadata search",
+    "GEO metadata search",
+    "ENA metadata search",
+    "ArrayExpress metadata search",
+    "SRA bulk metadata",
+    "GEO bulk metadata",
+    "ENA bulk metadata",
+    "ArrayExpress bulk metadata",
+    "sequencing metadata discovery",
+    "harmonized metadata SRA",
+    "harmonized metadata GEO",
+    "harmonized metadata ENA",
+    "harmonized metadata ArrayExpress",
+    "SRA metadata",
+    "GEO metadata",
+    "ENA metadata",
+    "ArrayExpress metadata",
+    "sequencing data discovery",
+    "metadata search sequencing",
     "SRA",
     "GEO",
+    "ENA",
+    "ArrayExpress",
     "Sequence Read Archive",
     "Gene Expression Omnibus",
+    "European Nucleotide Archive",
     "NCBI",
-    "sequencing data",
-    "genomics",
-    "transcriptomics",
+    "EBI",
     "RNA-seq",
     "ChIP-seq",
     "ATAC-seq",
+    "scRNA-seq",
+    "single-cell",
     "bioinformatics",
-    "metadata search",
     "public datasets",
+    "next-generation sequencing",
+    "NGS",
+    "FASTQ",
+    "experiment metadata",
+    "sample metadata",
+    "genomics",
+    "transcriptomics",
   ],
   authors: [{ name: "Saket Lab", url: "https://saketlab.org" }],
   creator: "Saket Lab, IIT Bombay",
   publisher: "Saket Lab",
-  metadataBase: new URL("https://pysraweb.saketlab.org"),
+  metadataBase: new URL("https://seqout.org"),
   manifest: "/manifest.webmanifest",
   alternates: {
     canonical: "/",
@@ -45,25 +77,25 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://pysraweb.saketlab.org",
-    siteName: "pysraweb",
-    title: "pysraweb - Search GEO and SRA Datasets",
+    url: "https://seqout.org",
+    siteName: "seqout",
+    title: "seqout - Search GEO, SRA, ENA & ArrayExpress Datasets",
     description:
-      "Fast exploration of GEO and SRA sequencing datasets. Search millions of experiments with unified metadata views and relevance-ranked results.",
+      "Fast exploration of GEO, SRA, ENA & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views and relevance-ranked results.",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "pysraweb - GEO, SRA, ENA & ArrayExpress Dataset Search",
+        alt: "seqout - GEO, SRA, ENA & ArrayExpress Dataset Search",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "pysraweb - Search GEO, SRA, ENA & ArrayExpress",
+    title: "seqout - Search GEO, SRA, ENA & ArrayExpress",
     description:
-      "Fast exploration of sequencing datasets. Search millions of experiments with unified metadata views.",
+      "Fast exploration of GEO, SRA, ENA & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -88,6 +120,26 @@ export default function RootLayout({
     <html suppressHydrationWarning lang="en">
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "seqout",
+              url: "https://seqout.org",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate:
+                    "https://seqout.org/search?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
         <style dangerouslySetInnerHTML={{ __html: `
           .logo-light { display: block; }
           .logo-dark { display: none; }

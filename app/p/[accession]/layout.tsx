@@ -1,10 +1,18 @@
 import { fetchProjectSocialTitle } from "@/lib/project-og";
+import { SITE_URL } from "@/utils/constants";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 type Props = {
   children: ReactNode;
   params: Promise<{ accession: string }>;
+};
+
+const CATALOG_URLS: Record<string, string> = {
+  GEO: "https://www.ncbi.nlm.nih.gov/geo/",
+  SRA: "https://www.ncbi.nlm.nih.gov/sra",
+  ENA: "https://www.ebi.ac.uk/ena/browser/home",
+  ArrayExpress: "https://www.ebi.ac.uk/biostudies/arrayexpress",
 };
 
 function detectProjectType(accession: string): {
@@ -34,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { type: projectType, database } = detectProjectType(accession);
 
   const pageTitle = `${accession} - ${title}`;
-  const description = `Explore ${projectType} ${accession}: ${title}. View unified metadata, samples, experiments, and similar projects on pysraweb.`;
+  const description = `Explore ${projectType} ${accession}: ${title}. View unified metadata, samples, experiments, and similar projects on seqout.`;
   const image = `/p/${encodeURIComponent(accession)}/opengraph-image`;
 
   return {
@@ -62,6 +70,38 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function ProjectLayout({ children }: Props) {
-  return children;
+export default async function ProjectLayout({ children, params }: Props) {
+  const { accession } = await params;
+  const title = await fetchProjectSocialTitle(accession);
+  const { type: projectType, database } = detectProjectType(accession);
+  const description = `Explore ${projectType} ${accession}: ${title}. View unified metadata, samples, experiments, and similar projects on seqout.`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    name: `${accession} - ${title}`,
+    description,
+    url: `${SITE_URL}/p/${encodeURIComponent(accession)}`,
+    identifier: accession,
+    includedInDataCatalog: {
+      "@type": "DataCatalog",
+      name: database,
+      url: CATALOG_URLS[database],
+    },
+    creator: {
+      "@type": "Organization",
+      name: "Saket Lab",
+      url: "https://saketlab.org",
+    },
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {children}
+    </>
+  );
 }

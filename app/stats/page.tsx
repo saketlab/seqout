@@ -20,7 +20,7 @@ export default function StatsPage() {
           Key statistics
         </Text>
         <Text color="gray">
-          pysraweb currently indexes roughly 2 million projects and over 87
+          seqout currently indexes roughly 1 million projects and over 40
           million samples across SRA, GEO, ArrayExpress, and ENA for fast search
           and discovery.
         </Text>
