@@ -1,6 +1,16 @@
 import SearchBar from "@/components/search-bar";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { Box, Callout, Code, Flex, Link, Text } from "@radix-ui/themes";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "MCP Server",
+  description:
+    "Connect Claude Desktop or any MCP client to seqout's remote Model Context Protocol server. Search GEO, SRA, ENA & ArrayExpress datasets from your LLM.",
+  alternates: {
+    canonical: "https://seqout.org/mcp",
+  },
+};
 
 export default function MCP() {
   return (

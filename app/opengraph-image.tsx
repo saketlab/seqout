@@ -30,7 +30,8 @@ export default async function OpengraphImage() {
             right: "-10%",
             width: "60%",
             height: "120%",
-            background: "radial-gradient(circle at center, #6366f140 0%, #8b5cf620 40%, transparent 70%)",
+            background:
+              "radial-gradient(circle at center, #6366f140 0%, #8b5cf620 40%, transparent 70%)",
             filter: "blur(60px)",
             display: "flex",
           }}
@@ -43,7 +44,8 @@ export default async function OpengraphImage() {
             left: "-10%",
             width: "50%",
             height: "100%",
-            background: "radial-gradient(circle at center, #0ea5e930 0%, #10b98120 40%, transparent 70%)",
+            background:
+              "radial-gradient(circle at center, #0ea5e930 0%, #10b98120 40%, transparent 70%)",
             filter: "blur(60px)",
             display: "flex",
           }}
@@ -74,49 +76,72 @@ export default async function OpengraphImage() {
               style={{ display: "flex" }}
             >
               <defs>
-                <linearGradient id="cylBody" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#2e6faa" />
-                  <stop offset="8%" stopColor="#3a82be" />
-                  <stop offset="30%" stopColor="#5caad8" />
-                  <stop offset="50%" stopColor="#78c2ee" />
-                  <stop offset="65%" stopColor="#6ab4e4" />
-                  <stop offset="85%" stopColor="#3e88c2" />
-                  <stop offset="100%" stopColor="#2e70aa" />
-                </linearGradient>
-                <linearGradient id="topCap" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#b4def6" />
-                  <stop offset="30%" stopColor="#8dcaee" />
-                  <stop offset="60%" stopColor="#6fb8e6" />
-                  <stop offset="100%" stopColor="#4a9ad0" />
-                </linearGradient>
-                <linearGradient id="botCap" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#256599" />
-                  <stop offset="50%" stopColor="#2a6ea4" />
-                  <stop offset="100%" stopColor="#1f5a8c" />
+                <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#5BB8F5" />
+                  <stop offset="100%" stopColor="#2E86D0" />
                 </linearGradient>
               </defs>
-              <path
-                d="M10,25 Q50,40 90,25 V75 Q50,90 10,75 Z"
-                fill="url(#cylBody)"
-              />
-              <ellipse cx="50" cy="75" rx="40" ry="15" fill="url(#botCap)" />
-              <path
-                d="M10,25 Q50,40 90,25 V75 Q50,60 10,75 Z"
-                fill="url(#cylBody)"
-              />
-              <path
-                d="M10,55 Q50,70 90,55"
+              <circle
+                cx="42"
+                cy="42"
+                r="32"
                 fill="none"
-                stroke="#fff"
-                strokeWidth="4"
+                stroke="url(#iconGrad)"
+                strokeWidth="7"
+              />
+              <line
+                x1="66"
+                y1="66"
+                x2="92"
+                y2="92"
+                stroke="#2E86D0"
+                strokeWidth="8"
+                strokeLinecap="round"
               />
               <path
-                d="M10,40 Q50,55 90,40"
+                d="M 26,36 C 34,46 50,46 58,36"
                 fill="none"
-                stroke="#fff"
-                strokeWidth="4"
+                stroke="#5BB8F5"
+                strokeWidth="2.5"
+                strokeLinecap="round"
               />
-              <ellipse cx="50" cy="25" rx="40" ry="15" fill="url(#topCap)" />
+              <path
+                d="M 26,48 C 34,38 50,38 58,48"
+                fill="none"
+                stroke="#89d4f7"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <line
+                x1="33"
+                y1="39"
+                x2="33"
+                y2="45"
+                stroke="#5BB8F5"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                opacity="0.6"
+              />
+              <line
+                x1="42"
+                y1="37"
+                x2="42"
+                y2="47"
+                stroke="#5BB8F5"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                opacity="0.6"
+              />
+              <line
+                x1="51"
+                y1="39"
+                x2="51"
+                y2="45"
+                stroke="#5BB8F5"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                opacity="0.6"
+              />
             </svg>
             <div
               style={{
@@ -153,58 +178,22 @@ export default async function OpengraphImage() {
               alignItems: "center",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                padding: "10px 20px",
-                borderRadius: "20px",
-                fontSize: 18,
-                fontWeight: 600,
-                backgroundColor: "#f5f5f7",
-                color: "#1a1a1a",
-              }}
-            >
-              GEO
-            </div>
-            <div
-              style={{
-                display: "flex",
-                padding: "10px 20px",
-                borderRadius: "20px",
-                fontSize: 18,
-                fontWeight: 600,
-                backgroundColor: "#f5f5f7",
-                color: "#1a1a1a",
-              }}
-            >
-              SRA
-            </div>
-            <div
-              style={{
-                display: "flex",
-                padding: "10px 20px",
-                borderRadius: "20px",
-                fontSize: 18,
-                fontWeight: 600,
-                backgroundColor: "#f5f5f7",
-                color: "#1a1a1a",
-              }}
-            >
-              ENA
-            </div>
-            <div
-              style={{
-                display: "flex",
-                padding: "10px 20px",
-                borderRadius: "20px",
-                fontSize: 18,
-                fontWeight: 600,
-                backgroundColor: "#f5f5f7",
-                color: "#1a1a1a",
-              }}
-            >
-              ArrayExpress
-            </div>
+            {["GEO", "SRA", "ENA", "ArrayExpress"].map((db) => (
+              <div
+                key={db}
+                style={{
+                  display: "flex",
+                  padding: "10px 20px",
+                  borderRadius: "20px",
+                  fontSize: 18,
+                  fontWeight: 600,
+                  backgroundColor: "#f5f5f7",
+                  color: "#1a1a1a",
+                }}
+              >
+                {db}
+              </div>
+            ))}
           </div>
 
           <div

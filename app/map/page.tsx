@@ -4,8 +4,9 @@ import { Flex } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Map",
-  description: "2D accession map for GEO, SRA, ENA & ArrayExpress projects.",
+  title: "Dataset Map",
+  description:
+    "Interactive 2D scatter-plot of GEO, SRA, ENA & ArrayExpress projects. Explore clusters of similar sequencing datasets by visualizing embedding-based proximity.",
   alternates: {
     canonical: "https://seqout.org/map",
   },

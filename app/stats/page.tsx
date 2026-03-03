@@ -3,6 +3,16 @@ import StatsGrowthChartCard from "@/components/stats-growth-chart-card";
 import StatsOrganismGrowthCard from "@/components/stats-organism-growth-card";
 import StatsSourceHistogramCard from "@/components/stats-source-histogram-card";
 import { Flex, Text } from "@radix-ui/themes";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Statistics",
+  description:
+    "Database growth, source distribution, and organism trends across 1 million+ GEO, SRA, ENA & ArrayExpress projects indexed by seqout.",
+  alternates: {
+    canonical: "https://seqout.org/stats",
+  },
+};
 
 export default function StatsPage() {
   return (
