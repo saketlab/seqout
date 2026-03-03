@@ -77,7 +77,6 @@ export default function StatsGrowthChartCard() {
     });
   }, [data, view, mode]);
 
-  // Build Jan + Jul tick positions from data range
   const xaxisTicks = useMemo(() => {
     if (!data?.series) return undefined;
     let minYear = 9999;

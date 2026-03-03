@@ -1,21 +1,16 @@
 "use client";
 
-import { DownloadIcon } from "@radix-ui/react-icons";
-import { Flex, Popover, Separator, Text } from "@radix-ui/themes";
-import { useCallback, useState } from "react";
+import { CheckIcon, CopyIcon, DownloadIcon } from "@radix-ui/react-icons";
+import { Flex, Popover, Separator, Text, Tooltip } from "@radix-ui/themes";
+import { useCallback, useRef, useState } from "react";
 
 const FOOTER_TEXT = "Source: seqout.org  ·  CC-BY seqout.org team";
 const FOOTER_CLASS = "seqout-chart-footer";
 
-/**
- * Inject source/license text into the ApexCharts SVG so it appears in
- * PNG/SVG exports. Call from chart.events.mounted and chart.events.updated.
- */
 function injectFooterText(chartContext: { el?: HTMLElement }) {
   const svg = chartContext.el?.querySelector("svg");
   if (!svg) return;
 
-  // Remove previous injection to avoid duplicates on update
   svg.querySelectorAll(`.${FOOTER_CLASS}`).forEach((el) => el.remove());
 
   const svgW = svg.getAttribute("width") || svg.getBoundingClientRect().width;
@@ -33,7 +28,6 @@ function injectFooterText(chartContext: { el?: HTMLElement }) {
   svg.appendChild(text);
 }
 
-/** Chart events object — spread into chart.events in ApexOptions. */
 export const chartFooterEvents = {
   mounted: injectFooterText,
   updated: injectFooterText,
@@ -55,6 +49,8 @@ interface ChartFooterProps {
 
 export default function ChartFooter({ chartId }: ChartFooterProps) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const download = useCallback(
     async (format: "png" | "svg") => {
@@ -75,6 +71,21 @@ export default function ChartFooter({ chartId }: ChartFooterProps) {
     },
     [chartId],
   );
+
+  const copyToClipboard = useCallback(async () => {
+    const ApexCharts = (await import("apexcharts")).default;
+    const { imgURI } = (await ApexCharts.exec(chartId, "dataURI", {
+      scale: 3,
+    })) as { imgURI: string };
+    const res = await fetch(imgURI);
+    const blob = await res.blob();
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": blob }),
+    ]);
+    setCopied(true);
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+  }, [chartId]);
 
   return (
     <>
@@ -103,6 +114,33 @@ export default function ChartFooter({ chartId }: ChartFooterProps) {
           <Text size="1" style={{ color: "var(--gray-9)" }}>
             CC-BY seqout.org team
           </Text>
+          <Tooltip content={copied ? "Copied!" : "Copy chart to clipboard"}>
+            <button
+              type="button"
+              onClick={copyToClipboard}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 10px",
+                borderRadius: "var(--radius-2)",
+                border: "1px solid var(--gray-a7)",
+                background: "var(--gray-a3)",
+                color: "var(--gray-11)",
+                fontSize: "var(--font-size-1)",
+                fontWeight: 500,
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
+            >
+              {copied ? (
+                <CheckIcon width="13" height="13" />
+              ) : (
+                <CopyIcon width="13" height="13" />
+              )}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </Tooltip>
           <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger>
               <button

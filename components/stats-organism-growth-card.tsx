@@ -128,6 +128,18 @@ export default function StatsOrganismGrowthCard() {
   const selectedOrganism =
     organism || totalsData?.organisms?.[0]?.organism || "";
 
+  const selectedCommonName = useMemo(() => {
+    if (!selectedOrganism) return null;
+    const fromTotals = totalsData?.organisms?.find(
+      (o) => o.organism === selectedOrganism,
+    );
+    if (fromTotals?.common_name) return fromTotals.common_name;
+    const fromSearch = searchData?.organisms?.find(
+      (o) => o.organism === selectedOrganism,
+    );
+    return fromSearch?.common_name ?? null;
+  }, [selectedOrganism, totalsData, searchData]);
+
   const { data: growthData, isLoading: growthLoading } = useQuery({
     queryKey: ["organism-growth", selectedOrganism, mode],
     queryFn: () => fetchOrganismGrowth(selectedOrganism, mode),
@@ -200,7 +212,9 @@ export default function StatsOrganismGrowthCard() {
         events: chartFooterEvents,
       },
       title: {
-        text: `Organism Growth — ${selectedOrganism}`,
+        text: selectedCommonName
+          ? `Organism Growth — ${selectedOrganism} (${selectedCommonName})`
+          : `Organism Growth — ${selectedOrganism}`,
         align: "left",
         style: {
           fontSize: "16px",
@@ -283,7 +297,7 @@ export default function StatsOrganismGrowthCard() {
         },
       },
     }),
-    [mode, view, logScale, isDark, xaxisTicks, selectedOrganism],
+    [mode, view, logScale, isDark, xaxisTicks, selectedOrganism, selectedCommonName],
   );
 
   const formatLabel = (o: { organism: string; common_name: string | null; total: number }) =>
