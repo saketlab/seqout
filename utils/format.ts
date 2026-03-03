@@ -1,3 +1,18 @@
+const JOURNAL_ALIASES: Record<string, string> = {
+  "Proceedings of the National Academy of Sciences of the United States of America":
+    "PNAS",
+};
+
+export function cleanJournalName(name: string): string {
+  if (JOURNAL_ALIASES[name]) return JOURNAL_ALIASES[name];
+  let cleaned = name;
+  const colonIndex = cleaned.indexOf(": ");
+  if (colonIndex !== -1) cleaned = cleaned.slice(0, colonIndex);
+  const parenIndex = cleaned.indexOf("(");
+  if (parenIndex !== -1) cleaned = cleaned.slice(0, parenIndex);
+  return cleaned.trimEnd();
+}
+
 /** Format a large number into a human-readable abbreviated string. */
 export function humanize(value: number): string {
   if (value >= 1_000_000_000)

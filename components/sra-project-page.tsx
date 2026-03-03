@@ -1555,6 +1555,7 @@ export default function ProjectPage() {
                   <PublicationCard
                     key={pub.pmid ?? pub.doi ?? pub.title}
                     publication={pub}
+                    accession={accession}
                   />
                 ))}
               </Flex>

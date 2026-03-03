@@ -1,3 +1,4 @@
+import { cleanJournalName } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Card, Flex, Text } from "@radix-ui/themes";
@@ -12,21 +13,6 @@ type ResultCardProps = {
   doi: string | null;
   citation_count: number | null;
 };
-
-const JOURNAL_ALIASES: Record<string, string> = {
-  "Proceedings of the National Academy of Sciences of the United States of America":
-    "PNAS",
-};
-
-function cleanJournalName(name: string): string {
-  if (JOURNAL_ALIASES[name]) return JOURNAL_ALIASES[name];
-  let cleaned = name;
-  const colonIndex = cleaned.indexOf(": ");
-  if (colonIndex !== -1) cleaned = cleaned.slice(0, colonIndex);
-  const parenIndex = cleaned.indexOf("(");
-  if (parenIndex !== -1) cleaned = cleaned.slice(0, parenIndex);
-  return cleaned.trimEnd();
-}
 
 export default function ResultCard({
   accesssion,

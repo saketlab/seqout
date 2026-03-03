@@ -1487,6 +1487,7 @@ export default function GeoProjectPage() {
                   <PublicationCard
                     key={pub.pmid ?? pub.doi ?? pub.title}
                     publication={pub}
+                    accession={accession}
                   />
                 ))}
               </Flex>
