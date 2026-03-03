@@ -1,6 +1,7 @@
 "use client";
 
 import { SERVER_URL } from "@/utils/constants";
+import { DB_COLORS } from "@/utils/db-colors";
 import { Card, Flex, SegmentedControl, Skeleton, Text } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
@@ -33,14 +34,6 @@ const DB_LABELS: Record<string, string> = {
   sra_sra_bytes: "SRA (SRA archive)",
 };
 
-const DB_COLORS: Record<string, string> = {
-  geo: "#3b82f6",
-  sra: "#8b5cf6",
-  arrayexpress: "#f59e0b",
-  ena: "#10b981",
-  sra_fastq_bytes: "#8b5cf6",
-  sra_sra_bytes: "#6366f1",
-};
 
 const DB_ORDER: Record<Mode, string[]> = {
   projects: ["geo", "sra", "arrayexpress", "ena"],

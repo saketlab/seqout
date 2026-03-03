@@ -1,5 +1,6 @@
 "use client";
 
+import { DB_COLORS } from "@/utils/db-colors";
 import { Card, Flex, SegmentedControl, Text } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
@@ -64,12 +65,14 @@ export default function StatsSourceHistogramCard() {
         bar: {
           borderRadius: 4,
           columnWidth: "55%",
+          distributed: true,
           dataLabels: {
             position: "top",
           },
         },
       },
-      colors: ["#3b82f6"],
+      legend: { show: false },
+      colors: [DB_COLORS.sra, DB_COLORS.geo, DB_COLORS.arrayexpress, DB_COLORS.ena],
       grid: {
         strokeDashArray: 4,
         borderColor: isDark ? "#3f3f46" : "#e4e4e7",
