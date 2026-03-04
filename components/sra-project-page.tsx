@@ -894,7 +894,7 @@ function DownloadFastqSection({
           <Text weight="medium" size="6">
             FASTQ files
           </Text>
-          <Badge size="2" color="gray">
+          <Badge size={{ initial: "2", md: "3" }} color="gray">
             {runsData.total_runs.toLocaleString()} runs
           </Badge>
         </Flex>
@@ -902,7 +902,7 @@ function DownloadFastqSection({
 
       <Flex gap="3" justify={"between"} wrap="wrap">
         <Flex gap={"2"}>
-          <Badge size="3" color="blue" variant="soft">
+          <Badge size={{ initial: "2", md: "3" }} color="blue" variant="soft">
             {runsData.paired_runs > 0 &&
               `${runsData.paired_runs.toLocaleString()} paired-end`}
             {runsData.paired_runs > 0 && runsData.single_runs > 0 && " · "}
@@ -910,12 +910,12 @@ function DownloadFastqSection({
               `${runsData.single_runs.toLocaleString()} single-end`}
           </Badge>
           {runsData.total_fastq_bytes > 0 && (
-            <Badge size="3" variant="soft">
+            <Badge size={{ initial: "2", md: "3" }} variant="soft">
               {formatBytes(runsData.total_fastq_bytes)} total
             </Badge>
           )}
           {runsData.total_runs > runsData.runs.length && (
-            <Badge size="3" color="gray" variant="soft">
+            <Badge size={{ initial: "2", md: "3" }} color="gray" variant="soft">
               Showing first {runsData.runs.length} of{" "}
               {runsData.total_runs.toLocaleString()}
             </Badge>
@@ -923,11 +923,11 @@ function DownloadFastqSection({
         </Flex>
 
         <Flex gap="2">
-          <Button size="2" variant="surface" onClick={downloadTsv}>
+          <Button size="1" variant="surface" onClick={downloadTsv}>
             <DownloadIcon /> {downloadLabel} (TSV)
           </Button>
           <Select.Root
-            size="2"
+            size="1"
             value={selectedSource}
             onValueChange={(v) => setSelectedSource(v as DownloadSource)}
           >
@@ -945,7 +945,7 @@ function DownloadFastqSection({
             </Select.Content>
           </Select.Root>
           <Button
-            size="2"
+            size="1"
             variant="surface"
             onClick={() => {
               const script = buildDownloadScript(
