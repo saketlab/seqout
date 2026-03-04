@@ -3,7 +3,7 @@ import { IconButton } from "@radix-ui/themes";
 
 export default function GitHubButton() {
   return (
-    <IconButton variant="ghost" size="3" asChild>
+    <IconButton variant="ghost" color="gray" size="3" asChild>
       <a
         target="_blank"
         href="https://github.com/saketlab/seqout"

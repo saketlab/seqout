@@ -101,8 +101,8 @@ export default function Navabar() {
         gap={"4"}
         align={"center"}
       >
-        <ThemeToggle />
         <GitHubButton />
+        <ThemeToggle />
       </Flex>
       <Box display={{ initial: "block", sm: "none" }}>
         <ThemeToggle />

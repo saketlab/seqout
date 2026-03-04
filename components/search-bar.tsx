@@ -258,8 +258,8 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         align={"center"}
         display={{ initial: "none", md: "flex" }}
       >
-        <ThemeToggle />
         <GitHubButton />
+        <ThemeToggle />
       </Flex>
       <Box
         display={{ initial: "block", md: "none" }}
