@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 254.2135 59.645218"
+   width="254.2135"
+   height="59.645218"
+   version="1.1"
+   id="svg16"
+   sodipodi:docname="logo-light copy.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   inkscape:export-filename="seqout-logo.png"
+   inkscape:export-xdpi="300"
+   inkscape:export-ydpi="300"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview16"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="2.8460618"
+     inkscape:cx="127.01762"
+     inkscape:cy="26.176523"
+     inkscape:window-width="1710"
+     inkscape:window-height="958"
+     inkscape:window-x="0"
+     inkscape:window-y="34"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="g20"
+     showguides="false">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="254.2135"
+       height="59.645218"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <linearGradient
+       id="iconGrad"
+       x1="0"
+       y1="0"
+       x2="0"
+       y2="1">
+      <stop
+         offset="0%"
+         style="stop-color:#5BB8F5;stop-opacity:1"
+         id="stop1" />
+      <stop
+         offset="100%"
+         style="stop-color:#2E86D0;stop-opacity:1"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#iconGrad"
+       id="linearGradient17"
+       x1="1.25"
+       y1="1.25"
+       x2="1.25"
+       y2="78.75"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(5.6966142,0.71207678)" />
+  </defs>
+  <!-- Background -->
+  <rect
+     width="367.91168"
+     height="78.230675"
+     fill="#0d1117"
+     rx="11.999999"
+     id="rect2"
+     ry="12"
+     x="-56.908688"
+     y="-3.4089882"
+     style="fill:#ffffff;fill-opacity:1;stroke-width:0.447074" />
+  <!-- === ICON: Magnifying glass with DNA inside === -->
+  <!-- === WORDMARK === -->
+  <!-- DNA connecting element between words -->
+  <!-- Speed lines -->
+  <g
+     id="g1"
+     transform="translate(-56.908688,-3.4089882)">
+    <g
+       id="g18"
+       transform="translate(5.5331737,0.2909157)">
+      <g
+         id="g21"
+         transform="translate(4.5454215)">
+        <g
+           id="g2"
+           transform="translate(-7)">
+          <g
+             id="g17">
+            <g
+               id="g20">
+              <g
+                 transform="matrix(0.5,0,0,0.5,164.84528,12.429882)"
+                 id="g9">
+                <!-- Magnifying glass handle -->
+                <!-- Magnifying glass circle -->
+                <circle
+                   cx="45.696613"
+                   cy="40.712078"
+                   r="36"
+                   fill="none"
+                   stroke="url(#iconGrad)"
+                   stroke-width="5.5"
+                   id="circle2"
+                   style="stroke:url(#linearGradient17);stroke-width:14;stroke-dasharray:none" />
+                <!-- Inner lens subtle fill -->
+                <!-- DNA double helix inside magnifying glass -->
+                <g
+                   id="g19"
+                   transform="translate(5.6966133,-6.2879219)">
+                  <path
+                     d="m 22,40 c 8,10 28,10 36,0"
+                     fill="none"
+                     stroke="#5bb8f5"
+                     stroke-width="2.5"
+                     stroke-linecap="round"
+                     opacity="0.9"
+                     id="path6" />
+                  <path
+                     d="M 22,54 C 30,44 50,44 58,54"
+                     fill="none"
+                     stroke="#89d4f7"
+                     stroke-width="2.5"
+                     stroke-linecap="round"
+                     opacity="0.7"
+                     id="path7" />
+                  <line
+                     x1="30"
+                     y1="45"
+                     x2="30"
+                     y2="49"
+                     stroke="#5bb8f5"
+                     stroke-width="1.8"
+                     stroke-linecap="round"
+                     opacity="0.5"
+                     id="line7" />
+                  <line
+                     x1="40"
+                     y1="43"
+                     x2="40"
+                     y2="51"
+                     stroke="#5bb8f5"
+                     stroke-width="1.8"
+                     stroke-linecap="round"
+                     opacity="0.5"
+                     id="line8" />
+                  <line
+                     x1="50"
+                     y1="45"
+                     x2="50"
+                     y2="49"
+                     stroke="#5bb8f5"
+                     stroke-width="1.8"
+                     stroke-linecap="round"
+                     opacity="0.5"
+                     id="line9" />
+                </g>
+              </g>
+              <text
+                 x="51.742142"
+                 y="49.731308"
+                 font-family="'SF Pro Display', 'Helvetica Neue', 'Segoe UI', sans-serif"
+                 font-size="72px"
+                 font-weight="600"
+                 letter-spacing="-1"
+                 fill="#ffffff"
+                 id="text9"
+                 style="fill:#000000;fill-opacity:1">seq</text>
+              <text
+                 x="207.92795"
+                 y="51.502136"
+                 font-family="'SF Pro Display', 'Helvetica Neue', 'Segoe UI', sans-serif"
+                 font-size="72px"
+                 font-weight="600"
+                 letter-spacing="-1"
+                 fill="#5bb8f5"
+                 id="text10"
+                 style="fill:#57b3f1;fill-opacity:1">ut</text>
+            </g>
+          </g>
+          <g
+             opacity="0.22"
+             id="g16"
+             transform="translate(-162.7064,-70.085166)">
+            <line
+               x1="440"
+               y1="90"
+               x2="468"
+               y2="90"
+               stroke="#5bb8f5"
+               stroke-width="2"
+               stroke-linecap="round"
+               id="line14" />
+            <line
+               x1="446"
+               y1="102"
+               x2="470"
+               y2="102"
+               stroke="#5bb8f5"
+               stroke-width="1.5"
+               stroke-linecap="round"
+               id="line15" />
+            <line
+               x1="442"
+               y1="114"
+               x2="464"
+               y2="114"
+               stroke="#5bb8f5"
+               stroke-width="1"
+               stroke-linecap="round"
+               id="line16" />
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  <!-- Tagline -->
+</svg>

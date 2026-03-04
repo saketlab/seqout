@@ -182,11 +182,16 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         <Link href="/" style={{ textDecoration: "none" }}>
           <Box
             width={{ initial: "10rem", md: "11rem" }}
-            style={{ position: "relative", aspectRatio: "619/103" }}
+            style={{
+              position: "relative",
+              aspectRatio: "794/186",
+            }}
           >
             <Image
               src={
-                resolvedTheme === "light" ? "/logo-light.svg" : "/logo-dark.svg"
+                resolvedTheme === "light"
+                  ? "/short-logo-light.svg"
+                  : "/short-logo-dark.svg"
               }
               alt="seqout"
               fill
