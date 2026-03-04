@@ -1037,6 +1037,13 @@ export default function ProjectPage() {
   const accessionUpper = accession?.toUpperCase();
   const isArrayExpressAccession = accessionUpper?.startsWith("E-") ?? false;
   const isPrjAccession = accessionUpper?.startsWith("PRJ") ?? false;
+  const externalStudyUrl =
+    accession && isPrjAccession
+      ? `https://www.ebi.ac.uk/ena/browser/view/${accession}`
+      : `https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`;
+  const externalStudyLabel = isPrjAccession
+    ? "Visit ENA page"
+    : "Visit SRA page";
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const agGridThemeClassName =
     resolvedTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz";
@@ -1514,7 +1521,7 @@ export default function ProjectPage() {
                   );
                 })}
               <a
-                href={`https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`}
+                href={externalStudyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -1523,7 +1530,7 @@ export default function ProjectPage() {
                   color="sky"
                   style={{ whiteSpace: "nowrap" }}
                 >
-                  Visit SRA page <ExternalLinkIcon />
+                  {externalStudyLabel} <ExternalLinkIcon />
                 </Badge>
               </a>
             </Flex>
