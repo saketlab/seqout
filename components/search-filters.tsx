@@ -451,7 +451,10 @@ export function SearchOrganismRail({
                 Selecting a filter also has the effect of fetching more results.
               </Dialog.Description>
 
-              <Tabs.Root defaultValue="journals" style={{ marginTop: "0.5rem" }}>
+              <Tabs.Root
+                defaultValue="journals"
+                style={{ marginTop: "0.5rem" }}
+              >
                 <Tabs.List
                   style={{
                     overflowX: "auto",
@@ -744,7 +747,10 @@ export function SearchOrganismRail({
                 Selecting a filter also has the effect of fetching more results.
               </Dialog.Description>
 
-              <Tabs.Root defaultValue="journals" style={{ marginTop: "0.5rem" }}>
+              <Tabs.Root
+                defaultValue="journals"
+                style={{ marginTop: "0.5rem" }}
+              >
                 <Tabs.List>
                   <Tabs.Trigger value="journals">
                     <Flex align="center" gap="1">
@@ -780,213 +786,213 @@ export function SearchOrganismRail({
                   </Tabs.Trigger>
                 </Tabs.List>
 
-            <Tabs.Content value="journals">
-              <Flex direction="column" gap="3" pt="3">
-                <TextField.Root
-                  value={journalQuery}
-                  onChange={(event) => setJournalQuery(event.target.value)}
-                  placeholder="Search journals"
-                  size="2"
-                >
-                  <TextField.Slot>
-                    <MagnifyingGlassIcon height="16" width="16" />
-                  </TextField.Slot>
-                </TextField.Root>
-                {visibleJournalOptions.length > 0 ? (
-                  <Flex
-                    direction="column"
-                    gap="2"
-                    style={{ maxHeight: "16rem", overflowY: "auto" }}
-                  >
-                    {visibleJournalOptions.map((journalOption) => (
-                      <Text as="label" size="2" key={journalOption.name}>
-                        <Flex align="center" justify="between" gap="2">
-                          <Flex align="center" gap="2">
-                            <Checkbox
-                              checked={selectedJournalFilters.includes(
-                                journalOption.name,
-                              )}
-                              onCheckedChange={() =>
-                                toggleJournalSelection(journalOption.name)
-                              }
-                            />
-                            <span>{journalOption.name}</span>
-                          </Flex>
-                          <Badge color="gray" variant="soft">
-                            {journalOption.count}
-                          </Badge>
-                        </Flex>
-                      </Text>
-                    ))}
-                  </Flex>
-                ) : (
-                  <Text size="2" color="gray">
-                    No journals found.
-                  </Text>
-                )}
-              </Flex>
-            </Tabs.Content>
-
-            <Tabs.Content value="countries">
-              <Flex direction="column" gap="3" pt="3">
-                <TextField.Root
-                  value={countryQuery}
-                  onChange={(event) => setCountryQuery(event.target.value)}
-                  placeholder="Search countries"
-                  size="2"
-                >
-                  <TextField.Slot>
-                    <MagnifyingGlassIcon height="16" width="16" />
-                  </TextField.Slot>
-                </TextField.Root>
-                {visibleCountryOptions.length > 0 ? (
-                  <Flex
-                    direction="column"
-                    gap="2"
-                    style={{ maxHeight: "16rem", overflowY: "auto" }}
-                  >
-                    {visibleCountryOptions.map((countryOption) => (
-                      <Text as="label" size="2" key={countryOption.code}>
-                        <Flex align="center" justify="between" gap="2">
-                          <Flex align="center" gap="2">
-                            <Checkbox
-                              checked={selectedCountryFilters.includes(
-                                countryOption.code,
-                              )}
-                              onCheckedChange={() =>
-                                toggleCountrySelection(countryOption.code)
-                              }
-                            />
-                            <span>{countryOption.label}</span>
-                          </Flex>
-                          <Badge color="gray" variant="soft">
-                            {countryOption.count}
-                          </Badge>
-                        </Flex>
-                      </Text>
-                    ))}
-                  </Flex>
-                ) : (
-                  <Text size="2" color="gray">
-                    No countries found.
-                  </Text>
-                )}
-              </Flex>
-            </Tabs.Content>
-
-            <Tabs.Content value="library-strategy">
-              <Flex direction="column" gap="3" pt="3">
-                <TextField.Root
-                  value={libraryStrategyQuery}
-                  onChange={(event) =>
-                    setLibraryStrategyQuery(event.target.value)
-                  }
-                  placeholder="Search library strategies"
-                  size="2"
-                >
-                  <TextField.Slot>
-                    <MagnifyingGlassIcon height="16" width="16" />
-                  </TextField.Slot>
-                </TextField.Root>
-                {visibleLibraryStrategyOptions.length > 0 ? (
-                  <Flex
-                    direction="column"
-                    gap="2"
-                    style={{ maxHeight: "16rem", overflowY: "auto" }}
-                  >
-                    {visibleLibraryStrategyOptions.map(
-                      (libraryStrategyOption) => (
-                        <Text
-                          as="label"
-                          size="2"
-                          key={libraryStrategyOption.name}
-                        >
-                          <Flex align="center" justify="between" gap="2">
-                            <Flex align="center" gap="2">
-                              <Checkbox
-                                checked={selectedLibraryStrategyFilters.includes(
-                                  libraryStrategyOption.name,
-                                )}
-                                onCheckedChange={() =>
-                                  toggleLibraryStrategySelection(
-                                    libraryStrategyOption.name,
-                                  )
-                                }
-                              />
-                              <span>{libraryStrategyOption.name}</span>
+                <Tabs.Content value="journals">
+                  <Flex direction="column" gap="3" pt="3">
+                    <TextField.Root
+                      value={journalQuery}
+                      onChange={(event) => setJournalQuery(event.target.value)}
+                      placeholder="Search journals"
+                      size="2"
+                    >
+                      <TextField.Slot>
+                        <MagnifyingGlassIcon height="16" width="16" />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    {visibleJournalOptions.length > 0 ? (
+                      <Flex
+                        direction="column"
+                        gap="2"
+                        style={{ maxHeight: "16rem", overflowY: "auto" }}
+                      >
+                        {visibleJournalOptions.map((journalOption) => (
+                          <Text as="label" size="2" key={journalOption.name}>
+                            <Flex align="center" justify="between" gap="2">
+                              <Flex align="center" gap="2">
+                                <Checkbox
+                                  checked={selectedJournalFilters.includes(
+                                    journalOption.name,
+                                  )}
+                                  onCheckedChange={() =>
+                                    toggleJournalSelection(journalOption.name)
+                                  }
+                                />
+                                <span>{journalOption.name}</span>
+                              </Flex>
+                              <Badge color="gray" variant="soft">
+                                {journalOption.count}
+                              </Badge>
                             </Flex>
-                            <Badge color="gray" variant="soft">
-                              {libraryStrategyOption.count}
-                            </Badge>
-                          </Flex>
-                        </Text>
-                      ),
+                          </Text>
+                        ))}
+                      </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        No journals found.
+                      </Text>
                     )}
                   </Flex>
-                ) : (
-                  <Text size="2" color="gray">
-                    No library strategies found.
-                  </Text>
-                )}
-              </Flex>
-            </Tabs.Content>
+                </Tabs.Content>
 
-            <Tabs.Content value="instrument-models">
-              <Flex direction="column" gap="3" pt="3">
-                <TextField.Root
-                  value={instrumentModelQuery}
-                  onChange={(event) =>
-                    setInstrumentModelQuery(event.target.value)
-                  }
-                  placeholder="Search instrument models"
-                  size="2"
-                >
-                  <TextField.Slot>
-                    <MagnifyingGlassIcon height="16" width="16" />
-                  </TextField.Slot>
-                </TextField.Root>
-                {visibleInstrumentModelOptions.length > 0 ? (
-                  <Flex
-                    direction="column"
-                    gap="2"
-                    style={{ maxHeight: "16rem", overflowY: "auto" }}
-                  >
-                    {visibleInstrumentModelOptions.map(
-                      (instrumentModelOption) => (
-                        <Text
-                          as="label"
-                          size="2"
-                          key={instrumentModelOption.name}
-                        >
-                          <Flex align="center" justify="between" gap="2">
-                            <Flex align="center" gap="2">
-                              <Checkbox
-                                checked={selectedInstrumentModelFilters.includes(
-                                  instrumentModelOption.name,
-                                )}
-                                onCheckedChange={() =>
-                                  toggleInstrumentModelSelection(
-                                    instrumentModelOption.name,
-                                  )
-                                }
-                              />
-                              <span>{instrumentModelOption.name}</span>
+                <Tabs.Content value="countries">
+                  <Flex direction="column" gap="3" pt="3">
+                    <TextField.Root
+                      value={countryQuery}
+                      onChange={(event) => setCountryQuery(event.target.value)}
+                      placeholder="Search countries"
+                      size="2"
+                    >
+                      <TextField.Slot>
+                        <MagnifyingGlassIcon height="16" width="16" />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    {visibleCountryOptions.length > 0 ? (
+                      <Flex
+                        direction="column"
+                        gap="2"
+                        style={{ maxHeight: "16rem", overflowY: "auto" }}
+                      >
+                        {visibleCountryOptions.map((countryOption) => (
+                          <Text as="label" size="2" key={countryOption.code}>
+                            <Flex align="center" justify="between" gap="2">
+                              <Flex align="center" gap="2">
+                                <Checkbox
+                                  checked={selectedCountryFilters.includes(
+                                    countryOption.code,
+                                  )}
+                                  onCheckedChange={() =>
+                                    toggleCountrySelection(countryOption.code)
+                                  }
+                                />
+                                <span>{countryOption.label}</span>
+                              </Flex>
+                              <Badge color="gray" variant="soft">
+                                {countryOption.count}
+                              </Badge>
                             </Flex>
-                            <Badge color="gray" variant="soft">
-                              {instrumentModelOption.count}
-                            </Badge>
-                          </Flex>
-                        </Text>
-                      ),
+                          </Text>
+                        ))}
+                      </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        No countries found.
+                      </Text>
                     )}
                   </Flex>
-                ) : (
-                  <Text size="2" color="gray">
-                    No instrument models found.
-                  </Text>
-                )}
-              </Flex>
-            </Tabs.Content>
+                </Tabs.Content>
+
+                <Tabs.Content value="library-strategy">
+                  <Flex direction="column" gap="3" pt="3">
+                    <TextField.Root
+                      value={libraryStrategyQuery}
+                      onChange={(event) =>
+                        setLibraryStrategyQuery(event.target.value)
+                      }
+                      placeholder="Search library strategies"
+                      size="2"
+                    >
+                      <TextField.Slot>
+                        <MagnifyingGlassIcon height="16" width="16" />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    {visibleLibraryStrategyOptions.length > 0 ? (
+                      <Flex
+                        direction="column"
+                        gap="2"
+                        style={{ maxHeight: "16rem", overflowY: "auto" }}
+                      >
+                        {visibleLibraryStrategyOptions.map(
+                          (libraryStrategyOption) => (
+                            <Text
+                              as="label"
+                              size="2"
+                              key={libraryStrategyOption.name}
+                            >
+                              <Flex align="center" justify="between" gap="2">
+                                <Flex align="center" gap="2">
+                                  <Checkbox
+                                    checked={selectedLibraryStrategyFilters.includes(
+                                      libraryStrategyOption.name,
+                                    )}
+                                    onCheckedChange={() =>
+                                      toggleLibraryStrategySelection(
+                                        libraryStrategyOption.name,
+                                      )
+                                    }
+                                  />
+                                  <span>{libraryStrategyOption.name}</span>
+                                </Flex>
+                                <Badge color="gray" variant="soft">
+                                  {libraryStrategyOption.count}
+                                </Badge>
+                              </Flex>
+                            </Text>
+                          ),
+                        )}
+                      </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        No library strategies found.
+                      </Text>
+                    )}
+                  </Flex>
+                </Tabs.Content>
+
+                <Tabs.Content value="instrument-models">
+                  <Flex direction="column" gap="3" pt="3">
+                    <TextField.Root
+                      value={instrumentModelQuery}
+                      onChange={(event) =>
+                        setInstrumentModelQuery(event.target.value)
+                      }
+                      placeholder="Search instrument models"
+                      size="2"
+                    >
+                      <TextField.Slot>
+                        <MagnifyingGlassIcon height="16" width="16" />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    {visibleInstrumentModelOptions.length > 0 ? (
+                      <Flex
+                        direction="column"
+                        gap="2"
+                        style={{ maxHeight: "16rem", overflowY: "auto" }}
+                      >
+                        {visibleInstrumentModelOptions.map(
+                          (instrumentModelOption) => (
+                            <Text
+                              as="label"
+                              size="2"
+                              key={instrumentModelOption.name}
+                            >
+                              <Flex align="center" justify="between" gap="2">
+                                <Flex align="center" gap="2">
+                                  <Checkbox
+                                    checked={selectedInstrumentModelFilters.includes(
+                                      instrumentModelOption.name,
+                                    )}
+                                    onCheckedChange={() =>
+                                      toggleInstrumentModelSelection(
+                                        instrumentModelOption.name,
+                                      )
+                                    }
+                                  />
+                                  <span>{instrumentModelOption.name}</span>
+                                </Flex>
+                                <Badge color="gray" variant="soft">
+                                  {instrumentModelOption.count}
+                                </Badge>
+                              </Flex>
+                            </Text>
+                          ),
+                        )}
+                      </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        No instrument models found.
+                      </Text>
+                    )}
+                  </Flex>
+                </Tabs.Content>
               </Tabs.Root>
             </Dialog.Content>
           </Dialog.Root>

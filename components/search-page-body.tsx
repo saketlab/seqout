@@ -644,7 +644,9 @@ export default function SearchPageBody() {
 
       <Flex
         gap={"4"}
-        px={"4"}
+        px={{ initial: "0", md: "4" }}
+        width={{ initial: "98%", md: "100%" }}
+        mx="auto"
         justify={{ initial: "start", md: "between" }}
         direction={{ initial: "column", md: "row" }}
       >

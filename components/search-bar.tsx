@@ -180,7 +180,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         </Link>
 
         <Box
-          width={{ initial: "90%", md: "70%" }}
+          width={{ initial: "98%", md: "70%" }}
           style={{ position: "relative" }}
         >
           <form onSubmit={handleSubmit}>
