@@ -1,6 +1,14 @@
 "use client";
 
-import { HamburgerMenuIcon } from "@radix-ui/react-icons";
+import {
+  BarChartIcon,
+  GitHubLogoIcon,
+  HamburgerMenuIcon,
+  InfoCircledIcon,
+  KeyboardIcon,
+  MagicWandIcon,
+  SewingPinIcon,
+} from "@radix-ui/react-icons";
 import { Box, DropdownMenu, Flex, IconButton, Link } from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
 import BulkMetaDialog from "./bulk-meta-dialog";
@@ -8,15 +16,16 @@ import GitHubButton from "./github-button";
 import ThemeToggle from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { label: "About", href: "/faq" },
+  { label: "About", href: "/faq", icon: <InfoCircledIcon /> },
   {
     label: "CLI",
     href: "https://saket-choudhary.me/pysradb/index.html",
     external: true,
+    icon: <KeyboardIcon />,
   },
-  { label: "Map", href: "/map" },
-  { label: "MCP", href: "/mcp" },
-  { label: "Stats", href: "/stats" },
+  { label: "Map", href: "/map", icon: <SewingPinIcon /> },
+  { label: "MCP", href: "/mcp", icon: <MagicWandIcon /> },
+  { label: "Stats", href: "/stats", icon: <BarChartIcon /> },
 ];
 
 export default function Navabar() {
@@ -63,13 +72,13 @@ export default function Navabar() {
               <HamburgerMenuIcon width={20} height={20} />
             </IconButton>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start">
+          <DropdownMenu.Content align="start" style={{ minWidth: "8rem" }}>
             {NAV_ITEMS.map((item) => (
               <DropdownMenu.Item
                 key={item.label}
                 onSelect={() => handleMenuSelect(item)}
               >
-                {item.label}
+                {item.icon} {item.label}
               </DropdownMenu.Item>
             ))}
             <DropdownMenu.Separator />
@@ -82,7 +91,7 @@ export default function Navabar() {
                 )
               }
             >
-              GitHub
+              <GitHubLogoIcon /> GitHub
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
