@@ -1034,8 +1034,9 @@ export default function ProjectPage() {
   const params = useParams();
   const { resolvedTheme } = useTheme();
   const accession = params.accession as string | undefined;
-  const isArrayExpressAccession =
-    accession?.toUpperCase().startsWith("E-") ?? false;
+  const accessionUpper = accession?.toUpperCase();
+  const isArrayExpressAccession = accessionUpper?.startsWith("E-") ?? false;
+  const isPrjAccession = accessionUpper?.startsWith("PRJ") ?? false;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const agGridThemeClassName =
     resolvedTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz";
@@ -1365,9 +1366,23 @@ export default function ProjectPage() {
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
               <Badge
                 size={{ initial: "2", md: "3" }}
-                color={isArrayExpressAccession ? "gold" : "brown"}
-                variant={isArrayExpressAccession ? "solid" : undefined}
-                style={{ whiteSpace: "nowrap" }}
+                color={
+                  isPrjAccession
+                    ? undefined
+                    : isArrayExpressAccession
+                      ? "gold"
+                      : "brown"
+                }
+                variant={isArrayExpressAccession || isPrjAccession ? "solid" : undefined}
+                style={
+                  isPrjAccession
+                    ? {
+                        whiteSpace: "nowrap",
+                        backgroundColor: "#6bb4b5",
+                        color: "white",
+                      }
+                    : { whiteSpace: "nowrap" }
+                }
               >
                 <Flex align="center" gap="1">
                   <Text>{accession}</Text>
