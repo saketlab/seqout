@@ -2,7 +2,7 @@
 
 import type { ForceGraph3DInstance } from "3d-force-graph";
 import { SERVER_URL } from "@/utils/constants";
-import { Button, Flex, Select, Spinner, Text } from "@radix-ui/themes";
+import { Button, Flex, Select, Spinner, Tabs, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -78,6 +78,7 @@ const toSource = (value: string | null | undefined, fallback: "geo" | "sra") =>
 const MIN_RADIUS = 45;
 const TARGET_MEDIAN_RADIUS = 170;
 const ALL_ORGANISMS = "__all__";
+const TABLE_LIMIT = 50;
 
 const normalizeOrganisms = (value: unknown): string[] => {
   if (!value) return [];
@@ -220,6 +221,7 @@ export default function SimilarProjectsGraph({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<ForceGraph3DInstance | null>(null);
   const [organismFilter, setOrganismFilter] = useState<string>(ALL_ORGANISMS);
+  const [viewMode, setViewMode] = useState<"graph" | "tab">("graph");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const updateGraphSize = useCallback(() => {
@@ -245,26 +247,28 @@ export default function SimilarProjectsGraph({
   const {
     data: bulkProjectMetadataMap,
     isLoading: isBulkProjectMetadataLoading,
-  } =
-    useQuery({
-      queryKey: ["bulk-project-metadata", uniqueNeighborAccessions.join(",")],
-      queryFn: async () => {
-        const res = await fetch(`${SERVER_URL}/bulk/project-metadata`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessions: uniqueNeighborAccessions }),
-        });
-        if (!res.ok) {
-          throw new Error("Failed to fetch project metadata in bulk");
-        }
-        const payload = (await res.json()) as unknown;
-        return parseBulkProjectMetadataPayload(payload);
-      },
-      enabled: uniqueNeighborAccessions.length > 0,
-      staleTime: 5 * 60 * 1000,
-    });
+  } = useQuery({
+    queryKey: ["bulk-project-metadata", uniqueNeighborAccessions.join(",")],
+    queryFn: async () => {
+      const res = await fetch(`${SERVER_URL}/bulk/project-metadata`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessions: uniqueNeighborAccessions }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to fetch project metadata in bulk");
+      }
+      const payload = (await res.json()) as unknown;
+      return parseBulkProjectMetadataPayload(payload);
+    },
+    enabled: uniqueNeighborAccessions.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const centerOrganisms = useMemo(() => normalizeOrganisms(organisms), [organisms]);
+  const centerOrganisms = useMemo(
+    () => normalizeOrganisms(organisms),
+    [organisms],
+  );
 
   const graphData = useMemo(() => {
     const centerX2d = safeNum(coords2d?.[0], 0);
@@ -392,26 +396,50 @@ export default function SimilarProjectsGraph({
 
     const allowedNeighbors = graphData.nodes.filter(
       (node) =>
-        !node.isCenter && node.organisms.some((item) => item === organismFilter),
+        !node.isCenter &&
+        node.organisms.some((item) => item === organismFilter),
     );
 
-    const allowedIds = new Set([centerNode.id, ...allowedNeighbors.map((n) => n.id)]);
+    const allowedIds = new Set([
+      centerNode.id,
+      ...allowedNeighbors.map((n) => n.id),
+    ]);
     return {
       nodes: [centerNode, ...allowedNeighbors],
-      links: graphData.links.filter(
-        (link) => {
-          const sourceId = linkEndpointId(link.source);
-          const targetId = linkEndpointId(link.target);
-          return (
-            sourceId !== null &&
-            targetId !== null &&
-            allowedIds.has(sourceId) &&
-            allowedIds.has(targetId)
-          );
-        },
-      ),
+      links: graphData.links.filter((link) => {
+        const sourceId = linkEndpointId(link.source);
+        const targetId = linkEndpointId(link.target);
+        return (
+          sourceId !== null &&
+          targetId !== null &&
+          allowedIds.has(sourceId) &&
+          allowedIds.has(targetId)
+        );
+      }),
     };
   }, [graphData, organismFilter]);
+
+  const tabViewRows = useMemo(() => {
+    const seen = new Set<string>();
+    const rows: Array<{
+      accession: string;
+      title: string;
+      description: string;
+    }> = [];
+
+    filteredGraphData.nodes.forEach((node) => {
+      if (node.isCenter || seen.has(node.id) || rows.length >= TABLE_LIMIT)
+        return;
+      seen.add(node.id);
+      rows.push({
+        accession: node.id,
+        title: node.title?.trim() || "Untitled project",
+        description: node.description?.trim() || "Description unavailable.",
+      });
+    });
+
+    return rows;
+  }, [filteredGraphData]);
 
   useEffect(() => {
     if (organismFilter === ALL_ORGANISMS) return;
@@ -502,8 +530,7 @@ export default function SimilarProjectsGraph({
     const onFullscreenChange = () => {
       const activeElement = document.fullscreenElement;
       setIsFullscreen(
-        !!activeElement &&
-          activeElement === graphContainerRef.current,
+        !!activeElement && activeElement === graphContainerRef.current,
       );
       updateGraphSize();
       graphRef.current?.zoomToFit(450, 48);
@@ -544,22 +571,34 @@ export default function SimilarProjectsGraph({
     );
   }
 
+  const viewportHeight = isFullscreen
+    ? Math.max(420, window.innerHeight - 24)
+    : 420;
+
   return (
     <Flex direction="column" gap="3">
       <Flex justify="between" align="center" gap="2" wrap="wrap">
-        {isBulkProjectMetadataLoading ? (
-          <Flex align="center" gap="1">
-            <Spinner size="1" />
-            <Text size="2" color="gray">
-              Loading...
-            </Text>
-          </Flex>
-        ) : (
-          <Text size="2" color="gray">
-            Hover a node to view title and description. Click a neighbor to open
-            it.
-          </Text>
-        )}
+        <Flex align="center" gap="2" wrap="wrap">
+          <Tabs.Root
+            value={viewMode}
+            onValueChange={(value) =>
+              setViewMode(value === "tab" ? "tab" : "graph")
+            }
+          >
+            <Tabs.List>
+              <Tabs.Trigger value="graph">Graph view</Tabs.Trigger>
+              <Tabs.Trigger value="tab">Table view</Tabs.Trigger>
+            </Tabs.List>
+          </Tabs.Root>
+          {isBulkProjectMetadataLoading && (
+            <Flex align="center" gap="1">
+              <Spinner size="1" />
+              <Text size="2" color="gray">
+                Loading...
+              </Text>
+            </Flex>
+          )}
+        </Flex>
         <Flex align="center" gap="2" wrap="wrap">
           <Button variant="soft" color="gray" onClick={toggleFullscreen}>
             {isFullscreen ? "Exit full screen" : "View full screen"}
@@ -592,19 +631,133 @@ export default function SimilarProjectsGraph({
         <div
           ref={mountRef}
           style={{
+            display: viewMode === "graph" ? "block" : "none",
             width: "100%",
-            minHeight: "420px",
+            height: `${viewportHeight}px`,
             border: "1px solid var(--gray-a6)",
             borderRadius: "12px",
             overflow: "hidden",
           }}
         />
+        <div
+          style={{
+            display: viewMode === "tab" ? "block" : "none",
+            width: "100%",
+            height: `${viewportHeight}px`,
+            border: "1px solid var(--gray-a6)",
+            borderRadius: "12px",
+            overflow: "auto",
+            background: "var(--gray-1)",
+          }}
+        >
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
+            }}
+          >
+            <thead
+              style={{
+                position: "sticky",
+                top: 0,
+                background: "var(--gray-2)",
+                zIndex: 1,
+              }}
+            >
+              <tr>
+                <th
+                  style={{
+                    textAlign: "left",
+                    padding: "10px",
+                    borderBottom: "1px solid var(--gray-a6)",
+                    width: "20%",
+                  }}
+                >
+                  <Text size="2" weight="medium">
+                    Accession
+                  </Text>
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    padding: "10px",
+                    borderBottom: "1px solid var(--gray-a6)",
+                    width: "30%",
+                  }}
+                >
+                  <Text size="2" weight="medium">
+                    Title
+                  </Text>
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    padding: "10px",
+                    borderBottom: "1px solid var(--gray-a6)",
+                    width: "50%",
+                  }}
+                >
+                  <Text size="2" weight="medium">
+                    Description
+                  </Text>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {tabViewRows.map((row) => (
+                <tr key={row.accession}>
+                  <td
+                    style={{
+                      padding: "10px",
+                      borderBottom: "1px solid var(--gray-a4)",
+                      verticalAlign: "top",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <Text size="2">{row.accession}</Text>
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px",
+                      borderBottom: "1px solid var(--gray-a4)",
+                      verticalAlign: "top",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <Text size="2">{row.title}</Text>
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px",
+                      borderBottom: "1px solid var(--gray-a4)",
+                      verticalAlign: "top",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <Text size="2">{row.description}</Text>
+                  </td>
+                </tr>
+              ))}
+              {tabViewRows.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ padding: "12px" }}>
+                    <Text size="2" color="gray">
+                      No neighbors found.
+                    </Text>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-      {organismFilter !== ALL_ORGANISMS && filteredGraphData.nodes.length <= 1 && (
-        <Text size="2" color="gray">
-          No neighbors found for the selected organism.
-        </Text>
-      )}
+      {organismFilter !== ALL_ORGANISMS &&
+        filteredGraphData.nodes.length <= 1 && (
+          <Text size="2" color="gray">
+            No neighbors found for the selected organism.
+          </Text>
+        )}
     </Flex>
   );
 }
