@@ -3,6 +3,7 @@
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize, humanizeBytes } from "@/utils/format";
+import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import { Card, Flex, SegmentedControl, Skeleton, Text } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
@@ -34,9 +35,9 @@ const DB_ORDER: Record<Mode, string[]> = {
 };
 
 async function fetchGrowth(mode: Mode): Promise<GrowthResponse> {
-  const res = await fetch(`${SERVER_URL}/stats/growth?mode=${mode}`);
-  if (!res.ok) throw new Error(`Failed to fetch growth data`);
-  return res.json();
+  return fetchJsonWithIndexedDbCache<GrowthResponse>(
+    `${SERVER_URL}/stats/growth?mode=${mode}`,
+  );
 }
 
 function buildCumulative(points: GrowthPoint[]): GrowthPoint[] {
@@ -207,7 +208,7 @@ export default function StatsGrowthChartCard() {
         },
       },
     }),
-    [mode, view, logScale, isDark],
+    [mode, view, logScale, isDark, xaxisTicks],
   );
 
   return (

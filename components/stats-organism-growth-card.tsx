@@ -3,6 +3,7 @@
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
+import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
@@ -69,30 +70,26 @@ interface OrganismSearchResponse {
 }
 
 async function fetchOrganismTotals(): Promise<OrganismTotalsResponse> {
-  const res = await fetch(`${SERVER_URL}/stats/organism-totals?limit=20`);
-  if (!res.ok) throw new Error("Failed to fetch organism totals");
-  return res.json();
+  return fetchJsonWithIndexedDbCache<OrganismTotalsResponse>(
+    `${SERVER_URL}/stats/organism-totals?limit=20`,
+  );
 }
 
 async function fetchOrganismSearch(
   q: string,
 ): Promise<OrganismSearchResponse> {
-  const res = await fetch(
+  return fetchJsonWithIndexedDbCache<OrganismSearchResponse>(
     `${SERVER_URL}/stats/organism-search?q=${encodeURIComponent(q)}&limit=20`,
   );
-  if (!res.ok) throw new Error("Failed to search organisms");
-  return res.json();
 }
 
 async function fetchOrganismGrowth(
   organism: string,
   mode: Mode,
 ): Promise<OrganismGrowthResponse> {
-  const res = await fetch(
+  return fetchJsonWithIndexedDbCache<OrganismGrowthResponse>(
     `${SERVER_URL}/stats/organism-growth?organism=${encodeURIComponent(organism)}&mode=${mode}`,
   );
-  if (!res.ok) throw new Error("Failed to fetch organism growth");
-  return res.json();
 }
 
 export default function StatsOrganismGrowthCard() {
