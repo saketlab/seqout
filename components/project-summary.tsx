@@ -1,6 +1,7 @@
 "use client";
-import DOMPurify from "dompurify";
 import { Link, Text } from "@radix-ui/themes";
+import DOMPurify from "dompurify";
+import type { ComponentProps } from "react";
 import { useMemo, useState } from "react";
 
 const ALLOWED_TAGS = [
@@ -39,11 +40,13 @@ function stripTags(html: string): string {
 type ProjectSummaryProps = {
   text?: string | null;
   charLimit?: number;
+  size?: ComponentProps<typeof Text>["size"];
 };
 
 export default function ProjectSummary({
   text,
   charLimit = 350,
+  size,
 }: ProjectSummaryProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -58,7 +61,7 @@ export default function ProjectSummary({
   const shouldTruncate = plainText.length > charLimit;
 
   return (
-    <Text>
+    <Text size={size}>
       {expanded || !shouldTruncate ? (
         <span dangerouslySetInnerHTML={{ __html: sanitized }} />
       ) : (

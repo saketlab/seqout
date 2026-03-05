@@ -1,6 +1,7 @@
 "use client";
 
 import type { ForceGraph3DInstance } from "3d-force-graph";
+import ProjectSummary from "@/components/project-summary";
 import { SERVER_URL } from "@/utils/constants";
 import { Button, Flex, Select, Spinner, Tabs, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
@@ -744,7 +745,7 @@ export default function SimilarProjectsGraph({
                       wordBreak: "break-word",
                     }}
                   >
-                    <Text size="2">{row.description}</Text>
+                    <ProjectSummary text={row.description} size="2" />
                   </td>
                 </tr>
               ))}
