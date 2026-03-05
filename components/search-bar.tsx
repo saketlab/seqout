@@ -13,6 +13,7 @@ import {
   MagicWandIcon,
   MagnifyingGlassIcon,
   PinTopIcon,
+  SewingPinIcon,
 } from "@radix-ui/react-icons";
 import {
   Box,
@@ -39,7 +40,7 @@ const NAV_ITEMS = [
     external: true,
     icon: <KeyboardIcon />,
   },
-  { label: "Map", href: "/map", icon: <PinTopIcon /> },
+  { label: "Map", href: "/map", icon: <SewingPinIcon /> },
   { label: "MCP", href: "/mcp", icon: <MagicWandIcon /> },
   { label: "Stats", href: "/stats", icon: <BarChartIcon /> },
 ];
