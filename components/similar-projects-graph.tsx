@@ -551,6 +551,13 @@ export default function SimilarProjectsGraph({
     return () => window.removeEventListener("resize", onWindowResize);
   }, [isFullscreen, updateGraphSize]);
 
+  useEffect(() => {
+    if (viewMode !== "tab") return;
+    if (document.fullscreenElement === graphContainerRef.current) {
+      void document.exitFullscreen();
+    }
+  }, [viewMode]);
+
   const toggleFullscreen = async () => {
     const container = graphContainerRef.current;
     if (!container) return;
@@ -600,9 +607,11 @@ export default function SimilarProjectsGraph({
           )}
         </Flex>
         <Flex align="center" gap="2" wrap="wrap">
-          <Button variant="soft" color="gray" onClick={toggleFullscreen}>
-            {isFullscreen ? "Exit full screen" : "View full screen"}
-          </Button>
+          {viewMode === "graph" && (
+            <Button variant="soft" color="gray" onClick={toggleFullscreen}>
+              {isFullscreen ? "Exit full screen" : "View full screen"}
+            </Button>
+          )}
           <Select.Root
             value={organismFilter}
             onValueChange={(value) => setOrganismFilter(value)}
