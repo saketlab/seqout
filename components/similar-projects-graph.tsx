@@ -88,7 +88,6 @@ const toSource = (value: string | null | undefined, fallback: "geo" | "sra") =>
 const MIN_RADIUS = 45;
 const TARGET_MEDIAN_RADIUS = 170;
 const ALL_ORGANISMS = "__all__";
-const TABLE_LIMIT = 50;
 
 const normalizeOrganisms = (value: unknown): string[] => {
   if (!value) return [];
@@ -429,27 +428,61 @@ export default function SimilarProjectsGraph({
     };
   }, [graphData, organismFilter]);
 
+  const neighborDistanceByAccession = useMemo(() => {
+    const centerX2d = safeNum(coords2d?.[0], 0);
+    const centerY2d = safeNum(coords2d?.[1], 0);
+    const distances = new Map<string, number>();
+
+    normalizedNeighbors.forEach((neighbor) => {
+      const neighborX2d = safeNum(neighbor.x_2d, centerX2d);
+      const neighborY2d = safeNum(neighbor.y_2d, centerY2d);
+      const dx = neighborX2d - centerX2d;
+      const dy = neighborY2d - centerY2d;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const key = neighbor.accession.toUpperCase();
+      const previous = distances.get(key);
+
+      if (previous === undefined || distance < previous) {
+        distances.set(key, distance);
+      }
+    });
+
+    return distances;
+  }, [coords2d, normalizedNeighbors]);
+
   const tabViewRows = useMemo(() => {
     const seen = new Set<string>();
     const rows: Array<{
       accession: string;
       title: string;
       description: string;
+      distance: number;
     }> = [];
 
     filteredGraphData.nodes.forEach((node) => {
-      if (node.isCenter || seen.has(node.id) || rows.length >= TABLE_LIMIT)
-        return;
+      if (node.isCenter || seen.has(node.id)) return;
       seen.add(node.id);
       rows.push({
         accession: node.id,
         title: node.title?.trim() || "Untitled project",
         description: node.description?.trim() || "Description unavailable.",
+        distance:
+          neighborDistanceByAccession.get(node.id.toUpperCase()) ??
+          Number.POSITIVE_INFINITY,
       });
     });
 
-    return rows;
-  }, [filteredGraphData]);
+    rows.sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      return a.accession.localeCompare(b.accession);
+    });
+
+    return rows.map(({ accession, title, description }) => ({
+      accession,
+      title,
+      description,
+    }));
+  }, [filteredGraphData, neighborDistanceByAccession]);
 
   useEffect(() => {
     if (organismFilter === ALL_ORGANISMS) return;
