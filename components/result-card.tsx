@@ -2,7 +2,7 @@ import { cleanJournalName } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Card, Flex, Text } from "@radix-ui/themes";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type ResultCardProps = {
   accesssion: string;
@@ -23,25 +23,26 @@ export default function ResultCard({
   doi,
   citation_count,
 }: ResultCardProps) {
-  const router = useRouter();
   const accessionUpper = accesssion.toUpperCase();
   const isArrayExpressAccession = accessionUpper.startsWith("E-");
   const isPrjAccession = accessionUpper.startsWith("PRJ");
 
-  const handleClick = () => {
-    router.push(getProjectShortUrl(accesssion));
-  };
-
   return (
     <Card>
       <Flex direction={"column"} gap={"2"}>
-        <Text
-          size={{ initial: "2", md: "3" }}
-          weight={"bold"}
-          style={{ cursor: "pointer", width: "100%", userSelect: "none" }}
-          onClick={handleClick}
-        >
-          {title}
+        <Text size={{ initial: "2", md: "3" }} weight={"bold"} asChild>
+          <Link
+            href={getProjectShortUrl(accesssion)}
+            style={{
+              cursor: "pointer",
+              width: "100%",
+              userSelect: "none",
+              color: "inherit",
+              textDecoration: "none",
+            }}
+          >
+            {title}
+          </Link>
         </Text>
         <Text size={"2"} truncate>
           {summary}
