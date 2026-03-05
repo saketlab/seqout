@@ -3,7 +3,15 @@
 import type { ForceGraph3DInstance } from "3d-force-graph";
 import ProjectSummary from "@/components/project-summary";
 import { SERVER_URL } from "@/utils/constants";
-import { Button, Flex, Select, Spinner, Tabs, Text } from "@radix-ui/themes";
+import {
+  Button,
+  Flex,
+  Select,
+  Spinner,
+  Table,
+  Tabs,
+  Text,
+} from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -660,106 +668,63 @@ export default function SimilarProjectsGraph({
             background: "var(--gray-1)",
           }}
         >
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              tableLayout: "fixed",
-            }}
-          >
-            <thead
+          <Table.Root size="1" variant="surface" style={{ width: "100%" }}>
+            <Table.Header
               style={{
                 position: "sticky",
                 top: 0,
-                background: "var(--gray-2)",
                 zIndex: 1,
               }}
             >
-              <tr>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "10px",
-                    borderBottom: "1px solid var(--gray-a6)",
-                    width: "20%",
-                  }}
-                >
+              <Table.Row>
+                <Table.ColumnHeaderCell style={{ width: "20%" }}>
                   <Text size="2" weight="medium">
                     Accession
                   </Text>
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "10px",
-                    borderBottom: "1px solid var(--gray-a6)",
-                    width: "30%",
-                  }}
-                >
+                </Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell style={{ width: "30%" }}>
                   <Text size="2" weight="medium">
                     Title
                   </Text>
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "10px",
-                    borderBottom: "1px solid var(--gray-a6)",
-                    width: "50%",
-                  }}
-                >
+                </Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell style={{ width: "50%" }}>
                   <Text size="2" weight="medium">
                     Description
                   </Text>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </Table.ColumnHeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
               {tabViewRows.map((row) => (
-                <tr key={row.accession}>
-                  <td
-                    style={{
-                      padding: "10px",
-                      borderBottom: "1px solid var(--gray-a4)",
-                      verticalAlign: "top",
-                      wordBreak: "break-word",
-                    }}
+                <Table.Row key={row.accession}>
+                  <Table.Cell
+                    style={{ verticalAlign: "top", wordBreak: "break-word" }}
                   >
                     <Text size="2">{row.accession}</Text>
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      borderBottom: "1px solid var(--gray-a4)",
-                      verticalAlign: "top",
-                      wordBreak: "break-word",
-                    }}
+                  </Table.Cell>
+                  <Table.Cell
+                    style={{ verticalAlign: "top", wordBreak: "break-word" }}
                   >
                     <Text size="2">{row.title}</Text>
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      borderBottom: "1px solid var(--gray-a4)",
-                      verticalAlign: "top",
-                      wordBreak: "break-word",
-                    }}
+                  </Table.Cell>
+                  <Table.Cell
+                    style={{ verticalAlign: "top", wordBreak: "break-word" }}
                   >
                     <ProjectSummary text={row.description} size="2" />
-                  </td>
-                </tr>
+                  </Table.Cell>
+                </Table.Row>
               ))}
               {tabViewRows.length === 0 && (
-                <tr>
-                  <td colSpan={3} style={{ padding: "12px" }}>
+                <Table.Row>
+                  <Table.Cell colSpan={3}>
                     <Text size="2" color="gray">
                       No neighbors found.
                     </Text>
-                  </td>
-                </tr>
+                  </Table.Cell>
+                </Table.Row>
               )}
-            </tbody>
-          </table>
+            </Table.Body>
+          </Table.Root>
         </div>
       </div>
       {organismFilter !== ALL_ORGANISMS &&
