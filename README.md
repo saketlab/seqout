@@ -1,6 +1,6 @@
-# pysraweb
+# seqout
 
-pysraweb is a lightweight web app for fast exploration of datasets from SRA and GEO featuring consolidated tabular views of experiment- and sample-level metadata.
+seqout is a lightweight web app for fast exploration of datasets from SRA and GEO featuring consolidated tabular views of experiment- and sample-level metadata.
 
 ## Developer Instructions
 
