@@ -8,10 +8,6 @@ export default function Footer() {
         <Link href="https://saketlab.org" target="_blank" rel="noreferrer noopener" size="2" color="gray">
           Saket Lab
         </Link>
-        <Text size="2" color="gray">·</Text>
-        <Link href="mailto:saketc@iitb.ac.in" size="2" color="gray">
-          Contact
-        </Link>
       </Flex>
     </footer>
   );
