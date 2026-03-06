@@ -12,7 +12,6 @@ import {
   KeyboardIcon,
   MagicWandIcon,
   MagnifyingGlassIcon,
-  PinTopIcon,
   SewingPinIcon,
 } from "@radix-ui/react-icons";
 import {
