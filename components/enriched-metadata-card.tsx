@@ -23,6 +23,9 @@ interface EnrichedSample {
   assay: string | null;
   cell_line: string | null;
   treatment: string | null;
+  development_stage: string | null;
+  sample_type: string | null;
+  genetic_modification: string | null;
 }
 
 interface EnrichedResponse {
@@ -45,6 +48,9 @@ const ENRICHED_FIELDS: { field: keyof EnrichedSample; header: string }[] = [
   { field: "strain", header: "Strain" },
   { field: "assay", header: "Assay" },
   { field: "treatment", header: "Treatment" },
+  { field: "development_stage", header: "Dev. Stage" },
+  { field: "sample_type", header: "Sample Type" },
+  { field: "genetic_modification", header: "Genetic Mod." },
 ];
 
 async function fetchEnrichedMetadata(

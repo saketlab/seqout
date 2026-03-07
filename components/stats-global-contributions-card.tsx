@@ -45,7 +45,9 @@ interface LocationPoint {
   city: string | null;
   state: string | null;
   place_name: string | null;
+  place_type: string | null;
   short_label: string | null;
+  address_type: string | null;
   center_name: string | null;
   top_organisms: Organism[];
 }
@@ -65,6 +67,8 @@ interface FiltersResponse {
   organisms: FilterOption[];
   assay_l1: FilterOption[];
   assay_l2: FilterOption[];
+  place_type: FilterOption[];
+  address_type: FilterOption[];
   took_ms: number;
 }
 
@@ -94,10 +98,14 @@ const ALL = "__all__";
 async function fetchContributions(filters: {
   organism?: string;
   assayL2?: string;
+  placeType?: string;
+  addressType?: string;
 }): Promise<ContributionsResponse> {
   const params = new URLSearchParams();
   if (filters.organism) params.set("organism", filters.organism);
   if (filters.assayL2) params.set("assay_l2", filters.assayL2);
+  if (filters.placeType) params.set("place_type", filters.placeType);
+  if (filters.addressType) params.set("address_type", filters.addressType);
   const qs = params.toString();
   const url = `${SERVER_URL}/stats/global-contributions${qs ? `?${qs}` : ""}`;
   const res = await fetch(url);
@@ -127,12 +135,16 @@ export default function StatsGlobalContributionsCard() {
   const [pointSize, setPointSize] = useState(1);
   const [organism, setOrganism] = useState(ALL);
   const [assayL2, setAssayL2] = useState(ALL);
+  const [placeType, setPlaceType] = useState(ALL);
+  const [addressType, setAddressType] = useState(ALL);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
   const activeFilters = {
     organism: organism !== ALL ? organism : undefined,
     assayL2: assayL2 !== ALL ? assayL2 : undefined,
+    placeType: placeType !== ALL ? placeType : undefined,
+    addressType: addressType !== ALL ? addressType : undefined,
   };
 
   const { data: filtersData } = useQuery({
@@ -146,6 +158,8 @@ export default function StatsGlobalContributionsCard() {
       "global-contributions",
       activeFilters.organism,
       activeFilters.assayL2,
+      activeFilters.placeType,
+      activeFilters.addressType,
     ],
     queryFn: () => fetchContributions(activeFilters),
     staleTime: Infinity,
@@ -254,8 +268,10 @@ export default function StatsGlobalContributionsCard() {
     const parts = ["Where is sequencing data generated?"];
     if (organism !== ALL) parts.push(organism);
     if (assayL2 !== ALL) parts.push(assayL2);
+    if (placeType !== ALL) parts.push(placeType);
+    if (addressType !== ALL) parts.push(addressType);
     return parts.join(" · ");
-  }, [organism, assayL2]);
+  }, [organism, assayL2, placeType, addressType]);
 
   const compositeMapImage = useCallback(
     async (scale = 3): Promise<HTMLCanvasElement | null> => {
@@ -315,7 +331,7 @@ export default function StatsGlobalContributionsCard() {
   }, [compositeMapImage]);
 
   const hasActiveFilter =
-    organism !== ALL || assayL2 !== ALL;
+    organism !== ALL || assayL2 !== ALL || placeType !== ALL || addressType !== ALL;
 
   return (
     <Card style={{ width: "100%" }}>
@@ -379,7 +395,7 @@ export default function StatsGlobalContributionsCard() {
             <Select.Content position="popper" sideOffset={4}>
               <Select.Item value={ALL}>All organisms</Select.Item>
               <Select.Separator />
-              {filtersData?.organisms.map((o) => (
+              {filtersData?.organisms.filter((o) => o.value).map((o) => (
                 <Select.Item key={o.value} value={o.value}>
                   {o.value} ({humanize(o.count)})
                 </Select.Item>
@@ -400,7 +416,49 @@ export default function StatsGlobalContributionsCard() {
             <Select.Content position="popper" sideOffset={4}>
               <Select.Item value={ALL}>All</Select.Item>
               <Select.Separator />
-              {filtersData?.assay_l2.map((a) => (
+              {filtersData?.assay_l2.filter((a) => a.value).map((a) => (
+                <Select.Item key={a.value} value={a.value}>
+                  {a.value} ({humanize(a.count)})
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        </Flex>
+
+        <Flex gap="2" align="center">
+          <Text size="1" style={{ color: "var(--gray-9)" }}>
+            Place type
+          </Text>
+          <Select.Root value={placeType} onValueChange={setPlaceType} size="1">
+            <Select.Trigger
+              style={{ minWidth: 120, maxWidth: 200 }}
+              placeholder="All"
+            />
+            <Select.Content position="popper" sideOffset={4}>
+              <Select.Item value={ALL}>All</Select.Item>
+              <Select.Separator />
+              {filtersData?.place_type?.filter((p) => p.value).map((p) => (
+                <Select.Item key={p.value} value={p.value}>
+                  {p.value} ({humanize(p.count)})
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        </Flex>
+
+        <Flex gap="2" align="center">
+          <Text size="1" style={{ color: "var(--gray-9)" }}>
+            Address type
+          </Text>
+          <Select.Root value={addressType} onValueChange={setAddressType} size="1">
+            <Select.Trigger
+              style={{ minWidth: 120, maxWidth: 200 }}
+              placeholder="All"
+            />
+            <Select.Content position="popper" sideOffset={4}>
+              <Select.Item value={ALL}>All</Select.Item>
+              <Select.Separator />
+              {filtersData?.address_type?.filter((a) => a.value).map((a) => (
                 <Select.Item key={a.value} value={a.value}>
                   {a.value} ({humanize(a.count)})
                 </Select.Item>
@@ -415,6 +473,8 @@ export default function StatsGlobalContributionsCard() {
             onClick={() => {
               setOrganism(ALL);
               setAssayL2(ALL);
+              setPlaceType(ALL);
+              setAddressType(ALL);
             }}
             style={{
               padding: "2px 10px",
@@ -497,6 +557,12 @@ export default function StatsGlobalContributionsCard() {
                         selectedLocation.point.center_name !== selectedLocation.point.place_name && (
                         <Text size="1" style={{ color: "var(--gray-11)" }}>
                           {selectedLocation.point.center_name}
+                        </Text>
+                      )}
+                      {selectedLocation.point.place_type && (
+                        <Text size="1" style={{ color: "var(--gray-9)", fontStyle: "italic" }}>
+                          {selectedLocation.point.place_type}
+                          {selectedLocation.point.address_type && ` · ${selectedLocation.point.address_type}`}
                         </Text>
                       )}
                       {(selectedLocation.point.city || selectedLocation.point.state || selectedLocation.point.country) && (
