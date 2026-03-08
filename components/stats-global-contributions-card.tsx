@@ -355,7 +355,7 @@ export default function StatsGlobalContributionsCard() {
         <Flex gap="3" align="center" wrap="wrap">
           <Flex gap="2" align="center">
             <Text size="1" style={{ color: "var(--gray-9)" }}>
-              Size
+              Point size
             </Text>
             <Slider
               value={[pointSize]}
@@ -518,7 +518,7 @@ export default function StatsGlobalContributionsCard() {
           }}
         >
           <DeckGL
-            views={new MapView({ repeat: true })}
+            views={new MapView({ repeat: false })}
             initialViewState={INITIAL_VIEW_STATE}
             controller={true}
             layers={layers}
