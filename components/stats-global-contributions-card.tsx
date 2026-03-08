@@ -3,7 +3,7 @@
 import { SERVER_URL } from "@/utils/constants";
 import { humanize } from "@/utils/format";
 import { MapView } from "@deck.gl/core";
-import { BitmapLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { BitmapLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { TileLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
 import { ExportFooter, FOOTER_TEXT, copyBlobToClipboard } from "@/components/chart-footer";
@@ -93,6 +93,19 @@ const DARK_TILES = [
   "https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
   "https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
 ];
+
+const LIGHT_LABEL_TILES = [
+  "https://a.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png",
+  "https://b.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png",
+  "https://c.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png",
+];
+const DARK_LABEL_TILES = [
+  "https://a.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png",
+  "https://b.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png",
+  "https://c.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png",
+];
+
+const INDIA_GEOJSON_URL = "/india-states.geojson";
 
 const ALL = "__all__";
 
@@ -191,6 +204,8 @@ export default function StatsGlobalContributionsCard() {
               boundingBox[1][0],
               boundingBox[1][1],
             ],
+            parameters: { depthTest: false },
+            opacity: 1,
           });
         },
       }),
@@ -252,9 +267,59 @@ export default function StatsGlobalContributionsCard() {
     });
   }, [data, scaleBy, isDark, sizeFactor]);
 
+  const indiaBorderLayer = useMemo(
+    () =>
+      new GeoJsonLayer({
+        id: "india-borders",
+        data: INDIA_GEOJSON_URL,
+        filled: false,
+        stroked: true,
+        getLineColor: isDark ? [60, 60, 60] : [190, 196, 198],
+        getLineWidth: 1,
+        lineWidthMinPixels: 0.5,
+        lineWidthMaxPixels: 1.5,
+        parameters: { depthTest: false },
+      }),
+    [isDark],
+  );
+
+  const labelLayer = useMemo(
+    () =>
+      new TileLayer({
+        id: "label-tiles",
+        data: isDark ? DARK_LABEL_TILES : LIGHT_LABEL_TILES,
+        minZoom: 0,
+        maxZoom: 19,
+        tileSize: 512,
+        zoomOffset: 1,
+        renderSubLayers: (props: Record<string, unknown>) => {
+          const tile = props.tile as {
+            boundingBox: [[number, number], [number, number]];
+          };
+          const { boundingBox } = tile;
+          return new BitmapLayer({
+            ...props,
+            id: props.id as string,
+            data: undefined,
+            image: props.data as string,
+            bounds: [
+              boundingBox[0][0],
+              boundingBox[0][1],
+              boundingBox[1][0],
+              boundingBox[1][1],
+            ],
+            parameters: { depthTest: false },
+            opacity: 0.6,
+          });
+        },
+      }),
+    [isDark],
+  );
+
   const layers = useMemo(
-    () => [tileLayer, scatterLayer].filter(Boolean),
-    [tileLayer, scatterLayer],
+    () =>
+      [tileLayer, indiaBorderLayer, scatterLayer, labelLayer].filter(Boolean),
+    [tileLayer, indiaBorderLayer, scatterLayer, labelLayer],
   );
 
   const deckContainerRef = useRef<HTMLDivElement>(null);
@@ -518,7 +583,7 @@ export default function StatsGlobalContributionsCard() {
             height: 700,
             borderRadius: "var(--radius-3)",
             overflow: "hidden",
-            background: isDark ? "#0d1117" : "#f0f0f0",
+            background: isDark ? "#000000" : "#f0f0f0",
           }}
         >
           <DeckGL
