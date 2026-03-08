@@ -1,5 +1,6 @@
 "use client";
 
+import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
 import { humanize } from "@/utils/format";
 import { MapView } from "@deck.gl/core";
@@ -8,22 +9,29 @@ import { TileLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
 import { ExportFooter, FOOTER_TEXT, copyBlobToClipboard } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
-import { Cross1Icon } from "@radix-ui/react-icons";
+import { Cross1Icon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
   Card,
   Flex,
   IconButton,
   Link,
+  Popover,
+  ScrollArea,
   SegmentedControl,
   Select,
   Skeleton,
   Slider,
   Text,
+  TextField,
 } from "@radix-ui/themes";
 import type { PickingInfo } from "@deck.gl/core";
 import { useQuery } from "@tanstack/react-query";
+import type { ColDef } from "ag-grid-community";
+import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 import { useCallback, useMemo, useRef, useState } from "react";
+
+ensureAgGridModules();
 
 type ScaleBy = "projects" | "experiments";
 
@@ -43,6 +51,7 @@ interface LocationPoint {
   n_ae: number;
   n_ena: number;
   country: string | null;
+  country_code: string | null;
   city: string | null;
   state: string | null;
   place_name: string | null;
@@ -107,7 +116,179 @@ const DARK_LABEL_TILES = [
 
 const INDIA_GEOJSON_URL = "/india-states.geojson";
 
+/** Convert an ISO-2 country code to a flag emoji (regional indicator symbols). */
+function countryFlag(code: string | null | undefined): string {
+  if (!code || code.length !== 2) return "";
+  const upper = code.toUpperCase();
+  return String.fromCodePoint(
+    ...([...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)),
+  );
+}
+
 const ALL = "__all__";
+
+interface SearchableSelectOption {
+  value: string;
+  label: string;
+}
+
+function SearchableSelect({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  minWidth = 140,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  options: SearchableSelectOption[];
+  placeholder: string;
+  minWidth?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const q = query.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const displayLabel =
+    value === ALL ? placeholder : options.find((o) => o.value === value)?.label ?? value;
+
+  return (
+    <Popover.Root
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery("");
+      }}
+    >
+      <Popover.Trigger>
+        <button
+          type="button"
+          style={{
+            minWidth,
+            maxWidth: 280,
+            padding: "4px 12px",
+            borderRadius: "var(--radius-2)",
+            border: "1px solid var(--gray-a7)",
+            background: "var(--color-surface)",
+            color: "var(--gray-12)",
+            fontSize: "var(--font-size-1)",
+            cursor: "pointer",
+            textAlign: "left",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {displayLabel}
+        </button>
+      </Popover.Trigger>
+      <Popover.Content
+        side="bottom"
+        align="start"
+        sideOffset={4}
+        style={{ width: 300, padding: 0 }}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
+        <Flex direction="column" gap="2" p="2">
+          <TextField.Root
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            size="2"
+          >
+            <TextField.Slot>
+              <MagnifyingGlassIcon height="16" width="16" />
+            </TextField.Slot>
+          </TextField.Root>
+          <ScrollArea style={{ maxHeight: 240 }} scrollbars="vertical">
+            <Flex direction="column">
+              <button
+                type="button"
+                onClick={() => {
+                  onValueChange(ALL);
+                  setOpen(false);
+                  setQuery("");
+                }}
+                style={{
+                  padding: "6px 8px",
+                  borderRadius: "var(--radius-1)",
+                  border: "none",
+                  background: value === ALL ? "var(--accent-a4)" : "transparent",
+                  color: "var(--gray-12)",
+                  fontSize: "var(--font-size-1)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  width: "100%",
+                }}
+              >
+                {placeholder}
+              </button>
+              {filtered.map((o) => (
+                <button
+                  type="button"
+                  key={o.value}
+                  onClick={() => {
+                    onValueChange(o.value);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: "var(--radius-1)",
+                    border: "none",
+                    background: o.value === value ? "var(--accent-a4)" : "transparent",
+                    color: "var(--gray-12)",
+                    fontSize: "var(--font-size-1)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    width: "100%",
+                  }}
+                >
+                  {o.label}
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <Text size="2" color="gray" style={{ padding: "6px 8px" }}>
+                  No results found.
+                </Text>
+              )}
+            </Flex>
+          </ScrollArea>
+        </Flex>
+      </Popover.Content>
+    </Popover.Root>
+  );
+}
+
+const SOURCE_LABELS: { label: string; key: keyof Pick<LocationPoint, "n_geo" | "n_sra" | "n_ae" | "n_ena">; db: string }[] = [
+  { label: "GEO", key: "n_geo", db: "geo" },
+  { label: "SRA", key: "n_sra", db: "sra" },
+  { label: "ArrayExpress", key: "n_ae", db: "arrayexpress" },
+  { label: "ENA", key: "n_ena", db: "ena" },
+];
+
+function buildGeoSearchParams(
+  point: LocationPoint,
+  organism: string,
+  assayL2: string,
+): string {
+  const params = new URLSearchParams();
+  params.set("geo_lat", String(point.lat));
+  params.set("geo_lng", String(point.lng));
+  if (organism !== ALL) params.set("organism", organism);
+  if (assayL2 !== ALL) params.set("assay_l2", assayL2);
+  return params.toString();
+}
 
 async function fetchContributions(filters: {
   organism?: string;
@@ -127,8 +308,11 @@ async function fetchContributions(filters: {
   return res.json();
 }
 
-async function fetchFilters(): Promise<FiltersResponse> {
-  const res = await fetch(`${SERVER_URL}/stats/global-contribution-filters`);
+async function fetchFilters(country?: string): Promise<FiltersResponse> {
+  const url = country
+    ? `${SERVER_URL}/stats/global-contribution-filters?country=${encodeURIComponent(country)}`
+    : `${SERVER_URL}/stats/global-contribution-filters`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch filters");
   return res.json();
 }
@@ -151,8 +335,10 @@ export default function StatsGlobalContributionsCard() {
   const [assayL2, setAssayL2] = useState(ALL);
   const [placeType, setPlaceType] = useState(ALL);
   const [addressType, setAddressType] = useState(ALL);
+  const [selectedCountry, setSelectedCountry] = useState(ALL);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const agGridThemeClassName = isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz";
 
   const activeFilters = {
     organism: organism !== ALL ? organism : undefined,
@@ -163,8 +349,15 @@ export default function StatsGlobalContributionsCard() {
 
   const { data: filtersData } = useQuery({
     queryKey: ["global-contribution-filters"],
-    queryFn: fetchFilters,
+    queryFn: () => fetchFilters(),
     staleTime: Infinity,
+  });
+
+  const { data: countryFiltersData } = useQuery({
+    queryKey: ["global-contribution-filters", selectedCountry],
+    queryFn: () => fetchFilters(selectedCountry),
+    staleTime: Infinity,
+    enabled: selectedCountry !== ALL,
   });
 
   const { data, isLoading, isFetching } = useQuery({
@@ -179,6 +372,121 @@ export default function StatsGlobalContributionsCard() {
     staleTime: Infinity,
     placeholderData: (prev) => prev,
   });
+
+  const countryOptions = useMemo(() => {
+    if (!data?.locations) return [];
+    const agg = new Map<string, { count: number; code: string | null }>();
+    for (const loc of data.locations) {
+      if (!loc.country) continue;
+      const prev = agg.get(loc.country);
+      if (prev) {
+        prev.count += loc.n_projects;
+        if (!prev.code && loc.country_code) prev.code = loc.country_code;
+      } else {
+        agg.set(loc.country, { count: loc.n_projects, code: loc.country_code });
+      }
+    }
+    return [...agg.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([name, { count, code }]) => ({ value: name, count, code }));
+  }, [data]);
+
+  const countryTableRows = useMemo(() => {
+    if (!data?.locations || selectedCountry === ALL) return [];
+    return data.locations
+      .filter((loc) => loc.country === selectedCountry)
+      .sort((a, b) => b.n_projects - a.n_projects);
+  }, [data, selectedCountry]);
+
+  const countryTableColumns = useMemo<ColDef<LocationPoint>[]>(
+    () => [
+      {
+        headerName: "Location",
+        valueGetter: (p) =>
+          p.data?.place_name ||
+          [p.data?.city, p.data?.state].filter(Boolean).join(", ") ||
+          `${p.data?.lat.toFixed(2)}, ${p.data?.lng.toFixed(2)}`,
+        flex: 2,
+        minWidth: 160,
+      },
+      { headerName: "Center", field: "center_name", flex: 2, minWidth: 140 },
+      { headerName: "Type", field: "place_type", flex: 1, minWidth: 90 },
+      {
+        headerName: "Projects",
+        field: "n_projects",
+        sort: "desc",
+        width: 100,
+        cellRenderer: (p: { data: LocationPoint; value: number }) => {
+          if (!p.data || !p.value) return p.value;
+          const qs = buildGeoSearchParams(p.data, organism, assayL2);
+          return (
+            <Link href={`/search?${qs}`} target="_blank" underline="hover">
+              {p.value.toLocaleString()}
+            </Link>
+          );
+        },
+      },
+      {
+        headerName: "Experiments",
+        field: "n_experiments",
+        width: 115,
+        valueFormatter: (p) => p.value?.toLocaleString(),
+      },
+      {
+        headerName: "GEO",
+        field: "n_geo",
+        width: 80,
+        valueFormatter: (p) => p.value?.toLocaleString(),
+      },
+      {
+        headerName: "SRA",
+        field: "n_sra",
+        width: 80,
+        valueFormatter: (p) => p.value?.toLocaleString(),
+      },
+      {
+        headerName: "AE",
+        field: "n_ae",
+        width: 70,
+        valueFormatter: (p) => p.value?.toLocaleString(),
+      },
+      {
+        headerName: "ENA",
+        field: "n_ena",
+        width: 70,
+        valueFormatter: (p) => p.value?.toLocaleString(),
+      },
+    ],
+    [organism, assayL2],
+  );
+
+  const activeFilterSource =
+    selectedCountry !== ALL && countryFiltersData ? countryFiltersData : filtersData;
+
+  const countrySelectOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      countryOptions.map((c) => ({
+        value: c.value,
+        label: `${countryFlag(c.code)} ${c.value} (${humanize(c.count)})`,
+      })),
+    [countryOptions],
+  );
+
+  const organismSelectOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      (activeFilterSource?.organisms ?? [])
+        .filter((o) => o.value)
+        .map((o) => ({ value: o.value, label: `${o.value} (${humanize(o.count)})` })),
+    [activeFilterSource],
+  );
+
+  const assaySelectOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      (activeFilterSource?.assay_l2 ?? [])
+        .filter((a) => a.value)
+        .map((a) => ({ value: a.value, label: `${a.value} (${humanize(a.count)})` })),
+    [activeFilterSource],
+  );
 
   const tileLayer = useMemo(
     () =>
@@ -656,13 +964,26 @@ export default function StatsGlobalContributionsCard() {
                   <Flex direction="column" gap="0" pt="1" style={{ borderTop: "1px solid var(--gray-a5)" }}>
                     <Text size="1" style={{ color: "var(--gray-12)" }}>
                       <Link
-                        href={`/search?geo_lat=${selectedLocation.point.lat}&geo_lng=${selectedLocation.point.lng}${organism !== ALL ? `&organism=${encodeURIComponent(organism)}` : ""}${assayL2 !== ALL ? `&assay_l2=${encodeURIComponent(assayL2)}` : ""}`}
+                        href={`/search?${buildGeoSearchParams(selectedLocation.point, organism, assayL2)}`}
                         target="_blank"
                         underline="always"
                       >
                         Projects: {selectedLocation.point.n_projects.toLocaleString()}
                       </Link>
                     </Text>
+                    {SOURCE_LABELS
+                      .filter((s) => selectedLocation.point[s.key] > 0)
+                      .map((s) => (
+                        <Text key={s.db} size="1" style={{ color: "var(--gray-11)", paddingLeft: 8 }}>
+                          <Link
+                            href={`/search?source=${s.db}&${buildGeoSearchParams(selectedLocation.point, organism, assayL2)}`}
+                            target="_blank"
+                            underline="hover"
+                          >
+                            {s.label}: {selectedLocation.point[s.key].toLocaleString()}
+                          </Link>
+                        </Text>
+                      ))}
                     <Text size="1" style={{ color: "var(--gray-11)" }}>
                       Experiments: {selectedLocation.point.n_experiments.toLocaleString()}
                     </Text>
@@ -707,6 +1028,69 @@ export default function StatsGlobalContributionsCard() {
         onDownload={handleDownloadPng}
         downloadFormats={["png"]}
       />
+
+      <Flex direction="column" gap="3" mt="4" pt="4" style={{ borderTop: "1px solid var(--gray-a5)" }}>
+        <Flex align="center" gap="3" wrap="wrap">
+          <Text size="3" weight="bold">
+            Country breakdown
+          </Text>
+          <SearchableSelect
+            value={selectedCountry}
+            onValueChange={setSelectedCountry}
+            options={countrySelectOptions}
+            placeholder="Select a country"
+            minWidth={180}
+          />
+          <Flex gap="2" align="center">
+            <Text size="1" style={{ color: "var(--gray-9)" }}>Organism</Text>
+            <SearchableSelect
+              value={organism}
+              onValueChange={setOrganism}
+              options={organismSelectOptions}
+              placeholder="All organisms"
+              minWidth={140}
+            />
+          </Flex>
+          <Flex gap="2" align="center">
+            <Text size="1" style={{ color: "var(--gray-9)" }}>Assay</Text>
+            <SearchableSelect
+              value={assayL2}
+              onValueChange={setAssayL2}
+              options={assaySelectOptions}
+              placeholder="All assays"
+              minWidth={120}
+            />
+          </Flex>
+
+          {selectedCountry !== ALL && (
+            <Text size="1" style={{ color: "var(--gray-9)" }}>
+              {countryTableRows.length.toLocaleString()} locations ·{" "}
+              {countryTableRows.reduce((s, r) => s + r.n_projects, 0).toLocaleString()} projects
+            </Text>
+          )}
+        </Flex>
+        {selectedCountry !== ALL && countryTableRows.length > 0 && (
+          <div
+            className={agGridThemeClassName}
+            style={{ width: "100%", height: Math.min(400, 42 + countryTableRows.length * 36) }}
+          >
+            <AgGridReact<LocationPoint>
+              columnDefs={countryTableColumns}
+              defaultColDef={{ resizable: true, sortable: true }}
+              rowData={countryTableRows}
+              getRowId={(p) => `${p.data.lat}-${p.data.lng}`}
+              theme="legacy"
+              rowStyle={{ cursor: "pointer" }}
+              onRowClicked={(e) => {
+                if (e.data) {
+                  const qs = buildGeoSearchParams(e.data, organism, assayL2);
+                  window.open(`/search?${qs}`, "_blank");
+                }
+              }}
+            />
+          </div>
+        )}
+      </Flex>
     </Card>
   );
 }
