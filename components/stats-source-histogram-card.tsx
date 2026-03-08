@@ -1,6 +1,7 @@
 "use client";
 
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
+import SectionAnchor from "@/components/section-anchor";
 import { DB_COLORS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
 import { Card, Flex, SegmentedControl, Text } from "@radix-ui/themes";
@@ -112,9 +113,12 @@ export default function StatsSourceHistogramCard() {
   return (
     <Card style={{ width: "100%" }}>
       <Flex justify="between" align="center" mb="4" gap="3">
-        <Text size="5" weight="bold" ml={"1"}>
-          Source distribution
-        </Text>
+        <Flex align="center" gap="2">
+          <Text size="5" weight="bold" ml={"1"}>
+            Source distribution
+          </Text>
+          <SectionAnchor id="sources" />
+        </Flex>
         <SegmentedControl.Root
           defaultValue={metric}
           value={metric}

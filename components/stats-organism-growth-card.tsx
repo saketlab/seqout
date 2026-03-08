@@ -1,6 +1,7 @@
 "use client";
 
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
+import SectionAnchor from "@/components/section-anchor";
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
@@ -330,9 +331,12 @@ export default function StatsOrganismGrowthCard() {
   return (
     <Card style={{ width: "100%" }}>
       <Flex direction="column" mb="4" gap="3">
-        <Text size="5" weight="bold" ml="1">
-          Organism growth
-        </Text>
+        <Flex align="center" gap="2">
+          <Text size="5" weight="bold" ml="1">
+            Organism growth
+          </Text>
+          <SectionAnchor id="organisms" />
+        </Flex>
         <Flex justify="between" align="center" gap="3" wrap="wrap">
           <Flex align="center">
             {!totalsLoading && defaultItems.length > 0 && (

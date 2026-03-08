@@ -11,6 +11,7 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import EnrichedMetadataCard from "@/components/enriched-metadata-card";
+import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
@@ -895,6 +896,7 @@ function DownloadFastqSection({
           <Text weight="medium" size="6">
             FASTQ files
           </Text>
+          <SectionAnchor id="fastq" />
           <Badge size={{ initial: "2", md: "3" }} color="gray">
             {runsData.total_runs.toLocaleString()} runs
           </Badge>
@@ -1560,9 +1562,12 @@ export default function ProjectPage() {
               charLimit={ABSTRACT_CHAR_LIMIT}
             />
             <Flex id="experiments" justify={"between"} align={"center"}>
-              <Text weight="medium" size="6">
-                Experiments
-              </Text>
+              <Flex align="center" gap="2">
+                <Text weight="medium" size="6">
+                  Experiments
+                </Text>
+                <SectionAnchor id="experiments" />
+              </Flex>
               <Button
                 onClick={() => {
                   if (!experiments || !samplesMap) return;
@@ -1669,9 +1674,12 @@ export default function ProjectPage() {
             </Flex>
             <EnrichedMetadataCard accession={accession} />
 
-            <Text id="publications" weight="medium" size="6">
-              Linked publications
-            </Text>
+            <Flex id="publications" align="center" gap="2">
+              <Text weight="medium" size="6">
+                Linked publications
+              </Text>
+              <SectionAnchor id="publications" />
+            </Flex>
 
             {publications && publications.length > 0 ? (
               <Flex direction="column" gap="3">
@@ -1695,6 +1703,7 @@ export default function ProjectPage() {
               <Badge color="teal" size={"2"}>
                 Beta
               </Badge>
+              <SectionAnchor id="similar" />
             </Flex>
             <SimilarProjectsGraph
               accession={project.accession}

@@ -7,6 +7,7 @@ import { BitmapLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { TileLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
 import { ExportFooter, FOOTER_TEXT, copyBlobToClipboard } from "@/components/chart-footer";
+import SectionAnchor from "@/components/section-anchor";
 import { Cross1Icon } from "@radix-ui/react-icons";
 import {
   Card,
@@ -337,14 +338,17 @@ export default function StatsGlobalContributionsCard() {
     <Card style={{ width: "100%" }}>
       <Flex justify="between" align="center" mb="3" gap="3" wrap="wrap">
         <Flex direction="column" gap="1">
-          <Text size="5" weight="bold" ml="1">
-            Data origin
-            {isFetching && !isLoading && (
-              <Text size="2" ml="2" style={{ color: "var(--gray-9)" }}>
-                updating...
-              </Text>
+          <Flex align="center" gap="2">
+            <Text size="5" weight="bold" ml="1">
+              Data origin
+              {isFetching && !isLoading && (
+                <Text size="2" ml="2" style={{ color: "var(--gray-9)" }}>
+                  updating...
+                </Text>
             )}
           </Text>
+            <SectionAnchor id="map" />
+          </Flex>
           <Text size="2" ml="1" style={{ color: "var(--gray-9)" }}>
             {data
               ? `${humanize(data.total)} locations across ${humanize(data.locations.reduce((s, d) => s + d.n_projects, 0))} projects`

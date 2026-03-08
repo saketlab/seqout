@@ -1,5 +1,6 @@
 "use client";
 
+import SectionAnchor from "@/components/section-anchor";
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize, humanizeBytes } from "@/utils/format";
@@ -214,9 +215,12 @@ export default function StatsGrowthChartCard() {
   return (
     <Card style={{ width: "100%" }}>
       <Flex justify="between" align="center" mb="4" gap="3" wrap="wrap">
-        <Text size="5" weight="bold" ml="1">
-          Database growth
-        </Text>
+        <Flex align="center" gap="2">
+          <Text size="5" weight="bold" ml="1">
+            Database growth
+          </Text>
+          <SectionAnchor id="growth" />
+        </Flex>
         <Flex gap="3" align="center" wrap="wrap">
           <SegmentedControl.Root
             value={logScale ? "log" : "linear"}

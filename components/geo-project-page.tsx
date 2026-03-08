@@ -11,6 +11,7 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import EnrichedMetadataCard from "@/components/enriched-metadata-card";
+import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks, {
   normalizeLineBreakText,
 } from "@/components/text-with-line-breaks";
@@ -1341,9 +1342,12 @@ export default function GeoProjectPage() {
                   </Flex>
                 );
               })()}
-            <Text id="overall-design" weight="medium" size="6">
-              Overall design
-            </Text>
+            <Flex id="overall-design" align="center" gap="2">
+              <Text weight="medium" size="6">
+                Overall design
+              </Text>
+              <SectionAnchor id="overall-design" />
+            </Flex>
             <ProjectSummary
               text={project.overall_design}
               charLimit={OVERALL_DESIGN_CHAR_LIMIT}
@@ -1351,9 +1355,12 @@ export default function GeoProjectPage() {
 
             {/* Samples table */}
             <Flex id="samples" justify={"between"} align={"center"}>
-              <Text weight="medium" size="6">
-                Samples
-              </Text>
+              <Flex align="center" gap="2">
+                <Text weight="medium" size="6">
+                  Samples
+                </Text>
+                <SectionAnchor id="samples" />
+              </Flex>
               <Button
                 onClick={() => {
                   if (!samples || samples.length === 0) return;
@@ -1500,9 +1507,12 @@ export default function GeoProjectPage() {
 
             <EnrichedMetadataCard accession={accession} />
 
-            <Text id="publications" weight="medium" size="6">
-              Linked publications
-            </Text>
+            <Flex id="publications" align="center" gap="2">
+              <Text weight="medium" size="6">
+                Linked publications
+              </Text>
+              <SectionAnchor id="publications" />
+            </Flex>
 
             {publications && publications.length > 0 ? (
               <Flex direction="column" gap="3">
@@ -1526,6 +1536,7 @@ export default function GeoProjectPage() {
               <Badge color="teal" size={"2"}>
                 Beta
               </Badge>
+              <SectionAnchor id="similar" />
             </Flex>
             <SimilarProjectsGraph
               accession={project.accession}
@@ -1539,9 +1550,12 @@ export default function GeoProjectPage() {
             />
             <SubmittingOrgPanel center={project.center} />
             <Flex id="supplementary" justify="between" align="center">
-              <Text weight="medium" size="6">
-                Supplementary Data
-              </Text>
+              <Flex align="center" gap="2">
+                <Text weight="medium" size="6">
+                  Supplementary Data
+                </Text>
+                <SectionAnchor id="supplementary" />
+              </Flex>
               {supplementaryDataItems.length > 0 && (
                 <Button
                   size="1"

@@ -1,6 +1,7 @@
 "use client";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
+import SectionAnchor from "@/components/section-anchor";
 import { DownloadIcon } from "@radix-ui/react-icons";
 import { Badge, Button, Flex, Spinner, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
@@ -137,6 +138,7 @@ export default function EnrichedMetadataCard({
           <Badge color="purple" size="2">
             AI
           </Badge>
+          <SectionAnchor id="enriched" />
         </Flex>
         <Button onClick={handleExportCsv}>
           <DownloadIcon /> CSV
