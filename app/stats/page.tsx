@@ -35,10 +35,18 @@ export default function StatsPage() {
           million samples across SRA, GEO, ArrayExpress, and ENA for fast search
           and discovery.
         </Text>
-        <StatsSourceHistogramCard />
-        <StatsGrowthChartCard />
-        <StatsOrganismGrowthCard />
-        <StatsGlobalContributionsCard />
+        <div id="sources">
+          <StatsSourceHistogramCard />
+        </div>
+        <div id="growth">
+          <StatsGrowthChartCard />
+        </div>
+        <div id="organisms">
+          <StatsOrganismGrowthCard />
+        </div>
+        <div id="map">
+          <StatsGlobalContributionsCard />
+        </div>
       </Flex>
     </>
   );

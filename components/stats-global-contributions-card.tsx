@@ -497,13 +497,13 @@ export default function StatsGlobalContributionsCard() {
           align="center"
           justify="center"
           gap="3"
-          style={{ height: 500 }}
+          style={{ height: 700 }}
         >
           <Skeleton width="60%" height="16px" />
           <Text size="2" color="gray">
             Loading contribution map...
           </Text>
-          <Skeleton width="100%" height="420px" />
+          <Skeleton width="100%" height="620px" />
         </Flex>
       ) : (
         <div
@@ -511,7 +511,7 @@ export default function StatsGlobalContributionsCard() {
           style={{
             position: "relative",
             width: "100%",
-            height: 500,
+            height: 700,
             borderRadius: "var(--radius-3)",
             overflow: "hidden",
             background: isDark ? "#0d1117" : "#f0f0f0",

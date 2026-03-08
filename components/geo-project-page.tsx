@@ -1341,7 +1341,7 @@ export default function GeoProjectPage() {
                   </Flex>
                 );
               })()}
-            <Text weight="medium" size="6">
+            <Text id="overall-design" weight="medium" size="6">
               Overall design
             </Text>
             <ProjectSummary
@@ -1350,7 +1350,7 @@ export default function GeoProjectPage() {
             />
 
             {/* Samples table */}
-            <Flex justify={"between"} align={"center"}>
+            <Flex id="samples" justify={"between"} align={"center"}>
               <Text weight="medium" size="6">
                 Samples
               </Text>
@@ -1500,7 +1500,7 @@ export default function GeoProjectPage() {
 
             <EnrichedMetadataCard accession={accession} />
 
-            <Text weight="medium" size="6">
+            <Text id="publications" weight="medium" size="6">
               Linked publications
             </Text>
 
@@ -1519,7 +1519,7 @@ export default function GeoProjectPage() {
                 No linked publications found
               </Text>
             )}
-            <Flex align="center" gap="2">
+            <Flex id="similar" align="center" gap="2">
               <Text weight="medium" size="6">
                 Similar projects
               </Text>
@@ -1538,7 +1538,7 @@ export default function GeoProjectPage() {
               neighbors={project.neighbors}
             />
             <SubmittingOrgPanel center={project.center} />
-            <Flex justify="between" align="center">
+            <Flex id="supplementary" justify="between" align="center">
               <Text weight="medium" size="6">
                 Supplementary Data
               </Text>

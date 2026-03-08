@@ -890,7 +890,7 @@ function DownloadFastqSection({
 
   return (
     <>
-      <Flex justify="between" align="center">
+      <Flex id="fastq" justify="between" align="center">
         <Flex align="center" gap="2">
           <Text weight="medium" size="6">
             FASTQ files
@@ -1559,7 +1559,7 @@ export default function ProjectPage() {
               text={project.abstract}
               charLimit={ABSTRACT_CHAR_LIMIT}
             />
-            <Flex justify={"between"} align={"center"}>
+            <Flex id="experiments" justify={"between"} align={"center"}>
               <Text weight="medium" size="6">
                 Experiments
               </Text>
@@ -1669,7 +1669,7 @@ export default function ProjectPage() {
             </Flex>
             <EnrichedMetadataCard accession={accession} />
 
-            <Text weight="medium" size="6">
+            <Text id="publications" weight="medium" size="6">
               Linked publications
             </Text>
 
@@ -1688,7 +1688,7 @@ export default function ProjectPage() {
                 No linked publications found
               </Text>
             )}
-            <Flex align="center" gap="2">
+            <Flex id="similar" align="center" gap="2">
               <Text weight="medium" size="6">
                 Similar projects
               </Text>

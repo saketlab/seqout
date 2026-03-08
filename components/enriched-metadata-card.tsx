@@ -129,7 +129,7 @@ export default function EnrichedMetadataCard({
 
   return (
     <>
-      <Flex justify="between" align="center">
+      <Flex id="enriched" justify="between" align="center">
         <Flex align="center" gap="2">
           <Text weight="medium" size="6">
             Enriched metadata
