@@ -13,6 +13,7 @@ type ResultCardProps = {
   doi: string | null;
   citation_count: number | null;
   authors: string | null;
+  center_name?: string | null;
   href?: string;
 };
 
@@ -25,6 +26,7 @@ export default function ResultCard({
   doi,
   citation_count,
   authors,
+  center_name,
   href,
 }: ResultCardProps) {
   const accessionUpper = accession.toUpperCase();
@@ -104,9 +106,10 @@ export default function ResultCard({
               {cleanJournalName(journal)} <ExternalLinkIcon />
             </Badge>
           )}
-          {authors && (
+          {(authors || center_name) && (
             <Text size={"1"} color="gray" style={{ fontStyle: "italic" }} truncate>
-              {formatFirstLastAuthor(authors)}
+              {authors ? formatFirstLastAuthor(authors) : ""}
+              {center_name && center_name !== authors ? (authors ? ` · ${center_name}` : center_name) : ""}
             </Text>
           )}
         </Flex>

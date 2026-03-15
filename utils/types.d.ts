@@ -15,6 +15,7 @@ export type SearchResult = {
   doi: string | null;
   citation_count: number | null;
   authors: string | null;
+  center_name: string | null;
   publications: unknown[] | null;
   sort_val?: string | number | null;
 };

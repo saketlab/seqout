@@ -801,6 +801,7 @@ export default function SearchPageBody() {
                     doi={searchResult.doi}
                     citation_count={searchResult.citation_count}
                     authors={searchResult.authors}
+                    center_name={searchResult.center_name}
                     href={selectedOrganismKey
                       ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
                       : undefined}
