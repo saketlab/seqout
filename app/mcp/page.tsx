@@ -111,6 +111,11 @@ export default function MCP() {
             Once configured, you&apos;ll be able to search and explore GEO, SRA,
             ENA & ArrayExpress datasets directly from Claude Desktop conversations.
           </Text>
+
+          <Text size={{ initial: "2", md: "3" }}>
+            For direct programmatic access without MCP, see the{" "}
+            <Link href="/api-docs">API Reference</Link>.
+          </Text>
         </Flex>
       </Flex>
     </>

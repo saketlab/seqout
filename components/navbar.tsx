@@ -2,6 +2,7 @@
 
 import {
   BarChartIcon,
+  CodeIcon,
   GitHubLogoIcon,
   HamburgerMenuIcon,
   InfoCircledIcon,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
     icon: <KeyboardIcon />,
   },
   { label: "Map", href: "/map", icon: <SewingPinIcon /> },
+  { label: "API", href: "/api-docs", icon: <CodeIcon /> },
   { label: "MCP", href: "/mcp", icon: <MagicWandIcon /> },
   { label: "Stats", href: "/stats", icon: <BarChartIcon /> },
 ];
