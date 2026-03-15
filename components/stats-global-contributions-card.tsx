@@ -918,7 +918,7 @@ export default function StatsGlobalContributionsCard() {
           align="center"
           justify="center"
           gap="3"
-          style={{ height: 700 }}
+          style={{ height: "max(700px, 75vh)" }}
         >
           <Skeleton width="60%" height="16px" />
           <Text size="2" color="gray">
@@ -932,7 +932,7 @@ export default function StatsGlobalContributionsCard() {
           style={{
             position: "relative",
             width: "100%",
-            height: 700,
+            height: "max(700px, 75vh)",
             borderRadius: "var(--radius-3)",
             overflow: "hidden",
             background: isDark ? "#000000" : "#f0f0f0",

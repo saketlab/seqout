@@ -108,18 +108,18 @@ export default function ResultCard({
               {cleanJournalName(journal)} <ExternalLinkIcon />
             </Badge>
           )}
-          {(authors || center_name) && (() => {
-            const formattedCenter = center_name && center_name !== authors ? titleCaseCenter(center_name) : null;
-            const flag = country_code ? countryFlag(country_code) : "";
-            return (
-              <Text size={"1"} color="gray" style={{ fontStyle: "italic" }} truncate>
-                {authors ? formatFirstLastAuthor(authors) : ""}
-                {formattedCenter ? (authors ? ` · ${formattedCenter}` : formattedCenter) : ""}
-                {flag ? ` ${flag}` : ""}
-              </Text>
-            );
-          })()}
         </Flex>
+        {(authors || center_name) && (() => {
+          const formattedCenter = center_name && center_name !== authors ? titleCaseCenter(center_name) : null;
+          const flag = country_code ? countryFlag(country_code) : "";
+          return (
+            <Text size={"2"} style={{ color: "var(--gray-10)" }} truncate>
+              {authors ? formatFirstLastAuthor(authors) : ""}
+              {formattedCenter ? (authors ? ` · ${formattedCenter}` : formattedCenter) : ""}
+              {flag ? ` ${flag}` : ""}
+            </Text>
+          );
+        })()}
       </Flex>
     </Card>
   );
