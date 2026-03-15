@@ -506,6 +506,11 @@ export default function StatsGlobalContributionsCard() {
     [countryTableRows],
   );
 
+  const countryTableExperimentTotal = useMemo(
+    () => countryTableRows.reduce((s, r) => s + r.n_experiments, 0),
+    [countryTableRows],
+  );
+
   const scopeTotal = useMemo(() => {
     if (!activeFilterSource) return 0;
     return activeFilterSource.total ?? 0;
@@ -1125,7 +1130,8 @@ export default function StatsGlobalContributionsCard() {
             <Flex gap="2" align="center">
               <Text size="1" style={{ color: "var(--gray-9)" }}>
                 {countryTableRows.length.toLocaleString()} locations ·{" "}
-                {countryTableProjectTotal.toLocaleString()} projects
+                {countryTableProjectTotal.toLocaleString()} projects ·{" "}
+                {countryTableExperimentTotal.toLocaleString()} experiments
               </Text>
               <IconButton
                 variant="ghost"
