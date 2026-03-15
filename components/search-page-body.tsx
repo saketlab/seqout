@@ -802,7 +802,7 @@ export default function SearchPageBody() {
                     citation_count={searchResult.citation_count}
                     authors={searchResult.authors}
                     center_name={searchResult.center_name}
-                    countries={searchResult.countries}
+                    country_code={searchResult.country_code}
                     href={selectedOrganismKey
                       ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
                       : undefined}

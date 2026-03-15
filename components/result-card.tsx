@@ -14,7 +14,7 @@ type ResultCardProps = {
   citation_count: number | null;
   authors: string | null;
   center_name?: string | null;
-  countries?: string[] | null;
+  country_code?: string | null;
   href?: string;
 };
 
@@ -28,7 +28,7 @@ export default function ResultCard({
   citation_count,
   authors,
   center_name,
-  countries,
+  country_code,
   href,
 }: ResultCardProps) {
   const accessionUpper = accession.toUpperCase();
@@ -110,7 +110,7 @@ export default function ResultCard({
           )}
           {(authors || center_name) && (() => {
             const formattedCenter = center_name && center_name !== authors ? titleCaseCenter(center_name) : null;
-            const flag = countries?.[0] ? countryFlag(countries[0]) : "";
+            const flag = country_code ? countryFlag(country_code) : "";
             return (
               <Text size={"1"} color="gray" style={{ fontStyle: "italic" }} truncate>
                 {authors ? formatFirstLastAuthor(authors) : ""}
