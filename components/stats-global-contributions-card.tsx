@@ -2,7 +2,7 @@
 
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
-import { humanize } from "@/utils/format";
+import { countryFlag, humanize } from "@/utils/format";
 import { MapView } from "@deck.gl/core";
 import { BitmapLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { TileLayer } from "@deck.gl/geo-layers";
@@ -117,15 +117,6 @@ const DARK_LABEL_TILES = [
 ];
 
 const INDIA_GEOJSON_URL = "/india-states.geojson";
-
-/** Convert an ISO-2 country code to a flag emoji (regional indicator symbols). */
-function countryFlag(code: string | null | undefined): string {
-  if (!code || code.length !== 2) return "";
-  const upper = code.toUpperCase();
-  return String.fromCodePoint(
-    ...([...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)),
-  );
-}
 
 const ALL = "__all__";
 

@@ -49,6 +49,23 @@ export function formatFirstLastAuthor(authors: string | null): string | null {
   return `${list[0]} ... ${list[list.length - 1]}`;
 }
 
+/** Convert an ISO-2 country code to a flag emoji. */
+export function countryFlag(code: string | null | undefined): string {
+  if (!code || code.length !== 2) return "";
+  const upper = code.toUpperCase();
+  return String.fromCodePoint(
+    ...([...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)),
+  );
+}
+
+/** Title-case an institute/center name, preserving fully-uppercase words (acronyms). */
+export function titleCaseCenter(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => (w === w.toUpperCase() ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+
 /** Format a byte count into a human-readable abbreviated string. */
 export function humanizeBytes(value: number): string {
   if (value >= EB) return `${(value / EB).toFixed(1).replace(/\.0$/, "")} EB`;

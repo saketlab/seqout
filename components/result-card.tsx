@@ -1,4 +1,4 @@
-import { cleanJournalName, formatFirstLastAuthor } from "@/utils/format";
+import { cleanJournalName, countryFlag, formatFirstLastAuthor, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Card, Flex, Text } from "@radix-ui/themes";
@@ -14,6 +14,7 @@ type ResultCardProps = {
   citation_count: number | null;
   authors: string | null;
   center_name?: string | null;
+  countries?: string[] | null;
   href?: string;
 };
 
@@ -27,6 +28,7 @@ export default function ResultCard({
   citation_count,
   authors,
   center_name,
+  countries,
   href,
 }: ResultCardProps) {
   const accessionUpper = accession.toUpperCase();
@@ -106,12 +108,17 @@ export default function ResultCard({
               {cleanJournalName(journal)} <ExternalLinkIcon />
             </Badge>
           )}
-          {(authors || center_name) && (
-            <Text size={"1"} color="gray" style={{ fontStyle: "italic" }} truncate>
-              {authors ? formatFirstLastAuthor(authors) : ""}
-              {center_name && center_name !== authors ? (authors ? ` · ${center_name}` : center_name) : ""}
-            </Text>
-          )}
+          {(authors || center_name) && (() => {
+            const formattedCenter = center_name && center_name !== authors ? titleCaseCenter(center_name) : null;
+            const flag = countries?.[0] ? countryFlag(countries[0]) : "";
+            return (
+              <Text size={"1"} color="gray" style={{ fontStyle: "italic" }} truncate>
+                {authors ? formatFirstLastAuthor(authors) : ""}
+                {formattedCenter ? (authors ? ` · ${formattedCenter}` : formattedCenter) : ""}
+                {flag ? ` ${flag}` : ""}
+              </Text>
+            );
+          })()}
         </Flex>
       </Flex>
     </Card>
