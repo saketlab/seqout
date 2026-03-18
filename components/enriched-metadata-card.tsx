@@ -3,56 +3,124 @@ import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
 import SectionAnchor from "@/components/section-anchor";
 import { DownloadIcon } from "@radix-ui/react-icons";
-import { Badge, Button, Flex, Spinner, Text } from "@radix-ui/themes";
+import { Badge, Button, Flex, Spinner, Text, Tooltip } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 
 ensureAgGridModules();
 
-interface EnrichedSample {
-  sample: string;
-  age: string | null;
-  sex: string | null;
-  ethnicity: string | null;
-  phenotype: string | null;
-  cell_type: string | null;
-  tissue: string | null;
-  strain: string | null;
-  disease: string | null;
-  assay: string | null;
-  cell_line: string | null;
-  treatment: string | null;
-  development_stage: string | null;
-  sample_type: string | null;
-  genetic_modification: string | null;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type OntologySample = Record<string, any>;
 
 interface EnrichedResponse {
   accession: string;
   title: string;
   n_samples: number;
-  samples: EnrichedSample[];
+  version: "v3" | "v1";
+  samples: OntologySample[];
 }
 
-const ENRICHED_FIELDS: { field: keyof EnrichedSample; header: string }[] = [
-  { field: "sample", header: "Sample" },
-  { field: "tissue", header: "Tissue" },
-  { field: "cell_type", header: "Cell Type" },
+const ONTOLOGY_URLS: Record<string, string> = {
+  MONDO: "https://www.ebi.ac.uk/ols4/ontologies/mondo/terms?iri=http://purl.obolibrary.org/obo/",
+  UBERON: "https://www.ebi.ac.uk/ols4/ontologies/uberon/terms?iri=http://purl.obolibrary.org/obo/",
+  CL: "https://www.ebi.ac.uk/ols4/ontologies/cl/terms?iri=http://purl.obolibrary.org/obo/",
+  EFO: "https://www.ebi.ac.uk/ols4/ontologies/efo/terms?iri=http://purl.obolibrary.org/obo/",
+};
+
+function ontologyUrl(id: string): string | null {
+  const prefix = id.split(":")[0];
+  const base = ONTOLOGY_URLS[prefix];
+  if (!base) return null;
+  return `${base}${id.replace(":", "_")}`;
+}
+
+function OntologyCellRenderer(
+  idField: string,
+  nameField: string,
+) {
+  return function Renderer(params: ICellRendererParams<OntologySample>) {
+    const raw = params.value;
+    const data = params.data;
+    if (!data) return <>{raw ?? ""}</>;
+
+    const ontoName = data[nameField];
+    const ontoId = data[idField];
+
+    if (!ontoId || !ontoName) return <>{raw ?? ""}</>;
+
+    const url = ontologyUrl(ontoId);
+    return (
+      <Flex align="center" gap="1" style={{ overflow: "hidden" }}>
+        <Text truncate size="2">{ontoName}</Text>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Badge color="iris" size="1" style={{ cursor: "pointer", flexShrink: 0 }}>
+              {ontoId}
+            </Badge>
+          </a>
+        ) : (
+          <Badge color="gray" size="1" style={{ flexShrink: 0 }}>
+            {ontoId}
+          </Badge>
+        )}
+      </Flex>
+    );
+  };
+}
+
+const ONTOLOGY_MAPPED_FIELDS: Record<string, { id: string; name: string }> = {
+  disease: { id: "disease_ontology_id", name: "disease_ontology_name" },
+  tissue: { id: "tissue_ontology_id", name: "tissue_ontology_name" },
+  cell_type: { id: "cell_type_ontology_id", name: "cell_type_ontology_name" },
+  assay: { id: "assay_ontology_id", name: "assay_ontology_name" },
+  development_stage: { id: "development_stage_ontology_id", name: "development_stage_ontology_name" },
+};
+
+const ONTOLOGY_RENDERERS = Object.fromEntries(
+  Object.entries(ONTOLOGY_MAPPED_FIELDS).map(([field, onto]) => [
+    field, OntologyCellRenderer(onto.id, onto.name),
+  ]),
+);
+
+type FieldDef = {
+  field: string;
+  header: string;
+  minWidth?: number;
+  v3Only?: boolean;
+};
+
+const ALL_FIELDS: FieldDef[] = [
+  { field: "sample", header: "Sample", minWidth: 130 },
+  { field: "organism", header: "Organism", minWidth: 140, v3Only: true },
+  { field: "tissue", header: "Tissue", minWidth: 150 },
+  { field: "cell_type", header: "Cell Type", minWidth: 150 },
   { field: "cell_line", header: "Cell Line" },
-  { field: "disease", header: "Disease" },
+  { field: "disease", header: "Disease", minWidth: 150 },
   { field: "phenotype", header: "Phenotype" },
   { field: "sex", header: "Sex" },
   { field: "age", header: "Age" },
   { field: "ethnicity", header: "Ethnicity" },
   { field: "strain", header: "Strain" },
-  { field: "assay", header: "Assay" },
+  { field: "assay", header: "Assay", minWidth: 150 },
+  { field: "assay_category", header: "Assay Category", v3Only: true },
   { field: "treatment", header: "Treatment" },
-  { field: "development_stage", header: "Dev. Stage" },
+  { field: "development_stage", header: "Dev. Stage", minWidth: 150 },
   { field: "sample_type", header: "Sample Type" },
   { field: "genetic_modification", header: "Genetic Mod." },
+  { field: "tissue_primary_site", header: "Primary Site", v3Only: true },
+  { field: "tissue_site_type", header: "Site Type", v3Only: true },
+  { field: "taxid", header: "Taxon ID", v3Only: true },
 ];
+
+const V3_FIELDS = ALL_FIELDS;
+const V1_FIELDS = ALL_FIELDS.filter((f) => !f.v3Only);
 
 async function fetchEnrichedMetadata(
   accession: string,
@@ -89,30 +157,62 @@ export default function EnrichedMetadataCard({
 
   if (!data || data.samples.length === 0) return null;
 
-  // Only show columns that have at least one non-null value
-  const visibleFields = ENRICHED_FIELDS.filter(
+  const isV3 = data.version === "v3";
+  const allFields = isV3 ? V3_FIELDS : V1_FIELDS;
+
+  const visibleFields = allFields.filter(
     (f) =>
       f.field === "sample" ||
-      data.samples.some((s) => s[f.field] != null && s[f.field] !== ""),
+      data.samples.some((s) => {
+        const val = s[f.field];
+        if (val != null && val !== "") return true;
+        const onto = ONTOLOGY_MAPPED_FIELDS[f.field];
+        if (onto && isV3) {
+          const ontoName = s[onto.name];
+          return ontoName != null && ontoName !== "";
+        }
+        return false;
+      }),
   );
 
-  const columnDefs: ColDef<EnrichedSample>[] = visibleFields.map((f) => ({
-    field: f.field,
-    headerName: f.header,
-    minWidth: f.field === "sample" ? 130 : 100,
-    flex: 1,
-    filter: true,
-    sortable: true,
-    resizable: true,
-  }));
+  const columnDefs: ColDef<OntologySample>[] = visibleFields.map((f) => {
+    const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
+    return {
+      field: f.field,
+      headerName: f.header,
+      minWidth: f.minWidth ?? 100,
+      flex: 1,
+      filter: true,
+      sortable: true,
+      resizable: true,
+      ...(onto
+        ? {
+            cellRenderer: ONTOLOGY_RENDERERS[f.field],
+            valueGetter: (params: { data?: OntologySample }) => {
+              if (!params.data) return null;
+              return params.data[onto.name] ?? params.data[f.field] ?? null;
+            },
+          }
+        : {}),
+    };
+  });
 
   const gridHeight = Math.min(400, 42 + data.samples.length * 42);
 
   const handleExportCsv = () => {
-    const headers = visibleFields.map((f) => f.header);
+    const exportFields: { key: string; header: string }[] = [];
+    for (const f of visibleFields) {
+      exportFields.push({ key: f.field, header: f.header });
+      const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
+      if (onto) {
+        exportFields.push({ key: onto.id, header: `${f.header} Ontology ID` });
+        exportFields.push({ key: onto.name, header: `${f.header} Ontology Name` });
+      }
+    }
+    const headers = exportFields.map((f) => f.header);
     const escape = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
     const rows = data.samples.map((s) =>
-      visibleFields.map((f) => escape(s[f.field] ?? "-")),
+      exportFields.map((f) => escape(s[f.key] ?? "")),
     );
     const csv = [headers.map(escape).join(","), ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -138,6 +238,13 @@ export default function EnrichedMetadataCard({
           <Badge color="purple" size="2">
             AI
           </Badge>
+          {isV3 && (
+            <Tooltip content="Includes standardised ontology mappings (MONDO, UBERON, CL, EFO)">
+              <Badge color="iris" size="1" variant="soft">
+                Ontology
+              </Badge>
+            </Tooltip>
+          )}
           <SectionAnchor id="enriched" />
         </Flex>
         <Button onClick={handleExportCsv}>
@@ -148,7 +255,7 @@ export default function EnrichedMetadataCard({
         className={agGridThemeClassName}
         style={{ width: "100%", height: `${gridHeight}px` }}
       >
-        <AgGridReact<EnrichedSample>
+        <AgGridReact<OntologySample>
           columnDefs={columnDefs}
           defaultColDef={{ resizable: true }}
           getRowId={(params) => params.data.sample}
