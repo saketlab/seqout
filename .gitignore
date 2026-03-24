@@ -1,0 +1,33 @@
+# R session artifacts
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+
+# Package build output
+*.tar.gz
+*.Rcheck/
+
+# roxygen2 generated (tracked separately)
+# man/*.Rd   <- keep these, they're part of the package
+
+# Vignette build artifacts
+vignettes/*.html
+vignettes/*.pdf
+inst/doc/
+
+# knitr cache and figures
+vignettes/*_cache/
+vignettes/*_files/
+
+# devtools/pkgdown
+docs/
+
+# Test output
+tests/testthat/Rplots.pdf
+
+# Locally cached DuckDB files
+*.duckdb
+*.duckdb.wal
+*.bib

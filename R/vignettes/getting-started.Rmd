@@ -1,0 +1,305 @@
+---
+title: "Getting started with seqout"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with seqout}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE
+)
+```
+
+## Installation
+
+```{r install, eval=FALSE}
+# install.packages("pak")
+pak::pak("saketlab/seqout/R")
+```
+
+## Connect to SeqOut
+
+All queries start by creating a connection. This sets up a local DuckDB
+instance that reads remote Parquet files from `seqout.org` — no full download
+is required.
+
+```{r connect}
+library(seqout)
+
+con <- connect_seqout()
+con
+```
+
+## 1. Search for datasets
+
+Suppose we are interested in finding single-cell RNA-seq datasets
+related to liver cancer. `sq_find_projects()` lets us search by
+keywords and apply structured filters — no SQL needed:
+
+```{r search-liver}
+results <- sq_find_projects(con,
+  keywords = "liver cancer scRNA",
+  organism = "Homo sapiens",
+  sort_by  = "citations",
+  limit    = 10
+)
+results
+```
+
+Keywords are matched with AND logic: every word must appear somewhere in the
+project title or description. We can further narrow the search by adding
+filters:
+
+```{r search-narrow}
+# Only GEO projects from 2020 onwards with at least 10 samples
+sq_find_projects(con,
+  keywords    = "liver cancer scRNA",
+  organism    = "Homo sapiens",
+  source      = "geo",
+  year_from   = 2020,
+  min_samples = 10,
+  sort_by     = "citations"
+)
+```
+
+### Discover valid filter values
+
+Not sure what to pass for `assay` or `organism`? The `sq_list_*` helpers
+return valid values with project counts:
+
+```{r list-values}
+# Specific assay types (RNA-seq, ChIP-seq, WGS, ...)
+sq_list_assays(con)
+
+# Broad assay categories (Transcriptomic, Genomic Sequencing, ...)
+sq_list_assays(con, level = "broad")
+
+# Top organisms
+sq_list_organisms(con, limit = 10)
+
+# Top countries
+sq_list_countries(con, limit = 10)
+```
+
+
+## 2. Get detailed metadata for a project
+
+From our search above, `GSE151530` is a highly cited single-cell liver
+cancer study. Let's get its metadata.
+
+**Title and description:**
+
+```{r metadata-basic}
+sq_project_metadata(con, "GSE151530")
+```
+
+**Full metadata** including contributors, organisms, instruments, and
+supplementary data links:
+
+```{r metadata-full}
+project <- sq_project(con, "GSE151530")
+project
+```
+
+**Samples** in this project:
+
+```{r samples}
+samples <- sq_project_samples(con, "GSE151530")
+samples
+```
+
+
+## 3. Enriched (ontology-annotated) metadata
+
+SeqOut annotates samples with standardized ontology terms for tissue,
+disease, cell type, assay, and more. `sq_project_enriched()` retrieves
+these annotations:
+
+```{r enriched}
+enriched <- sq_project_enriched(con, "GSE151530")
+enriched
+```
+
+The enriched metadata includes columns like `tissue`, `disease`, `cell_type`,
+`assay`, `assay_category`, and `sample_type`, along with their
+corresponding ontology IDs and confidence scores:
+
+```{r enriched-inspect}
+library(dplyr)
+
+enriched |>
+  select(sample, tissue, disease, cell_type, assay, assay_category, sample_type) |>
+  head(10)
+```
+
+
+## 4. Publications
+
+`sq_publications()` parses the structured publication data — DOI, PubMed ID,
+journal, and citation count — for one or more accessions:
+
+```{r publications}
+sq_publications(con, c("GSE151530", "GSE98638"))
+```
+
+For a single project, `sq_project_citations()` returns the same data:
+
+```{r citations-tibble}
+sq_project_citations(con, "GSE151530")
+```
+
+
+## 5. BibTeX export
+
+To get a ready-to-use BibTeX string for a project's publications, pass
+`format = "bibtex"`:
+
+```{r bibtex}
+bib <- sq_project_citations(con, "GSE151530", format = "bibtex")
+cat(bib)
+```
+
+This produces entries like:
+
+```
+@article{Lichun2019,
+  author  = {Lichun Ma, Maria O Hernandez, ...},
+  title   = {Tumor Cell Biodiversity Drives Microenvironmental ...},
+  journal = {Cancer cell},
+  year    = {2019},
+  doi     = {10.1016/j.ccell.2019.08.007},
+  pmid    = {31588021}
+}
+```
+
+To save to a `.bib` file:
+
+```{r save-bibtex}
+writeLines(bib, "GSE151530.bib")
+```
+
+
+## 6. Growth of scRNA-seq and snRNA-seq datasets
+
+`sq_assay_projects()` retrieves one row per project for each assay type,
+with the publication month. We can then aggregate and plot yearly trends
+with `dplyr` and `ggplot2`:
+
+```{r sc-growth, fig.width=7, fig.height=5}
+library(dplyr)
+library(ggplot2)
+
+sc_projects <- sq_assay_projects(con,
+  assay     = c("scRNA-seq", "snRNA-seq"),
+  year_from = 2015,
+  year_to   = 2025
+)
+
+sc_growth <- sc_projects |>
+  mutate(year = as.integer(format(published, "%Y"))) |>
+  count(assay_type, year, name = "n_projects")
+
+ggplot(sc_growth, aes(x = year, y = n_projects, fill = assay_type)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(
+    values = c("scRNA-seq" = "#3C5488", "snRNA-seq" = "#E64B35")
+  ) +
+  labs(
+    x = "Year",
+    y = "Number of GEO projects",
+    fill = NULL,
+    title = "Growth of scRNA-seq and snRNA-seq datasets on GEO"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "top")
+```
+
+
+## Cumulative project deposits across databases
+
+For a broader view, `sq_growth_stats()` returns monthly project counts
+per database. We can compute cumulative totals:
+
+```{r cumulative-growth, fig.width=7, fig.height=5}
+growth <- sq_growth_stats(con, mode = "projects") |>
+  filter(db %in% c("geo", "sra")) |>
+  arrange(db, month) |>
+  group_by(db) |>
+  mutate(cumulative = cumsum(count)) |>
+  ungroup()
+
+ggplot(growth, aes(x = month, y = cumulative, colour = db)) +
+  geom_line(linewidth = 0.6) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_colour_manual(
+    values = c(geo = "#E64B35", sra = "#4DBBD5"),
+    labels = c(geo = "GEO", sra = "SRA")
+  ) +
+  labs(
+    x = NULL,
+    y = "Cumulative projects",
+    colour = "Database",
+    title = "Cumulative number of projects deposited on GEO and SRA"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "top")
+```
+
+
+## Using SQL and dplyr directly
+
+All the above functions run on DuckDB under the hood. You can also query
+the tables directly with SQL:
+
+```{r sql}
+sq_query(con, "
+  SELECT organism, sum(count) AS total
+  FROM organism_growth_monthly
+  GROUP BY organism
+  ORDER BY total DESC
+  LIMIT 10
+")
+```
+
+Or use `dplyr`/`dbplyr` for lazy evaluation:
+
+```{r dplyr}
+library(dbplyr)
+
+tbl(con$db, "unified_metadata") |>
+  filter(
+    dominant_scientific_name == "Homo sapiens",
+    country == "Japan"
+  ) |>
+  count(dominant_assay_l2, sort = TRUE) |>
+  head(10) |>
+  collect()
+```
+
+
+## Cache tables locally
+
+For repeated analysis, materialise a remote view into local DuckDB storage
+to avoid repeated HTTP requests:
+
+```{r cache}
+sq_cache_table(con, "unified_metadata")
+
+# Subsequent queries hit local storage
+sq_query(con, "SELECT count(*) AS n FROM unified_metadata_local")
+
+# Clean up
+sq_clear_cache(con)
+```
+
+
+## Close connection
+
+```{r close}
+close_seqout(con)
+```
