@@ -22,7 +22,7 @@ vignettes/*_cache/
 vignettes/*_files/
 
 # devtools/pkgdown
-docs/
+#docs/
 
 # Test output
 tests/testthat/Rplots.pdf
