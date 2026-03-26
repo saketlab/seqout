@@ -7,11 +7,12 @@ import { useCallback, useRef, useState } from "react";
 export const FOOTER_TEXT = "Source: seqout.org  ·  CC-BY seqout.org";
 const FOOTER_CLASS = "seqout-chart-footer";
 
-function injectFooterText(chartContext: { el?: HTMLElement }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function injectFooterText(chartContext: any) {
   const svg = chartContext.el?.querySelector("svg");
   if (!svg) return;
 
-  svg.querySelectorAll(`.${FOOTER_CLASS}`).forEach((el) => el.remove());
+  svg.querySelectorAll(`.${FOOTER_CLASS}`).forEach((el: Element) => el.remove());
 
   const svgW = svg.getAttribute("width") || svg.getBoundingClientRect().width;
   const svgH = svg.getAttribute("height") || svg.getBoundingClientRect().height;

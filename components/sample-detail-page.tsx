@@ -411,11 +411,9 @@ function SraSampleDetail({
 
 function RunsSection({
   runs,
-  accession,
   agGridThemeClassName,
 }: {
   runs: RunRow[];
-  accession: string;
   agGridThemeClassName: string;
 }) {
   const hasMissingFastq = runs.some((r) => !r.fastq_ftp);
@@ -735,21 +733,22 @@ export default function SampleDetailPage() {
   const projectDescription =
     project?.abstract || project?.summary || null;
 
+  const rawOrganisms = project?.organisms;
   const organisms = React.useMemo(() => {
-    if (!project?.organisms) return [];
-    if (Array.isArray(project.organisms)) return project.organisms;
-    if (typeof project.organisms === "string") {
+    if (!rawOrganisms) return [];
+    if (Array.isArray(rawOrganisms)) return rawOrganisms;
+    if (typeof rawOrganisms === "string") {
       try {
-        return JSON.parse(project.organisms) as string[];
+        return JSON.parse(rawOrganisms) as string[];
       } catch {
-        return project.organisms
+        return rawOrganisms
           .split(/[;,|]/)
           .map((s) => s.trim())
           .filter(Boolean);
       }
     }
     return [];
-  }, [project?.organisms]);
+  }, [rawOrganisms]);
 
   return (
     <>
@@ -936,7 +935,6 @@ export default function SampleDetailPage() {
           {runs && runs.length > 0 && (
             <RunsSection
               runs={runs}
-              accession={accession}
               agGridThemeClassName={agGridThemeClassName}
             />
           )}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 /**
  * Updates the URL hash as the user scrolls past section elements.
@@ -7,11 +7,9 @@ import { useEffect, useRef } from "react";
  */
 export function useScrollSpy(sectionIds: string[]) {
   const key = sectionIds.join(",");
-  const idsRef = useRef(sectionIds);
-  idsRef.current = sectionIds;
 
   useEffect(() => {
-    const ids = idsRef.current;
+    const ids = key ? key.split(",") : [];
     if (ids.length === 0) return;
 
     const visibleSet = new Set<string>();

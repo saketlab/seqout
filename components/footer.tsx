@@ -1,4 +1,4 @@
-import { Flex, Link, Separator, Text } from "@radix-ui/themes";
+import { Flex, Link, Separator } from "@radix-ui/themes";
 
 export default function Footer() {
   return (

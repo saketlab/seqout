@@ -42,7 +42,6 @@ export default function BulkMetaDialog() {
   const {
     data: zipBlob,
     isFetching,
-    isError,
   } = useQuery({
     queryKey: ["bulk-metadata", submitted],
     queryFn: () => fetchBulkMetadata(submitted!),
