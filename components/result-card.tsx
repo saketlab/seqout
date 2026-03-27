@@ -1,8 +1,9 @@
 import { cleanJournalName, countryFlag, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Badge, Card, Flex, HoverCard, Text } from "@radix-ui/themes";
+import { Badge, Box, Card, Flex, Popover, Text } from "@radix-ui/themes";
 import Link from "next/link";
+import { useState } from "react";
 
 type ResultCardProps = {
   accession: string;
@@ -44,6 +45,7 @@ export default function ResultCard({
   const isPrjAccession = accessionUpper.startsWith("PRJ");
   const authorList = parseAuthors(authors);
   const additionalAuthorCount = Math.max(authorList.length - 1, 0);
+  const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
 
   return (
     <Card>
@@ -73,62 +75,90 @@ export default function ResultCard({
                 : null;
             const flag = country_code ? countryFlag(country_code) : "";
             return (
-              <Flex
-                gap="1"
-                align="center"
-                wrap="wrap"
-                style={{ color: "var(--gray-10)" }}
-              >
-                {authorList.length === 1 && (
-                  <Text size="2">{authorList[0]}</Text>
-                )}
-                {authorList.length === 2 && (
-                  <Text size="2">{`${authorList[0]} and ${authorList[1]}`}</Text>
-                )}
-                {authorList.length > 2 && (
-                  <>
-                    <Text size="2">{authorList[0]}</Text>
-                    <HoverCard.Root openDelay={100} closeDelay={100}>
-                      <HoverCard.Trigger>
-                        <Badge
-                          size="1"
-                          variant="soft"
-                          color="gray"
-                          style={{ cursor: "default" }}
+              <Flex direction="column" gap="1" style={{ color: "var(--gray-10)" }}>
+                {authorList.length > 0 && (
+                  <Flex gap="1" align="center" wrap="wrap">
+                    {authorList.length === 1 && (
+                      <Text size="2">{authorList[0]}</Text>
+                    )}
+                    {authorList.length === 2 && (
+                      <Text size="2">{`${authorList[0]} and ${authorList[1]}`}</Text>
+                    )}
+                    {authorList.length > 2 && (
+                      <>
+                        <Text size="2">{authorList[0]}</Text>
+                        <Popover.Root
+                          open={authorsPopoverOpen}
+                          onOpenChange={setAuthorsPopoverOpen}
                         >
-                          +{additionalAuthorCount}
-                        </Badge>
-                      </HoverCard.Trigger>
-                      <HoverCard.Content
-                        side="top"
-                        align="start"
-                        sideOffset={6}
-                        style={{
-                          maxWidth: "min(320px, 85vw)",
-                          maxHeight: "14rem",
-                          overflowY: "auto",
-                        }}
-                      >
-                        <Flex direction="column" gap="1">
-                          {authorList.map((author) => (
-                            <Text key={author} size="1">
-                              {author}
-                            </Text>
-                          ))}
-                        </Flex>
-                      </HoverCard.Content>
-                    </HoverCard.Root>
-                  </>
+                          <Popover.Trigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`Show ${additionalAuthorCount} more authors`}
+                              onMouseEnter={() => setAuthorsPopoverOpen(true)}
+                              onMouseLeave={() => setAuthorsPopoverOpen(false)}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                padding: 0,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Badge
+                                size="1"
+                                variant="soft"
+                                color="gray"
+                              >
+                                +{additionalAuthorCount}
+                              </Badge>
+                            </button>
+                          </Popover.Trigger>
+                          <Popover.Content
+                            side="top"
+                            align="start"
+                            sideOffset={6}
+                            onMouseEnter={() => setAuthorsPopoverOpen(true)}
+                            onMouseLeave={() => setAuthorsPopoverOpen(false)}
+                            style={{
+                              maxWidth: "min(320px, 85vw)",
+                              maxHeight: "14rem",
+                              overflowY: "auto",
+                            }}
+                          >
+                            <Flex direction="column" gap="1">
+                              {authorList.map((author) => (
+                                <Text key={author} size="1">
+                                  {author}
+                                </Text>
+                              ))}
+                            </Flex>
+                          </Popover.Content>
+                        </Popover.Root>
+                      </>
+                    )}
+                    {(formattedCenter || flag) && (
+                      <Box display={{ initial: "none", sm: "block" }}>
+                        <Text size="2">
+                          {formattedCenter
+                            ? authors
+                              ? `· ${formattedCenter}`
+                              : formattedCenter
+                            : ""}
+                          {flag ? `${formattedCenter ? " " : ""}${flag}` : ""}
+                        </Text>
+                      </Box>
+                    )}
+                  </Flex>
                 )}
                 {(formattedCenter || flag) && (
-                  <Text size="2">
-                    {formattedCenter
-                      ? authors
-                        ? `· ${formattedCenter}`
-                        : formattedCenter
-                      : ""}
-                    {flag ? `${formattedCenter ? " " : ""}${flag}` : ""}
-                  </Text>
+                  <Box display={{ initial: "block", sm: "none" }}>
+                    <Text size="2">
+                      {formattedCenter ?? ""}
+                      {flag ? `${formattedCenter ? " " : ""}${flag}` : ""}
+                    </Text>
+                  </Box>
                 )}
               </Flex>
             );
