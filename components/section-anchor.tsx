@@ -7,15 +7,37 @@ export default function SectionAnchor({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
 
+  const handleClick = async () => {
+    const url = new URL(window.location.href);
+    url.hash = id;
+    const sectionUrl = url.toString();
+
+    let didCopy = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(sectionUrl);
+        didCopy = true;
+      } catch {
+        didCopy = false;
+      }
+    }
+
+    if (!didCopy) {
+      didCopy = copyToClipboard(sectionUrl);
+    }
+
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);
+    setCopied(didCopy);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
     <button
       type="button"
       aria-label={`Copy link to #${id}`}
+      title={copied ? "Copied section link" : `Copy link to ${id}`}
       onClick={() => {
-        const url = `${window.location.origin}${window.location.pathname}#${id}`;
-        copyToClipboard(url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        void handleClick();
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
