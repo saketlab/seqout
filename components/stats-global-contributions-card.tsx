@@ -1,8 +1,9 @@
 "use client";
 
+import CountryFlagIcon from "@/components/country-flag-icon";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
-import { countryFlag, humanize } from "@/utils/format";
+import { humanize } from "@/utils/format";
 import { MapView } from "@deck.gl/core";
 import { BitmapLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { TileLayer } from "@deck.gl/geo-layers";
@@ -31,6 +32,7 @@ import type { ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 import { useCallback, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 ensureAgGridModules();
 
@@ -122,7 +124,8 @@ const ALL = "__all__";
 
 interface SearchableSelectOption {
   value: string;
-  label: string;
+  label: ReactNode;
+  searchLabel: string;
 }
 
 function SearchableSelect({
@@ -145,7 +148,7 @@ function SearchableSelect({
   const filtered = useMemo(() => {
     if (!query) return options;
     const q = query.toLowerCase();
-    return options.filter((o) => o.label.toLowerCase().includes(q));
+    return options.filter((o) => o.searchLabel.toLowerCase().includes(q));
   }, [options, query]);
 
   const displayLabel =
@@ -471,7 +474,13 @@ export default function StatsGlobalContributionsCard() {
     () =>
       countryOptions.map((c) => ({
         value: c.value,
-        label: `${countryFlag(c.code)} ${c.value} (${humanize(c.count)})`,
+        label: (
+          <Flex align="center" gap="2">
+            <CountryFlagIcon code={c.code} label={c.value} />
+            <span>{`${c.value} (${humanize(c.count)})`}</span>
+          </Flex>
+        ),
+        searchLabel: `${c.value} ${c.code ?? ""} ${humanize(c.count)}`,
       })),
     [countryOptions],
   );
@@ -480,7 +489,11 @@ export default function StatsGlobalContributionsCard() {
     () =>
       (activeFilterSource?.organisms ?? [])
         .filter((o) => o.value)
-        .map((o) => ({ value: o.value, label: `${o.value} (${humanize(o.count)})` })),
+        .map((o) => ({
+          value: o.value,
+          label: `${o.value} (${humanize(o.count)})`,
+          searchLabel: `${o.value} ${humanize(o.count)}`,
+        })),
     [activeFilterSource],
   );
 
@@ -488,7 +501,11 @@ export default function StatsGlobalContributionsCard() {
     () =>
       (activeFilterSource?.assay_l2 ?? [])
         .filter((a) => a.value)
-        .map((a) => ({ value: a.value, label: `${a.value} (${humanize(a.count)})` })),
+        .map((a) => ({
+          value: a.value,
+          label: `${a.value} (${humanize(a.count)})`,
+          searchLabel: `${a.value} ${humanize(a.count)}`,
+        })),
     [activeFilterSource],
   );
 

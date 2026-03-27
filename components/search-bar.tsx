@@ -199,6 +199,8 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
               }
               alt="seqout"
               fill
+              loading="eager"
+              sizes="10rem"
               style={{ objectFit: "contain" }}
             />
           </Box>

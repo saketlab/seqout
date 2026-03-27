@@ -1,4 +1,5 @@
-import { cleanJournalName, countryFlag, titleCaseCenter } from "@/utils/format";
+import CountryFlagIcon from "@/components/country-flag-icon";
+import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Box, Card, Flex, Popover, Text } from "@radix-ui/themes";
@@ -73,7 +74,6 @@ export default function ResultCard({
               center_name && center_name !== authors
                 ? titleCaseCenter(center_name)
                 : null;
-            const flag = country_code ? countryFlag(country_code) : "";
             return (
               <Flex
                 direction="column"
@@ -138,26 +138,38 @@ export default function ResultCard({
                         </Popover.Root>
                       </>
                     )}
-                    {(formattedCenter || flag) && (
+                    {(formattedCenter || country_code) && (
                       <Box display={{ initial: "none", sm: "block" }}>
-                        <Text size="2">
-                          {formattedCenter
-                            ? authors
-                              ? `· ${formattedCenter}`
-                              : formattedCenter
-                            : ""}
-                          {flag ? `${formattedCenter ? " " : ""}${flag}` : ""}
-                        </Text>
+                        <Flex align="center" gap="1">
+                          <Text size="2">
+                            {formattedCenter
+                              ? authors
+                                ? `· ${formattedCenter}`
+                                : formattedCenter
+                              : ""}
+                          </Text>
+                          {country_code && (
+                            <CountryFlagIcon
+                              code={country_code}
+                              label={formattedCenter ?? country_code}
+                            />
+                          )}
+                        </Flex>
                       </Box>
                     )}
                   </Flex>
                 )}
-                {(formattedCenter || flag) && (
+                {(formattedCenter || country_code) && (
                   <Box display={{ initial: "block", sm: "none" }}>
-                    <Text size="2">
-                      {formattedCenter ?? ""}
-                      {flag ? `${formattedCenter ? " " : ""}${flag}` : ""}
-                    </Text>
+                    <Flex align="center" gap="1">
+                      <Text size="2">{formattedCenter ?? ""}</Text>
+                      {country_code && (
+                        <CountryFlagIcon
+                          code={country_code}
+                          label={formattedCenter ?? country_code}
+                        />
+                      )}
+                    </Flex>
                   </Box>
                 )}
               </Flex>
