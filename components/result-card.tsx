@@ -1,7 +1,7 @@
-import { cleanJournalName, countryFlag, formatFirstLastAuthor, titleCaseCenter } from "@/utils/format";
+import { cleanJournalName, countryFlag, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Badge, Card, Flex, Text } from "@radix-ui/themes";
+import { Badge, Card, Flex, HoverCard, Text } from "@radix-ui/themes";
 import Link from "next/link";
 
 type ResultCardProps = {
@@ -17,6 +17,14 @@ type ResultCardProps = {
   country_code?: string | null;
   href?: string;
 };
+
+function parseAuthors(authors: string | null): string[] {
+  if (!authors) return [];
+  return authors
+    .split(",")
+    .map((author) => author.trim())
+    .filter(Boolean);
+}
 
 export default function ResultCard({
   accession,
@@ -34,6 +42,8 @@ export default function ResultCard({
   const accessionUpper = accession.toUpperCase();
   const isArrayExpressAccession = accessionUpper.startsWith("E-");
   const isPrjAccession = accessionUpper.startsWith("PRJ");
+  const authorList = parseAuthors(authors);
+  const additionalAuthorCount = Math.max(authorList.length - 1, 0);
 
   return (
     <Card>
@@ -55,6 +65,74 @@ export default function ResultCard({
         <Text size={"2"} truncate>
           {summary}
         </Text>
+        {(authors || center_name) &&
+          (() => {
+            const formattedCenter =
+              center_name && center_name !== authors
+                ? titleCaseCenter(center_name)
+                : null;
+            const flag = country_code ? countryFlag(country_code) : "";
+            return (
+              <Flex
+                gap="1"
+                align="center"
+                wrap="wrap"
+                style={{ color: "var(--gray-10)" }}
+              >
+                {authorList.length === 1 && (
+                  <Text size="2">{authorList[0]}</Text>
+                )}
+                {authorList.length === 2 && (
+                  <Text size="2">{`${authorList[0]} and ${authorList[1]}`}</Text>
+                )}
+                {authorList.length > 2 && (
+                  <>
+                    <Text size="2">{authorList[0]}</Text>
+                    <HoverCard.Root openDelay={100} closeDelay={100}>
+                      <HoverCard.Trigger>
+                        <Badge
+                          size="1"
+                          variant="soft"
+                          color="gray"
+                          style={{ cursor: "default" }}
+                        >
+                          +{additionalAuthorCount}
+                        </Badge>
+                      </HoverCard.Trigger>
+                      <HoverCard.Content
+                        side="top"
+                        align="start"
+                        sideOffset={6}
+                        style={{
+                          maxWidth: "min(320px, 85vw)",
+                          maxHeight: "14rem",
+                          overflowY: "auto",
+                        }}
+                      >
+                        <Flex direction="column" gap="1">
+                          {authorList.map((author) => (
+                            <Text key={author} size="1">
+                              {author}
+                            </Text>
+                          ))}
+                        </Flex>
+                      </HoverCard.Content>
+                    </HoverCard.Root>
+                  </>
+                )}
+                {(formattedCenter || flag) && (
+                  <Text size="2">
+                    {formattedCenter
+                      ? authors
+                        ? `· ${formattedCenter}`
+                        : formattedCenter
+                      : ""}
+                    {flag ? `${formattedCenter ? " " : ""}${flag}` : ""}
+                  </Text>
+                )}
+              </Flex>
+            );
+          })()}
         <Flex gap={"2"} align={"center"} wrap={"wrap"}>
           <Badge
             size={"2"}
@@ -67,7 +145,9 @@ export default function ResultCard({
                     ? undefined
                     : "brown"
             }
-            variant={isArrayExpressAccession || isPrjAccession ? "solid" : undefined}
+            variant={
+              isArrayExpressAccession || isPrjAccession ? "solid" : undefined
+            }
             style={
               isPrjAccession
                 ? { backgroundColor: "#6bb4b5", color: "white" }
@@ -109,17 +189,6 @@ export default function ResultCard({
             </Badge>
           )}
         </Flex>
-        {(authors || center_name) && (() => {
-          const formattedCenter = center_name && center_name !== authors ? titleCaseCenter(center_name) : null;
-          const flag = country_code ? countryFlag(country_code) : "";
-          return (
-            <Text size={"2"} style={{ color: "var(--gray-10)" }} truncate>
-              {authors ? formatFirstLastAuthor(authors) : ""}
-              {formattedCenter ? (authors ? ` · ${formattedCenter}` : formattedCenter) : ""}
-              {flag ? ` ${flag}` : ""}
-            </Text>
-          );
-        })()}
       </Flex>
     </Card>
   );
