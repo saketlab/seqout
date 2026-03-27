@@ -1,23 +1,27 @@
 "use client";
+import EnrichedMetadataCard from "@/components/enriched-metadata-card";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
-import EnrichedMetadataCard from "@/components/enriched-metadata-card";
-import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { formatBytes } from "@/utils/format";
-import { getOrganismBannerStyle, makeOrganismPostSort, makeOrganismRowStyle } from "@/utils/organism-highlight";
+import {
+  getOrganismBannerStyle,
+  makeOrganismPostSort,
+  makeOrganismRowStyle,
+} from "@/utils/organism-highlight";
 import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
@@ -25,6 +29,7 @@ import {
   DownloadIcon,
   EnterIcon,
   ExternalLinkIcon,
+  FileTextIcon,
   HomeIcon,
   InfoCircledIcon,
   PersonIcon,
@@ -32,6 +37,7 @@ import {
 import {
   Badge,
   Button,
+  Dialog,
   Flex,
   Link,
   Select,
@@ -50,7 +56,13 @@ import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 ensureAgGridModules();
 
@@ -213,7 +225,6 @@ const normalizeAuthors = (value: Project["authors"]): string[] => {
     .map((author) => author.trim())
     .filter(Boolean);
 };
-
 
 const toDisplayText = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "-";
@@ -417,6 +428,8 @@ function DownloadFastqSection({
 }) {
   const [copied, setCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
+  const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
+  const [downloadScriptPreview, setDownloadScriptPreview] = useState("");
   const [selectedSource, setSelectedSource] = useState<DownloadSource>("fastq");
   const [selectedCount, setSelectedCount] = useState(0);
   const gridRef = useRef<GridApi<RunRow> | null>(null);
@@ -447,11 +460,6 @@ function DownloadFastqSection({
 
   const onGridReady = useCallback((params: { api: GridApi<RunRow> }) => {
     gridRef.current = params.api;
-  }, []);
-
-  const onSelectionChanged = useCallback(() => {
-    const selected = gridRef.current?.getSelectedRows() ?? [];
-    setSelectedCount(selected.length);
   }, []);
 
   const getDownloadRows = (): RunRow[] => {
@@ -577,7 +585,12 @@ function DownloadFastqSection({
           : [];
         return ftps.map((ftp, i) => {
           const filename = ftp.split("/").pop() || ftp;
-          return { url: `https://${ftp}`, filename, dirpath, md5: md5s[i] || "" };
+          return {
+            url: `https://${ftp}`,
+            filename,
+            dirpath,
+            md5: md5s[i] || "",
+          };
         });
       }
       // Fall through to best cloud URL if no FASTQ available
@@ -662,6 +675,22 @@ function DownloadFastqSection({
 
     lines.push("");
     return lines.join("\n");
+  };
+
+  const updateDownloadScriptPreview = (
+    source: DownloadSource = selectedSource,
+  ) => {
+    if (!scriptDialogOpen) return;
+    setDownloadScriptPreview(buildDownloadScript(getDownloadRows(), source));
+  };
+
+  const onSelectionChanged = () => {
+    const selected = gridRef.current?.getSelectedRows() ?? [];
+    setSelectedCount(selected.length);
+    if (scriptDialogOpen) {
+      const rows = selected.length > 0 ? selected : runsData.runs;
+      setDownloadScriptPreview(buildDownloadScript(rows, selectedSource));
+    }
   };
 
   const apiBase = SERVER_URL.startsWith("http")
@@ -930,18 +959,25 @@ function DownloadFastqSection({
   const downloadLabel =
     selectedCount > 0 ? `Download ${selectedCount} selected` : "Download all";
 
+  const handleCopyScript = () => {
+    if (!downloadScriptPreview) return;
+    copyToClipboard(downloadScriptPreview);
+    setScriptCopied(true);
+    window.setTimeout(() => setScriptCopied(false), 1500);
+  };
+
   return (
     <>
-      <Flex id="fastq" justify="between" align="center">
+      <Flex id="fastq" justify="between" align="center" wrap="wrap" gap="2">
         <Flex align="center" gap="2">
           <Text weight="medium" size="6">
             FASTQ files
           </Text>
           <SectionAnchor id="fastq" />
-          <Badge size={{ initial: "2", md: "3" }} color="gray">
-            {runsData.total_runs.toLocaleString()} runs
-          </Badge>
         </Flex>
+        <Badge size={{ initial: "2", md: "3" }} color="gray">
+          {runsData.total_runs.toLocaleString()} runs
+        </Badge>
       </Flex>
 
       <Flex gap="3" justify={"between"} wrap="wrap">
@@ -966,20 +1002,22 @@ function DownloadFastqSection({
           )}
         </Flex>
 
-        <Flex gap="2">
-          <Button size="1" variant="surface" onClick={downloadTsv}>
+        <Flex gap="2" wrap="wrap">
+          <Button size="2" variant="surface" onClick={downloadTsv}>
             <DownloadIcon /> {downloadLabel} (TSV)
           </Button>
           <Select.Root
-            size="1"
+            size="2"
             value={selectedSource}
-            onValueChange={(v) => setSelectedSource(v as DownloadSource)}
+            onValueChange={(v) => {
+              const nextSource = v as DownloadSource;
+              setSelectedSource(nextSource);
+              updateDownloadScriptPreview(nextSource);
+            }}
           >
             <Select.Trigger variant="surface" />
             <Select.Content>
-              {(
-                Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]
-              )
+              {(Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[])
                 .filter((src) => availableSources.has(src))
                 .map((src) => (
                   <Select.Item key={src} value={src}>
@@ -988,23 +1026,68 @@ function DownloadFastqSection({
                 ))}
             </Select.Content>
           </Select.Root>
-          <Button
-            size="1"
-            variant="surface"
-            onClick={() => {
-              const script = buildDownloadScript(
-                getDownloadRows(),
-                selectedSource,
-              );
-              if (!script) return;
-              copyToClipboard(script);
-              setScriptCopied(true);
-              setTimeout(() => setScriptCopied(false), 1500);
+          <Dialog.Root
+            open={scriptDialogOpen}
+            onOpenChange={(open) => {
+              setScriptDialogOpen(open);
+              if (open) {
+                setDownloadScriptPreview(
+                  buildDownloadScript(getDownloadRows(), selectedSource),
+                );
+                setScriptCopied(false);
+              }
             }}
           >
-            {scriptCopied ? <CheckIcon /> : <CopyIcon />}{" "}
-            {scriptCopied ? "Copied!" : "Copy script"}
-          </Button>
+            <Dialog.Trigger>
+              <Button size="2" variant="surface">
+                <FileTextIcon /> Get download script
+              </Button>
+            </Dialog.Trigger>
+            <Dialog.Content size="3">
+              <Flex justify="between" align="center" gap="3" mb="3">
+                <Dialog.Title mb="0">Copy download script</Dialog.Title>
+                <Button
+                  size="2"
+                  variant="soft"
+                  onClick={handleCopyScript}
+                  disabled={!downloadScriptPreview}
+                >
+                  {scriptCopied ? <CheckIcon /> : <CopyIcon />}
+                  {scriptCopied ? "Copied!" : "Copy"}
+                </Button>
+              </Flex>
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: "100%",
+                  overflow: "hidden",
+                  background: "var(--gray-3)",
+                  border: "1px solid var(--gray-6)",
+                  borderRadius: "8px",
+                }}
+              >
+                <pre
+                  style={{
+                    margin: 0,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "0.875rem",
+                    overflowX: "auto",
+                    overflowY: "auto",
+                    maxHeight: "24rem",
+                    fontSize: "12px",
+                    lineHeight: "1.5",
+                    fontFamily: "var(--default-mono-font-family)",
+                  }}
+                >
+                  <code>
+                    {downloadScriptPreview ||
+                      "# No downloadable files available"}
+                  </code>
+                </pre>
+              </div>
+            </Dialog.Content>
+          </Dialog.Root>
         </Flex>
       </Flex>
 
@@ -1441,15 +1524,33 @@ export default function ProjectPage() {
     : "Visit SRA page";
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
-  const agGridThemeClassName = isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz";
+  const agGridThemeClassName = isDark
+    ? "ag-theme-quartz-dark"
+    : "ag-theme-quartz";
 
-  useScrollSpy(["fastq", "bam", "enriched", "experiments", "publications", "similar"]);
+  useScrollSpy([
+    "fastq",
+    "bam",
+    "enriched",
+    "experiments",
+    "publications",
+    "similar",
+  ]);
   const organismRowStyle = useMemo(
-    () => makeOrganismRowStyle<ExperimentGridRow>(highlightOrganism, isDark, (d) => d.scientificName ?? null),
+    () =>
+      makeOrganismRowStyle<ExperimentGridRow>(
+        highlightOrganism,
+        isDark,
+        (d) => d.scientificName ?? null,
+      ),
     [highlightOrganism, isDark],
   );
   const organismPostSort = useMemo(
-    () => makeOrganismPostSort<ExperimentGridRow>(highlightOrganism, (d) => d.scientificName ?? null),
+    () =>
+      makeOrganismPostSort<ExperimentGridRow>(
+        highlightOrganism,
+        (d) => d.scientificName ?? null,
+      ),
     [highlightOrganism],
   );
 
@@ -1566,7 +1667,10 @@ export default function ProjectPage() {
     const headerHeight = 48;
     const rowHeight = 42;
     const maxHeight = 500;
-    return Math.min(maxHeight, headerHeight + experimentRows.length * rowHeight);
+    return Math.min(
+      maxHeight,
+      headerHeight + experimentRows.length * rowHeight,
+    );
   }, [experimentRows.length]);
 
   const experimentsGridDefaultColDef = React.useMemo<ColDef<ExperimentGridRow>>(
@@ -1817,7 +1921,11 @@ export default function ProjectPage() {
                       ? "gold"
                       : "brown"
                 }
-                variant={isArrayExpressAccession || isPrjAccession ? "solid" : undefined}
+                variant={
+                  isArrayExpressAccession || isPrjAccession
+                    ? "solid"
+                    : undefined
+                }
                 style={
                   isPrjAccession
                     ? {
@@ -2097,15 +2205,28 @@ export default function ProjectPage() {
                 experiments.length > 0 && (
                   <>
                     {highlightOrganism && (
-                      <Flex align="center" gap="2" py="1" px="3" style={getOrganismBannerStyle(isDark)}>
+                      <Flex
+                        align="center"
+                        gap="2"
+                        py="1"
+                        px="3"
+                        style={getOrganismBannerStyle(isDark)}
+                      >
                         <Text size="2" color="gray">
-                          Showing <Text weight="medium" style={{ fontStyle: "italic" }}>{highlightOrganism}</Text> samples first
+                          Showing{" "}
+                          <Text weight="medium" style={{ fontStyle: "italic" }}>
+                            {highlightOrganism}
+                          </Text>{" "}
+                          samples first
                         </Text>
                       </Flex>
                     )}
                     <div
                       className={agGridThemeClassName}
-                      style={{ width: "100%", height: `${experimentsGridHeight}px` }}
+                      style={{
+                        width: "100%",
+                        height: `${experimentsGridHeight}px`,
+                      }}
                     >
                       <AgGridReact<ExperimentGridRow>
                         columnDefs={experimentColumnDefs}

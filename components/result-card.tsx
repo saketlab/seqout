@@ -75,7 +75,11 @@ export default function ResultCard({
                 : null;
             const flag = country_code ? countryFlag(country_code) : "";
             return (
-              <Flex direction="column" gap="1" style={{ color: "var(--gray-10)" }}>
+              <Flex
+                direction="column"
+                gap="1"
+                style={{ color: "var(--gray-10)" }}
+              >
                 {authorList.length > 0 && (
                   <Flex gap="1" align="center" wrap="wrap">
                     {authorList.length === 1 && (
@@ -91,7 +95,7 @@ export default function ResultCard({
                           open={authorsPopoverOpen}
                           onOpenChange={setAuthorsPopoverOpen}
                         >
-                          <Popover.Trigger asChild>
+                          <Popover.Trigger>
                             <button
                               type="button"
                               aria-label={`Show ${additionalAuthorCount} more authors`}
@@ -106,11 +110,7 @@ export default function ResultCard({
                                 cursor: "pointer",
                               }}
                             >
-                              <Badge
-                                size="1"
-                                variant="soft"
-                                color="gray"
-                              >
+                              <Badge size="1" variant="soft" color="gray">
                                 +{additionalAuthorCount}
                               </Badge>
                             </button>
