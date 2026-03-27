@@ -30,6 +30,7 @@ import {
   ExternalLinkIcon,
   HomeIcon,
   InfoCircledIcon,
+  PersonIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -96,6 +97,7 @@ type Project = {
   title: string;
   summary: string;
   overall_design: string;
+  authors?: string[] | string | null;
   organisms?: string[] | string | null;
   coords_2d?: number[] | null;
   coords_3d?: number[] | null;
@@ -283,6 +285,33 @@ const normalizeAliases = (value: Project["alias"]): string[] => {
     .filter((alias) => alias.length > 0)
     .forEach((alias) => deduped.add(alias));
   return Array.from(deduped);
+};
+
+const normalizeAuthors = (value: Project["authors"]): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((author) => author.trim()).filter(Boolean);
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((author): author is string => typeof author === "string")
+        .map((author) => author.trim())
+        .filter(Boolean);
+    }
+  } catch {
+    // Fall through to plain-text parsing.
+  }
+
+  return trimmed
+    .split(",")
+    .map((author) => author.trim())
+    .filter(Boolean);
 };
 
 const normalizeSupplementaryRecord = (
@@ -609,6 +638,10 @@ export default function GeoProjectPage() {
   // });
 
   const publications = project?.publications ?? null;
+  const projectAuthors = React.useMemo(
+    () => normalizeAuthors(project?.authors ?? null),
+    [project?.authors],
+  );
   const projectAliases = React.useMemo(
     () => normalizeAliases(project?.alias ?? null),
     [project?.alias],
@@ -1302,6 +1335,14 @@ export default function GeoProjectPage() {
                   : "N/A"}
               </Text>
             </Flex>
+            {projectAuthors.length > 0 && (
+              <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                <PersonIcon style={{ flexShrink: 0 }} />
+                <Text color="gray" style={{ minWidth: 0 }}>
+                  {projectAuthors.join(", ")}
+                </Text>
+              </Flex>
+            )}
             <ProjectSummary
               text={project.summary}
               charLimit={SUMMARY_CHAR_LIMIT}

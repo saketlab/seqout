@@ -27,6 +27,7 @@ import {
   ExternalLinkIcon,
   HomeIcon,
   InfoCircledIcon,
+  PersonIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -58,6 +59,7 @@ type Project = {
   alias: string | null;
   title: string;
   abstract: string;
+  authors?: string[] | string | null;
   organisms?: string[] | string | null;
   coords_2d?: number[] | null;
   coords_3d?: number[] | null;
@@ -184,6 +186,33 @@ const getBestCloudUrl = (run: RunRow): string =>
   run.ncbi_sra_url ||
   run.ncbi_sra_url_aws ||
   "";
+
+const normalizeAuthors = (value: Project["authors"]): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((author) => author.trim()).filter(Boolean);
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((author): author is string => typeof author === "string")
+        .map((author) => author.trim())
+        .filter(Boolean);
+    }
+  } catch {
+    // Fall through to plain-text parsing.
+  }
+
+  return trimmed
+    .split(",")
+    .map((author) => author.trim())
+    .filter(Boolean);
+};
 
 
 const toDisplayText = (value: unknown): string => {
@@ -1483,6 +1512,10 @@ export default function ProjectPage() {
   );
 
   const publications = project?.publications ?? null;
+  const projectAuthors = React.useMemo(
+    () => normalizeAuthors(project?.authors ?? null),
+    [project?.authors],
+  );
 
   const handleCopyAccession = () => {
     if (!accession) return;
@@ -1951,6 +1984,14 @@ export default function ProjectPage() {
                   : "N/A"}
               </Text>
             </Flex>
+            {projectAuthors.length > 0 && (
+              <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                <PersonIcon style={{ flexShrink: 0 }} />
+                <Text color="gray" style={{ minWidth: 0 }}>
+                  {projectAuthors.join(", ")}
+                </Text>
+              </Flex>
+            )}
             <ProjectSummary
               text={project.abstract}
               charLimit={ABSTRACT_CHAR_LIMIT}
