@@ -2093,8 +2093,8 @@ export default function ProjectPage() {
               </Text>
             </Flex>
             {projectAuthors.length > 0 && (
-              <Flex align="center" gap="2" style={{ minWidth: 0 }}>
-                <PersonIcon style={{ flexShrink: 0 }} />
+              <Flex align="start" gap="2" style={{ minWidth: 0 }}>
+                <PersonIcon style={{ flexShrink: 0, marginTop: "0.125rem" }} />
                 <Text color="gray" style={{ minWidth: 0 }}>
                   {projectAuthors.join(", ")}
                 </Text>
