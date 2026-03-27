@@ -18,6 +18,7 @@ type ResultCardProps = {
   center_name?: string | null;
   country_code?: string | null;
   href?: string;
+  single_cell_modality?: string | null;
 };
 
 function parseAuthors(authors: string | null): string[] {
@@ -40,6 +41,7 @@ export default function ResultCard({
   center_name,
   country_code,
   href,
+  single_cell_modality,
 }: ResultCardProps) {
   const accessionUpper = accession.toUpperCase();
   const isArrayExpressAccession = accessionUpper.startsWith("E-");
@@ -211,6 +213,11 @@ export default function ResultCard({
           {citation_count != null && citation_count > 0 && (
             <Badge size={"2"} color="iris">
               {citation_count.toLocaleString()} citations
+            </Badge>
+          )}
+          {single_cell_modality && (
+            <Badge size={"2"} color="cyan">
+              {single_cell_modality}
             </Badge>
           )}
           {journal && (

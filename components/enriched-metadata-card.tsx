@@ -18,6 +18,7 @@ interface EnrichedResponse {
   accession: string;
   title: string;
   n_samples: number;
+  single_cell_modality: string | null;
   version: "v3" | "v1";
   samples: OntologySample[];
 }
@@ -117,6 +118,8 @@ const ALL_FIELDS: FieldDef[] = [
   { field: "tissue_primary_site", header: "Primary Site", v3Only: true },
   { field: "tissue_site_type", header: "Site Type", v3Only: true },
   { field: "taxid", header: "Taxon ID", v3Only: true },
+  { field: "cell_count", header: "Cell Count", minWidth: 120 },
+  { field: "gene_count", header: "Gene Count", minWidth: 120 },
 ];
 
 const V3_FIELDS = ALL_FIELDS;
@@ -177,6 +180,26 @@ export default function EnrichedMetadataCard({
 
   const columnDefs: ColDef<OntologySample>[] = visibleFields.map((f) => {
     const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
+
+    // Cell count: show "~N" when cell_count_estimated is true
+    if (f.field === "cell_count") {
+      return {
+        field: f.field,
+        headerName: f.header,
+        minWidth: f.minWidth ?? 100,
+        flex: 1,
+        filter: true,
+        sortable: true,
+        resizable: true,
+        valueGetter: (params: { data?: OntologySample }) => {
+          if (!params.data) return null;
+          const count = params.data["cell_count"];
+          if (count == null) return null;
+          return params.data["cell_count_estimated"] ? `~${count.toLocaleString()}` : count.toLocaleString();
+        },
+      };
+    }
+
     return {
       field: f.field,
       headerName: f.header,
@@ -245,6 +268,13 @@ export default function EnrichedMetadataCard({
               </Badge>
             </Tooltip>
           )}
+          {data.single_cell_modality && (
+            <Tooltip content={`Single-cell modality: ${data.single_cell_modality}`}>
+              <Badge color="cyan" size="1" variant="soft">
+                {data.single_cell_modality}
+              </Badge>
+            </Tooltip>
+          )}
           <SectionAnchor id="enriched" />
         </Flex>
         <Button onClick={handleExportCsv}>
@@ -263,6 +293,11 @@ export default function EnrichedMetadataCard({
           theme="legacy"
         />
       </div>
+      {data.samples.some((s) => s["cell_count_estimated"]) && (
+        <Text size="1" color="gray">
+          ~ Cell counts marked with ~ are series-level estimates distributed across samples.
+        </Text>
+      )}
     </>
   );
 }

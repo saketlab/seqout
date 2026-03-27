@@ -19,6 +19,8 @@ export type SearchResult = {
   country_code: string | null;
   publications: unknown[] | null;
   sort_val?: string | number | null;
+  is_single_cell?: boolean | null;
+  single_cell_modality?: string | null;
 };
 
 export type SearchResults = SearchResult[];
