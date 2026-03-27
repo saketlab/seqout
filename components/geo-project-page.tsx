@@ -51,7 +51,7 @@ import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 ensureAgGridModules();
 
@@ -595,6 +595,11 @@ export default function GeoProjectPage() {
     queryFn: () => fetchProject(accession ?? null),
     enabled: !!accession,
   });
+
+  useEffect(() => {
+    if (!project || isLoading || isError) return;
+    window.dispatchEvent(new Event("seqout:project-ready"));
+  }, [project, isLoading, isError]);
 
   // const { data: similarProjects, isLoading: isSimilarLoading } = useQuery({
   //   queryKey: ["similarProjects", project?.overall_design],

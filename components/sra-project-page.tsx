@@ -49,7 +49,7 @@ import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 ensureAgGridModules();
 
@@ -1433,6 +1433,11 @@ export default function ProjectPage() {
     queryFn: () => fetchProject(accession ?? null),
     enabled: !!accession,
   });
+
+  useEffect(() => {
+    if (!project || isLoading || isError) return;
+    window.dispatchEvent(new Event("seqout:project-ready"));
+  }, [project, isLoading, isError]);
 
   const {
     data: experiments,
