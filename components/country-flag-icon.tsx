@@ -1,9 +1,9 @@
 "use client";
 
 import * as FlagIcons from "country-flag-icons/react/3x2";
-import type { SVGProps } from "react";
+import type { ReactElement, SVGProps } from "react";
 
-type FlagComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+type FlagComponent = (props: SVGProps<SVGSVGElement>) => ReactElement;
 
 const flags = FlagIcons as Record<string, FlagComponent>;
 
@@ -24,7 +24,7 @@ export default function CountryFlagIcon({
 
   return (
     <Flag
-      title={label ?? normalizedCode}
+      role="img"
       aria-label={label ?? normalizedCode}
       style={{
         width: "1rem",
