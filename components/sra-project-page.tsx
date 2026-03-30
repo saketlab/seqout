@@ -1052,7 +1052,7 @@ function DownloadFastqSection({
               }
             }}
           >
-            <Dialog.Trigger asChild>
+            <Dialog.Trigger>
               <Button size="2" variant="surface">
                 <FileTextIcon /> Get download script
               </Button>
