@@ -18,6 +18,7 @@ interface EnrichedResponse {
   accession: string;
   title: string;
   n_samples: number;
+  single_cell_modality: string | null;
   version: "v3" | "v1";
   samples: OntologySample[];
 }
@@ -50,26 +51,29 @@ function OntologyCellRenderer(
 
     if (!ontoId || !ontoName) return <>{raw ?? ""}</>;
 
+    const prefix = ontoId.split(":")[0];
     const url = ontologyUrl(ontoId);
     return (
       <Flex align="center" gap="1" style={{ overflow: "hidden" }}>
         <Text truncate size="2">{ontoName}</Text>
-        {url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Badge color="iris" size="1" style={{ cursor: "pointer", flexShrink: 0 }}>
-              {ontoId}
+        <Tooltip content={ontoId}>
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Badge color="iris" size="1" style={{ cursor: "pointer", flexShrink: 0 }}>
+                {prefix}
+              </Badge>
+            </a>
+          ) : (
+            <Badge color="gray" size="1" style={{ flexShrink: 0 }}>
+              {prefix}
             </Badge>
-          </a>
-        ) : (
-          <Badge color="gray" size="1" style={{ flexShrink: 0 }}>
-            {ontoId}
-          </Badge>
-        )}
+          )}
+        </Tooltip>
       </Flex>
     );
   };
@@ -88,6 +92,8 @@ const ONTOLOGY_RENDERERS = Object.fromEntries(
     field, OntologyCellRenderer(onto.id, onto.name),
   ]),
 );
+
+const numericComparator = (a: number | null, b: number | null) => (a ?? 0) - (b ?? 0);
 
 type FieldDef = {
   field: string;
@@ -117,6 +123,8 @@ const ALL_FIELDS: FieldDef[] = [
   { field: "tissue_primary_site", header: "Primary Site", v3Only: true },
   { field: "tissue_site_type", header: "Site Type", v3Only: true },
   { field: "taxid", header: "Taxon ID", v3Only: true },
+  { field: "cell_count", header: "Cell Count", minWidth: 120 },
+  { field: "gene_count", header: "Gene Count", minWidth: 120 },
 ];
 
 const V3_FIELDS = ALL_FIELDS;
@@ -177,14 +185,35 @@ export default function EnrichedMetadataCard({
 
   const columnDefs: ColDef<OntologySample>[] = visibleFields.map((f) => {
     const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
+    const base = { field: f.field, headerName: f.header, minWidth: f.minWidth ?? 100, flex: 1 };
+
+    // Show "~N" when cell_count_estimated is true
+    if (f.field === "cell_count") {
+      return {
+        ...base,
+        comparator: numericComparator,
+        valueFormatter: (params: { data?: OntologySample }) => {
+          if (!params.data) return "";
+          const count = params.data["cell_count"];
+          if (count == null) return "";
+          return params.data["cell_count_estimated"] ? `~${count.toLocaleString()}` : count.toLocaleString();
+        },
+      };
+    }
+
+    if (f.field === "gene_count") {
+      return {
+        ...base,
+        comparator: numericComparator,
+        valueFormatter: (params: { value?: number | null }) => {
+          if (params.value == null) return "";
+          return params.value.toLocaleString();
+        },
+      };
+    }
+
     return {
-      field: f.field,
-      headerName: f.header,
-      minWidth: f.minWidth ?? 100,
-      flex: 1,
-      filter: true,
-      sortable: true,
-      resizable: true,
+      ...base,
       ...(onto
         ? {
             cellRenderer: ONTOLOGY_RENDERERS[f.field],
@@ -245,6 +274,13 @@ export default function EnrichedMetadataCard({
               </Badge>
             </Tooltip>
           )}
+          {data.single_cell_modality && (
+            <Tooltip content={`Single-cell modality: ${data.single_cell_modality}`}>
+              <Badge color="cyan" size="1" variant="soft">
+                {data.single_cell_modality}
+              </Badge>
+            </Tooltip>
+          )}
           <SectionAnchor id="enriched" />
         </Flex>
         <Button onClick={handleExportCsv}>
@@ -257,12 +293,17 @@ export default function EnrichedMetadataCard({
       >
         <AgGridReact<OntologySample>
           columnDefs={columnDefs}
-          defaultColDef={{ resizable: true }}
+          defaultColDef={{ filter: true, sortable: true, resizable: true }}
           getRowId={(params) => params.data.sample}
           rowData={data.samples}
           theme="legacy"
         />
       </div>
+      {data.samples.some((s) => s["cell_count_estimated"]) && (
+        <Text size="1" color="gray">
+          ~ Cell counts marked with ~ are series-level estimates distributed across samples.
+        </Text>
+      )}
     </>
   );
 }
