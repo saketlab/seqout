@@ -959,10 +959,24 @@ function DownloadFastqSection({
   const downloadLabel =
     selectedCount > 0 ? `Download ${selectedCount} selected` : "Download all";
 
-  const handleCopyScript = () => {
+  const handleCopyScript = async () => {
     if (!downloadScriptPreview) return;
-    copyToClipboard(downloadScriptPreview);
-    setScriptCopied(true);
+
+    let didCopy = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(downloadScriptPreview);
+        didCopy = true;
+      } catch {
+        didCopy = false;
+      }
+    }
+
+    if (!didCopy) {
+      didCopy = copyToClipboard(downloadScriptPreview);
+    }
+
+    setScriptCopied(didCopy);
     window.setTimeout(() => setScriptCopied(false), 1500);
   };
 
@@ -1038,7 +1052,7 @@ function DownloadFastqSection({
               }
             }}
           >
-            <Dialog.Trigger>
+            <Dialog.Trigger asChild>
               <Button size="2" variant="surface">
                 <FileTextIcon /> Get download script
               </Button>
@@ -1049,7 +1063,9 @@ function DownloadFastqSection({
                 <Button
                   size="2"
                   variant="soft"
-                  onClick={handleCopyScript}
+                  onClick={() => {
+                    void handleCopyScript();
+                  }}
                   disabled={!downloadScriptPreview}
                 >
                   {scriptCopied ? <CheckIcon /> : <CopyIcon />}
