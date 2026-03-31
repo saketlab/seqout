@@ -31,6 +31,7 @@ type TimeFilter = "any" | "1" | "5" | "10" | "20" | "custom";
 type SearchFiltersProps = {
   db: string | null;
   query: string | null;
+  sortBy: SortBy;
   setSortBy: (value: SortBy) => void;
   setTimeFilter: (value: TimeFilter) => void;
   timeFilter: TimeFilter;
@@ -42,6 +43,7 @@ type SearchFiltersProps = {
 export function SearchFilters({
   db,
   query,
+  sortBy,
   setSortBy,
   setTimeFilter,
   timeFilter,
@@ -58,7 +60,7 @@ export function SearchFilters({
         display={{ initial: "flex", md: "none" }}
       >
         <Select.Root
-          defaultValue="relevance"
+          value={sortBy}
           name="sort"
           onValueChange={(value) => setSortBy(value as SortBy)}
           size={"1"}
@@ -75,10 +77,10 @@ export function SearchFilters({
         </Select.Root>
 
         <Select.Root
-          defaultValue="any"
+          value={timeFilter}
           name="time"
           onValueChange={(value) =>
-            setTimeFilter(value as "any" | "1" | "5" | "10" | "20")
+            setTimeFilter(value as TimeFilter)
           }
           size={"1"}
         >
@@ -90,12 +92,13 @@ export function SearchFilters({
               <Select.Item value="5">5 yrs</Select.Item>
               <Select.Item value="10">10 yrs</Select.Item>
               <Select.Item value="20">20 yrs</Select.Item>
+              <Select.Item value="custom">Custom range</Select.Item>
             </Select.Group>
           </Select.Content>
         </Select.Root>
 
         <Select.Root
-          defaultValue={db ? db : "both"}
+          value={db ? db : "both"}
           onValueChange={(value) => {
             if (!query) return;
             onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "both");
@@ -112,6 +115,38 @@ export function SearchFilters({
             </Select.Group>
           </Select.Content>
         </Select.Root>
+
+        {timeFilter === "custom" && (
+          <Flex gap="2" align="center">
+            <TextField.Root
+              type="number"
+              min="2000"
+              max={new Date().getFullYear()}
+              value={customYearRange.from}
+              onChange={(e) =>
+                setCustomYearRange({ ...customYearRange, from: e.target.value })
+              }
+              placeholder="YYYY"
+              variant="surface"
+              size={"1"}
+              style={{ width: "4.25rem" }}
+            />
+            <Text size="1">to</Text>
+            <TextField.Root
+              type="number"
+              min="2000"
+              max={new Date().getFullYear()}
+              value={customYearRange.to}
+              onChange={(e) =>
+                setCustomYearRange({ ...customYearRange, to: e.target.value })
+              }
+              placeholder="YYYY"
+              variant="surface"
+              size={"1"}
+              style={{ width: "4.25rem" }}
+            />
+          </Flex>
+        )}
       </Flex>
 
       <Flex
@@ -123,7 +158,7 @@ export function SearchFilters({
         height={"fit-content"}
       >
         <RadioGroup.Root
-          defaultValue={db ? db : "both"}
+          value={db ? db : "both"}
           name="dataset"
           onValueChange={(value) => {
             if (!query) return;
@@ -141,7 +176,7 @@ export function SearchFilters({
         <Separator orientation={"horizontal"} size={"4"} />
 
         <RadioGroup.Root
-          defaultValue="relevance"
+          value={sortBy}
           name="sort"
           onValueChange={(value) => setSortBy(value as SortBy)}
         >
@@ -154,10 +189,10 @@ export function SearchFilters({
         <Separator orientation={"horizontal"} size={"4"} />
 
         <RadioGroup.Root
-          defaultValue="any"
+          value={timeFilter}
           name="time"
           onValueChange={(value) =>
-            setTimeFilter(value as "any" | "1" | "5" | "10" | "20" | "custom")
+            setTimeFilter(value as TimeFilter)
           }
         >
           <RadioGroup.Item value="any">Any time</RadioGroup.Item>

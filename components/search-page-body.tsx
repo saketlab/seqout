@@ -24,7 +24,7 @@ import {
 } from "@radix-ui/themes";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type SortBy = "relevance" | "date" | "citations" | "journal";
@@ -40,6 +40,8 @@ type SearchResponse = {
   next_cursor: Cursor;
 };
 
+type TimeFilter = "any" | "1" | "5" | "10" | "20" | "custom";
+
 const SORT_CONFIG: Record<
   Exclude<SortBy, "relevance">,
   { param: string; order: string }
@@ -51,6 +53,38 @@ const SORT_CONFIG: Record<
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+
+const FILTER_PARAM_KEYS = {
+  sortBy: "sort",
+  time: "time",
+  yearFrom: "year_from",
+  yearTo: "year_to",
+  organism: "filter_organism",
+  journal: "filter_journal",
+  country: "filter_country",
+  libraryStrategy: "filter_library_strategy",
+  instrumentModel: "filter_instrument_model",
+} as const;
+
+function parseSortBy(value: string | null): SortBy {
+  return value === "relevance" ||
+    value === "date" ||
+    value === "citations" ||
+    value === "journal"
+    ? value
+    : "relevance";
+}
+
+function parseTimeFilter(
+  value: string | null,
+  yearFrom: string | null,
+  yearTo: string | null,
+): TimeFilter {
+  if (value === "custom" || yearFrom || yearTo) return "custom";
+  return value === "1" || value === "5" || value === "10" || value === "20"
+    ? value
+    : "any";
+}
 
 function buildSearchUrl(
   query: string,
@@ -339,6 +373,7 @@ function applyInstrumentModelFilter(
 export default function SearchPageBody() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const query = searchParams.get("q");
   const db = searchParams.get("db");
   const geoLat = searchParams.get("geo_lat");
@@ -354,51 +389,69 @@ export default function SearchPageBody() {
     if (query) setLastSearchQuery(query);
   }, [query, setLastSearchQuery]);
 
+  const updateSearchUrl = useCallback(
+    (updates: Record<string, string | null | undefined>) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      for (const [key, value] of Object.entries(updates)) {
+        if (value == null || value === "") {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+
+      const nextQuery = params.toString();
+      const currentQuery = searchParams.toString();
+      if (nextQuery === currentQuery) return;
+
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParams],
+  );
+
   // --- Sort & time ---
-  const [sortBy, setSortBy] = useState<SortBy>("relevance");
-  const [timeFilter, setTimeFilter] = useState<
-    "any" | "1" | "5" | "10" | "20" | "custom"
-  >("any");
-  const [customYearRange, setCustomYearRange] = useState<{
-    from: string;
-    to: string;
-  }>({ from: "", to: "" });
+  const sortBy = parseSortBy(searchParams.get(FILTER_PARAM_KEYS.sortBy));
+  const timeFilter = parseTimeFilter(
+    searchParams.get(FILTER_PARAM_KEYS.time),
+    searchParams.get(FILTER_PARAM_KEYS.yearFrom),
+    searchParams.get(FILTER_PARAM_KEYS.yearTo),
+  );
+  const customYearRange = useMemo(
+    () => ({
+      from: searchParams.get(FILTER_PARAM_KEYS.yearFrom) ?? "",
+      to: searchParams.get(FILTER_PARAM_KEYS.yearTo) ?? "",
+    }),
+    [searchParams],
+  );
 
   // --- Organism ---
   const [organismNameMode, setOrganismNameMode] =
     useState<OrganismNameMode>("common");
-  const [selectedOrganismKey, setSelectedOrganismKey] = useState<string | null>(
-    null,
-  );
+  const selectedOrganismKey = searchParams.get(FILTER_PARAM_KEYS.organism);
 
   // --- Sidebar filters (single-select, client-side only) ---
-  const [selectedJournal, setSelectedJournal] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [selectedLibraryStrategy, setSelectedLibraryStrategy] = useState<
-    string | null
-  >(null);
-  const [selectedInstrumentModel, setSelectedInstrumentModel] = useState<
-    string | null
-  >(null);
+  const selectedJournal = searchParams.get(FILTER_PARAM_KEYS.journal);
+  const selectedCountry = searchParams.get(FILTER_PARAM_KEYS.country);
+  const selectedLibraryStrategy = searchParams.get(
+    FILTER_PARAM_KEYS.libraryStrategy,
+  );
+  const selectedInstrumentModel = searchParams.get(
+    FILTER_PARAM_KEYS.instrumentModel,
+  );
 
   // --- Pagination ---
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState<PageSize>(20);
 
-  // Reset filters on new query/db
-  useEffect(() => {
-    setSelectedJournal(null);
-    setSelectedCountry(null);
-    setSelectedLibraryStrategy(null);
-    setSelectedInstrumentModel(null);
-    setSelectedOrganismKey(null);
-    setCurrentPage(1);
-  }, [query, db]);
-
   // Reset page on filter / sort / perPage change
   useEffect(() => {
     setCurrentPage(1);
   }, [
+    query,
+    db,
     sortBy,
     timeFilter,
     customYearRange,
@@ -516,6 +569,11 @@ export default function SearchPageBody() {
     selectedInstrumentModel,
   ]);
 
+  const moreFilterResults = useMemo(
+    () => applyOrganismFilter(sidebarResults, selectedOrganismKey),
+    [sidebarResults, selectedOrganismKey],
+  );
+
   // --- Pagination computation ---
   const filteredTotal = filteredResults.length;
   const totalPages = Math.max(1, Math.ceil(filteredTotal / perPage));
@@ -553,17 +611,27 @@ export default function SearchPageBody() {
 
   // Toggle adapters: convert string[] setter calls to single-select
   const handleSetJournalFilters = useCallback((arr: string[]) => {
-    setSelectedJournal(arr.length > 0 ? arr[arr.length - 1] : null);
-  }, []);
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.journal]: arr.length > 0 ? arr[arr.length - 1] : null,
+    });
+  }, [updateSearchUrl]);
   const handleSetCountryFilters = useCallback((arr: string[]) => {
-    setSelectedCountry(arr.length > 0 ? arr[arr.length - 1] : null);
-  }, []);
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.country]: arr.length > 0 ? arr[arr.length - 1] : null,
+    });
+  }, [updateSearchUrl]);
   const handleSetLibraryStrategyFilters = useCallback((arr: string[]) => {
-    setSelectedLibraryStrategy(arr.length > 0 ? arr[arr.length - 1] : null);
-  }, []);
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.libraryStrategy]:
+        arr.length > 0 ? arr[arr.length - 1] : null,
+    });
+  }, [updateSearchUrl]);
   const handleSetInstrumentModelFilters = useCallback((arr: string[]) => {
-    setSelectedInstrumentModel(arr.length > 0 ? arr[arr.length - 1] : null);
-  }, []);
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.instrumentModel]:
+        arr.length > 0 ? arr[arr.length - 1] : null,
+    });
+  }, [updateSearchUrl]);
 
   // --- UI state ---
   const [showTopButton, setShowTopButton] = useState(false);
@@ -644,25 +712,32 @@ export default function SearchPageBody() {
   ) => {
     if (!query) return;
 
-    let url = `/search?q=${encodeURIComponent(query)}`;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("q", query);
     if (value === "sra" || value === "geo" || value === "arrayexpress") {
-      url += `&db=${encodeURIComponent(value)}`;
+      params.set("db", value);
+    } else {
+      params.delete("db");
     }
 
-    router.push(url);
+    const nextQuery = params.toString();
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   };
 
   // --- Sidebar rail props (use stable sidebarResults for counts) ---
   const railProps = {
     results: sidebarResults,
-    journalResults: sidebarResults,
-    countryResults: sidebarResults,
-    libraryStrategyResults: sidebarResults,
-    instrumentModelResults: sidebarResults,
+    journalResults: moreFilterResults,
+    countryResults: moreFilterResults,
+    libraryStrategyResults: moreFilterResults,
+    instrumentModelResults: moreFilterResults,
     organismNameMode,
     setOrganismNameMode,
     selectedOrganismKey,
-    setSelectedOrganismFilter: setSelectedOrganismKey,
+    setSelectedOrganismFilter: (value: string | null) =>
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.organism]: value,
+      }),
     selectedJournalFilters: journalFiltersArray,
     setSelectedJournalFilters: handleSetJournalFilters,
     selectedCountryFilters: countryFiltersArray,
@@ -697,11 +772,31 @@ export default function SearchPageBody() {
         <SearchFilters
           db={db}
           query={query}
-          setSortBy={setSortBy}
-          setTimeFilter={setTimeFilter}
+          sortBy={sortBy}
+          setSortBy={(value) =>
+            updateSearchUrl({
+              [FILTER_PARAM_KEYS.sortBy]:
+                value === "relevance" ? null : value,
+            })
+          }
+          setTimeFilter={(value) =>
+            updateSearchUrl({
+              [FILTER_PARAM_KEYS.time]: value === "any" ? null : value,
+              [FILTER_PARAM_KEYS.yearFrom]:
+                value === "custom" ? customYearRange.from : null,
+              [FILTER_PARAM_KEYS.yearTo]:
+                value === "custom" ? customYearRange.to : null,
+            })
+          }
           timeFilter={timeFilter}
           customYearRange={customYearRange}
-          setCustomYearRange={setCustomYearRange}
+          setCustomYearRange={(value) =>
+            updateSearchUrl({
+              [FILTER_PARAM_KEYS.time]: "custom",
+              [FILTER_PARAM_KEYS.yearFrom]: value.from,
+              [FILTER_PARAM_KEYS.yearTo]: value.to,
+            })
+          }
           onDatabaseChange={handleDatabaseChange}
         />
         {shouldShowOrganismRail ? (
