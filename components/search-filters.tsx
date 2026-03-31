@@ -79,9 +79,7 @@ export function SearchFilters({
         <Select.Root
           value={timeFilter}
           name="time"
-          onValueChange={(value) =>
-            setTimeFilter(value as TimeFilter)
-          }
+          onValueChange={(value) => setTimeFilter(value as TimeFilter)}
           size={"1"}
         >
           <Select.Trigger />
@@ -152,6 +150,7 @@ export function SearchFilters({
       <Flex
         direction={"column"}
         gap={"4"}
+        pt={"4"}
         display={{ initial: "none", md: "flex" }}
         position={"sticky"}
         style={{ top: "9rem" }}
@@ -191,9 +190,7 @@ export function SearchFilters({
         <RadioGroup.Root
           value={timeFilter}
           name="time"
-          onValueChange={(value) =>
-            setTimeFilter(value as TimeFilter)
-          }
+          onValueChange={(value) => setTimeFilter(value as TimeFilter)}
         >
           <RadioGroup.Item value="any">Any time</RadioGroup.Item>
           <RadioGroup.Item value="1">Since last year</RadioGroup.Item>
