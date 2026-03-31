@@ -9,6 +9,7 @@ const PROJECT_READY_EVENT = "seqout:project-ready";
 export default function FooterGate() {
   const pathname = usePathname();
   const isProjectPage = pathname.startsWith("/p/");
+  const isSearchResultsPage = pathname === "/search";
   const [readyPathname, setReadyPathname] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,7 +23,8 @@ export default function FooterGate() {
     };
   }, [isProjectPage, pathname]);
 
-  const isVisible = !isProjectPage || readyPathname === pathname;
+  const isVisible =
+    !isSearchResultsPage && (!isProjectPage || readyPathname === pathname);
 
   if (!isVisible) return null;
 
