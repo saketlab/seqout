@@ -142,10 +142,10 @@ export default function RootLayout({
           }}
         />
         <style dangerouslySetInnerHTML={{ __html: `
-          .logo-light { display: block; }
-          .logo-dark { display: none; }
-          .dark .logo-light { display: none; }
-          .dark .logo-dark { display: block; }
+          .logo-light { display: none; }
+          .logo-dark { display: block; }
+          .light .logo-light { display: block; }
+          .light .logo-dark { display: none; }
         `}} />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}

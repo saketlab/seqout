@@ -22,7 +22,6 @@ import {
   Link,
   TextField,
 } from "@radix-ui/themes";
-import { useTheme } from "next-themes";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -59,7 +58,6 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
   const [suggestionFilterQuery, setSuggestionFilterQuery] =
     useState(resolvedQuery);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     setSearchQuery(resolvedQuery);
@@ -192,11 +190,17 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
             }}
           >
             <Image
-              src={
-                resolvedTheme === "light"
-                  ? "/short-logo-light.png"
-                  : "/short-logo-dark.png"
-              }
+              className="logo-light"
+              src="/short-logo-light.png"
+              alt="seqout"
+              fill
+              loading="eager"
+              sizes="10rem"
+              style={{ objectFit: "contain" }}
+            />
+            <Image
+              className="logo-dark"
+              src="/short-logo-dark.png"
               alt="seqout"
               fill
               loading="eager"

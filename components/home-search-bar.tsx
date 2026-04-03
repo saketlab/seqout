@@ -1,13 +1,10 @@
 "use client";
 
 import { Box, Flex } from "@radix-ui/themes";
-import { useTheme } from "next-themes";
 import Image from "next/image";
 import HeroSearchBar from "./hero-search-bar";
 
 export default function HomeSearchBar() {
-  const { resolvedTheme } = useTheme();
-
   return (
     <Flex
       justify="center"
@@ -22,9 +19,19 @@ export default function HomeSearchBar() {
         style={{ position: "relative", aspectRatio: "619/103" }}
       >
         <Image
-          src={resolvedTheme === "light" ? "/logo-light.png" : "/logo-dark.png"}
+          className="logo-light"
+          src="/logo-light.png"
           alt="seqout"
           fill
+          sizes="(max-width: 768px) 26rem, (max-width: 1024px) 20rem, 28rem"
+          style={{ objectFit: "contain" }}
+        />
+        <Image
+          className="logo-dark"
+          src="/logo-dark.png"
+          alt="seqout"
+          fill
+          sizes="(max-width: 768px) 26rem, (max-width: 1024px) 20rem, 28rem"
           style={{ objectFit: "contain" }}
         />
       </Box>
