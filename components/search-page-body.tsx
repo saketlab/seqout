@@ -33,14 +33,69 @@ type RelevanceCursor = { rank: number; accession: string };
 type SortedCursor = { sort_value: string | number; accession: string };
 type Cursor = RelevanceCursor | SortedCursor | null;
 
+type SpellingCorrection = {
+  original: string;
+  suggested: string;
+  distance: number | null;
+};
+
+type SpellingSuggestion = {
+  corrected_query: string;
+  corrections: SpellingCorrection[];
+};
+
 type SearchResponse = {
   results: SearchResult[];
   total: number;
   took_ms: number;
   next_cursor: Cursor;
+  suggestions?: SpellingSuggestion[];
 };
 
 type TimeFilter = "any" | "1" | "5" | "10" | "20" | "custom";
+
+function DidYouMean({
+  suggestion,
+  searchParams,
+  onNavigate,
+}: {
+  suggestion: SpellingSuggestion;
+  searchParams: ReturnType<typeof import("next/navigation").useSearchParams>;
+  onNavigate: (url: string) => void;
+}) {
+  const corrected = suggestion.corrected_query;
+  const href = (() => {
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("q", corrected);
+    p.delete("cursor_rank");
+    p.delete("cursor_acc");
+    return `/search?${p.toString()}`;
+  })();
+
+  return (
+    <Text color="gray" size={"2"}>
+      Did you mean:{" "}
+      <Text
+        asChild
+        size={"2"}
+        weight={"bold"}
+        color="indigo"
+        style={{ cursor: "pointer", textDecoration: "underline" }}
+      >
+        <a
+          href={href}
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate(href);
+          }}
+        >
+          {corrected}
+        </a>
+      </Text>
+      ?
+    </Text>
+  );
+}
 
 const SORT_CONFIG: Record<
   Exclude<SortBy, "relevance">,
@@ -486,6 +541,7 @@ export default function SearchPageBody() {
 
   const total = data?.pages?.[0]?.total ?? 0;
   const tookMs = data?.pages?.[0]?.took_ms ?? 0;
+  const suggestions = data?.pages?.[0]?.suggestions;
 
   // Flatten & deduplicate all loaded results
   const allResults = useMemo(() => {
@@ -859,6 +915,14 @@ export default function SearchPageBody() {
                 </Text>
               </Flex>
 
+              {suggestions?.length ? (
+                <DidYouMean
+                  suggestion={suggestions[0]}
+                  searchParams={searchParams}
+                  onNavigate={(url) => router.push(url)}
+                />
+              ) : null}
+
               {pageResults.length === 0 ? (
                 <Flex
                   align="center"
@@ -933,11 +997,21 @@ export default function SearchPageBody() {
                 height={"100"}
               />
               <Text color="gray" size={"6"} weight={"bold"}>
-                No results found
+                {suggestions?.length
+                  ? `No results for "${query}"`
+                  : "No results found"}
               </Text>
-              <Text color="gray" size={"2"}>
-                Try refining your search text
-              </Text>
+              {suggestions?.length ? (
+                <DidYouMean
+                  suggestion={suggestions[0]}
+                  searchParams={searchParams}
+                  onNavigate={(url) => router.push(url)}
+                />
+              ) : (
+                <Text color="gray" size={"2"}>
+                  Try refining your search text
+                </Text>
+              )}
             </Flex>
           )}
         </Flex>
