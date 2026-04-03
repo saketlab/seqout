@@ -1,4 +1,5 @@
-import { Flex, Link, Separator } from "@radix-ui/themes";
+import { LAST_INDEX_REFRESH } from "@/utils/constants";
+import { Flex, Link, Separator, Text } from "@radix-ui/themes";
 
 export default function Footer() {
   return (
@@ -8,6 +9,9 @@ export default function Footer() {
         <Link href="https://saketlab.org" target="_blank" rel="noreferrer noopener" size="2" color="gray">
           Saket Lab
         </Link>
+        <Text size="1" style={{ color: "var(--gray-9)" }}>
+          Last index refresh: {LAST_INDEX_REFRESH}
+        </Text>
       </Flex>
     </footer>
   );

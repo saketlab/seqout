@@ -1,5 +1,8 @@
 export const SITE_URL = "https://seqout.org";
 
+/** Date of the last full metadata index refresh. Update this when re-indexing. */
+export const LAST_INDEX_REFRESH = "January 17, 2026";
+
 let SERVER_URL = "/api";
 if (process.env.NEXT_PUBLIC_SERVER_URL) {
   SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
