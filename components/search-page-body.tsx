@@ -431,6 +431,48 @@ function applyInstrumentModelFilter(
   );
 }
 
+function getAvailableJournals(results: SearchResult[]): Set<string> {
+  const journals = new Set<string>();
+  for (const result of results) {
+    const journal = result.journal?.trim();
+    if (journal) journals.add(journal);
+  }
+  return journals;
+}
+
+function getAvailableCountries(results: SearchResult[]): Set<string> {
+  const countries = new Set<string>();
+  for (const result of results) {
+    for (const country of result.countries ?? []) {
+      const normalizedCountry = country.trim().toUpperCase();
+      if (normalizedCountry) countries.add(normalizedCountry);
+    }
+  }
+  return countries;
+}
+
+function getAvailableLibraryStrategies(results: SearchResult[]): Set<string> {
+  const strategies = new Set<string>();
+  for (const result of results) {
+    for (const strategy of result.library_strategies ?? []) {
+      const normalizedStrategy = strategy.trim();
+      if (normalizedStrategy) strategies.add(normalizedStrategy);
+    }
+  }
+  return strategies;
+}
+
+function getAvailableInstrumentModels(results: SearchResult[]): Set<string> {
+  const models = new Set<string>();
+  for (const result of results) {
+    for (const model of result.instrument_models ?? []) {
+      const normalizedModel = model.trim();
+      if (normalizedModel) models.add(normalizedModel);
+    }
+  }
+  return models;
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -719,6 +761,62 @@ export default function SearchPageBody() {
     selectedJournalFilters,
     selectedCountryFilters,
     selectedLibraryStrategyFilters,
+  ]);
+
+  useEffect(() => {
+    const nextJournalFilters = selectedJournalFilters.filter((journal) =>
+      getAvailableJournals(journalFilterResults).has(journal),
+    );
+    const nextCountryFilters = selectedCountryFilters.filter((country) =>
+      getAvailableCountries(countryFilterResults).has(country.toUpperCase()),
+    );
+    const nextLibraryStrategyFilters = selectedLibraryStrategyFilters.filter(
+      (strategy) =>
+        getAvailableLibraryStrategies(libraryStrategyFilterResults).has(
+          strategy,
+        ),
+    );
+    const nextInstrumentModelFilters = selectedInstrumentModelFilters.filter(
+      (model) =>
+        getAvailableInstrumentModels(instrumentModelFilterResults).has(model),
+    );
+
+    const journalsChanged =
+      nextJournalFilters.length !== selectedJournalFilters.length;
+    const countriesChanged =
+      nextCountryFilters.length !== selectedCountryFilters.length;
+    const libraryStrategiesChanged =
+      nextLibraryStrategyFilters.length !==
+      selectedLibraryStrategyFilters.length;
+    const instrumentModelsChanged =
+      nextInstrumentModelFilters.length !==
+      selectedInstrumentModelFilters.length;
+
+    if (
+      !journalsChanged &&
+      !countriesChanged &&
+      !libraryStrategiesChanged &&
+      !instrumentModelsChanged
+    ) {
+      return;
+    }
+
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.journal]: nextJournalFilters,
+      [FILTER_PARAM_KEYS.country]: nextCountryFilters,
+      [FILTER_PARAM_KEYS.libraryStrategy]: nextLibraryStrategyFilters,
+      [FILTER_PARAM_KEYS.instrumentModel]: nextInstrumentModelFilters,
+    });
+  }, [
+    selectedJournalFilters,
+    selectedCountryFilters,
+    selectedLibraryStrategyFilters,
+    selectedInstrumentModelFilters,
+    journalFilterResults,
+    countryFilterResults,
+    libraryStrategyFilterResults,
+    instrumentModelFilterResults,
+    updateSearchUrl,
   ]);
 
   // --- Pagination computation ---
