@@ -148,7 +148,8 @@ function FilterList({
         className={isExpanded ? "organism-list-scroll" : undefined}
         style={{
           maxHeight: isExpanded ? 360 : undefined,
-          overflowY: isExpanded ? "auto" : "visible",
+          overflowY: isExpanded ? "scroll" : "visible",
+          paddingRight: isExpanded ? 4 : undefined,
         }}
       >
         <Flex direction="column" gap="2">
@@ -196,11 +197,21 @@ function FilterList({
       ) : null}
       <style jsx>{`
         .organism-list-scroll {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          scrollbar-width: thin;
+          scrollbar-color: var(--gray-a6) transparent;
         }
         .organism-list-scroll::-webkit-scrollbar {
-          display: none;
+          width: 6px;
+        }
+        .organism-list-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .organism-list-scroll::-webkit-scrollbar-thumb {
+          background-color: var(--gray-a6);
+          border-radius: 3px;
+        }
+        .organism-list-scroll::-webkit-scrollbar-thumb:hover {
+          background-color: var(--gray-a8);
         }
       `}</style>
     </Flex>
