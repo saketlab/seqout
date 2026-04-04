@@ -4,6 +4,7 @@ import { OrganismFilter, OrganismNameMode } from "@/components/organism_filter";
 import type { SortBy } from "@/components/search-page-body";
 import { SearchResult } from "@/utils/types";
 import {
+  CrumpledPaperIcon,
   MagnifyingGlassIcon,
   MixerHorizontalIcon,
 } from "@radix-ui/react-icons";
@@ -253,6 +254,7 @@ export function SearchOrganismRail({
   setSelectedLibraryStrategyFilters,
   selectedInstrumentModelFilters,
   setSelectedInstrumentModelFilters,
+  onClearMoreFilters,
   showMobile = false,
   showDesktop = true,
 }: {
@@ -273,6 +275,7 @@ export function SearchOrganismRail({
   setSelectedLibraryStrategyFilters: (value: string[]) => void;
   selectedInstrumentModelFilters: string[];
   setSelectedInstrumentModelFilters: (value: string[]) => void;
+  onClearMoreFilters: () => void;
   showMobile?: boolean;
   showDesktop?: boolean;
 }) {
@@ -487,15 +490,21 @@ export function SearchOrganismRail({
               }}
             >
               <Dialog.Title>
-                <Flex align={"center"} gap={"2"}>
-                  <Text>More filters</Text>
-                  <Badge color="teal">Beta</Badge>
+                <Flex align={"center"} justify={"between"}>
+                  <Flex align={"center"} gap={"2"}>
+                    <Text>More filters</Text>
+                    <Badge color="teal">Beta</Badge>
+                  </Flex>
+                  <Button
+                    size={"1"}
+                    color="red"
+                    disabled={selectedFilterCount === 0}
+                    onClick={onClearMoreFilters}
+                  >
+                    <CrumpledPaperIcon /> Clear
+                  </Button>
                 </Flex>
               </Dialog.Title>
-              <Dialog.Description size={"1"}>
-                Filters apply only to loaded results. Scroll to load more.
-                Selecting a filter also has the effect of fetching more results.
-              </Dialog.Description>
 
               <Tabs.Root
                 defaultValue="journals"
@@ -783,15 +792,21 @@ export function SearchOrganismRail({
             </Dialog.Trigger>
             <Dialog.Content size="3">
               <Dialog.Title>
-                <Flex align={"center"} gap={"2"}>
-                  <Text>More filters</Text>
-                  <Badge color="teal">Beta</Badge>
+                <Flex align={"center"} justify={"between"}>
+                  <Flex align={"center"} gap={"2"}>
+                    <Text>More filters</Text>
+                    <Badge color="teal">Beta</Badge>
+                  </Flex>
+                  <Button
+                    size={"1"}
+                    color="red"
+                    disabled={selectedFilterCount === 0}
+                    onClick={onClearMoreFilters}
+                  >
+                    <CrumpledPaperIcon /> Clear
+                  </Button>
                 </Flex>
               </Dialog.Title>
-              <Dialog.Description size={"1"}>
-                Filters apply only to loaded results. Scroll to load more.
-                Selecting a filter also has the effect of fetching more results.
-              </Dialog.Description>
 
               <Tabs.Root
                 defaultValue="journals"

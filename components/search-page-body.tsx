@@ -856,6 +856,14 @@ export default function SearchPageBody() {
       [FILTER_PARAM_KEYS.instrumentModel]: arr,
     });
   }, [updateSearchUrl]);
+  const handleClearMoreFilters = useCallback(() => {
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.journal]: [],
+      [FILTER_PARAM_KEYS.country]: [],
+      [FILTER_PARAM_KEYS.libraryStrategy]: [],
+      [FILTER_PARAM_KEYS.instrumentModel]: [],
+    });
+  }, [updateSearchUrl]);
 
   // --- UI state ---
   const [showTopButton, setShowTopButton] = useState(false);
@@ -970,6 +978,7 @@ export default function SearchPageBody() {
     setSelectedLibraryStrategyFilters: handleSetLibraryStrategyFilters,
     selectedInstrumentModelFilters,
     setSelectedInstrumentModelFilters: handleSetInstrumentModelFilters,
+    onClearMoreFilters: handleClearMoreFilters,
   };
 
   // Whether any client-side filter is active (for "no results match" message)
