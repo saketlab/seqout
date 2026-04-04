@@ -303,10 +303,12 @@ export function SearchOrganismRail({
 
   const toggleJournalSelection = (journal: string) => {
     if (selectedJournalFilters.includes(journal)) {
-      setSelectedJournalFilters([]);
+      setSelectedJournalFilters(
+        selectedJournalFilters.filter((value) => value !== journal),
+      );
       return;
     }
-    setSelectedJournalFilters([journal]);
+    setSelectedJournalFilters([...selectedJournalFilters, journal]);
   };
 
   const countryCounts = new Map<string, number>();
@@ -337,10 +339,12 @@ export function SearchOrganismRail({
 
   const toggleCountrySelection = (countryCode: string) => {
     if (selectedCountryFilters.includes(countryCode)) {
-      setSelectedCountryFilters([]);
+      setSelectedCountryFilters(
+        selectedCountryFilters.filter((value) => value !== countryCode),
+      );
       return;
     }
-    setSelectedCountryFilters([countryCode]);
+    setSelectedCountryFilters([...selectedCountryFilters, countryCode]);
   };
 
   const libraryStrategyCounts = new Map<string, number>();
@@ -370,10 +374,15 @@ export function SearchOrganismRail({
 
   const toggleLibraryStrategySelection = (strategy: string) => {
     if (selectedLibraryStrategyFilters.includes(strategy)) {
-      setSelectedLibraryStrategyFilters([]);
+      setSelectedLibraryStrategyFilters(
+        selectedLibraryStrategyFilters.filter((value) => value !== strategy),
+      );
       return;
     }
-    setSelectedLibraryStrategyFilters([strategy]);
+    setSelectedLibraryStrategyFilters([
+      ...selectedLibraryStrategyFilters,
+      strategy,
+    ]);
   };
 
   const instrumentModelCounts = new Map<string, number>();
@@ -403,10 +412,15 @@ export function SearchOrganismRail({
 
   const toggleInstrumentModelSelection = (model: string) => {
     if (selectedInstrumentModelFilters.includes(model)) {
-      setSelectedInstrumentModelFilters([]);
+      setSelectedInstrumentModelFilters(
+        selectedInstrumentModelFilters.filter((value) => value !== model),
+      );
       return;
     }
-    setSelectedInstrumentModelFilters([model]);
+    setSelectedInstrumentModelFilters([
+      ...selectedInstrumentModelFilters,
+      model,
+    ]);
   };
 
   const selectedFilterCount =

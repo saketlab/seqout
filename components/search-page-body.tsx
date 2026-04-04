@@ -141,6 +141,10 @@ function parseTimeFilter(
     : "any";
 }
 
+function normalizeMultiValueFilter(values: string[]): string[] {
+  return values.map((item) => item.trim()).filter(Boolean);
+}
+
 function buildSearchUrl(
   query: string,
   db: string | null,
@@ -381,43 +385,49 @@ function applyOrganismFilter(
   );
 }
 
-function applyJournalFilter(
-  results: SearchResult[],
-  journal: string | null,
-): SearchResult[] {
-  if (!journal) return results;
-  return results.filter((r) => r.journal?.trim() === journal);
+function applyJournalFilter(results: SearchResult[], journals: string[]): SearchResult[] {
+  if (journals.length === 0) return results;
+  const selectedJournals = new Set(journals);
+  return results.filter((r) => {
+    const journal = r.journal?.trim();
+    return journal ? selectedJournals.has(journal) : false;
+  });
 }
 
 function applyCountryFilter(
   results: SearchResult[],
-  country: string | null,
+  countries: string[],
 ): SearchResult[] {
-  if (!country) return results;
+  if (countries.length === 0) return results;
+  const selectedCountries = new Set(
+    countries.map((country) => country.toUpperCase()),
+  );
   return results.filter((r) =>
     (r.countries ?? []).some(
-      (c) => c.trim().toUpperCase() === country.toUpperCase(),
+      (c) => selectedCountries.has(c.trim().toUpperCase()),
     ),
   );
 }
 
 function applyLibraryStrategyFilter(
   results: SearchResult[],
-  strategy: string | null,
+  strategies: string[],
 ): SearchResult[] {
-  if (!strategy) return results;
+  if (strategies.length === 0) return results;
+  const selectedStrategies = new Set(strategies);
   return results.filter((r) =>
-    (r.library_strategies ?? []).some((s) => s.trim() === strategy),
+    (r.library_strategies ?? []).some((s) => selectedStrategies.has(s.trim())),
   );
 }
 
 function applyInstrumentModelFilter(
   results: SearchResult[],
-  model: string | null,
+  models: string[],
 ): SearchResult[] {
-  if (!model) return results;
+  if (models.length === 0) return results;
+  const selectedModels = new Set(models);
   return results.filter((r) =>
-    (r.instrument_models ?? []).some((m) => m.trim() === model),
+    (r.instrument_models ?? []).some((m) => selectedModels.has(m.trim())),
   );
 }
 
@@ -445,10 +455,23 @@ export default function SearchPageBody() {
   }, [query, setLastSearchQuery]);
 
   const updateSearchUrl = useCallback(
-    (updates: Record<string, string | null | undefined>) => {
+    (
+      updates: Record<
+        string,
+        string | string[] | null | undefined
+      >,
+    ) => {
       const params = new URLSearchParams(searchParams.toString());
 
       for (const [key, value] of Object.entries(updates)) {
+        if (Array.isArray(value)) {
+          params.delete(key);
+          for (const item of normalizeMultiValueFilter(value)) {
+            params.append(key, item);
+          }
+          continue;
+        }
+
         if (value == null || value === "") {
           params.delete(key);
         } else {
@@ -487,14 +510,28 @@ export default function SearchPageBody() {
     useState<OrganismNameMode>("common");
   const selectedOrganismKey = searchParams.get(FILTER_PARAM_KEYS.organism);
 
-  // --- Sidebar filters (single-select, client-side only) ---
-  const selectedJournal = searchParams.get(FILTER_PARAM_KEYS.journal);
-  const selectedCountry = searchParams.get(FILTER_PARAM_KEYS.country);
-  const selectedLibraryStrategy = searchParams.get(
-    FILTER_PARAM_KEYS.libraryStrategy,
+  // --- Sidebar filters (multi-select, client-side only) ---
+  const selectedJournalFilters = useMemo(
+    () => normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.journal)),
+    [searchParams],
   );
-  const selectedInstrumentModel = searchParams.get(
-    FILTER_PARAM_KEYS.instrumentModel,
+  const selectedCountryFilters = useMemo(
+    () => normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.country)),
+    [searchParams],
+  );
+  const selectedLibraryStrategyFilters = useMemo(
+    () =>
+      normalizeMultiValueFilter(
+        searchParams.getAll(FILTER_PARAM_KEYS.libraryStrategy),
+      ),
+    [searchParams],
+  );
+  const selectedInstrumentModelFilters = useMemo(
+    () =>
+      normalizeMultiValueFilter(
+        searchParams.getAll(FILTER_PARAM_KEYS.instrumentModel),
+      ),
+    [searchParams],
   );
 
   // --- Pagination ---
@@ -511,10 +548,10 @@ export default function SearchPageBody() {
     timeFilter,
     customYearRange,
     selectedOrganismKey,
-    selectedJournal,
-    selectedCountry,
-    selectedLibraryStrategy,
-    selectedInstrumentModel,
+    selectedJournalFilters,
+    selectedCountryFilters,
+    selectedLibraryStrategyFilters,
+    selectedInstrumentModelFilters,
     perPage,
   ]);
 
@@ -609,26 +646,80 @@ export default function SearchPageBody() {
     let results = allResults;
     results = applyTimeFilter(results, timeFilter, customYearRange);
     results = applyOrganismFilter(results, selectedOrganismKey);
-    results = applyJournalFilter(results, selectedJournal);
-    results = applyCountryFilter(results, selectedCountry);
-    results = applyLibraryStrategyFilter(results, selectedLibraryStrategy);
-    results = applyInstrumentModelFilter(results, selectedInstrumentModel);
+    results = applyJournalFilter(results, selectedJournalFilters);
+    results = applyCountryFilter(results, selectedCountryFilters);
+    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
     return results;
   }, [
     allResults,
     timeFilter,
     customYearRange,
     selectedOrganismKey,
-    selectedJournal,
-    selectedCountry,
-    selectedLibraryStrategy,
-    selectedInstrumentModel,
+    selectedJournalFilters,
+    selectedCountryFilters,
+    selectedLibraryStrategyFilters,
+    selectedInstrumentModelFilters,
   ]);
 
-  const moreFilterResults = useMemo(
-    () => applyOrganismFilter(sidebarResults, selectedOrganismKey),
-    [sidebarResults, selectedOrganismKey],
-  );
+  const moreFilterBaseResults = useMemo(() => {
+    let results = sidebarResults;
+    results = applyTimeFilter(results, timeFilter, customYearRange);
+    results = applyOrganismFilter(results, selectedOrganismKey);
+    return results;
+  }, [sidebarResults, timeFilter, customYearRange, selectedOrganismKey]);
+
+  const journalFilterResults = useMemo(() => {
+    let results = moreFilterBaseResults;
+    results = applyCountryFilter(results, selectedCountryFilters);
+    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    return results;
+  }, [
+    moreFilterBaseResults,
+    selectedCountryFilters,
+    selectedLibraryStrategyFilters,
+    selectedInstrumentModelFilters,
+  ]);
+
+  const countryFilterResults = useMemo(() => {
+    let results = moreFilterBaseResults;
+    results = applyJournalFilter(results, selectedJournalFilters);
+    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    return results;
+  }, [
+    moreFilterBaseResults,
+    selectedJournalFilters,
+    selectedLibraryStrategyFilters,
+    selectedInstrumentModelFilters,
+  ]);
+
+  const libraryStrategyFilterResults = useMemo(() => {
+    let results = moreFilterBaseResults;
+    results = applyJournalFilter(results, selectedJournalFilters);
+    results = applyCountryFilter(results, selectedCountryFilters);
+    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    return results;
+  }, [
+    moreFilterBaseResults,
+    selectedJournalFilters,
+    selectedCountryFilters,
+    selectedInstrumentModelFilters,
+  ]);
+
+  const instrumentModelFilterResults = useMemo(() => {
+    let results = moreFilterBaseResults;
+    results = applyJournalFilter(results, selectedJournalFilters);
+    results = applyCountryFilter(results, selectedCountryFilters);
+    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    return results;
+  }, [
+    moreFilterBaseResults,
+    selectedJournalFilters,
+    selectedCountryFilters,
+    selectedLibraryStrategyFilters,
+  ]);
 
   // --- Pagination computation ---
   const filteredTotal = filteredResults.length;
@@ -647,45 +738,24 @@ export default function SearchPageBody() {
     });
   }, []);
 
-  // --- Adapter: wrap single-select state as string[] for SearchOrganismRail ---
-  const journalFiltersArray = useMemo(
-    () => (selectedJournal ? [selectedJournal] : []),
-    [selectedJournal],
-  );
-  const countryFiltersArray = useMemo(
-    () => (selectedCountry ? [selectedCountry] : []),
-    [selectedCountry],
-  );
-  const libraryStrategyFiltersArray = useMemo(
-    () => (selectedLibraryStrategy ? [selectedLibraryStrategy] : []),
-    [selectedLibraryStrategy],
-  );
-  const instrumentModelFiltersArray = useMemo(
-    () => (selectedInstrumentModel ? [selectedInstrumentModel] : []),
-    [selectedInstrumentModel],
-  );
-
-  // Toggle adapters: convert string[] setter calls to single-select
   const handleSetJournalFilters = useCallback((arr: string[]) => {
     updateSearchUrl({
-      [FILTER_PARAM_KEYS.journal]: arr.length > 0 ? arr[arr.length - 1] : null,
+      [FILTER_PARAM_KEYS.journal]: arr,
     });
   }, [updateSearchUrl]);
   const handleSetCountryFilters = useCallback((arr: string[]) => {
     updateSearchUrl({
-      [FILTER_PARAM_KEYS.country]: arr.length > 0 ? arr[arr.length - 1] : null,
+      [FILTER_PARAM_KEYS.country]: arr,
     });
   }, [updateSearchUrl]);
   const handleSetLibraryStrategyFilters = useCallback((arr: string[]) => {
     updateSearchUrl({
-      [FILTER_PARAM_KEYS.libraryStrategy]:
-        arr.length > 0 ? arr[arr.length - 1] : null,
+      [FILTER_PARAM_KEYS.libraryStrategy]: arr,
     });
   }, [updateSearchUrl]);
   const handleSetInstrumentModelFilters = useCallback((arr: string[]) => {
     updateSearchUrl({
-      [FILTER_PARAM_KEYS.instrumentModel]:
-        arr.length > 0 ? arr[arr.length - 1] : null,
+      [FILTER_PARAM_KEYS.instrumentModel]: arr,
     });
   }, [updateSearchUrl]);
 
@@ -783,10 +853,10 @@ export default function SearchPageBody() {
   // --- Sidebar rail props (use stable sidebarResults for counts) ---
   const railProps = {
     results: sidebarResults,
-    journalResults: moreFilterResults,
-    countryResults: moreFilterResults,
-    libraryStrategyResults: moreFilterResults,
-    instrumentModelResults: moreFilterResults,
+    journalResults: journalFilterResults,
+    countryResults: countryFilterResults,
+    libraryStrategyResults: libraryStrategyFilterResults,
+    instrumentModelResults: instrumentModelFilterResults,
     organismNameMode,
     setOrganismNameMode,
     selectedOrganismKey,
@@ -794,23 +864,23 @@ export default function SearchPageBody() {
       updateSearchUrl({
         [FILTER_PARAM_KEYS.organism]: value,
       }),
-    selectedJournalFilters: journalFiltersArray,
+    selectedJournalFilters,
     setSelectedJournalFilters: handleSetJournalFilters,
-    selectedCountryFilters: countryFiltersArray,
+    selectedCountryFilters,
     setSelectedCountryFilters: handleSetCountryFilters,
-    selectedLibraryStrategyFilters: libraryStrategyFiltersArray,
+    selectedLibraryStrategyFilters,
     setSelectedLibraryStrategyFilters: handleSetLibraryStrategyFilters,
-    selectedInstrumentModelFilters: instrumentModelFiltersArray,
+    selectedInstrumentModelFilters,
     setSelectedInstrumentModelFilters: handleSetInstrumentModelFilters,
   };
 
   // Whether any client-side filter is active (for "no results match" message)
   const hasAnyFilter =
     selectedOrganismKey != null ||
-    selectedJournal != null ||
-    selectedCountry != null ||
-    selectedLibraryStrategy != null ||
-    selectedInstrumentModel != null ||
+    selectedJournalFilters.length > 0 ||
+    selectedCountryFilters.length > 0 ||
+    selectedLibraryStrategyFilters.length > 0 ||
+    selectedInstrumentModelFilters.length > 0 ||
     timeFilter !== "any";
 
   return (
