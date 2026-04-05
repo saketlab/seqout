@@ -333,7 +333,7 @@ export default function StatsGlobalContributionsCard() {
   const [assayL2, setAssayL2] = useState(ALL);
   const [placeType, setPlaceType] = useState(ALL);
   const [addressType, setAddressType] = useState(ALL);
-  const [selectedCountry, setSelectedCountry] = useState(ALL);
+  const [selectedCountry, setSelectedCountry] = useState("India");
   const [copyState, setCopyState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";

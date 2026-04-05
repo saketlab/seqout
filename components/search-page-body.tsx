@@ -119,6 +119,8 @@ const FILTER_PARAM_KEYS = {
   country: "filter_country",
   libraryStrategy: "filter_library_strategy",
   instrumentModel: "filter_instrument_model",
+  platform: "filter_platform",
+  multiPlatform: "multi_platform",
 } as const;
 
 function parseSortBy(value: string | null): SortBy {
@@ -431,6 +433,25 @@ function applyInstrumentModelFilter(
   );
 }
 
+function applyPlatformFilter(
+  results: SearchResult[],
+  platforms: string[],
+): SearchResult[] {
+  if (platforms.length === 0) return results;
+  const selected = new Set(platforms);
+  return results.filter((r) =>
+    (r.platforms ?? []).some((p) => selected.has(p.trim())),
+  );
+}
+
+function applyMultiPlatformFilter(
+  results: SearchResult[],
+  multiPlatformOnly: boolean,
+): SearchResult[] {
+  if (!multiPlatformOnly) return results;
+  return results.filter((r) => (r.platforms ?? []).length >= 2);
+}
+
 function getAvailableJournals(results: SearchResult[]): Set<string> {
   const journals = new Set<string>();
   for (const result of results) {
@@ -575,6 +596,15 @@ export default function SearchPageBody() {
       ),
     [searchParams],
   );
+  const selectedPlatformFilters = useMemo(
+    () =>
+      normalizeMultiValueFilter(
+        searchParams.getAll(FILTER_PARAM_KEYS.platform),
+      ),
+    [searchParams],
+  );
+  const multiPlatformOnly =
+    searchParams.get(FILTER_PARAM_KEYS.multiPlatform) === "true";
 
   // --- Pagination ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -692,6 +722,8 @@ export default function SearchPageBody() {
     results = applyCountryFilter(results, selectedCountryFilters);
     results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
     results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    results = applyPlatformFilter(results, selectedPlatformFilters);
+    results = applyMultiPlatformFilter(results, multiPlatformOnly);
     return results;
   }, [
     allResults,
@@ -702,6 +734,8 @@ export default function SearchPageBody() {
     selectedCountryFilters,
     selectedLibraryStrategyFilters,
     selectedInstrumentModelFilters,
+    selectedPlatformFilters,
+    multiPlatformOnly,
   ]);
 
   const moreFilterBaseResults = useMemo(() => {
@@ -755,12 +789,31 @@ export default function SearchPageBody() {
     results = applyJournalFilter(results, selectedJournalFilters);
     results = applyCountryFilter(results, selectedCountryFilters);
     results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    results = applyPlatformFilter(results, selectedPlatformFilters);
+    results = applyMultiPlatformFilter(results, multiPlatformOnly);
     return results;
   }, [
     moreFilterBaseResults,
     selectedJournalFilters,
     selectedCountryFilters,
     selectedLibraryStrategyFilters,
+    selectedPlatformFilters,
+    multiPlatformOnly,
+  ]);
+
+  const platformFilterResults = useMemo(() => {
+    let results = moreFilterBaseResults;
+    results = applyJournalFilter(results, selectedJournalFilters);
+    results = applyCountryFilter(results, selectedCountryFilters);
+    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    return results;
+  }, [
+    moreFilterBaseResults,
+    selectedJournalFilters,
+    selectedCountryFilters,
+    selectedLibraryStrategyFilters,
+    selectedInstrumentModelFilters,
   ]);
 
   useEffect(() => {
@@ -856,12 +909,24 @@ export default function SearchPageBody() {
       [FILTER_PARAM_KEYS.instrumentModel]: arr,
     });
   }, [updateSearchUrl]);
+  const handleSetPlatformFilters = useCallback((arr: string[]) => {
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.platform]: arr,
+    });
+  }, [updateSearchUrl]);
+  const handleSetMultiPlatform = useCallback((val: boolean) => {
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.multiPlatform]: val ? "true" : null,
+    });
+  }, [updateSearchUrl]);
   const handleClearMoreFilters = useCallback(() => {
     updateSearchUrl({
       [FILTER_PARAM_KEYS.journal]: [],
       [FILTER_PARAM_KEYS.country]: [],
       [FILTER_PARAM_KEYS.libraryStrategy]: [],
       [FILTER_PARAM_KEYS.instrumentModel]: [],
+      [FILTER_PARAM_KEYS.platform]: [],
+      [FILTER_PARAM_KEYS.multiPlatform]: null,
     });
   }, [updateSearchUrl]);
 
@@ -978,6 +1043,11 @@ export default function SearchPageBody() {
     setSelectedLibraryStrategyFilters: handleSetLibraryStrategyFilters,
     selectedInstrumentModelFilters,
     setSelectedInstrumentModelFilters: handleSetInstrumentModelFilters,
+    platformResults: platformFilterResults,
+    selectedPlatformFilters,
+    setSelectedPlatformFilters: handleSetPlatformFilters,
+    multiPlatformOnly,
+    setMultiPlatformOnly: handleSetMultiPlatform,
     onClearMoreFilters: handleClearMoreFilters,
   };
 
@@ -988,6 +1058,8 @@ export default function SearchPageBody() {
     selectedCountryFilters.length > 0 ||
     selectedLibraryStrategyFilters.length > 0 ||
     selectedInstrumentModelFilters.length > 0 ||
+    selectedPlatformFilters.length > 0 ||
+    multiPlatformOnly ||
     timeFilter !== "any";
 
   return (

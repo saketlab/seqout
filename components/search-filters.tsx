@@ -27,6 +27,27 @@ import { useState } from "react";
 
 countries.registerLocale(enLocale);
 
+const PLATFORM_DISPLAY: Record<string, string> = {
+  ILLUMINA: "Illumina",
+  OXFORD_NANOPORE: "Oxford Nanopore",
+  PACBIO_SMRT: "PacBio",
+  ION_TORRENT: "Ion Torrent",
+  DNBSEQ: "DNBSEQ (MGI)",
+  BGISEQ: "BGISEQ (MGI)",
+  ELEMENT: "Element Biosciences",
+  ABI_SOLID: "SOLiD",
+  COMPLETE_GENOMICS: "Complete Genomics",
+  LS454: "454 Life Sciences",
+  HELICOS: "Helicos",
+  ULTIMA: "Ultima Genomics",
+  GENEMIND: "GeneMind",
+  CAPILLARY: "Capillary",
+  VELA_DIAGNOSTICS: "Vela Diagnostics",
+  TAPESTRI: "Tapestri",
+  GENAPSYS: "GenapSys",
+  SINGULAR_GENOMICS: "Singular Genomics",
+};
+
 type TimeFilter = "any" | "1" | "5" | "10" | "20" | "custom";
 
 type SearchFiltersProps = {
@@ -242,6 +263,7 @@ export function SearchOrganismRail({
   countryResults,
   libraryStrategyResults,
   instrumentModelResults,
+  platformResults,
   organismNameMode,
   setOrganismNameMode,
   selectedOrganismKey,
@@ -254,6 +276,10 @@ export function SearchOrganismRail({
   setSelectedLibraryStrategyFilters,
   selectedInstrumentModelFilters,
   setSelectedInstrumentModelFilters,
+  selectedPlatformFilters,
+  setSelectedPlatformFilters,
+  multiPlatformOnly,
+  setMultiPlatformOnly,
   onClearMoreFilters,
   showMobile = false,
   showDesktop = true,
@@ -263,6 +289,7 @@ export function SearchOrganismRail({
   countryResults: SearchResult[];
   libraryStrategyResults: SearchResult[];
   instrumentModelResults: SearchResult[];
+  platformResults: SearchResult[];
   organismNameMode: OrganismNameMode;
   setOrganismNameMode: (value: OrganismNameMode) => void;
   selectedOrganismKey: string | null;
@@ -275,6 +302,10 @@ export function SearchOrganismRail({
   setSelectedLibraryStrategyFilters: (value: string[]) => void;
   selectedInstrumentModelFilters: string[];
   setSelectedInstrumentModelFilters: (value: string[]) => void;
+  selectedPlatformFilters: string[];
+  setSelectedPlatformFilters: (value: string[]) => void;
+  multiPlatformOnly: boolean;
+  setMultiPlatformOnly: (value: boolean) => void;
   onClearMoreFilters: () => void;
   showMobile?: boolean;
   showDesktop?: boolean;
@@ -426,11 +457,46 @@ export function SearchOrganismRail({
     ]);
   };
 
+  const platformCounts = new Map<string, number>();
+  for (const result of platformResults) {
+    for (const p of result.platforms ?? []) {
+      const plat = p.trim();
+      if (!plat) continue;
+      platformCounts.set(plat, (platformCounts.get(plat) ?? 0) + 1);
+    }
+  }
+
+  const platformOptions = Array.from(platformCounts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const [platformQuery, setPlatformQuery] = useState("");
+  const normalizedPlatformQuery = platformQuery.trim().toLowerCase();
+  const visiblePlatformOptions = normalizedPlatformQuery
+    ? platformOptions.filter((option) =>
+        (PLATFORM_DISPLAY[option.name] ?? option.name)
+          .toLowerCase()
+          .includes(normalizedPlatformQuery),
+      )
+    : platformOptions;
+
+  const togglePlatformSelection = (platform: string) => {
+    if (selectedPlatformFilters.includes(platform)) {
+      setSelectedPlatformFilters(
+        selectedPlatformFilters.filter((value) => value !== platform),
+      );
+      return;
+    }
+    setSelectedPlatformFilters([...selectedPlatformFilters, platform]);
+  };
+
   const selectedFilterCount =
     selectedJournalFilters.length +
     selectedCountryFilters.length +
     selectedLibraryStrategyFilters.length +
-    selectedInstrumentModelFilters.length;
+    selectedInstrumentModelFilters.length +
+    selectedPlatformFilters.length +
+    (multiPlatformOnly ? 1 : 0);
 
   return (
     <>
@@ -549,6 +615,14 @@ export function SearchOrganismRail({
                       ) : null}
                     </Flex>
                   </Tabs.Trigger>
+                  <Tabs.Trigger value="platform">
+                    <Flex align="center" gap="1">
+                      <span>Platform</span>
+                      {selectedPlatformFilters.length > 0 || multiPlatformOnly ? (
+                        <Badge>{selectedPlatformFilters.length + (multiPlatformOnly ? 1 : 0)}</Badge>
+                      ) : null}
+                    </Flex>
+                  </Tabs.Trigger>
                 </Tabs.List>
 
                 <Tabs.Content value="journals">
@@ -754,6 +828,74 @@ export function SearchOrganismRail({
                     ) : (
                       <Text size="2" color="gray">
                         No instrument models found.
+                      </Text>
+                    )}
+                  </Flex>
+                </Tabs.Content>
+
+                <Tabs.Content value="platform">
+                  <Flex direction="column" gap="3" pt="3">
+                    <Text as="label" size="2">
+                      <Flex align="center" gap="2">
+                        <Checkbox
+                          checked={multiPlatformOnly}
+                          onCheckedChange={(checked) =>
+                            setMultiPlatformOnly(checked === true)
+                          }
+                        />
+                        <span>Multi-platform studies only</span>
+                      </Flex>
+                    </Text>
+                    <Separator size="4" />
+                    <TextField.Root
+                      value={platformQuery}
+                      onChange={(event) =>
+                        setPlatformQuery(event.target.value)
+                      }
+                      placeholder="Search platforms"
+                      size="2"
+                    >
+                      <TextField.Slot>
+                        <MagnifyingGlassIcon height="16" width="16" />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    {visiblePlatformOptions.length > 0 ? (
+                      <Flex
+                        direction="column"
+                        gap="2"
+                        style={{ maxHeight: "16rem", overflowY: "auto" }}
+                      >
+                        {visiblePlatformOptions.map((platformOption) => (
+                          <Text
+                            as="label"
+                            size="2"
+                            key={platformOption.name}
+                          >
+                            <Flex align="center" justify="between" gap="2">
+                              <Flex align="center" gap="2">
+                                <Checkbox
+                                  checked={selectedPlatformFilters.includes(
+                                    platformOption.name,
+                                  )}
+                                  onCheckedChange={() =>
+                                    togglePlatformSelection(platformOption.name)
+                                  }
+                                />
+                                <span>
+                                  {PLATFORM_DISPLAY[platformOption.name] ??
+                                    platformOption.name}
+                                </span>
+                              </Flex>
+                              <Badge color="gray" variant="soft">
+                                {platformOption.count}
+                              </Badge>
+                            </Flex>
+                          </Text>
+                        ))}
+                      </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        No platforms found.
                       </Text>
                     )}
                   </Flex>
@@ -845,6 +987,14 @@ export function SearchOrganismRail({
                       ) : null}
                     </Flex>
                   </Tabs.Trigger>
+                  <Tabs.Trigger value="platform">
+                    <Flex align="center" gap="1">
+                      <span>Platform</span>
+                      {selectedPlatformFilters.length > 0 || multiPlatformOnly ? (
+                        <Badge>{selectedPlatformFilters.length + (multiPlatformOnly ? 1 : 0)}</Badge>
+                      ) : null}
+                    </Flex>
+                  </Tabs.Trigger>
                 </Tabs.List>
 
                 <Tabs.Content value="journals">
@@ -1050,6 +1200,74 @@ export function SearchOrganismRail({
                     ) : (
                       <Text size="2" color="gray">
                         No instrument models found.
+                      </Text>
+                    )}
+                  </Flex>
+                </Tabs.Content>
+
+                <Tabs.Content value="platform">
+                  <Flex direction="column" gap="3" pt="3">
+                    <Text as="label" size="2">
+                      <Flex align="center" gap="2">
+                        <Checkbox
+                          checked={multiPlatformOnly}
+                          onCheckedChange={(checked) =>
+                            setMultiPlatformOnly(checked === true)
+                          }
+                        />
+                        <span>Multi-platform studies only</span>
+                      </Flex>
+                    </Text>
+                    <Separator size="4" />
+                    <TextField.Root
+                      value={platformQuery}
+                      onChange={(event) =>
+                        setPlatformQuery(event.target.value)
+                      }
+                      placeholder="Search platforms"
+                      size="2"
+                    >
+                      <TextField.Slot>
+                        <MagnifyingGlassIcon height="16" width="16" />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    {visiblePlatformOptions.length > 0 ? (
+                      <Flex
+                        direction="column"
+                        gap="2"
+                        style={{ maxHeight: "16rem", overflowY: "auto" }}
+                      >
+                        {visiblePlatformOptions.map((platformOption) => (
+                          <Text
+                            as="label"
+                            size="2"
+                            key={platformOption.name}
+                          >
+                            <Flex align="center" justify="between" gap="2">
+                              <Flex align="center" gap="2">
+                                <Checkbox
+                                  checked={selectedPlatformFilters.includes(
+                                    platformOption.name,
+                                  )}
+                                  onCheckedChange={() =>
+                                    togglePlatformSelection(platformOption.name)
+                                  }
+                                />
+                                <span>
+                                  {PLATFORM_DISPLAY[platformOption.name] ??
+                                    platformOption.name}
+                                </span>
+                              </Flex>
+                              <Badge color="gray" variant="soft">
+                                {platformOption.count}
+                              </Badge>
+                            </Flex>
+                          </Text>
+                        ))}
+                      </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        No platforms found.
                       </Text>
                     )}
                   </Flex>

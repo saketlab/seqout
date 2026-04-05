@@ -12,6 +12,7 @@ export type SearchResult = {
   countries?: string[] | null;
   library_strategies?: string[] | null;
   instrument_models?: string[] | null;
+  platforms?: string[] | null;
   doi: string | null;
   citation_count: number | null;
   authors: string | null;

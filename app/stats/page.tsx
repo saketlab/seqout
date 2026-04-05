@@ -2,6 +2,8 @@ import SearchBar from "@/components/search-bar";
 import StatsGlobalContributionsCard from "@/components/stats-global-contributions-card";
 import StatsGrowthChartCard from "@/components/stats-growth-chart-card";
 import StatsOrganismGrowthCard from "@/components/stats-organism-growth-card";
+import StatsPlatformComparisonCard from "@/components/stats-platform-comparison-card";
+import StatsSequencingTechnologyCard from "@/components/stats-sequencing-technology-card";
 import StatsSourceHistogramCard from "@/components/stats-source-histogram-card";
 import { Flex, Text } from "@radix-ui/themes";
 import type { Metadata } from "next";
@@ -43,6 +45,12 @@ export default function StatsPage() {
         </div>
         <div id="organisms">
           <StatsOrganismGrowthCard />
+        </div>
+        <div id="sequencing">
+          <StatsSequencingTechnologyCard />
+        </div>
+        <div id="comparison">
+          <StatsPlatformComparisonCard />
         </div>
         <div id="map">
           <StatsGlobalContributionsCard />
