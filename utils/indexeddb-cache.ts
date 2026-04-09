@@ -1,7 +1,21 @@
 const CACHE_DB_NAME = "seqout-http-cache";
 const CACHE_DB_VERSION = 1;
 const CACHE_STORE = "json-responses";
-const CACHE_RECORD_VERSION = 1;
+
+// Bump this number whenever the shape of a cached endpoint changes on the
+// backend in a way that makes old payloads wrong. Every increment wipes
+// every existing IndexedDB entry and forces a one-time refetch.
+//
+// History:
+//   v1: initial (no TTL, no version-bump discipline)
+//   v2: added 7-day TTL + invalidated stale /stats/platform-* responses
+//       that were captured before instrument drill-down was deployed
+const CACHE_RECORD_VERSION = 2;
+
+// Maximum age for a cached response. Stats endpoints refresh weekly, so
+// a 7-day ceiling keeps users within one refresh window of truth without
+// re-fetching unnecessarily.
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface JsonCacheRecord<T> {
   version: number;
@@ -57,6 +71,13 @@ async function readCachedJson<T>(
       !Number.isFinite(parsed.savedAt) ||
       !("payload" in parsed)
     ) {
+      return null;
+    }
+
+    // Expire stale entries automatically so the frontend eventually
+    // catches up with backend changes even if the cache version isn't
+    // bumped on every deploy.
+    if (Date.now() - parsed.savedAt > CACHE_MAX_AGE_MS) {
       return null;
     }
 

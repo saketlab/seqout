@@ -2,6 +2,7 @@
 
 import type { ForceGraph3DInstance } from "3d-force-graph";
 import ProjectSummary from "@/components/project-summary";
+import { SIMILARITY_GRAPH_COLORS } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
 import {
   Button,
@@ -208,9 +209,9 @@ function nodeLabel(node: GraphNode) {
     : "Description unavailable.";
 
   return `
-    <div style="max-width: 420px; white-space: normal; line-height: 1.35; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; background: var(--gray-2); color: var(--gray-12); border: 1px solid var(--gray-a6); border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 22px rgba(0,0,0,0.18); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-      <div style="font-size: 13px; font-weight: 700; margin-bottom: 4px;">${title}</div>
-      <div style="font-size: 12px; margin-bottom: 6px;">${accession}</div>
+    <div style="max-width: 420px; white-space: normal; line-height: 1.35; font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; background: var(--gray-2); color: var(--gray-12); border: 1px solid var(--gray-a6); border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 22px rgba(0,0,0,0.18); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+      <div style="font-size: 13px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.01em;">${title}</div>
+      <div style="font-size: 12px; margin-bottom: 6px; font-family: var(--font-geist-mono), ui-monospace, monospace; color: var(--gray-11);">${accession}</div>
       <div style="font-size: 12px;">${description}</div>
     </div>
   `;
@@ -510,14 +511,16 @@ export default function SimilarProjectsGraph({
         .enableNodeDrag(false)
         .cooldownTicks(0)
         .linkOpacity(0.85)
-        .linkColor(() => "#9ca3af")
+        .linkColor(() => SIMILARITY_GRAPH_COLORS.link)
         .linkWidth(0.9)
         .nodeRelSize(5)
         .nodeLabel((node) => nodeLabel(node as GraphNode))
         .nodeColor((node) => {
           const graphNode = node as GraphNode;
-          if (graphNode.isCenter) return "#d97706";
-          return graphNode.source === "geo" ? "#2563eb" : "#8b4513";
+          if (graphNode.isCenter) return SIMILARITY_GRAPH_COLORS.center;
+          return graphNode.source === "geo"
+            ? SIMILARITY_GRAPH_COLORS.geo
+            : SIMILARITY_GRAPH_COLORS.sra;
         })
         .onNodeClick((node) => {
           const graphNode = node as GraphNode;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
 import {
   ChevronDownIcon,
@@ -18,6 +19,7 @@ import {
 import { useState, useCallback, useRef } from "react";
 
 export function CopyButton({ text }: { text: string }) {
+  const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -26,7 +28,8 @@ export function CopyButton({ text }: { text: string }) {
     setCopied(true);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [text]);
+    showToast("Copied to clipboard");
+  }, [text, showToast]);
 
   return (
     <button
@@ -195,7 +198,7 @@ export function EndpointCard({ ep }: { ep: EndpointData }) {
         <Code size="2" variant="ghost" style={{ color: "var(--gray-12)" }}>
           {ep.path}
         </Code>
-        <Text size="2" style={{ color: "var(--gray-10)" }}>
+        <Text size="2" style={{ color: "var(--gray-11)" }}>
           {ep.summary}
         </Text>
       </Flex>
@@ -233,7 +236,7 @@ export function EndpointCard({ ep }: { ep: EndpointData }) {
                           {p.location === "path" && <Badge size="1" color="gray" ml="1">path</Badge>}
                           {p.location === "body" && <Badge size="1" color="gray" ml="1">body</Badge>}
                         </td>
-                        <td style={{ padding: "6px 10px", color: "var(--gray-10)" }}>{p.type}</td>
+                        <td style={{ padding: "6px 10px", color: "var(--gray-11)" }}>{p.type}</td>
                         <td style={{ padding: "6px 10px" }}>
                           {p.required ? (
                             <Badge size="1" color="red">required</Badge>

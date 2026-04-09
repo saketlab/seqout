@@ -11,9 +11,12 @@ import {
   ArrowUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  Cross1Icon,
   DownloadIcon,
+  ReloadIcon,
 } from "@radix-ui/react-icons";
 import {
+  Badge,
   Button,
   Flex,
   Select,
@@ -23,7 +26,6 @@ import {
   Tooltip,
 } from "@radix-ui/themes";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -349,6 +351,253 @@ function Paginator({
 }
 
 // ---------------------------------------------------------------------------
+// Active filter chips
+// ---------------------------------------------------------------------------
+
+const SORT_LABELS: Record<SortBy, string> = {
+  relevance: "Relevance",
+  date: "Newest first",
+  citations: "Most cited",
+  journal: "By journal",
+};
+
+const TIME_LABELS: Record<string, string> = {
+  any: "Any time",
+  "1": "Last year",
+  "5": "Last 5 years",
+  "10": "Last 10 years",
+  "20": "Last 20 years",
+};
+
+const DB_LABELS_DISPLAY: Record<string, string> = {
+  geo: "GEO",
+  sra: "SRA",
+  arrayexpress: "ArrayExpress",
+};
+
+type ActiveFilterChipsProps = {
+  // Primary filters
+  sortBy: SortBy;
+  onResetSort: () => void;
+  timeFilter: string;
+  customYearRange: { from: string; to: string };
+  onResetTime: () => void;
+  db: string | null;
+  onResetDb: () => void;
+  selectedOrganismKey: string | null;
+  onResetOrganism: () => void;
+  // Secondary filters (from More filters dialog)
+  selectedJournalFilters: string[];
+  setSelectedJournalFilters: (next: string[]) => void;
+  selectedCountryFilters: string[];
+  setSelectedCountryFilters: (next: string[]) => void;
+  selectedLibraryStrategyFilters: string[];
+  setSelectedLibraryStrategyFilters: (next: string[]) => void;
+  selectedInstrumentModelFilters: string[];
+  setSelectedInstrumentModelFilters: (next: string[]) => void;
+  selectedPlatformFilters: string[];
+  setSelectedPlatformFilters: (next: string[]) => void;
+  multiPlatformOnly: boolean;
+  setMultiPlatformOnly: (next: boolean) => void;
+  // Clear-all
+  onClearAll: () => void;
+};
+
+function FilterChip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
+  return (
+    <Badge size="2" color="gray" variant="soft">
+      <Flex align="center" gap="1">
+        <Text size="1">{label}</Text>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${label} filter`}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "inherit",
+            // 6px padding + 11px icon + 6px padding = 23px ≈ 24×24 hit area,
+            // negative margin keeps the visual chip compact.
+            padding: "6px",
+            margin: "-6px -4px -6px 0",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: "24px",
+            minHeight: "24px",
+            cursor: "pointer",
+            opacity: 0.7,
+            borderRadius: "var(--radius-2)",
+            transition: "opacity 120ms, background 120ms",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.background = "var(--gray-a3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "0.7";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <Cross1Icon width="11" height="11" />
+        </button>
+      </Flex>
+    </Badge>
+  );
+}
+
+function ActiveFilterChips(props: ActiveFilterChipsProps) {
+  const chips: React.ReactNode[] = [];
+
+  if (props.sortBy !== "relevance") {
+    chips.push(
+      <FilterChip
+        key="sort"
+        label={`Sort: ${SORT_LABELS[props.sortBy]}`}
+        onRemove={props.onResetSort}
+      />,
+    );
+  }
+
+  if (props.timeFilter !== "any") {
+    let timeLabel: string;
+    if (props.timeFilter === "custom") {
+      const { from, to } = props.customYearRange;
+      timeLabel = from && to ? `${from}–${to}` : from ? `From ${from}` : `To ${to}`;
+      timeLabel = `Time: ${timeLabel}`;
+    } else {
+      timeLabel = `Time: ${TIME_LABELS[props.timeFilter] ?? props.timeFilter}`;
+    }
+    chips.push(
+      <FilterChip key="time" label={timeLabel} onRemove={props.onResetTime} />,
+    );
+  }
+
+  if (props.db) {
+    chips.push(
+      <FilterChip
+        key="db"
+        label={`Source: ${DB_LABELS_DISPLAY[props.db] ?? props.db}`}
+        onRemove={props.onResetDb}
+      />,
+    );
+  }
+
+  if (props.selectedOrganismKey) {
+    chips.push(
+      <FilterChip
+        key="organism"
+        label={`Organism: ${props.selectedOrganismKey}`}
+        onRemove={props.onResetOrganism}
+      />,
+    );
+  }
+
+  if (props.multiPlatformOnly) {
+    chips.push(
+      <FilterChip
+        key="multi-platform"
+        label="Multi-platform only"
+        onRemove={() => props.setMultiPlatformOnly(false)}
+      />,
+    );
+  }
+
+  for (const journal of props.selectedJournalFilters) {
+    chips.push(
+      <FilterChip
+        key={`j-${journal}`}
+        label={`Journal: ${journal}`}
+        onRemove={() =>
+          props.setSelectedJournalFilters(
+            props.selectedJournalFilters.filter((v) => v !== journal),
+          )
+        }
+      />,
+    );
+  }
+
+  for (const country of props.selectedCountryFilters) {
+    chips.push(
+      <FilterChip
+        key={`c-${country}`}
+        label={`Country: ${country}`}
+        onRemove={() =>
+          props.setSelectedCountryFilters(
+            props.selectedCountryFilters.filter((v) => v !== country),
+          )
+        }
+      />,
+    );
+  }
+
+  for (const strategy of props.selectedLibraryStrategyFilters) {
+    chips.push(
+      <FilterChip
+        key={`l-${strategy}`}
+        label={`Library: ${strategy}`}
+        onRemove={() =>
+          props.setSelectedLibraryStrategyFilters(
+            props.selectedLibraryStrategyFilters.filter((v) => v !== strategy),
+          )
+        }
+      />,
+    );
+  }
+
+  for (const model of props.selectedInstrumentModelFilters) {
+    chips.push(
+      <FilterChip
+        key={`i-${model}`}
+        label={`Instrument: ${model}`}
+        onRemove={() =>
+          props.setSelectedInstrumentModelFilters(
+            props.selectedInstrumentModelFilters.filter((v) => v !== model),
+          )
+        }
+      />,
+    );
+  }
+
+  for (const platform of props.selectedPlatformFilters) {
+    chips.push(
+      <FilterChip
+        key={`p-${platform}`}
+        label={`Platform: ${platform}`}
+        onRemove={() =>
+          props.setSelectedPlatformFilters(
+            props.selectedPlatformFilters.filter((v) => v !== platform),
+          )
+        }
+      />,
+    );
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <Flex gap="2" align="center" wrap="wrap" pt="1">
+      {chips}
+      <Button
+        variant="ghost"
+        size="1"
+        color="gray"
+        onClick={props.onClearAll}
+        aria-label="Clear all filters"
+      >
+        Clear all
+      </Button>
+    </Flex>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Client-side filter helpers
 // ---------------------------------------------------------------------------
 
@@ -632,6 +881,7 @@ export default function SearchPageBody() {
     data,
     isLoading,
     isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -1004,22 +1254,23 @@ export default function SearchPageBody() {
     }
   };
 
-  const handleDatabaseChange = (
-    value: "geo" | "sra" | "arrayexpress" | "both",
-  ) => {
-    if (!query) return;
+  const handleDatabaseChange = useCallback(
+    (value: "geo" | "sra" | "arrayexpress" | "both") => {
+      if (!query) return;
 
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("q", query);
-    if (value === "sra" || value === "geo" || value === "arrayexpress") {
-      params.set("db", value);
-    } else {
-      params.delete("db");
-    }
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("q", query);
+      if (value === "sra" || value === "geo" || value === "arrayexpress") {
+        params.set("db", value);
+      } else {
+        params.delete("db");
+      }
 
-    const nextQuery = params.toString();
-    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
-  };
+      const nextQuery = params.toString();
+      router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+    },
+    [query, searchParams, router, pathname],
+  );
 
   // --- Sidebar rail props (use stable sidebarResults for counts) ---
   const railProps = {
@@ -1060,7 +1311,109 @@ export default function SearchPageBody() {
     selectedInstrumentModelFilters.length > 0 ||
     selectedPlatformFilters.length > 0 ||
     multiPlatformOnly ||
-    timeFilter !== "any";
+    timeFilter !== "any" ||
+    sortBy !== "relevance" ||
+    db != null;
+
+  // Reset helpers used by the active-filter chip row
+  const resetSort = useCallback(
+    () => updateSearchUrl({ [FILTER_PARAM_KEYS.sortBy]: null }),
+    [updateSearchUrl],
+  );
+  const resetTime = useCallback(
+    () =>
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.time]: null,
+        [FILTER_PARAM_KEYS.yearFrom]: null,
+        [FILTER_PARAM_KEYS.yearTo]: null,
+      }),
+    [updateSearchUrl],
+  );
+  const resetDb = useCallback(
+    () => handleDatabaseChange("both"),
+    [handleDatabaseChange],
+  );
+  const resetOrganism = useCallback(
+    () => updateSearchUrl({ [FILTER_PARAM_KEYS.organism]: null }),
+    [updateSearchUrl],
+  );
+  const handleClearAllFilters = useCallback(() => {
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.sortBy]: null,
+      [FILTER_PARAM_KEYS.time]: null,
+      [FILTER_PARAM_KEYS.yearFrom]: null,
+      [FILTER_PARAM_KEYS.yearTo]: null,
+      [FILTER_PARAM_KEYS.organism]: null,
+      [FILTER_PARAM_KEYS.journal]: [],
+      [FILTER_PARAM_KEYS.country]: [],
+      [FILTER_PARAM_KEYS.libraryStrategy]: [],
+      [FILTER_PARAM_KEYS.instrumentModel]: [],
+      [FILTER_PARAM_KEYS.platform]: [],
+      [FILTER_PARAM_KEYS.multiPlatform]: null,
+    });
+    if (db) handleDatabaseChange("both");
+  }, [updateSearchUrl, db, handleDatabaseChange]);
+
+  // SearchFilters is now mounted inline above the results column.
+  // This is the toolbar that replaces the previous 14-radio sticky rail.
+  const filterToolbar = (
+    <SearchFilters
+      db={db}
+      query={query}
+      sortBy={sortBy}
+      setSortBy={(value) =>
+        updateSearchUrl({
+          [FILTER_PARAM_KEYS.sortBy]: value === "relevance" ? null : value,
+        })
+      }
+      setTimeFilter={(value) =>
+        updateSearchUrl({
+          [FILTER_PARAM_KEYS.time]: value === "any" ? null : value,
+          [FILTER_PARAM_KEYS.yearFrom]:
+            value === "custom" ? customYearRange.from : null,
+          [FILTER_PARAM_KEYS.yearTo]:
+            value === "custom" ? customYearRange.to : null,
+        })
+      }
+      timeFilter={timeFilter}
+      customYearRange={customYearRange}
+      setCustomYearRange={(value) =>
+        updateSearchUrl({
+          [FILTER_PARAM_KEYS.time]: "custom",
+          [FILTER_PARAM_KEYS.yearFrom]: value.from,
+          [FILTER_PARAM_KEYS.yearTo]: value.to,
+        })
+      }
+      onDatabaseChange={handleDatabaseChange}
+    />
+  );
+
+  const activeFilterChips = (
+    <ActiveFilterChips
+      sortBy={sortBy}
+      onResetSort={resetSort}
+      timeFilter={timeFilter}
+      customYearRange={customYearRange}
+      onResetTime={resetTime}
+      db={db}
+      onResetDb={resetDb}
+      selectedOrganismKey={selectedOrganismKey}
+      onResetOrganism={resetOrganism}
+      selectedJournalFilters={selectedJournalFilters}
+      setSelectedJournalFilters={handleSetJournalFilters}
+      selectedCountryFilters={selectedCountryFilters}
+      setSelectedCountryFilters={handleSetCountryFilters}
+      selectedLibraryStrategyFilters={selectedLibraryStrategyFilters}
+      setSelectedLibraryStrategyFilters={handleSetLibraryStrategyFilters}
+      selectedInstrumentModelFilters={selectedInstrumentModelFilters}
+      setSelectedInstrumentModelFilters={handleSetInstrumentModelFilters}
+      selectedPlatformFilters={selectedPlatformFilters}
+      setSelectedPlatformFilters={handleSetPlatformFilters}
+      multiPlatformOnly={multiPlatformOnly}
+      setMultiPlatformOnly={handleSetMultiPlatform}
+      onClearAll={handleClearAllFilters}
+    />
+  );
 
   return (
     <>
@@ -1074,46 +1427,21 @@ export default function SearchPageBody() {
         justify={{ initial: "start", md: "between" }}
         direction={{ initial: "column", md: "row" }}
       >
-        <SearchFilters
-          db={db}
-          query={query}
-          sortBy={sortBy}
-          setSortBy={(value) =>
-            updateSearchUrl({
-              [FILTER_PARAM_KEYS.sortBy]:
-                value === "relevance" ? null : value,
-            })
-          }
-          setTimeFilter={(value) =>
-            updateSearchUrl({
-              [FILTER_PARAM_KEYS.time]: value === "any" ? null : value,
-              [FILTER_PARAM_KEYS.yearFrom]:
-                value === "custom" ? customYearRange.from : null,
-              [FILTER_PARAM_KEYS.yearTo]:
-                value === "custom" ? customYearRange.to : null,
-            })
-          }
-          timeFilter={timeFilter}
-          customYearRange={customYearRange}
-          setCustomYearRange={(value) =>
-            updateSearchUrl({
-              [FILTER_PARAM_KEYS.time]: "custom",
-              [FILTER_PARAM_KEYS.yearFrom]: value.from,
-              [FILTER_PARAM_KEYS.yearTo]: value.to,
-            })
-          }
-          onDatabaseChange={handleDatabaseChange}
-        />
         {shouldShowOrganismRail ? (
           <SearchOrganismRail {...railProps} showMobile showDesktop={false} />
         ) : null}
 
-        {/* Results column */}
+        {/* Results column — now full-width on the left since the previous
+            sort/time/database radio rail has been folded into a compact
+            toolbar that lives above the results. */}
         <Flex
           gap="4"
           direction="column"
-          width={{ initial: "100%", md: "58%", lg: "65%", xl: "73%" }}
+          width={{ initial: "100%", md: "calc(100% - 240px)", lg: "calc(100% - 300px)" }}
+          minWidth="0"
         >
+          {filterToolbar}
+          {activeFilterChips}
           <div ref={resultsTopRef} />
           {!query && !isGeoSearch ? (
             <Text>Start by typing a search query above.</Text>
@@ -1133,24 +1461,28 @@ export default function SearchPageBody() {
             </>
           ) : isError ? (
             <Flex
-              gap="2"
+              gap="3"
               align="center"
               justify="center"
               height={"20rem"}
               direction={"column"}
             >
-              <Image
-                src="./controls.svg"
-                alt="empty box"
-                width={"100"}
-                height={"100"}
-              />
-              <Text color="gray" size={"6"} weight={"bold"}>
-                Failed to connect
+              <Text size={{ initial: "5", md: "6" }} weight="bold">
+                We couldn&rsquo;t reach the search server
               </Text>
-              <Text color="gray" size={"2"}>
-                Check your network connection
+              <Text
+                size="2"
+                align="center"
+                style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
+              >
+                The server may be under load, or the connection may have
+                dropped. Your query is still in the URL — retrying is safe.
               </Text>
+              <Flex gap="2" align="center" mt="1">
+                <Button variant="surface" onClick={() => refetch()}>
+                  <ReloadIcon /> Retry search
+                </Button>
+              </Flex>
             </Flex>
           ) : allResults.length > 0 ? (
             <>
@@ -1178,6 +1510,7 @@ export default function SearchPageBody() {
                   justify="center"
                   direction={"column"}
                   height={"12rem"}
+                  gap="2"
                 >
                   {isFetchingNextPage ? (
                     <>
@@ -1188,35 +1521,62 @@ export default function SearchPageBody() {
                     </>
                   ) : (
                     <>
-                      <Text color="gray" size={"4"} weight={"bold"}>
+                      <Text size={{ initial: "3", md: "4" }} weight="bold">
                         No results match your filters
                       </Text>
-                      <Text color="gray" size={"2"}>
-                        Try clearing active filters or widening the time range.
+                      <Text
+                        size="2"
+                        align="center"
+                        style={{ color: "var(--gray-11)" }}
+                      >
+                        {filteredTotal === 0 && allResults.length > 0
+                          ? `${allResults.length.toLocaleString()} result${allResults.length === 1 ? "" : "s"} were filtered out — try removing a filter to see them.`
+                          : "Try clearing active filters or widening the time range."}
                       </Text>
+                      {hasAnyFilter && (
+                        <Button
+                          variant="surface"
+                          size="2"
+                          onClick={handleClearAllFilters}
+                          mt="1"
+                        >
+                          Clear all filters
+                        </Button>
+                      )}
                     </>
                   )}
                 </Flex>
               ) : (
-                pageResults.map((searchResult) => (
-                  <ResultCard
-                    key={`${searchResult.source}:${searchResult.accession}`}
-                    accession={searchResult.accession}
-                    title={searchResult.title}
-                    summary={searchResult.summary}
-                    updated_at={searchResult.updated_at}
-                    journal={searchResult.journal}
-                    doi={searchResult.doi}
-                    citation_count={searchResult.citation_count}
-                    authors={searchResult.authors}
-                    center_name={searchResult.center_name}
-                    country_code={searchResult.country_code}
-                    single_cell_modality={searchResult.single_cell_modality}
-                    href={selectedOrganismKey
-                      ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
-                      : undefined}
-                  />
-                ))
+                <Flex
+                  direction="column"
+                  gap="0"
+                  className="seqout-divided-list"
+                >
+                  {pageResults.map((searchResult, index) => (
+                    <ResultCard
+                      key={`${searchResult.source}:${searchResult.accession}`}
+                      accession={searchResult.accession}
+                      title={searchResult.title}
+                      summary={searchResult.summary}
+                      updated_at={searchResult.updated_at}
+                      journal={searchResult.journal}
+                      doi={searchResult.doi}
+                      citation_count={searchResult.citation_count}
+                      authors={searchResult.authors}
+                      center_name={searchResult.center_name}
+                      country_code={searchResult.country_code}
+                      single_cell_modality={searchResult.single_cell_modality}
+                      href={selectedOrganismKey
+                        ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
+                        : undefined}
+                      isTopResult={
+                        index === 0 &&
+                        safePage === 1 &&
+                        sortBy === "relevance"
+                      }
+                    />
+                  ))}
+                </Flex>
               )}
 
               {/* Paginator */}
@@ -1237,17 +1597,11 @@ export default function SearchPageBody() {
               justify="center"
               direction={"column"}
               height={"20rem"}
+              gap="3"
             >
-              <Image
-                draggable={"false"}
-                src="./empty-box.svg"
-                alt="empty box"
-                width={"100"}
-                height={"100"}
-              />
-              <Text color="gray" size={"6"} weight={"bold"}>
-                {suggestions?.length
-                  ? `No results for "${query}"`
+              <Text size={{ initial: "5", md: "6" }} weight="bold">
+                {query
+                  ? <>No results for &ldquo;{query}&rdquo;</>
                   : "No results found"}
               </Text>
               {suggestions?.length ? (
@@ -1257,8 +1611,14 @@ export default function SearchPageBody() {
                   onNavigate={(url) => router.push(url)}
                 />
               ) : (
-                <Text color="gray" size={"2"}>
-                  Try refining your search text
+                <Text
+                  size="2"
+                  align="center"
+                  style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
+                >
+                  Try a different keyword, broaden your filters, or search by
+                  accession (e.g.&nbsp;
+                  <span className="seqout-accession">GSE196830</span>).
                 </Text>
               )}
             </Flex>

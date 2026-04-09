@@ -1,11 +1,15 @@
 "use client";
 
+import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
 import { cleanJournalName } from "@/utils/format";
 import { SERVER_URL } from "@/utils/constants";
-import { CheckIcon, CopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Badge, Box, Card, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
-import Image from "next/image";
+import {
+  CheckIcon,
+  CopyIcon,
+  ExternalLinkIcon,
+} from "@radix-ui/react-icons";
+import { Badge, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
 import { useState } from "react";
 
 export type StudyPublication = {
@@ -93,12 +97,14 @@ function formatCellCitation(pub: StudyPublication): string {
   return parts.join(" ");
 }
 
-
 const copyBtnStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   gap: 4,
-  padding: "2px 8px",
+  // 6px vertical padding + 12px icon + 6px = 24px tall, clears WCAG 2.5.8
+  padding: "6px 12px",
+  minHeight: "24px",
   borderRadius: "var(--radius-2)",
   border: "1px solid var(--gray-a7)",
   background: "var(--gray-a3)",
@@ -136,10 +142,16 @@ export default function PublicationCard({
   publication,
   accession,
 }: PublicationCardProps) {
+  const { showToast } = useToast();
   const [copiedCitation, setCopiedCitation] = useState(false);
   const [copiedBibtex, setCopiedBibtex] = useState(false);
 
   const year = extractYear(publication.pub_date);
+  const cleanedJournal = publication.journal
+    ? cleanJournalName(publication.journal)
+    : null;
+  const hasCitations =
+    publication.citation_count != null && publication.citation_count > 0;
   const titleLink = publication.doi
     ? `https://doi.org/${publication.doi}`
     : publication.pmid
@@ -151,6 +163,7 @@ export default function PublicationCard({
     if (copyToClipboard(text)) {
       setCopiedCitation(true);
       setTimeout(() => setCopiedCitation(false), 1500);
+      showToast("Citation copied");
     }
   };
 
@@ -173,6 +186,7 @@ export default function PublicationCard({
       if (copyToClipboard(bibtex)) {
         setCopiedBibtex(true);
         setTimeout(() => setCopiedBibtex(false), 1500);
+        showToast("BibTeX copied");
       }
     } catch {
       /* fetch failed */
@@ -180,83 +194,148 @@ export default function PublicationCard({
   };
 
   return (
-    <Card>
-      <Flex gap={"4"} align={"center"}>
-        <Box display={{ initial: "block", md: "none" }}>
-          <Image
-            draggable={"false"}
-            src={"/page.svg"}
-            height={24}
-            width={24}
-            alt="page icon"
-          />
-        </Box>
-        <Box display={{ initial: "none", md: "block" }}>
-          <Image
-            draggable={"false"}
-            src={"/page.svg"}
-            height={40}
-            width={40}
-            alt="page icon"
-          />
-        </Box>
-        <Flex direction={"column"} style={{ flex: 1 }}>
+    <Flex direction="column" gap="2" py="3" px="3">
+        {/* Header row: title (left, expands) + triage meta (right, wraps
+            below on narrow viewports). Same structural skeleton as the
+            search result card — citations, journal, year live next to the
+            title for one-glance scanning, not buried at the bottom. */}
+        <Flex gap="3" justify="between" align="start" wrap="wrap">
           {titleLink ? (
-            <Link
-              href={titleLink}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Text
               size={{ initial: "2", md: "3" }}
-              weight={"medium"}
+              weight="bold"
+              asChild
+              style={{ flex: "1 1 16rem", minWidth: 0 }}
             >
-              {publication.title} <ExternalLinkIcon />
-            </Link>
+              <Link
+                href={titleLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "inherit", textDecoration: "none" }}
+              >
+                {publication.title}
+                {" "}
+                <ExternalLinkIcon
+                  style={{ verticalAlign: "middle", opacity: 0.6 }}
+                />
+              </Link>
+            </Text>
           ) : (
-            <Text size={{ initial: "2", md: "3" }} weight={"medium"}>
+            <Text
+              size={{ initial: "2", md: "3" }}
+              weight="bold"
+              style={{ flex: "1 1 16rem", minWidth: 0 }}
+            >
               {publication.title}
             </Text>
           )}
 
-          {publication.authors && (
-            <Text
-              style={{ fontStyle: "italic" }}
-              size={{ initial: "1", md: "2" }}
+          {(hasCitations || cleanedJournal || year) && (
+            <Flex
+              gap="2"
+              align="center"
+              wrap="wrap"
+              style={{ flexShrink: 0 }}
             >
-              {formatAuthors(publication.authors)}
-            </Text>
-          )}
-          <Flex gap={"2"} align={"center"} wrap={"wrap"} mt={"1"}>
-            {publication.journal && (
-              <Text weight={"medium"} size={"2"}>
-                {cleanJournalName(publication.journal)}
-              </Text>
-            )}
-            {year && (
-              <Badge color="gray" variant="soft" size={"1"}>
-                {year}
-              </Badge>
-            )}
-            {publication.citation_count != null &&
-              publication.citation_count > 0 && (
-                <Badge color="iris" size={"1"}>
-                  {publication.citation_count.toLocaleString()} citations
+              {hasCitations && (
+                <Badge size="2" color="iris" variant="soft">
+                  {publication.citation_count!.toLocaleString()} citations
                 </Badge>
               )}
-            <CopyButton
-              label="Cite"
-              copied={copiedCitation}
-              onClick={handleCopyCitation}
-            />
-            {accession && (
-              <CopyButton
-                label="BibTeX"
-                copied={copiedBibtex}
-                onClick={handleCopyBibtex}
-              />
-            )}
-          </Flex>
+              {cleanedJournal && (
+                <Badge
+                  size="2"
+                  color="blue"
+                  variant="soft"
+                  style={{ cursor: publication.doi ? "pointer" : undefined }}
+                  onClick={
+                    publication.doi
+                      ? (e) => {
+                          e.stopPropagation();
+                          window.open(
+                            `https://doi.org/${publication.doi}`,
+                            "_blank",
+                          );
+                        }
+                      : undefined
+                  }
+                >
+                  {cleanedJournal}
+                  {publication.doi && <ExternalLinkIcon />}
+                </Badge>
+              )}
+              {year && (
+                <Text size="1" style={{ color: "var(--gray-11)" }}>
+                  {year}
+                </Text>
+              )}
+            </Flex>
+          )}
         </Flex>
-      </Flex>
-    </Card>
+
+        {publication.authors && (
+          <Text
+            size="2"
+            style={{ fontStyle: "italic", color: "var(--gray-11)" }}
+          >
+            {formatAuthors(publication.authors)}
+          </Text>
+        )}
+
+        {/* Bottom row: canonical identifiers (PMID / DOI) rendered in
+            Geist Mono via the seqout-accession class, plus citation-copy
+            and BibTeX-copy actions. Parallel to the result-card's bottom
+            badge row (accession + modality tags). */}
+        <Flex gap="2" align="center" wrap="wrap">
+          {publication.pmid && (
+            <Link
+              href={`https://pubmed.ncbi.nlm.nih.gov/${publication.pmid}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: "none" }}
+            >
+              <Badge
+                size="2"
+                color="gray"
+                variant="soft"
+                className="seqout-accession"
+                style={{ cursor: "pointer" }}
+              >
+                PMID {publication.pmid}
+              </Badge>
+            </Link>
+          )}
+          {publication.doi && !cleanedJournal && (
+            <Link
+              href={`https://doi.org/${publication.doi}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: "none" }}
+            >
+              <Badge
+                size="2"
+                color="gray"
+                variant="soft"
+                className="seqout-accession"
+                style={{ cursor: "pointer" }}
+              >
+                doi:{publication.doi}
+              </Badge>
+            </Link>
+          )}
+          <CopyButton
+            label="Cite"
+            copied={copiedCitation}
+            onClick={handleCopyCitation}
+          />
+          {accession && (
+            <CopyButton
+              label="BibTeX"
+              copied={copiedBibtex}
+              onClick={handleCopyBibtex}
+            />
+          )}
+        </Flex>
+    </Flex>
   );
 }

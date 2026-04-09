@@ -10,6 +10,7 @@ import SubmittingOrgPanel, {
 import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { ensureAgGridModules } from "@/lib/ag-grid";
+import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { formatBytes } from "@/utils/format";
@@ -19,6 +20,8 @@ import {
   DownloadIcon,
   ExternalLinkIcon,
   HomeIcon,
+  MagnifyingGlassIcon,
+  ReloadIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -37,7 +40,6 @@ import type {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import React, { useState } from "react";
 
@@ -695,6 +697,7 @@ function getDbBadgeColor(
 export default function SampleDetailPage() {
   const params = useParams();
   const { resolvedTheme } = useTheme();
+  const { showToast } = useToast();
   const accession = params.accession as string | undefined;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const agGridThemeClassName =
@@ -704,6 +707,7 @@ export default function SampleDetailPage() {
     data: detail,
     isLoading,
     isError,
+    refetch: refetchSample,
   } = useQuery({
     queryKey: ["sample-detail", accession],
     queryFn: () => fetchSampleDetail(accession ?? null),
@@ -715,6 +719,11 @@ export default function SampleDetailPage() {
     copyToClipboard(accession);
     setIsAccessionCopied(true);
     window.setTimeout(() => setIsAccessionCopied(false), 1500);
+    showToast(
+      <>
+        Copied <span className="seqout-accession">{accession}</span>
+      </>,
+    );
   };
 
   const project = detail?.project;
@@ -764,14 +773,23 @@ export default function SampleDetailPage() {
           justify="center"
           direction="column"
         >
-          <Text size="4" weight="bold" color="gray" align="center">
-            No sample selected
+          <Text size={{ initial: "4", md: "5" }} weight="bold">
+            No sample specified
+          </Text>
+          <Text
+            size="2"
+            align="center"
+            style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
+          >
+            The URL needs an accession like{" "}
+            <span className="seqout-accession">/s/SRS123456</span>.
           </Text>
           <Button
             variant="surface"
             onClick={() => (window.location.href = "/")}
+            mt="1"
           >
-            <HomeIcon /> Go back
+            <HomeIcon /> Back to search
           </Button>
         </Flex>
       )}
@@ -786,31 +804,44 @@ export default function SampleDetailPage() {
           justify="center"
         >
           <Spinner size="3" />
-          <Text>Getting sample metadata</Text>
+          <Text>
+            Loading <span className="seqout-accession">{accession}</span>
+          </Text>
         </Flex>
       )}
 
       {accession && isError && (
         <Flex
-          gap="2"
+          gap="3"
           align="center"
           justify="center"
           height="20rem"
           direction="column"
+          px="4"
         >
-          <Image
-            draggable={false}
-            src="/empty-box.svg"
-            alt="empty box"
-            width={100}
-            height={100}
-          />
-          <Text color="gray" size="6" weight="bold">
-            Could not find sample
+          <Text size={{ initial: "5", md: "6" }} weight="bold">
+            We couldn&rsquo;t load{" "}
+            <span className="seqout-accession">{accession}</span>
           </Text>
-          <Text color="gray" size="2">
-            Check your network connection or accession
+          <Text
+            size="2"
+            align="center"
+            style={{ color: "var(--gray-11)", maxWidth: "34rem" }}
+          >
+            The sample may not exist, or the server may be temporarily
+            unavailable. Retrying is safe.
           </Text>
+          <Flex gap="2" mt="1">
+            <Button variant="surface" onClick={() => refetchSample()}>
+              <ReloadIcon /> Retry
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => (window.location.href = "/")}
+            >
+              <MagnifyingGlassIcon /> Search instead
+            </Button>
+          </Flex>
         </Flex>
       )}
 

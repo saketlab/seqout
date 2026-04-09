@@ -1329,8 +1329,6 @@ export default function MapGraph() {
           ) * 100,
         )
       : null;
-  // const loadingPercentText =
-  //   progressPercent !== null ? `${progressPercent}%` : "Starting...";
   const loadingSourceText =
     mapDataSource === "cache"
       ? "Using cached map from browser storage."

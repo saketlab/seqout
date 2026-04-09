@@ -1,12 +1,13 @@
 "use client";
 
 import SectionAnchor from "@/components/section-anchor";
+import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
+import { getApexChartTheme } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize, humanizeBytes } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
-import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
-import { Card, Flex, SegmentedControl, Skeleton, Text } from "@radix-ui/themes";
+import { Flex, SegmentedControl, Skeleton, Text } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
@@ -98,11 +99,13 @@ export default function StatsGrowthChartCard() {
   }, [data]);
 
   const chartOptions = useMemo<ApexOptions>(
-    () => ({
+    () => {
+      const theme = getApexChartTheme(isDark);
+      return {
       chart: {
         id: "seqout-db-growth",
         type: view === "cumulative" ? "area" : "line",
-        background: isDark ? "#111113" : "#ffffff",
+        background: theme.background,
         toolbar: {
           show: true,
           tools: {
@@ -119,7 +122,7 @@ export default function StatsGrowthChartCard() {
             svg: { filename: `seqout-database-growth-${mode}-${view}` },
           },
         },
-        foreColor: isDark ? "#a1a1aa" : "#71717a",
+        foreColor: theme.foreColor,
         zoom: { enabled: true },
         animations: { enabled: false },
         events: chartFooterEvents,
@@ -130,8 +133,8 @@ export default function StatsGrowthChartCard() {
         style: {
           fontSize: "16px",
           fontWeight: "600",
-          fontFamily: "system-ui, sans-serif",
-          color: isDark ? "#fafafa" : "#000000",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          color: theme.titleColor,
         },
       },
       subtitle: {
@@ -139,8 +142,8 @@ export default function StatsGrowthChartCard() {
         align: "left",
         style: {
           fontSize: "12px",
-          fontFamily: "system-ui, sans-serif",
-          color: isDark ? "#a1a1aa" : "#555555",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          color: theme.subtitleColor,
         },
       },
       stroke: {
@@ -190,12 +193,12 @@ export default function StatsGrowthChartCard() {
         position: "top",
         horizontalAlign: "left",
         fontSize: "13px",
-        fontFamily: "system-ui, sans-serif",
-        labels: { colors: isDark ? "#d4d4d8" : "#3f3f46" },
+        fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+        labels: { colors: theme.legendLabelColor },
       },
       grid: {
         strokeDashArray: 4,
-        borderColor: isDark ? "#3f3f46" : "#e4e4e7",
+        borderColor: theme.gridBorderColor,
         padding: { bottom: 16 },
       },
       tooltip: {
@@ -208,12 +211,17 @@ export default function StatsGrowthChartCard() {
               : value.toLocaleString(),
         },
       },
-    }),
+      };
+    },
     [mode, view, logScale, isDark, xaxisTicks],
   );
 
   return (
-    <Card style={{ width: "100%" }}>
+    <Flex
+      direction="column"
+      width="100%"
+      py={{ initial: "4", md: "5" }}
+    >
       <Flex justify="between" align="center" mb="4" gap="3" wrap="wrap">
         <Flex align="center" gap="2">
           <Text size="5" weight="bold" ml="1">
@@ -281,6 +289,6 @@ export default function StatsGrowthChartCard() {
           <ChartFooter chartId="seqout-db-growth" />
         </>
       )}
-    </Card>
+    </Flex>
   );
 }

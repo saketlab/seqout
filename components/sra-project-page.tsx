@@ -1,4 +1,5 @@
 "use client";
+import CountryFlagIcon from "@/components/country-flag-icon";
 import EnrichedMetadataCard from "@/components/enriched-metadata-card";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
@@ -13,10 +14,11 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
+import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
-import { formatBytes } from "@/utils/format";
+import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
   getOrganismBannerStyle,
   makeOrganismPostSort,
@@ -32,7 +34,9 @@ import {
   FileTextIcon,
   HomeIcon,
   InfoCircledIcon,
+  MagnifyingGlassIcon,
   PersonIcon,
+  ReloadIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -54,7 +58,6 @@ import type {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
 import React, {
   useCallback,
@@ -82,6 +85,8 @@ type Project = {
   external_id?: Record<string, string> | string | null;
   links?: unknown;
   center?: CenterInfo | null;
+  center_name?: string | null;
+  country_code?: string | null;
   publications?: StudyPublication[] | null;
 };
 
@@ -426,6 +431,7 @@ function DownloadFastqSection({
   agGridThemeClassName: string;
   expTitleMap: Map<string, string>;
 }) {
+  const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
@@ -707,6 +713,7 @@ function DownloadFastqSection({
     copyToClipboard(wgetCmd);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+    showToast("Download command copied");
   };
 
   const runColDefs = React.useMemo<ColDef<RunRow>[]>(
@@ -978,6 +985,7 @@ function DownloadFastqSection({
 
     setScriptCopied(didCopy);
     window.setTimeout(() => setScriptCopied(false), 1500);
+    if (didCopy) showToast("Download script copied");
   };
 
   return (
@@ -1184,6 +1192,7 @@ function BamFilesSection({
   agGridThemeClassName: string;
   expTitleMap: Map<string, string>;
 }) {
+  const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const gridRef = useRef<GridApi<BamRow> | null>(null);
@@ -1303,6 +1312,7 @@ function BamFilesSection({
     copyToClipboard(wgetCmd);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+    showToast("BAM download command copied");
   };
 
   const bamColDefs = React.useMemo<ColDef<BamRow>[]>(
@@ -1446,6 +1456,7 @@ function BamFilesSection({
               copyToClipboard(script);
               setScriptCopied(true);
               setTimeout(() => setScriptCopied(false), 1500);
+              showToast("BAM download script copied");
             }}
           >
             {scriptCopied ? <CheckIcon /> : <CopyIcon />}{" "}
@@ -1527,6 +1538,7 @@ export default function ProjectPage() {
   const searchParams = useSearchParams();
   const highlightOrganism = searchParams.get("organism")?.toLowerCase() ?? null;
   const { resolvedTheme } = useTheme();
+  const { showToast } = useToast();
   const accession = params.accession as string | undefined;
   const accessionUpper = accession?.toUpperCase();
   const isArrayExpressAccession = accessionUpper?.startsWith("E-") ?? false;
@@ -1574,6 +1586,7 @@ export default function ProjectPage() {
     data: project,
     isLoading,
     isError,
+    refetch: refetchProject,
   } = useQuery({
     queryKey: ["project", accession],
     queryFn: () => fetchProject(accession ?? null),
@@ -1634,11 +1647,58 @@ export default function ProjectPage() {
     [project?.authors],
   );
 
+  // Union of scientific names across all samples in this project,
+  // sorted alphabetically. Drives the "Organisms" line below the title.
+  const projectOrganisms = React.useMemo<string[]>(() => {
+    if (!samplesMap) return [];
+    const set = new Set<string>();
+    samplesMap.forEach((sample) => {
+      const name = sample.scientific_name?.trim();
+      if (name) set.add(name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [samplesMap]);
+
+  // Header organization chip — matches the result-card pattern (formatted
+  // center name + country flag).
+  //
+  // Prefers the top-level `center_name` + `country_code` fields (the
+  // canonical single answer, same as the search result card) and falls back
+  // to the nested `project.center` struct when the top-level fields are
+  // missing.
+  const headerCenter = React.useMemo<{
+    label: string;
+    countryCode: string | null;
+  } | null>(() => {
+    if (!project) return null;
+
+    // Path 1: top-level fields (canonical).
+    if (project.center_name && project.center_name !== "GEO") {
+      return {
+        label: titleCaseCenter(project.center_name),
+        countryCode: project.country_code ?? null,
+      };
+    }
+
+    // Path 2: nested center fallback.
+    const c = project.center;
+    if (!c || !c.organization || c.organization === "GEO") return null;
+    return {
+      label: titleCaseCenter(c.organization),
+      countryCode: c.country_code ?? null,
+    };
+  }, [project]);
+
   const handleCopyAccession = () => {
     if (!accession) return;
     copyToClipboard(accession);
     setIsAccessionCopied(true);
     window.setTimeout(() => setIsAccessionCopied(false), 1500);
+    showToast(
+      <>
+        Copied <span className="seqout-accession">{accession}</span>
+      </>,
+    );
   };
 
   const attributeKeys = React.useMemo(() => {
@@ -1705,6 +1765,7 @@ export default function ProjectPage() {
         field: "accession",
         minWidth: 140,
         pinned: "left",
+        cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const experimentAccession = toDisplayText(params.value);
           if (experimentAccession === "-") return "-";
@@ -1753,6 +1814,7 @@ export default function ProjectPage() {
         headerName: "Sample",
         field: "sample",
         minWidth: 130,
+        cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
           if (sampleAccession === "-") return "-";
@@ -1854,7 +1916,7 @@ export default function ProjectPage() {
 
       {!accession && (
         <Flex
-          gap="4"
+          gap="3"
           align="center"
           p={"4"}
           ml={{ initial: "0", md: "8rem" }}
@@ -1862,14 +1924,23 @@ export default function ProjectPage() {
           justify="center"
           direction={"column"}
         >
-          <Text size={"4"} weight={"bold"} color="gray" align={"center"}>
-            No project selected 🤷
+          <Text size={{ initial: "4", md: "5" }} weight="bold">
+            No project specified
+          </Text>
+          <Text
+            size="2"
+            align="center"
+            style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
+          >
+            The URL needs an accession like{" "}
+            <span className="seqout-accession">/p/SRP123456</span>.
           </Text>
           <Button
             variant="surface"
             onClick={() => (window.location.href = "/")}
+            mt="1"
           >
-            <HomeIcon /> Go back
+            <HomeIcon /> Back to search
           </Button>
         </Flex>
       )}
@@ -1884,31 +1955,44 @@ export default function ProjectPage() {
           justify="center"
         >
           <Spinner size="3" />
-          <Text>Getting metadata</Text>
+          <Text>
+            Loading <span className="seqout-accession">{accession}</span>
+          </Text>
         </Flex>
       )}
 
       {accession && isError && (
         <Flex
-          gap="2"
+          gap="3"
           align="center"
           justify="center"
           height={"20rem"}
           direction={"column"}
+          px="4"
         >
-          <Image
-            draggable={"false"}
-            src="/empty-box.svg"
-            alt="empty box"
-            width={100}
-            height={100}
-          />
-          <Text color="gray" size={"6"} weight={"bold"}>
-            Could not find project
+          <Text size={{ initial: "5", md: "6" }} weight="bold">
+            We couldn&rsquo;t load{" "}
+            <span className="seqout-accession">{accession}</span>
           </Text>
-          <Text color="gray" size={"2"}>
-            Check your network connection or query
+          <Text
+            size="2"
+            align="center"
+            style={{ color: "var(--gray-11)", maxWidth: "34rem" }}
+          >
+            The project may not exist, or the server may be temporarily
+            unavailable. Retrying is safe.
           </Text>
+          <Flex gap="2" mt="1">
+            <Button variant="surface" onClick={() => refetchProject()}>
+              <ReloadIcon /> Retry
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => (window.location.href = "/")}
+            >
+              <MagnifyingGlassIcon /> Search instead
+            </Button>
+          </Flex>
         </Flex>
       )}
 
@@ -1932,7 +2016,7 @@ export default function ProjectPage() {
                 size={{ initial: "2", md: "3" }}
                 color={
                   isPrjAccession
-                    ? undefined
+                    ? "jade"
                     : isArrayExpressAccession
                       ? "gold"
                       : "brown"
@@ -1942,15 +2026,8 @@ export default function ProjectPage() {
                     ? "solid"
                     : undefined
                 }
-                style={
-                  isPrjAccession
-                    ? {
-                        whiteSpace: "nowrap",
-                        backgroundColor: "#6bb4b5",
-                        color: "white",
-                      }
-                    : { whiteSpace: "nowrap" }
-                }
+                style={{ whiteSpace: "nowrap" }}
+                className="seqout-accession"
               >
                 <Flex align="center" gap="1">
                   <Text>{accession}</Text>
@@ -1996,6 +2073,7 @@ export default function ProjectPage() {
                     size={{ initial: "2", md: "3" }}
                     color="green"
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                    className="seqout-accession"
                   >
                     {project.alias}
                     <ExternalLinkIcon />
@@ -2007,6 +2085,7 @@ export default function ProjectPage() {
                   <Badge
                     size={{ initial: "2", md: "3" }}
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                    className="seqout-accession"
                   >
                     {project.alias}
                     <EnterIcon />
@@ -2030,6 +2109,7 @@ export default function ProjectPage() {
                           size={{ initial: "2", md: "3" }}
                           color="green"
                           style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                          className="seqout-accession"
                         >
                           {value}
                           <ExternalLinkIcon />
@@ -2049,6 +2129,7 @@ export default function ProjectPage() {
                           size={{ initial: "2", md: "3" }}
                           color="gray"
                           style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                          className="seqout-accession"
                         >
                           {value}
                           <ExternalLinkIcon />
@@ -2062,6 +2143,7 @@ export default function ProjectPage() {
                         <Badge
                           size={{ initial: "2", md: "3" }}
                           style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                          className="seqout-accession"
                         >
                           {value}
                           <EnterIcon />
@@ -2076,6 +2158,7 @@ export default function ProjectPage() {
                       size={{ initial: "2", md: "3" }}
                       color="gray"
                       style={{ whiteSpace: "nowrap" }}
+                      className="seqout-accession"
                     >
                       {entry.key}: {value}
                     </Badge>
@@ -2114,6 +2197,39 @@ export default function ProjectPage() {
                 <Text color="gray" style={{ minWidth: 0 }}>
                   {projectAuthors.join(", ")}
                 </Text>
+              </Flex>
+            )}
+            {headerCenter && (
+              <Flex align="center" gap="2">
+                <Text size="2" style={{ color: "var(--gray-11)" }}>
+                  {headerCenter.label}
+                </Text>
+                {headerCenter.countryCode && (
+                  <CountryFlagIcon
+                    code={headerCenter.countryCode}
+                    label={headerCenter.label}
+                  />
+                )}
+              </Flex>
+            )}
+            {projectOrganisms.length > 0 && (
+              <Flex align="start" gap="2" wrap="wrap">
+                <Text size="2" color="gray" style={{ flexShrink: 0 }}>
+                  {projectOrganisms.length === 1 ? "Organism:" : "Organisms:"}
+                </Text>
+                <Flex gap="2" align="center" wrap="wrap">
+                  {projectOrganisms.map((name) => (
+                    <Badge
+                      key={name}
+                      size="2"
+                      color="green"
+                      variant="soft"
+                      style={{ fontStyle: "italic" }}
+                    >
+                      {name}
+                    </Badge>
+                  ))}
+                </Flex>
               </Flex>
             )}
             <ProjectSummary

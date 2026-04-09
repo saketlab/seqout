@@ -3,16 +3,13 @@ import GitHubButton from "@/components/github-button";
 import SearchHistoryDropdown from "@/components/search-history-dropdown";
 import ThemeToggle from "@/components/theme-toggle";
 import { useSearchQuery } from "@/context/search_query";
+import { SEARCH_PLACEHOLDER } from "@/utils/constants";
+import { NAV_ITEMS, type NavItem } from "@/utils/nav";
 import { useSearchHistory } from "@/utils/useSearchHistory";
 import {
-  BarChartIcon,
   GitHubLogoIcon,
   HamburgerMenuIcon,
-  InfoCircledIcon,
-  KeyboardIcon,
-  MagicWandIcon,
   MagnifyingGlassIcon,
-  SewingPinIcon,
 } from "@radix-ui/react-icons";
 import {
   Box,
@@ -29,19 +26,6 @@ import { Suspense, useEffect, useRef, useState } from "react";
 interface SearchBarProps {
   initialQuery?: string | null;
 }
-
-const NAV_ITEMS = [
-  { label: "About", href: "/faq", icon: <InfoCircledIcon /> },
-  {
-    label: "CLI",
-    href: "https://saket-choudhary.me/pysradb/index.html",
-    external: true,
-    icon: <KeyboardIcon />,
-  },
-  { label: "Map", href: "/map", icon: <SewingPinIcon /> },
-  { label: "MCP", href: "/mcp", icon: <MagicWandIcon /> },
-  { label: "Stats", href: "/stats", icon: <BarChartIcon /> },
-];
 
 export default function SearchBar({ initialQuery }: SearchBarProps) {
   return (
@@ -70,7 +54,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
   const searchParams = useSearchParams();
   const currentDb = searchParams.get("db");
 
-  const handleMenuSelect = (item: (typeof NAV_ITEMS)[number]) => {
+  const handleMenuSelect = (item: NavItem) => {
     if (item.external) {
       window.open(item.href, "_blank", "noopener,noreferrer");
       return;
@@ -132,8 +116,8 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         top: 0,
         width: "100%",
         zIndex: 1100,
-        boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
-        backgroundColor: "inherit",
+        backgroundColor: "var(--color-background)",
+        borderBottom: "1px solid var(--gray-a4)",
       }}
     >
       <Box
@@ -218,6 +202,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
             <TextField.Root
               size={"3"}
               data-global-search-target="true"
+              placeholder={SEARCH_PLACEHOLDER}
               ref={inputRef}
               onChange={(e) => {
                 setSearchQuery(e.target.value);

@@ -1,6 +1,7 @@
 "use client";
 import { useSearchQuery } from "@/context/search_query";
 import SearchHistoryDropdown from "@/components/search-history-dropdown";
+import { SEARCH_PLACEHOLDER } from "@/utils/constants";
 import { useSearchHistory } from "@/utils/useSearchHistory";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Box, Flex, TextField } from "@radix-ui/themes";
@@ -55,6 +56,7 @@ export default function HeroSearchBar() {
           <TextField.Root
             aria-label="main search bar"
             data-global-search-target="true"
+            placeholder={SEARCH_PLACEHOLDER}
             size="3"
             value={query}
             ref={inputRef}

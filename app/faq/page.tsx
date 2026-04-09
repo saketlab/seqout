@@ -1,7 +1,6 @@
 import SectionAnchor from "@/components/section-anchor";
 import SearchBar from "@/components/search-bar";
 import {
-  Card,
   Flex,
   Grid,
   Link,
@@ -312,33 +311,25 @@ export default function FAQ() {
         </Flex>
 
         <Grid
-          columns={{ initial: "1", sm: "2", md: "3" }}
-          gap="3"
+          columns={{ initial: "1", sm: "2" }}
+          gap={{ initial: "4", md: "5" }}
           width="100%"
         >
           {features.map((f) => (
             <Link
               key={f.title}
               href={f.href}
-              underline="none"
-              style={{ display: "block" }}
+              underline="hover"
+              style={{ display: "block", color: "inherit" }}
             >
-              <Card
-                size="2"
-                style={{
-                  height: "100%",
-                  transition: "box-shadow 150ms",
-                }}
-              >
-                <Flex direction="column" gap="1">
-                  <Text size="3" weight="medium">
-                    {f.title}
-                  </Text>
-                  <Text size="2" style={{ color: "var(--gray-11)" }}>
-                    {f.description}
-                  </Text>
-                </Flex>
-              </Card>
+              <Flex direction="column" gap="1">
+                <Text size="3" weight="medium">
+                  {f.title}
+                </Text>
+                <Text size="2" style={{ color: "var(--gray-11)" }}>
+                  {f.description}
+                </Text>
+              </Flex>
             </Link>
           ))}
         </Grid>

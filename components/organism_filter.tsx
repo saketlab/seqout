@@ -4,7 +4,6 @@ import { SERVER_URL } from "@/utils/constants";
 import {
   Badge,
   Button,
-  Card,
   Flex,
   Separator,
   Switch,
@@ -308,26 +307,24 @@ export function OrganismFilter({
   const onSelect = (facetKey: string) => onChangeSelection(facetKey);
 
   return (
-    <Card>
-      <Flex direction="column" gap="3">
-        <Flex align="center" justify="between">
-          <Text size="2">Display scientific names</Text>
-          <Switch
-            checked={mode === "scientific"}
-            onCheckedChange={(checked) =>
-              onChangeMode(checked ? "scientific" : "common")
-            }
-          />
-        </Flex>
-        <Separator size="4" />
-        <FilterList
-          facets={facets}
-          selectedKey={selectedKey}
-          totalCount={totalCount}
-          onSelect={onSelect}
-          onClear={onClear}
+    <Flex direction="column" gap="3">
+      <Flex align="center" justify="between">
+        <Text size="2">Display scientific names</Text>
+        <Switch
+          checked={mode === "scientific"}
+          onCheckedChange={(checked) =>
+            onChangeMode(checked ? "scientific" : "common")
+          }
         />
       </Flex>
-    </Card>
+      <Separator size="4" />
+      <FilterList
+        facets={facets}
+        selectedKey={selectedKey}
+        totalCount={totalCount}
+        onSelect={onSelect}
+        onClear={onClear}
+      />
+    </Flex>
   );
 }
