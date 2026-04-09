@@ -2,7 +2,7 @@ import CountryFlagIcon from "@/components/country-flag-icon";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Badge, Box, Card, Flex, Popover, Text } from "@radix-ui/themes";
+import { Badge, Box, Flex, Popover, Text } from "@radix-ui/themes";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -19,6 +19,7 @@ type ResultCardProps = {
   country_code?: string | null;
   href?: string;
   single_cell_modality?: string | null;
+  isTopResult?: boolean;
 };
 
 function parseAuthors(authors: string | null): string[] {
@@ -27,6 +28,17 @@ function parseAuthors(authors: string | null): string[] {
     .split(",")
     .map((author) => author.trim())
     .filter(Boolean);
+}
+
+function formatDate(updatedAt: string | null): string | null {
+  if (!updatedAt) return null;
+  const d = new Date(updatedAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default function ResultCard({
@@ -42,31 +54,99 @@ export default function ResultCard({
   country_code,
   href,
   single_cell_modality,
+  isTopResult = false,
 }: ResultCardProps) {
   const accessionUpper = accession.toUpperCase();
   const isArrayExpressAccession = accessionUpper.startsWith("E-");
   const isPrjAccession = accessionUpper.startsWith("PRJ");
   const authorList = parseAuthors(authors);
-  const additionalAuthorCount = Math.max(authorList.length - 1, 0);
   const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
 
+  const formattedDate = formatDate(updated_at);
+  const cleanedJournal = journal ? cleanJournalName(journal) : null;
+  const hasCitations = citation_count != null && citation_count > 0;
+
   return (
-    <Card>
-      <Flex direction={"column"} gap={"2"}>
-        <Text size={{ initial: "2", md: "3" }} weight={"bold"} asChild>
-          <Link
-            href={href ?? getProjectShortUrl(accession)}
-            style={{
-              cursor: "pointer",
-              width: "100%",
-              userSelect: "none",
-              color: "inherit",
-              textDecoration: "none",
-            }}
+    <Flex
+      direction="column"
+      gap="2"
+      py="4"
+      pr="2"
+      style={
+        isTopResult
+          ? {
+              borderLeft: "2px solid var(--accent-8)",
+              paddingLeft: "calc(var(--space-3) - 2px)",
+            }
+          : { paddingLeft: "var(--space-3)" }
+      }
+    >
+        <Flex
+          gap="3"
+          justify="between"
+          align="start"
+          wrap="wrap"
+        >
+          <Text
+            size={
+              isTopResult
+                ? { initial: "3", md: "4" }
+                : { initial: "2", md: "3" }
+            }
+            weight="bold"
+            asChild
+            style={{ flex: "1 1 16rem", minWidth: 0 }}
           >
-            {title}
-          </Link>
-        </Text>
+            <Link
+              href={href ?? getProjectShortUrl(accession)}
+              style={{
+                cursor: "pointer",
+                userSelect: "none",
+                color: "inherit",
+                textDecoration: "none",
+              }}
+            >
+              {title}
+            </Link>
+          </Text>
+          {(hasCitations || cleanedJournal || formattedDate) && (
+            <Flex
+              gap="2"
+              align="center"
+              wrap="wrap"
+              style={{ flexShrink: 0 }}
+            >
+              {hasCitations && (
+                <Badge size="2" color="iris" variant="soft">
+                  {citation_count!.toLocaleString()} citations
+                </Badge>
+              )}
+              {cleanedJournal && (
+                <Badge
+                  size="2"
+                  color="blue"
+                  variant="soft"
+                  style={{ cursor: doi ? "pointer" : undefined }}
+                  onClick={
+                    doi
+                      ? (e) => {
+                          e.stopPropagation();
+                          window.open(`https://doi.org/${doi}`, "_blank");
+                        }
+                      : undefined
+                  }
+                >
+                  {cleanedJournal} <ExternalLinkIcon />
+                </Badge>
+              )}
+              {formattedDate && (
+                <Text size="1" style={{ color: "var(--gray-11)" }}>
+                  {formattedDate}
+                </Text>
+              )}
+            </Flex>
+          )}
+        </Flex>
         <Text size={"2"} truncate>
           {summary}
         </Text>
@@ -80,7 +160,7 @@ export default function ResultCard({
               <Flex
                 direction="column"
                 gap="1"
-                style={{ color: "var(--gray-10)" }}
+                style={{ color: "var(--gray-11)" }}
               >
                 {authorList.length > 0 && (
                   <Flex gap="1" align="center" wrap="wrap">
@@ -92,6 +172,10 @@ export default function ResultCard({
                     )}
                     {authorList.length > 2 && (
                       <>
+                        {/* First author + senior (last) author with the
+                            middle authors collapsed into a +N popover.
+                            This is the convention biologists actually scan:
+                            who did the work, and who ran the lab. */}
                         <Text size="2">{authorList[0]}</Text>
                         <Popover.Root
                           open={authorsPopoverOpen}
@@ -100,7 +184,7 @@ export default function ResultCard({
                           <Popover.Trigger>
                             <button
                               type="button"
-                              aria-label={`Show ${additionalAuthorCount} more authors`}
+                              aria-label={`Show ${authorList.length - 2} middle authors`}
                               onMouseEnter={() => setAuthorsPopoverOpen(true)}
                               onMouseLeave={() => setAuthorsPopoverOpen(false)}
                               style={{
@@ -113,7 +197,7 @@ export default function ResultCard({
                               }}
                             >
                               <Badge size="1" variant="soft" color="gray">
-                                +{additionalAuthorCount}
+                                +{authorList.length - 2}
                               </Badge>
                             </button>
                           </Popover.Trigger>
@@ -130,14 +214,25 @@ export default function ResultCard({
                             }}
                           >
                             <Flex direction="column" gap="1">
-                              {authorList.map((author) => (
-                                <Text key={author} size="1">
+                              {authorList.map((author, i) => (
+                                <Text
+                                  key={`${author}-${i}`}
+                                  size="1"
+                                  weight={
+                                    i === 0 || i === authorList.length - 1
+                                      ? "medium"
+                                      : "regular"
+                                  }
+                                >
                                   {author}
                                 </Text>
                               ))}
                             </Flex>
                           </Popover.Content>
                         </Popover.Root>
+                        <Text size="2">
+                          {authorList[authorList.length - 1]}
+                        </Text>
                       </>
                     )}
                     {(formattedCenter || country_code) && (
@@ -182,7 +277,7 @@ export default function ResultCard({
             size={"2"}
             color={
               isPrjAccession
-                ? undefined
+                ? "jade"
                 : isArrayExpressAccession
                   ? "gold"
                   : accessionUpper.startsWith("G")
@@ -192,53 +287,16 @@ export default function ResultCard({
             variant={
               isArrayExpressAccession || isPrjAccession ? "solid" : undefined
             }
-            style={
-              isPrjAccession
-                ? { backgroundColor: "#6bb4b5", color: "white" }
-                : undefined
-            }
+            className="seqout-accession"
           >
             {accession}
           </Badge>
-          <Badge size={"2"} color="gray">
-            Last updated on{" "}
-            {updated_at
-              ? new Date(updated_at).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
-              : null}
-          </Badge>
-          {citation_count != null && citation_count > 0 && (
-            <Badge size={"2"} color="iris">
-              {citation_count.toLocaleString()} citations
-            </Badge>
-          )}
           {single_cell_modality && (
             <Badge size={"2"} color="cyan">
               {single_cell_modality}
             </Badge>
           )}
-          {journal && (
-            <Badge
-              size={"2"}
-              color="blue"
-              style={{ cursor: doi ? "pointer" : undefined }}
-              onClick={
-                doi
-                  ? (e) => {
-                      e.stopPropagation();
-                      window.open(`https://doi.org/${doi}`, "_blank");
-                    }
-                  : undefined
-              }
-            >
-              {cleanJournalName(journal)} <ExternalLinkIcon />
-            </Badge>
-          )}
         </Flex>
-      </Flex>
-    </Card>
+    </Flex>
   );
 }

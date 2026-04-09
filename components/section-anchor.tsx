@@ -1,9 +1,11 @@
 "use client";
+import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
 import { Link2Icon } from "@radix-ui/react-icons";
 import { useState } from "react";
 
 export default function SectionAnchor({ id }: { id: string }) {
+  const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -29,6 +31,7 @@ export default function SectionAnchor({ id }: { id: string }) {
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);
     setCopied(didCopy);
     window.setTimeout(() => setCopied(false), 1500);
+    if (didCopy) showToast("Link to section copied");
   };
 
   return (
@@ -45,9 +48,14 @@ export default function SectionAnchor({ id }: { id: string }) {
         border: "none",
         background: "transparent",
         cursor: "pointer",
-        padding: "2px",
+        // 32×32 hit area for WCAG 2.5.8; negative margin hides the padding visually.
+        padding: "8px",
+        margin: "-8px -4px -8px 0",
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
+        minWidth: "32px",
+        minHeight: "32px",
         color: copied ? "var(--accent-11)" : "var(--gray-12)",
         opacity: copied ? 1 : hovered ? 1 : 0.35,
         transition: "opacity 150ms, color 150ms",

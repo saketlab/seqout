@@ -2,9 +2,10 @@
 
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
+import { getApexChartTheme } from "@/utils/chart-theme";
 import { DB_COLORS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
-import { Card, Flex, SegmentedControl, Text } from "@radix-ui/themes";
+import { Flex, SegmentedControl, Text } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
@@ -27,13 +28,15 @@ export default function StatsSourceHistogramCard() {
   const isDark = resolvedTheme === "dark";
 
   const chartOptions = useMemo<ApexOptions>(
-    () => ({
+    () => {
+      const theme = getApexChartTheme(isDark);
+      return {
       chart: {
         id: "seqout-source-dist",
         type: "bar",
-        background: isDark ? "#111113" : "#ffffff",
+        background: theme.background,
         toolbar: { show: false },
-        foreColor: isDark ? "#a1a1aa" : "#71717a",
+        foreColor: theme.foreColor,
         events: chartFooterEvents,
       },
       title: {
@@ -42,8 +45,8 @@ export default function StatsSourceHistogramCard() {
         style: {
           fontSize: "16px",
           fontWeight: "600",
-          fontFamily: "system-ui, sans-serif",
-          color: isDark ? "#fafafa" : "#000000",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          color: theme.titleColor,
         },
       },
       subtitle: {
@@ -51,8 +54,8 @@ export default function StatsSourceHistogramCard() {
         align: "left",
         style: {
           fontSize: "12px",
-          fontFamily: "system-ui, sans-serif",
-          color: isDark ? "#a1a1aa" : "#555555",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          color: theme.subtitleColor,
         },
       },
       xaxis: {
@@ -69,8 +72,8 @@ export default function StatsSourceHistogramCard() {
         style: {
           fontSize: "12px",
           fontWeight: "600",
-          fontFamily: "system-ui, sans-serif",
-          colors: [isDark ? "#e4e4e7" : "#18181b"],
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          colors: [theme.dataLabelColor],
         },
       },
       plotOptions: {
@@ -87,7 +90,7 @@ export default function StatsSourceHistogramCard() {
       colors: [DB_COLORS.sra, DB_COLORS.geo, DB_COLORS.arrayexpress, DB_COLORS.ena],
       grid: {
         strokeDashArray: 4,
-        borderColor: isDark ? "#3f3f46" : "#e4e4e7",
+        borderColor: theme.gridBorderColor,
         padding: { bottom: 16 },
       },
       tooltip: {
@@ -96,7 +99,8 @@ export default function StatsSourceHistogramCard() {
           formatter: (value) => `${value.toLocaleString()} ${metric}`,
         },
       },
-    }),
+      };
+    },
     [metric, isDark],
   );
 
@@ -111,7 +115,11 @@ export default function StatsSourceHistogramCard() {
   );
 
   return (
-    <Card style={{ width: "100%" }}>
+    <Flex
+      direction="column"
+      width="100%"
+      py={{ initial: "4", md: "5" }}
+    >
       <Flex justify="between" align="center" mb="4" gap="3">
         <Flex align="center" gap="2">
           <Text size="5" weight="bold" ml={"1"}>
@@ -138,6 +146,6 @@ export default function StatsSourceHistogramCard() {
         width="100%"
       />
       <ChartFooter chartId="seqout-source-dist" />
-    </Card>
+    </Flex>
   );
 }

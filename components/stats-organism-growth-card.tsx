@@ -2,13 +2,13 @@
 
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
+import { getApexChartTheme } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
-  Card,
   Flex,
   Popover,
   ScrollArea,
@@ -173,11 +173,13 @@ export default function StatsOrganismGrowthCard() {
   }, [growthData]);
 
   const chartOptions = useMemo<ApexOptions>(
-    () => ({
+    () => {
+      const theme = getApexChartTheme(isDark);
+      return {
       chart: {
         id: "seqout-organism-growth",
         type: view === "cumulative" ? "area" : "line",
-        background: isDark ? "#111113" : "#ffffff",
+        background: theme.background,
         toolbar: {
           show: true,
           tools: {
@@ -198,7 +200,7 @@ export default function StatsOrganismGrowthCard() {
             },
           },
         },
-        foreColor: isDark ? "#a1a1aa" : "#71717a",
+        foreColor: theme.foreColor,
         zoom: { enabled: true },
         animations: { enabled: false },
         events: chartFooterEvents,
@@ -211,8 +213,8 @@ export default function StatsOrganismGrowthCard() {
         style: {
           fontSize: "16px",
           fontWeight: "600",
-          fontFamily: "system-ui, sans-serif",
-          color: isDark ? "#fafafa" : "#000000",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          color: theme.titleColor,
         },
       },
       subtitle: {
@@ -220,8 +222,8 @@ export default function StatsOrganismGrowthCard() {
         align: "left",
         style: {
           fontSize: "12px",
-          fontFamily: "system-ui, sans-serif",
-          color: isDark ? "#a1a1aa" : "#555555",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          color: theme.subtitleColor,
         },
       },
       stroke: {
@@ -268,12 +270,12 @@ export default function StatsOrganismGrowthCard() {
         position: "top",
         horizontalAlign: "left",
         fontSize: "13px",
-        fontFamily: "system-ui, sans-serif",
-        labels: { colors: isDark ? "#d4d4d8" : "#3f3f46" },
+        fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+        labels: { colors: theme.legendLabelColor },
       },
       grid: {
         strokeDashArray: 4,
-        borderColor: isDark ? "#3f3f46" : "#e4e4e7",
+        borderColor: theme.gridBorderColor,
         padding: { bottom: 16 },
       },
       tooltip: {
@@ -286,7 +288,8 @@ export default function StatsOrganismGrowthCard() {
               : value.toLocaleString(),
         },
       },
-    }),
+      };
+    },
     [
       mode,
       view,
@@ -329,7 +332,11 @@ export default function StatsOrganismGrowthCard() {
   const isSearching = debouncedQuery.length >= 2 && searchFetching;
 
   return (
-    <Card style={{ width: "100%" }}>
+    <Flex
+      direction="column"
+      width="100%"
+      py={{ initial: "4", md: "5" }}
+    >
       <Flex direction="column" mb="4" gap="3">
         <Flex align="center" gap="2">
           <Text size="5" weight="bold" ml="1">
@@ -518,6 +525,6 @@ export default function StatsOrganismGrowthCard() {
           </Text>
         </Flex>
       )}
-    </Card>
+    </Flex>
   );
 }

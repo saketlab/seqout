@@ -1,7 +1,12 @@
 const CACHE_DB_NAME = "seqout-http-cache";
 const CACHE_DB_VERSION = 1;
 const CACHE_STORE = "json-responses";
-const CACHE_RECORD_VERSION = 1;
+
+// Bump to invalidate every existing entry (e.g., when a cached payload's
+// backend shape changes incompatibly).
+const CACHE_RECORD_VERSION = 2;
+
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface JsonCacheRecord<T> {
   version: number;
@@ -57,6 +62,10 @@ async function readCachedJson<T>(
       !Number.isFinite(parsed.savedAt) ||
       !("payload" in parsed)
     ) {
+      return null;
+    }
+
+    if (Date.now() - parsed.savedAt > CACHE_MAX_AGE_MS) {
       return null;
     }
 

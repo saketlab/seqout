@@ -1,4 +1,5 @@
 "use client";
+import CountryFlagIcon from "@/components/country-flag-icon";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -15,9 +16,11 @@ import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks, {
   normalizeLineBreakText,
 } from "@/components/text-with-line-breaks";
+import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
+import { titleCaseCenter } from "@/utils/format";
 import { getOrganismBannerStyle, makeOrganismPostSort, makeOrganismRowStyle } from "@/utils/organism-highlight";
 import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
@@ -29,7 +32,9 @@ import {
   FileTextIcon,
   HomeIcon,
   InfoCircledIcon,
+  MagnifyingGlassIcon,
   PersonIcon,
+  ReloadIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -50,7 +55,6 @@ import type {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -111,15 +115,10 @@ type Project = {
   published_at: Date | null;
   updated_at: Date | null;
   center?: CenterInfo[] | null;
+  center_name?: string | null;
+  country_code?: string | null;
   publications?: StudyPublication[] | null;
 };
-
-// type SimilarProject = {
-//   accession: string;
-//   title: string | null;
-//   summary: string | null;
-//   updated_at: Date | null;
-// };
 
 type Characteristic = {
   "@tag": string;
@@ -538,23 +537,6 @@ const fetchProject = async (
   return data as Project;
 };
 
-// const fetchSimilarProjects = async (
-//   searchText: string,
-//   currentAccession: string,
-// ): Promise<SimilarProject[]> => {
-//   const res = await fetch(
-//     `${SERVER_URL}/search?q=${encodeURIComponent(searchText)}&db=geo`,
-//   );
-//   if (!res.ok) {
-//     throw new Error("Network error");
-//   }
-//   const data = await res.json();
-//   // Filter out the current project and return top 5
-//   return (data.results as SimilarProject[])
-//     .filter((p) => p.accession !== currentAccession)
-//     .slice(0, 5);
-// };
-
 const SUMMARY_CHAR_LIMIT = 350;
 const OVERALL_DESIGN_CHAR_LIMIT = 350;
 
@@ -563,6 +545,7 @@ export default function GeoProjectPage() {
   const searchParams = useSearchParams();
   const highlightOrganism = searchParams.get("organism")?.toLowerCase() ?? null;
   const { resolvedTheme } = useTheme();
+  const { showToast } = useToast();
   const accession = params.accession as string | undefined;
   const isArrayExpress = accession?.toUpperCase().startsWith("E-") ?? false;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
@@ -599,6 +582,7 @@ export default function GeoProjectPage() {
     data: project,
     isLoading,
     isError,
+    refetch: refetchProject,
   } = useQuery({
     queryKey: ["project", accession],
     queryFn: () => fetchProject(accession ?? null),
@@ -609,13 +593,6 @@ export default function GeoProjectPage() {
     if (!project || isLoading || isError) return;
     window.dispatchEvent(new Event("seqout:project-ready"));
   }, [project, isLoading, isError]);
-
-  // const { data: similarProjects, isLoading: isSimilarLoading } = useQuery({
-  //   queryKey: ["similarProjects", project?.overall_design],
-  //   queryFn: () =>
-  //     fetchSimilarProjects(project!.overall_design, project!.accession),
-  //   enabled: !!project?.overall_design,
-  // });
 
   const publications = project?.publications ?? null;
   const projectAuthors = React.useMemo(
@@ -671,11 +648,53 @@ export default function GeoProjectPage() {
     enabled: !!accession,
   });
 
+  const projectOrganisms = React.useMemo<string[]>(() => {
+    if (!samples) return [];
+    const set = new Set<string>();
+    for (const sample of samples) {
+      const channels = sample.channels ?? [];
+      for (const channel of channels) {
+        const name = channel.Organism?.["#text"]?.trim();
+        if (name && name !== "-") set.add(name);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [samples]);
+
+  // Prefer top-level center_name/country_code; fall back to nested center[].
+  const headerCenter = React.useMemo<{
+    label: string;
+    countryCode: string | null;
+  } | null>(() => {
+    if (!project) return null;
+
+    if (project.center_name && project.center_name !== "GEO") {
+      return {
+        label: titleCaseCenter(project.center_name),
+        countryCode: project.country_code ?? null,
+      };
+    }
+
+    const list = project.center;
+    if (!list || list.length === 0) return null;
+    const first = list.find((c) => c.organization && c.organization !== "GEO");
+    if (!first || !first.organization) return null;
+    return {
+      label: titleCaseCenter(first.organization),
+      countryCode: first.country_code ?? null,
+    };
+  }, [project]);
+
   const handleCopyAccession = () => {
     if (!accession) return;
     copyToClipboard(accession);
     setIsAccessionCopied(true);
     window.setTimeout(() => setIsAccessionCopied(false), 1500);
+    showToast(
+      <>
+        Copied <span className="seqout-accession">{accession}</span>
+      </>,
+    );
   };
 
   const handleDownloadAllSupplementaryFiles = async (
@@ -758,6 +777,7 @@ export default function GeoProjectPage() {
     }
     setSupplementaryScriptCopied(didCopy);
     window.setTimeout(() => setSupplementaryScriptCopied(false), 1500);
+    if (didCopy) showToast("Download script copied");
   };
 
   // Collect all unique characteristic tags across all samples and channels
@@ -870,6 +890,7 @@ export default function GeoProjectPage() {
         field: "sample",
         minWidth: 140,
         pinned: "left",
+        cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
           if (sampleAccession === "-") return "-";
@@ -1125,7 +1146,7 @@ export default function GeoProjectPage() {
 
       {!accession && (
         <Flex
-          gap="4"
+          gap="3"
           align="center"
           p={"4"}
           ml={{ initial: "0", md: "8rem" }}
@@ -1133,14 +1154,23 @@ export default function GeoProjectPage() {
           justify="center"
           direction={"column"}
         >
-          <Text size={"4"} weight={"bold"} color="gray" align={"center"}>
-            No project selected 🤷
+          <Text size={{ initial: "4", md: "5" }} weight="bold">
+            No project specified
+          </Text>
+          <Text
+            size="2"
+            align="center"
+            style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
+          >
+            The URL needs an accession like{" "}
+            <span className="seqout-accession">/p/GSE196830</span>.
           </Text>
           <Button
             variant="surface"
             onClick={() => (window.location.href = "/")}
+            mt="1"
           >
-            <HomeIcon /> Go back
+            <HomeIcon /> Back to search
           </Button>
         </Flex>
       )}
@@ -1156,32 +1186,45 @@ export default function GeoProjectPage() {
           justify="center"
         >
           <Spinner size="3" />
-          <Text>Getting metadata</Text>
+          <Text>
+            Loading <span className="seqout-accession">{accession}</span>
+          </Text>
         </Flex>
       )}
 
       {/* Error state */}
       {accession && isError && (
         <Flex
-          gap="2"
+          gap="3"
           align="center"
           justify="center"
           height={"20rem"}
           direction={"column"}
+          px="4"
         >
-          <Image
-            draggable={"false"}
-            src="/empty-box.svg"
-            alt="empty box"
-            width={100}
-            height={100}
-          />
-          <Text color="gray" size={"6"} weight={"bold"}>
-            Could not find project
+          <Text size={{ initial: "5", md: "6" }} weight="bold">
+            We couldn&rsquo;t load{" "}
+            <span className="seqout-accession">{accession}</span>
           </Text>
-          <Text color="gray" size={"2"}>
-            Check your network connection or query
+          <Text
+            size="2"
+            align="center"
+            style={{ color: "var(--gray-11)", maxWidth: "34rem" }}
+          >
+            The project may not exist, or the server may be temporarily
+            unavailable. Retrying is safe.
           </Text>
+          <Flex gap="2" mt="1">
+            <Button variant="surface" onClick={() => refetchProject()}>
+              <ReloadIcon /> Retry
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => (window.location.href = "/")}
+            >
+              <MagnifyingGlassIcon /> Search instead
+            </Button>
+          </Flex>
         </Flex>
       )}
 
@@ -1207,6 +1250,7 @@ export default function GeoProjectPage() {
                 color={isArrayExpress ? "gold" : undefined}
                 variant={isArrayExpress ? "solid" : undefined}
                 style={{ whiteSpace: "nowrap" }}
+                className="seqout-accession"
               >
                 <Flex align="center" gap="1">
                   <Text>{accession}</Text>
@@ -1251,6 +1295,7 @@ export default function GeoProjectPage() {
                     size={{ initial: "2", md: "3" }}
                     color="green"
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                    className="seqout-accession"
                   >
                     {alias}
                     <ExternalLinkIcon />
@@ -1263,6 +1308,7 @@ export default function GeoProjectPage() {
                     size={{ initial: "2", md: "3" }}
                     color="brown"
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                    className="seqout-accession"
                   >
                     {alias}
                     <EnterIcon />
@@ -1281,6 +1327,7 @@ export default function GeoProjectPage() {
                       color="gold"
                       variant="solid"
                       style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                      className="seqout-accession"
                     >
                       {alias}
                       <EnterIcon />
@@ -1293,6 +1340,7 @@ export default function GeoProjectPage() {
                     <Badge
                       size={{ initial: "2", md: "3" }}
                       style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                      className="seqout-accession"
                     >
                       {alias}
                       <EnterIcon />
@@ -1319,6 +1367,7 @@ export default function GeoProjectPage() {
                         size={{ initial: "2", md: "3" }}
                         color="green"
                         style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                        className="seqout-accession"
                       >
                         {bioProject["@target"].split("/").pop()}
                         <ExternalLinkIcon />
@@ -1366,6 +1415,39 @@ export default function GeoProjectPage() {
                 <Text color="gray" style={{ minWidth: 0 }}>
                   {projectAuthors.join(", ")}
                 </Text>
+              </Flex>
+            )}
+            {headerCenter && (
+              <Flex align="center" gap="2">
+                <Text size="2" style={{ color: "var(--gray-11)" }}>
+                  {headerCenter.label}
+                </Text>
+                {headerCenter.countryCode && (
+                  <CountryFlagIcon
+                    code={headerCenter.countryCode}
+                    label={headerCenter.label}
+                  />
+                )}
+              </Flex>
+            )}
+            {projectOrganisms.length > 0 && (
+              <Flex align="start" gap="2" wrap="wrap">
+                <Text size="2" color="gray" style={{ flexShrink: 0 }}>
+                  {projectOrganisms.length === 1 ? "Organism:" : "Organisms:"}
+                </Text>
+                <Flex gap="2" align="center" wrap="wrap">
+                  {projectOrganisms.map((name) => (
+                    <Badge
+                      key={name}
+                      size="2"
+                      color="green"
+                      variant="soft"
+                      style={{ fontStyle: "italic" }}
+                    >
+                      {name}
+                    </Badge>
+                  ))}
+                </Flex>
               </Flex>
             )}
             <ProjectSummary
