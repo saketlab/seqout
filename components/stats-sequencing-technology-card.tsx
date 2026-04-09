@@ -9,13 +9,11 @@ import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { loess } from "@/utils/smooth";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
-  Card,
   Flex,
   Popover,
   ScrollArea,
   SegmentedControl,
   Select,
-  Separator,
   Skeleton,
   Text,
   TextField,
@@ -336,7 +334,11 @@ export default function StatsSequencingTechnologyCard() {
   }, [isDark, logScale, view, mode, selectedPlatform, useSmooth, growthData]);
 
   return (
-    <Card style={{ width: "100%" }}>
+    <Flex
+      direction="column"
+      width="100%"
+      py={{ initial: "4", md: "5" }}
+    >
       <Flex direction="column" mb="4" gap="3">
         <Flex align="center" gap="2">
           <Text size="5" weight="bold" ml="1">
@@ -629,6 +631,6 @@ export default function StatsSequencingTechnologyCard() {
           </Text>
         </Flex>
       )}
-    </Card>
+    </Flex>
   );
 }

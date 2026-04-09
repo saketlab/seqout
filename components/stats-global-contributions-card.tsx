@@ -10,6 +10,12 @@ import { TileLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
 import { ExportFooter, FOOTER_TEXT, copyBlobToClipboard } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
+import { useToast } from "@/components/toast-provider";
+import {
+  getMapCanvasTheme,
+  getMapMutedTextColor,
+  getMapPanelBackground,
+} from "@/utils/chart-theme";
 import { copyToClipboard } from "@/utils/clipboard";
 import { CheckIcon, CopyIcon, Cross1Icon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
@@ -336,6 +342,7 @@ export default function StatsGlobalContributionsCard() {
   const [selectedCountry, setSelectedCountry] = useState("India");
   const [copyState, setCopyState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const { resolvedTheme } = useTheme();
+  const { showToast } = useToast();
   const isDark = resolvedTheme === "dark";
   const agGridThemeClassName = isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz";
 
@@ -538,16 +545,20 @@ export default function StatsGlobalContributionsCard() {
       );
       if (!res.ok) throw new Error("Failed to fetch accessions");
       const text = await res.text();
+      const lineCount = text.split("\n").filter(Boolean).length;
       copyToClipboard(text);
       setCopyState("done");
       clearTimeout(copyTimerRef.current);
       copyTimerRef.current = setTimeout(() => setCopyState("idle"), 2000);
+      showToast(
+        `${lineCount.toLocaleString()} accession${lineCount === 1 ? "" : "s"} copied`,
+      );
     } catch {
       setCopyState("error");
       clearTimeout(copyTimerRef.current);
       copyTimerRef.current = setTimeout(() => setCopyState("idle"), 2000);
     }
-  }, [selectedCountry, organism, assayL2]);
+  }, [selectedCountry, organism, assayL2, showToast]);
 
   const tileLayer = useMemo(
     () =>
@@ -725,17 +736,18 @@ export default function StatsGlobalContributionsCard() {
       const ctx = out.getContext("2d");
       if (!ctx) return null;
 
-      ctx.fillStyle = isDark ? "#0d1117" : "#ffffff";
+      const canvasTheme = getMapCanvasTheme(isDark);
+      ctx.fillStyle = canvasTheme.background;
       ctx.fillRect(0, 0, out.width, out.height);
 
-      ctx.fillStyle = isDark ? "#e6edf3" : "#1c2024";
+      ctx.fillStyle = canvasTheme.title;
       ctx.font = `bold ${14 * scale}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText(chartTitle, out.width / 2, titleH * 0.65);
 
       ctx.drawImage(srcCanvas, 0, titleH, w, h);
 
-      ctx.fillStyle = "#999999";
+      ctx.fillStyle = canvasTheme.attribution;
       ctx.font = `${10 * scale}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText(FOOTER_TEXT, out.width / 2, h + titleH + footerH * 0.65);
@@ -769,7 +781,11 @@ export default function StatsGlobalContributionsCard() {
     organism !== ALL || assayL2 !== ALL || placeType !== ALL || addressType !== ALL;
 
   return (
-    <Card style={{ width: "100%" }}>
+    <Flex
+      direction="column"
+      width="100%"
+      py={{ initial: "4", md: "5" }}
+    >
       <Flex justify="between" align="center" mb="3" gap="3" wrap="wrap">
         <Flex direction="column" gap="1">
           <Flex align="center" gap="2">
@@ -952,7 +968,7 @@ export default function StatsGlobalContributionsCard() {
             height: "max(700px, 75vh)",
             borderRadius: "var(--radius-3)",
             overflow: "hidden",
-            background: isDark ? "#000000" : "#f0f0f0",
+            background: getMapPanelBackground(isDark),
           }}
         >
           <DeckGL
@@ -1004,7 +1020,7 @@ export default function StatsGlobalContributionsCard() {
                         </Text>
                       )}
                       {(selectedLocation.point.city || selectedLocation.point.state || selectedLocation.point.country) && (
-                        <Text size="1" style={{ color: "var(--gray-10)" }}>
+                        <Text size="1" style={{ color: "var(--gray-11)" }}>
                           {[selectedLocation.point.city, selectedLocation.point.state, selectedLocation.point.country]
                             .filter(Boolean)
                             .join(", ")}
@@ -1055,7 +1071,7 @@ export default function StatsGlobalContributionsCard() {
 
                   {selectedLocation.point.top_organisms.length > 0 && (
                     <Flex direction="column" gap="0" pt="1" style={{ borderTop: "1px solid var(--gray-a5)" }}>
-                      <Text size="1" weight="medium" style={{ color: "var(--gray-10)" }}>Top organisms</Text>
+                      <Text size="1" weight="medium" style={{ color: "var(--gray-11)" }}>Top organisms</Text>
                       {selectedLocation.point.top_organisms.map((o) => (
                         <Text size="1" key={o.name} style={{ color: "var(--gray-12)" }}>
                           {o.name}{" "}
@@ -1075,7 +1091,7 @@ export default function StatsGlobalContributionsCard() {
               bottom: 8,
               right: 8,
               fontSize: "10px",
-              color: isDark ? "#6b7280" : "#9ca3af",
+              color: getMapMutedTextColor(isDark),
               pointerEvents: "none",
             }}
           >
@@ -1186,6 +1202,6 @@ export default function StatsGlobalContributionsCard() {
           </div>
         )}
       </Flex>
-    </Card>
+    </Flex>
   );
 }

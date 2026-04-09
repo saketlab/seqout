@@ -1,5 +1,6 @@
 "use client";
 
+import { getLeafletPopupTheme } from "@/utils/chart-theme";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "next-themes";
 import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
@@ -18,6 +19,7 @@ export default function SubmittingOrgMap({ markers }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const tileUrl = isDark ? DARK_TILES : LIGHT_TILES;
+  const popupTheme = getLeafletPopupTheme(isDark);
 
   const center: [number, number] = [
     markers[0].latitude!,
@@ -52,7 +54,7 @@ export default function SubmittingOrgMap({ markers }: Props) {
         if (m.postcode) lines.push(`Postal code: ${m.postcode}`);
         if (m.formatted_address) lines.push(m.formatted_address);
         lines.push(
-          `<span style="color:${isDark ? "#63b3ed" : "#2b6cb0"}">` +
+          `<span style="color:${popupTheme.link}">` +
             `${m.latitude!.toFixed(6)}, ${m.longitude!.toFixed(6)}</span>`,
         );
         return (
@@ -61,9 +63,9 @@ export default function SubmittingOrgMap({ markers }: Props) {
             center={[m.latitude!, m.longitude!]}
             radius={8}
             pathOptions={{
-              fillColor: isDark ? "#e05252" : "#d63031",
+              fillColor: popupTheme.markerFill,
               fillOpacity: 0.9,
-              color: isDark ? "#fff" : "#2d3436",
+              color: popupTheme.markerBorder,
               weight: 2,
             }}
           >

@@ -37,24 +37,28 @@ export default function StatsPage() {
           million samples across SRA, GEO, ArrayExpress, and ENA for fast search
           and discovery.
         </Text>
-        <div id="sources">
-          <StatsSourceHistogramCard />
-        </div>
-        <div id="growth">
-          <StatsGrowthChartCard />
-        </div>
-        <div id="organisms">
-          <StatsOrganismGrowthCard />
-        </div>
-        <div id="sequencing">
-          <StatsSequencingTechnologyCard />
-        </div>
-        <div id="comparison">
-          <StatsPlatformComparisonCard />
-        </div>
-        <div id="map">
-          <StatsGlobalContributionsCard />
-        </div>
+        {/* Chart list — hairline dividers replace the former Card wrappers.
+            Each chart component provides its own vertical padding + width. */}
+        <Flex direction="column" gap="0" className="seqout-divided-list">
+          <div id="sources">
+            <StatsSourceHistogramCard />
+          </div>
+          <div id="growth">
+            <StatsGrowthChartCard />
+          </div>
+          <div id="organisms">
+            <StatsOrganismGrowthCard />
+          </div>
+          <div id="sequencing">
+            <StatsSequencingTechnologyCard />
+          </div>
+          <div id="comparison">
+            <StatsPlatformComparisonCard />
+          </div>
+          <div id="map">
+            <StatsGlobalContributionsCard />
+          </div>
+        </Flex>
       </Flex>
     </>
   );

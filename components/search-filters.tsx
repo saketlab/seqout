@@ -5,6 +5,7 @@ import type { SortBy } from "@/components/search-page-body";
 import { SearchResult } from "@/utils/types";
 import {
   CrumpledPaperIcon,
+  InfoCircledIcon,
   MagnifyingGlassIcon,
   MixerHorizontalIcon,
 } from "@radix-ui/react-icons";
@@ -14,12 +15,12 @@ import {
   Checkbox,
   Dialog,
   Flex,
-  RadioGroup,
   Select,
   Separator,
   Tabs,
   Text,
   TextField,
+  Tooltip,
 } from "@radix-ui/themes";
 import countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
@@ -73,188 +74,154 @@ export function SearchFilters({
   setCustomYearRange,
   onDatabaseChange,
 }: SearchFiltersProps) {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <>
-      <Flex
-        direction={"row"}
-        gap={"2"}
-        wrap="wrap"
-        display={{ initial: "flex", md: "none" }}
+    <Flex
+      direction="row"
+      gap="2"
+      wrap="wrap"
+      align="center"
+      aria-label="Search filters"
+    >
+      <Select.Root
+        value={sortBy}
+        name="sort"
+        onValueChange={(value) => setSortBy(value as SortBy)}
+        size="2"
       >
-        <Select.Root
-          value={sortBy}
-          name="sort"
-          onValueChange={(value) => setSortBy(value as SortBy)}
-          size={"1"}
-        >
-          <Select.Trigger />
-          <Select.Content>
-            <Select.Group>
-              <Select.Item value="relevance">Sort by relevance</Select.Item>
-              <Select.Item value="date">Sort by date</Select.Item>
-              <Select.Item value="citations">Sort by citations</Select.Item>
-              <Select.Item value="journal">Sort by journal</Select.Item>
-            </Select.Group>
-          </Select.Content>
-        </Select.Root>
+        <Select.Trigger aria-label="Sort by" />
+        <Select.Content>
+          <Select.Group>
+            <Select.Item value="relevance">Sort by relevance</Select.Item>
+            <Select.Item value="date">Sort by date</Select.Item>
+            <Select.Item value="citations">Sort by citations</Select.Item>
+            <Select.Item value="journal">Sort by journal</Select.Item>
+          </Select.Group>
+        </Select.Content>
+      </Select.Root>
 
-        <Select.Root
-          value={timeFilter}
-          name="time"
-          onValueChange={(value) => setTimeFilter(value as TimeFilter)}
-          size={"1"}
-        >
-          <Select.Trigger />
-          <Select.Content>
-            <Select.Group>
-              <Select.Item value="any">Any time</Select.Item>
-              <Select.Item value="1">Last year</Select.Item>
-              <Select.Item value="5">5 yrs</Select.Item>
-              <Select.Item value="10">10 yrs</Select.Item>
-              <Select.Item value="20">20 yrs</Select.Item>
-              <Select.Item value="custom">Custom range</Select.Item>
-            </Select.Group>
-          </Select.Content>
-        </Select.Root>
-
-        <Select.Root
-          value={db ? db : "both"}
-          onValueChange={(value) => {
-            if (!query) return;
-            onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "both");
-          }}
-          size={"1"}
-        >
-          <Select.Trigger />
-          <Select.Content>
-            <Select.Group>
-              <Select.Item value="geo">GEO</Select.Item>
-              <Select.Item value="sra">SRA</Select.Item>
-              <Select.Item value="arrayexpress">ArrayExpress</Select.Item>
-              <Select.Item value="both">From all sources</Select.Item>
-            </Select.Group>
-          </Select.Content>
-        </Select.Root>
-
-        {timeFilter === "custom" && (
-          <Flex gap="2" align="center">
-            <TextField.Root
-              type="number"
-              min="2000"
-              max={new Date().getFullYear()}
-              value={customYearRange.from}
-              onChange={(e) =>
-                setCustomYearRange({ ...customYearRange, from: e.target.value })
-              }
-              placeholder="YYYY"
-              variant="surface"
-              size={"1"}
-              style={{ width: "4.25rem" }}
-            />
-            <Text size="1">to</Text>
-            <TextField.Root
-              type="number"
-              min="2000"
-              max={new Date().getFullYear()}
-              value={customYearRange.to}
-              onChange={(e) =>
-                setCustomYearRange({ ...customYearRange, to: e.target.value })
-              }
-              placeholder="YYYY"
-              variant="surface"
-              size={"1"}
-              style={{ width: "4.25rem" }}
-            />
-          </Flex>
-        )}
-      </Flex>
-
-      <Flex
-        direction={"column"}
-        gap={"4"}
-        pt={"4"}
-        display={{ initial: "none", md: "flex" }}
-        position={"sticky"}
-        style={{ top: "9rem" }}
-        height={"fit-content"}
+      <Select.Root
+        value={timeFilter}
+        name="time"
+        onValueChange={(value) => setTimeFilter(value as TimeFilter)}
+        size="2"
       >
-        <RadioGroup.Root
-          value={db ? db : "both"}
-          name="dataset"
-          onValueChange={(value) => {
-            if (!query) return;
-            onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "both");
-          }}
-        >
-          <RadioGroup.Item value="geo">Only GEO</RadioGroup.Item>
-          <RadioGroup.Item value="sra">Only SRA</RadioGroup.Item>
-          <RadioGroup.Item value="arrayexpress">
-            Only ArrayExpress
-          </RadioGroup.Item>
-          <RadioGroup.Item value="both">From all sources</RadioGroup.Item>
-        </RadioGroup.Root>
+        <Select.Trigger aria-label="Time range" />
+        <Select.Content>
+          <Select.Group>
+            <Select.Item value="any">Any time</Select.Item>
+            <Select.Item value="1">Last year</Select.Item>
+            <Select.Item value="5">Last 5 years</Select.Item>
+            <Select.Item value="10">Last 10 years</Select.Item>
+            <Select.Item value="20">Last 20 years</Select.Item>
+            <Select.Item value="custom">Custom range</Select.Item>
+          </Select.Group>
+        </Select.Content>
+      </Select.Root>
 
-        <Separator orientation={"horizontal"} size={"4"} />
+      <Select.Root
+        value={db ? db : "both"}
+        onValueChange={(value) => {
+          if (!query) return;
+          onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "both");
+        }}
+        size="2"
+      >
+        <Select.Trigger aria-label="Source database" />
+        <Select.Content>
+          <Select.Group>
+            <Select.Item value="both">All sources</Select.Item>
+            <Select.Item value="geo">GEO only</Select.Item>
+            <Select.Item value="sra">SRA only</Select.Item>
+            <Select.Item value="arrayexpress">ArrayExpress only</Select.Item>
+          </Select.Group>
+        </Select.Content>
+      </Select.Root>
 
-        <RadioGroup.Root
-          value={sortBy}
-          name="sort"
-          onValueChange={(value) => setSortBy(value as SortBy)}
-        >
-          <RadioGroup.Item value="relevance">Sort by relevance</RadioGroup.Item>
-          <RadioGroup.Item value="date">Sort by date</RadioGroup.Item>
-          <RadioGroup.Item value="citations">Sort by citations</RadioGroup.Item>
-          <RadioGroup.Item value="journal">Sort by journal</RadioGroup.Item>
-        </RadioGroup.Root>
-
-        <Separator orientation={"horizontal"} size={"4"} />
-
-        <RadioGroup.Root
-          value={timeFilter}
-          name="time"
-          onValueChange={(value) => setTimeFilter(value as TimeFilter)}
-        >
-          <RadioGroup.Item value="any">Any time</RadioGroup.Item>
-          <RadioGroup.Item value="1">Since last year</RadioGroup.Item>
-          <RadioGroup.Item value="5">Since last 5 years</RadioGroup.Item>
-          <RadioGroup.Item value="10">Since last 10 years</RadioGroup.Item>
-          <RadioGroup.Item value="20">Since last 20 years</RadioGroup.Item>
-          <RadioGroup.Item value="custom">Custom range</RadioGroup.Item>
-        </RadioGroup.Root>
-        {timeFilter === "custom" && (
-          <Flex gap="2" align="center">
-            <TextField.Root
-              type="number"
-              min="2000"
-              max={new Date().getFullYear()}
-              value={customYearRange.from}
-              onChange={(e) =>
-                setCustomYearRange({ ...customYearRange, from: e.target.value })
-              }
-              placeholder="YYYY"
-              variant="surface"
-              size={"2"}
-              style={{ width: "3.5rem" }}
-            />
-            <Text size="2">to</Text>
-            <TextField.Root
-              type="number"
-              min="2000"
-              max={new Date().getFullYear()}
-              value={customYearRange.to}
-              onChange={(e) =>
-                setCustomYearRange({ ...customYearRange, to: e.target.value })
-              }
-              placeholder="YYYY"
-              variant="surface"
-              style={{ width: "3.5rem" }}
-              size={"2"}
-            />
-          </Flex>
-        )}
-      </Flex>
-    </>
+      {timeFilter === "custom" && (
+        <Flex gap="2" align="center">
+          <TextField.Root
+            type="number"
+            min="2000"
+            max={currentYear}
+            value={customYearRange.from}
+            onChange={(e) =>
+              setCustomYearRange({ ...customYearRange, from: e.target.value })
+            }
+            onBlur={() =>
+              setCustomYearRange(
+                normalizeYearRange(customYearRange, currentYear),
+              )
+            }
+            placeholder="YYYY"
+            variant="surface"
+            size="2"
+            style={{ width: "4.5rem" }}
+            aria-label="Year from"
+          />
+          <Text size="2" color="gray">
+            to
+          </Text>
+          <TextField.Root
+            type="number"
+            min="2000"
+            max={currentYear}
+            value={customYearRange.to}
+            onChange={(e) =>
+              setCustomYearRange({ ...customYearRange, to: e.target.value })
+            }
+            onBlur={() =>
+              setCustomYearRange(
+                normalizeYearRange(customYearRange, currentYear),
+              )
+            }
+            placeholder="YYYY"
+            variant="surface"
+            size="2"
+            style={{ width: "4.5rem" }}
+            aria-label="Year to"
+          />
+        </Flex>
+      )}
+    </Flex>
   );
+}
+
+/**
+ * Normalize a year-range pair on blur:
+ *   1. Clamp each non-empty value to [2000, currentYear]
+ *   2. If both values are present and inverted (from > to), swap them
+ *
+ * Empty inputs are left empty so users can still set a single open-ended
+ * bound. Returns the same object identity if nothing changed, so the
+ * setCustomYearRange call doesn't trigger an unnecessary URL update.
+ */
+function normalizeYearRange(
+  range: { from: string; to: string },
+  maxYear: number,
+): { from: string; to: string } {
+  const minYear = 2000;
+  const clamp = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+    const n = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(n)) return "";
+    if (n < minYear) return String(minYear);
+    if (n > maxYear) return String(maxYear);
+    return String(n);
+  };
+
+  let from = clamp(range.from);
+  let to = clamp(range.to);
+
+  // Auto-swap if both bounds are set and inverted.
+  if (from && to && Number.parseInt(from, 10) > Number.parseInt(to, 10)) {
+    [from, to] = [to, from];
+  }
+
+  if (from === range.from && to === range.to) return range;
+  return { from, to };
 }
 
 export function SearchOrganismRail({
@@ -602,6 +569,13 @@ export function SearchOrganismRail({
                   <Tabs.Trigger value="library-strategy">
                     <Flex align="center" gap="1">
                       <span>Library Strategy</span>
+                      <Tooltip content="The sequencing approach used in the experiment — e.g. RNA-Seq, ChIP-Seq, Whole Genome, ATAC-Seq, or Bisulfite-Seq.">
+                        <InfoCircledIcon
+                          width="13"
+                          height="13"
+                          style={{ opacity: 0.6 }}
+                        />
+                      </Tooltip>
                       {selectedLibraryStrategyFilters.length > 0 ? (
                         <Badge>{selectedLibraryStrategyFilters.length}</Badge>
                       ) : null}
@@ -844,6 +818,13 @@ export function SearchOrganismRail({
                           }
                         />
                         <span>Multi-platform studies only</span>
+                        <Tooltip content="Studies that sequenced the same samples on 2+ platforms (e.g. Illumina + Oxford Nanopore). Useful for benchmarking or hybrid assembly papers.">
+                          <InfoCircledIcon
+                            width="13"
+                            height="13"
+                            style={{ opacity: 0.6 }}
+                          />
+                        </Tooltip>
                       </Flex>
                     </Text>
                     <Separator size="4" />
@@ -974,6 +955,13 @@ export function SearchOrganismRail({
                   <Tabs.Trigger value="library-strategy">
                     <Flex align="center" gap="1">
                       <span>Library Strategy</span>
+                      <Tooltip content="The sequencing approach used in the experiment — e.g. RNA-Seq, ChIP-Seq, Whole Genome, ATAC-Seq, or Bisulfite-Seq.">
+                        <InfoCircledIcon
+                          width="13"
+                          height="13"
+                          style={{ opacity: 0.6 }}
+                        />
+                      </Tooltip>
                       {selectedLibraryStrategyFilters.length > 0 ? (
                         <Badge>{selectedLibraryStrategyFilters.length}</Badge>
                       ) : null}
@@ -1216,6 +1204,13 @@ export function SearchOrganismRail({
                           }
                         />
                         <span>Multi-platform studies only</span>
+                        <Tooltip content="Studies that sequenced the same samples on 2+ platforms (e.g. Illumina + Oxford Nanopore). Useful for benchmarking or hybrid assembly papers.">
+                          <InfoCircledIcon
+                            width="13"
+                            height="13"
+                            style={{ opacity: 0.6 }}
+                          />
+                        </Tooltip>
                       </Flex>
                     </Text>
                     <Separator size="4" />

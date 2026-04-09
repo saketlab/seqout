@@ -1,14 +1,9 @@
 "use client";
 
+import { NAV_ITEMS, type NavItem } from "@/utils/nav";
 import {
-  BarChartIcon,
-  CodeIcon,
   GitHubLogoIcon,
   HamburgerMenuIcon,
-  InfoCircledIcon,
-  KeyboardIcon,
-  MagicWandIcon,
-  SewingPinIcon,
 } from "@radix-ui/react-icons";
 import { Box, DropdownMenu, Flex, IconButton, Link } from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
@@ -16,24 +11,10 @@ import BulkMetaDialog from "./bulk-meta-dialog";
 import GitHubButton from "./github-button";
 import ThemeToggle from "./theme-toggle";
 
-const NAV_ITEMS = [
-  { label: "About", href: "/faq", icon: <InfoCircledIcon /> },
-  {
-    label: "CLI",
-    href: "https://saket-choudhary.me/pysradb/index.html",
-    external: true,
-    icon: <KeyboardIcon />,
-  },
-  { label: "Map", href: "/map", icon: <SewingPinIcon /> },
-  { label: "API", href: "/api-docs", icon: <CodeIcon /> },
-  { label: "MCP", href: "/mcp", icon: <MagicWandIcon /> },
-  { label: "Stats", href: "/stats", icon: <BarChartIcon /> },
-];
-
 export default function Navabar() {
   const router = useRouter();
 
-  const handleMenuSelect = (item: (typeof NAV_ITEMS)[number]) => {
+  const handleMenuSelect = (item: NavItem) => {
     if (item.external) {
       window.open(item.href, "_blank", "noopener,noreferrer");
       return;

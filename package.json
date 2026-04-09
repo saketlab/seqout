@@ -18,6 +18,7 @@
     "country-flag-icons": "^1.6.15",
     "deck.gl": "^9.2.6",
     "dompurify": "^3.3.1",
+    "geist": "^1.7.0",
     "i18n-iso-countries": "^7.14.0",
     "leaflet": "^1.9.4",
     "next": "^16.0.10",

@@ -2,6 +2,7 @@
 
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
+import { CHART_SERIES_PALETTE } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
@@ -9,7 +10,6 @@ import { loess } from "@/utils/smooth";
 import { Cross1Icon } from "@radix-ui/react-icons";
 import {
   Badge,
-  Card,
   Checkbox,
   Flex,
   IconButton,
@@ -55,17 +55,10 @@ interface PlatformTotalsResponse {
   took_ms: number;
 }
 
-// Distinct colors for up to 8 comparison platforms
-const COMPARISON_COLORS = [
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-  "#84cc16", // lime
-];
+// Distinct colors for up to 8 comparison platforms, sourced from the
+// shared chart-theme palette so all multi-series charts use the same
+// 8-step sequence.
+const COMPARISON_COLORS = CHART_SERIES_PALETTE;
 
 async function fetchPlatformTotals(): Promise<PlatformTotalsResponse> {
   return fetchJsonWithIndexedDbCache<PlatformTotalsResponse>(
@@ -305,7 +298,11 @@ export default function StatsPlatformComparisonCard() {
   }, [totalsData, selectedPlatforms]);
 
   return (
-    <Card style={{ width: "100%" }}>
+    <Flex
+      direction="column"
+      width="100%"
+      py={{ initial: "4", md: "5" }}
+    >
       <Flex direction="column" mb="4" gap="3">
         <Flex align="center" gap="2">
           <Text size="5" weight="bold" ml="1">
@@ -459,6 +456,6 @@ export default function StatsPlatformComparisonCard() {
           </Text>
         </Flex>
       )}
-    </Card>
+    </Flex>
   );
 }

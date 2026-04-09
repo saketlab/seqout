@@ -1,5 +1,7 @@
 "use client";
 
+import { useToast } from "@/components/toast-provider";
+import { MAP_ATTRIBUTION_COLOR } from "@/utils/chart-theme";
 import { CheckIcon, CopyIcon, DownloadIcon } from "@radix-ui/react-icons";
 import { Flex, Popover, Separator, Text, Tooltip } from "@radix-ui/themes";
 import { useCallback, useRef, useState } from "react";
@@ -24,7 +26,7 @@ function injectFooterText(chartContext: any) {
   text.setAttribute("text-anchor", "end");
   text.setAttribute("font-size", "11");
   text.setAttribute("font-family", "system-ui, -apple-system, sans-serif");
-  text.setAttribute("fill", "#999999");
+  text.setAttribute("fill", MAP_ATTRIBUTION_COLOR);
   text.textContent = FOOTER_TEXT;
   svg.appendChild(text);
 }
@@ -47,8 +49,11 @@ const popoverButtonStyle: React.CSSProperties = {
 const copyButtonStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   gap: 4,
-  padding: "3px 10px",
+  // 6px vertical padding + 13px icon = 25px tall, clears WCAG 2.5.8 (24×24)
+  padding: "6px 12px",
+  minHeight: "24px",
   borderRadius: "var(--radius-2)",
   border: "1px solid var(--gray-a7)",
   background: "var(--gray-a3)",
@@ -62,8 +67,10 @@ const copyButtonStyle: React.CSSProperties = {
 const downloadButtonStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   gap: 4,
-  padding: "3px 10px",
+  padding: "6px 12px",
+  minHeight: "24px",
   borderRadius: "var(--radius-2)",
   border: "1px solid var(--accent-a7)",
   background: "var(--accent-a3)",
@@ -87,6 +94,7 @@ export function ExportFooter({
   downloadFormats,
   downloadLabel,
 }: ExportFooterProps) {
+  const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -97,10 +105,11 @@ export function ExportFooter({
       setCopied(true);
       clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+      showToast("Chart copied to clipboard");
     } catch (e) {
       console.error("Copy failed:", e);
     }
-  }, [onCopy]);
+  }, [onCopy, showToast]);
 
   const hasMultipleFormats = downloadFormats && downloadFormats.length > 1;
 
