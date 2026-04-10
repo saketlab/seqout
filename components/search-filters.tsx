@@ -605,6 +605,7 @@ export function SearchOrganismRail({
                       value={journalQuery}
                       onChange={(event) => setJournalQuery(event.target.value)}
                       placeholder="Search journals"
+                      aria-label="Search journals"
                       size="2"
                     >
                       <TextField.Slot>
@@ -652,6 +653,7 @@ export function SearchOrganismRail({
                       value={countryQuery}
                       onChange={(event) => setCountryQuery(event.target.value)}
                       placeholder="Search countries"
+                      aria-label="Search countries"
                       size="2"
                     >
                       <TextField.Slot>
@@ -701,6 +703,7 @@ export function SearchOrganismRail({
                         setLibraryStrategyQuery(event.target.value)
                       }
                       placeholder="Search library strategies"
+                      aria-label="Search library strategies"
                       size="2"
                     >
                       <TextField.Slot>
@@ -758,6 +761,7 @@ export function SearchOrganismRail({
                         setInstrumentModelQuery(event.target.value)
                       }
                       placeholder="Search instrument models"
+                      aria-label="Search instrument models"
                       size="2"
                     >
                       <TextField.Slot>
@@ -834,6 +838,7 @@ export function SearchOrganismRail({
                         setPlatformQuery(event.target.value)
                       }
                       placeholder="Search platforms"
+                      aria-label="Search platforms"
                       size="2"
                     >
                       <TextField.Slot>
@@ -991,6 +996,7 @@ export function SearchOrganismRail({
                       value={journalQuery}
                       onChange={(event) => setJournalQuery(event.target.value)}
                       placeholder="Search journals"
+                      aria-label="Search journals"
                       size="2"
                     >
                       <TextField.Slot>
@@ -1038,6 +1044,7 @@ export function SearchOrganismRail({
                       value={countryQuery}
                       onChange={(event) => setCountryQuery(event.target.value)}
                       placeholder="Search countries"
+                      aria-label="Search countries"
                       size="2"
                     >
                       <TextField.Slot>
@@ -1087,6 +1094,7 @@ export function SearchOrganismRail({
                         setLibraryStrategyQuery(event.target.value)
                       }
                       placeholder="Search library strategies"
+                      aria-label="Search library strategies"
                       size="2"
                     >
                       <TextField.Slot>
@@ -1144,6 +1152,7 @@ export function SearchOrganismRail({
                         setInstrumentModelQuery(event.target.value)
                       }
                       placeholder="Search instrument models"
+                      aria-label="Search instrument models"
                       size="2"
                     >
                       <TextField.Slot>
@@ -1220,6 +1229,7 @@ export function SearchOrganismRail({
                         setPlatformQuery(event.target.value)
                       }
                       placeholder="Search platforms"
+                      aria-label="Search platforms"
                       size="2"
                     >
                       <TextField.Slot>

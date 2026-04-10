@@ -17,7 +17,8 @@ export default function SearchPageSkeleton() {
           top: 0,
           width: "100%",
           zIndex: 50,
-          boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
+          backgroundColor: "var(--color-background)",
+          borderBottom: "1px solid var(--gray-a4)",
         }}
       >
         <Flex

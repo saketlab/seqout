@@ -81,8 +81,11 @@ function DidYouMean({
         asChild
         size={"2"}
         weight={"bold"}
-        color="indigo"
-        style={{ cursor: "pointer", textDecoration: "underline" }}
+        style={{
+          color: "var(--accent-11)",
+          cursor: "pointer",
+          textDecoration: "underline",
+        }}
       >
         <a
           href={href}
@@ -218,9 +221,8 @@ const getGeoSearchResults = async (
   return res.json();
 };
 
-// ---------------------------------------------------------------------------
-// Pagination helpers
-// ---------------------------------------------------------------------------
+
+
 
 function getPageRange(current: number, total: number): (number | "ellipsis")[] {
   if (total <= 7) {
@@ -262,7 +264,6 @@ function Paginator({
 
   return (
     <Flex direction="column" gap="3" align="center" py="2">
-      {/* Info row */}
       <Flex gap="3" align="center" wrap="wrap" justify="center">
         <Text size="2" color="gray">
           {start}&ndash;{end} of {totalResults.toLocaleString()} results
@@ -285,7 +286,6 @@ function Paginator({
         </Flex>
       </Flex>
 
-      {/* Progress bar — visible while loading, disappears at 100% */}
       {isFetching && loadedResults < totalResults && (
         <div
           style={{
@@ -308,51 +308,57 @@ function Paginator({
         </div>
       )}
 
-      {/* Page buttons */}
       {totalPages > 1 && (
-        <Flex gap="1" align="center" wrap="wrap" justify="center">
-          <Button
-            variant="soft"
-            size="1"
-            disabled={currentPage === 1}
-            onClick={() => onPageChange(currentPage - 1)}
-          >
-            <ChevronLeftIcon />
-          </Button>
-          {pages.map((p, i) =>
-            p === "ellipsis" ? (
-              <Text key={`e${i}`} size="2" color="gray" mx="1">
-                &hellip;
-              </Text>
-            ) : (
-              <Button
-                key={p}
-                variant={p === currentPage ? "solid" : "soft"}
-                size="1"
-                onClick={() => onPageChange(p)}
-                style={{ minWidth: 32 }}
-              >
-                {p}
-              </Button>
-            ),
-          )}
-          <Button
-            variant="soft"
-            size="1"
-            disabled={currentPage === totalPages}
-            onClick={() => onPageChange(currentPage + 1)}
-          >
-            <ChevronRightIcon />
-          </Button>
-        </Flex>
+        <nav aria-label="Pagination">
+          <Flex gap="1" align="center" wrap="wrap" justify="center">
+            <Button
+              variant="soft"
+              size={{ initial: "2", md: "1" }}
+              disabled={currentPage === 1}
+              onClick={() => onPageChange(currentPage - 1)}
+              aria-label="Previous page"
+              className="seqout-paginator-btn"
+            >
+              <ChevronLeftIcon />
+            </Button>
+            {pages.map((p, i) =>
+              p === "ellipsis" ? (
+                <Text key={`e${i}`} size="2" color="gray" mx="1" aria-hidden>
+                  &hellip;
+                </Text>
+              ) : (
+                <Button
+                  key={p}
+                  variant={p === currentPage ? "solid" : "soft"}
+                  size={{ initial: "2", md: "1" }}
+                  onClick={() => onPageChange(p)}
+                  aria-label={`Go to page ${p}`}
+                  aria-current={p === currentPage ? "page" : undefined}
+                  className="seqout-paginator-btn"
+                >
+                  {p}
+                </Button>
+              ),
+            )}
+            <Button
+              variant="soft"
+              size={{ initial: "2", md: "1" }}
+              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(currentPage + 1)}
+              aria-label="Next page"
+              className="seqout-paginator-btn"
+            >
+              <ChevronRightIcon />
+            </Button>
+          </Flex>
+        </nav>
       )}
     </Flex>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Active filter chips
-// ---------------------------------------------------------------------------
+
+
 
 const SORT_LABELS: Record<SortBy, string> = {
   relevance: "Relevance",
@@ -376,7 +382,6 @@ const DB_LABELS_DISPLAY: Record<string, string> = {
 };
 
 type ActiveFilterChipsProps = {
-  // Primary filters
   sortBy: SortBy;
   onResetSort: () => void;
   timeFilter: string;
@@ -386,7 +391,6 @@ type ActiveFilterChipsProps = {
   onResetDb: () => void;
   selectedOrganismKey: string | null;
   onResetOrganism: () => void;
-  // Secondary filters (from More filters dialog)
   selectedJournalFilters: string[];
   setSelectedJournalFilters: (next: string[]) => void;
   selectedCountryFilters: string[];
@@ -399,7 +403,6 @@ type ActiveFilterChipsProps = {
   setSelectedPlatformFilters: (next: string[]) => void;
   multiPlatformOnly: boolean;
   setMultiPlatformOnly: (next: boolean) => void;
-  // Clear-all
   onClearAll: () => void;
 };
 
@@ -597,9 +600,8 @@ function ActiveFilterChips(props: ActiveFilterChipsProps) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Client-side filter helpers
-// ---------------------------------------------------------------------------
+
+
 
 function applyTimeFilter(
   results: SearchResult[],
@@ -743,9 +745,8 @@ function getAvailableInstrumentModels(results: SearchResult[]): Set<string> {
   return models;
 }
 
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
+
+
 
 export default function SearchPageBody() {
   const searchParams = useSearchParams();
@@ -802,7 +803,6 @@ export default function SearchPageBody() {
     [pathname, router, searchParams],
   );
 
-  // --- Sort & time ---
   const sortBy = parseSortBy(searchParams.get(FILTER_PARAM_KEYS.sortBy));
   const timeFilter = parseTimeFilter(
     searchParams.get(FILTER_PARAM_KEYS.time),
@@ -817,12 +817,11 @@ export default function SearchPageBody() {
     [searchParams],
   );
 
-  // --- Organism ---
   const [organismNameMode, setOrganismNameMode] =
     useState<OrganismNameMode>("common");
   const selectedOrganismKey = searchParams.get(FILTER_PARAM_KEYS.organism);
 
-  // --- Sidebar filters (multi-select, client-side only) ---
+  // Filters below are client-side only — not in the queryKey.
   const selectedJournalFilters = useMemo(
     () => normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.journal)),
     [searchParams],
@@ -855,11 +854,9 @@ export default function SearchPageBody() {
   const multiPlatformOnly =
     searchParams.get(FILTER_PARAM_KEYS.multiPlatform) === "true";
 
-  // --- Pagination ---
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState<PageSize>(20);
 
-  // Reset page on filter / sort / perPage change
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -876,7 +873,6 @@ export default function SearchPageBody() {
     perPage,
   ]);
 
-  // --- Data fetching (no filters in queryKey — filters are client-side) ---
   const {
     data,
     isLoading,
@@ -902,7 +898,6 @@ export default function SearchPageBody() {
   const tookMs = data?.pages?.[0]?.took_ms ?? 0;
   const suggestions = data?.pages?.[0]?.suggestions;
 
-  // Flatten & deduplicate all loaded results
   const allResults = useMemo(() => {
     const flat = data?.pages.flatMap((page) => page?.results ?? []) ?? [];
     const seen = new Set<string>();
@@ -914,7 +909,6 @@ export default function SearchPageBody() {
     });
   }, [data]);
 
-  // Background prefetch: eagerly load remaining pages
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -923,11 +917,10 @@ export default function SearchPageBody() {
         if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
       };
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage, data]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // --- Stable sidebar results ---
-  // Use first batch for sidebar counts, then update once when all loading completes.
-  // This prevents flickering as intermediate batches arrive.
+  // Snapshot sidebar results on first batch and on final load to prevent
+  // facet counts from flickering as intermediate pages stream in.
   const sidebarResultsRef = useRef<SearchResult[]>([]);
   const allLoadedRef = useRef(false);
 
@@ -936,19 +929,16 @@ export default function SearchPageBody() {
       !hasNextPage && !isFetchingNextPage && allResults.length > 0;
 
     if (allLoaded && !allLoadedRef.current) {
-      // All pages loaded — do one final update
       allLoadedRef.current = true;
       sidebarResultsRef.current = allResults;
       return allResults;
     }
 
     if (allLoadedRef.current) {
-      // Already fully loaded, keep using the full set
       return sidebarResultsRef.current;
     }
 
     if (sidebarResultsRef.current.length === 0 && allResults.length > 0) {
-      // First batch arrived — lock it in
       sidebarResultsRef.current = allResults;
       return allResults;
     }
@@ -956,14 +946,11 @@ export default function SearchPageBody() {
     return sidebarResultsRef.current;
   }, [allResults, hasNextPage, isFetchingNextPage]);
 
-  // Reset sidebar ref when query/db/sort changes (new search)
   useEffect(() => {
     sidebarResultsRef.current = [];
     allLoadedRef.current = false;
   }, [query, db, sortBy]);
 
-  // --- Client-side filter chain ---
-  // Applied to allResults for pagination display
   const filteredResults = useMemo(() => {
     let results = allResults;
     results = applyTimeFilter(results, timeFilter, customYearRange);
@@ -1122,21 +1109,121 @@ export default function SearchPageBody() {
     updateSearchUrl,
   ]);
 
-  // --- Pagination computation ---
   const filteredTotal = filteredResults.length;
   const totalPages = Math.max(1, Math.ceil(filteredTotal / perPage));
   const safePage = Math.min(currentPage, totalPages);
   const startIdx = (safePage - 1) * perPage;
   const pageResults = filteredResults.slice(startIdx, startIdx + perPage);
 
-  // Handle page change — scroll to top of results
+  const liveStatusMessage = useMemo(() => {
+    if (!query && !isGeoSearch) return "";
+    if (isLoading) return "Loading search results.";
+    if (isError) return "Search failed. The server could not be reached.";
+    if (allResults.length === 0) return `No results found for ${query}.`;
+    if (filteredTotal === 0) {
+      return `${allResults.length.toLocaleString()} result${allResults.length === 1 ? "" : "s"} were filtered out. Try removing a filter.`;
+    }
+    const pageCount = pageResults.length;
+    if (hasNextPage) {
+      return `${filteredTotal.toLocaleString()}+ results. Showing page ${safePage} of ${totalPages}, ${pageCount} result${pageCount === 1 ? "" : "s"}.`;
+    }
+    return `${filteredTotal.toLocaleString()} result${filteredTotal === 1 ? "" : "s"}. Showing page ${safePage} of ${totalPages}.`;
+  }, [
+    query,
+    isGeoSearch,
+    isLoading,
+    isError,
+    allResults.length,
+    filteredTotal,
+    pageResults.length,
+    hasNextPage,
+    safePage,
+    totalPages,
+  ]);
+  // Debounce SR announcements so rapid filter churn doesn't spam the user.
+  const [announcedStatus, setAnnouncedStatus] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setAnnouncedStatus(liveStatusMessage), 500);
+    return () => clearTimeout(id);
+  }, [liveStatusMessage]);
+
   const resultsTopRef = useRef<HTMLDivElement>(null);
+  const resultsListRef = useRef<HTMLDivElement>(null);
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     resultsTopRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return;
+      }
+      if (
+        event.key !== "ArrowDown" &&
+        event.key !== "ArrowUp" &&
+        event.key !== "ArrowRight" &&
+        event.key !== "Home" &&
+        event.key !== "End"
+      ) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable ||
+          target.closest('[role="dialog"]')
+        ) {
+          return;
+        }
+      }
+      const container = resultsListRef.current;
+      if (!container) return;
+      const links = Array.from(
+        container.querySelectorAll<HTMLAnchorElement>(
+          '[data-result-link="true"]',
+        ),
+      );
+      if (links.length === 0) return;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const currentIndex = activeEl
+        ? links.indexOf(activeEl as HTMLAnchorElement)
+        : -1;
+
+      if (event.key === "ArrowRight") {
+        if (currentIndex < 0) return;
+        event.preventDefault();
+        links[currentIndex]?.click();
+        return;
+      }
+
+      let nextIndex: number;
+      if (event.key === "ArrowDown") {
+        nextIndex =
+          currentIndex < 0 ? 0 : Math.min(currentIndex + 1, links.length - 1);
+      } else if (event.key === "ArrowUp") {
+        nextIndex = currentIndex <= 0 ? 0 : currentIndex - 1;
+      } else if (event.key === "Home") {
+        nextIndex = 0;
+      } else {
+        nextIndex = links.length - 1;
+      }
+      event.preventDefault();
+      const next = links[nextIndex];
+      if (!next) return;
+      next.focus({ preventScroll: true });
+      const card = next.closest(".seqout-result-card") ?? next;
+      card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
   const handleSetJournalFilters = useCallback((arr: string[]) => {
@@ -1180,7 +1267,6 @@ export default function SearchPageBody() {
     });
   }, [updateSearchUrl]);
 
-  // --- UI state ---
   const [showTopButton, setShowTopButton] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
@@ -1272,7 +1358,6 @@ export default function SearchPageBody() {
     [query, searchParams, router, pathname],
   );
 
-  // --- Sidebar rail props (use stable sidebarResults for counts) ---
   const railProps = {
     results: sidebarResults,
     journalResults: journalFilterResults,
@@ -1302,7 +1387,6 @@ export default function SearchPageBody() {
     onClearMoreFilters: handleClearMoreFilters,
   };
 
-  // Whether any client-side filter is active (for "no results match" message)
   const hasAnyFilter =
     selectedOrganismKey != null ||
     selectedJournalFilters.length > 0 ||
@@ -1315,7 +1399,6 @@ export default function SearchPageBody() {
     sortBy !== "relevance" ||
     db != null;
 
-  // Reset helpers used by the active-filter chip row
   const resetSort = useCallback(
     () => updateSearchUrl({ [FILTER_PARAM_KEYS.sortBy]: null }),
     [updateSearchUrl],
@@ -1417,6 +1500,15 @@ export default function SearchPageBody() {
     <>
       <SearchBar initialQuery={query} />
 
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="seqout-sr-only"
+      >
+        {announcedStatus}
+      </div>
+
       <Flex
         gap={"4"}
         px={{ initial: "0", md: "4" }}
@@ -1429,9 +1521,6 @@ export default function SearchPageBody() {
           <SearchOrganismRail {...railProps} showMobile showDesktop={false} />
         ) : null}
 
-        {/* Results column — now full-width on the left since the previous
-            sort/time/database radio rail has been folded into a compact
-            toolbar that lives above the results. */}
         <Flex
           gap="4"
           direction="column"
@@ -1459,6 +1548,7 @@ export default function SearchPageBody() {
             </>
           ) : isError ? (
             <Flex
+              role="alert"
               gap="3"
               align="center"
               justify="center"
@@ -1546,11 +1636,12 @@ export default function SearchPageBody() {
                 </Flex>
               ) : (
                 <Flex
+                  ref={resultsListRef}
                   direction="column"
                   gap="0"
                   className="seqout-divided-list"
                 >
-                  {pageResults.map((searchResult, index) => (
+                  {pageResults.map((searchResult) => (
                     <ResultCard
                       key={`${searchResult.source}:${searchResult.accession}`}
                       accession={searchResult.accession}
@@ -1567,17 +1658,11 @@ export default function SearchPageBody() {
                       href={selectedOrganismKey
                         ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
                         : undefined}
-                      isTopResult={
-                        index === 0 &&
-                        safePage === 1 &&
-                        sortBy === "relevance"
-                      }
                     />
                   ))}
                 </Flex>
               )}
 
-              {/* Paginator */}
               <Paginator
                 currentPage={safePage}
                 totalPages={totalPages}
@@ -1648,6 +1733,7 @@ export default function SearchPageBody() {
                   onClick={() =>
                     window.scrollTo({ top: 0, behavior: "smooth" })
                   }
+                  aria-label="Go back to top"
                 >
                   <ArrowUpIcon />
                 </Button>
@@ -1660,7 +1746,11 @@ export default function SearchPageBody() {
                   : "Download search results as ZIP"
               }
             >
-              <Button onClick={handleDownloadResults} disabled={isDownloading}>
+              <Button
+                onClick={handleDownloadResults}
+                disabled={isDownloading}
+                aria-busy={isDownloading}
+              >
                 {isDownloading ? <Spinner /> : <DownloadIcon />}
                 {isDownloading ? "Preparing ZIP..." : "Download"}
               </Button>

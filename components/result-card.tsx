@@ -4,7 +4,7 @@ import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Box, Flex, Popover, Text } from "@radix-ui/themes";
 import Link from "next/link";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 type ResultCardProps = {
   accession: string;
@@ -19,7 +19,6 @@ type ResultCardProps = {
   country_code?: string | null;
   href?: string;
   single_cell_modality?: string | null;
-  isTopResult?: boolean;
 };
 
 function parseAuthors(authors: string | null): string[] {
@@ -41,7 +40,7 @@ function formatDate(updatedAt: string | null): string | null {
   });
 }
 
-export default function ResultCard({
+function ResultCard({
   accession,
   title,
   summary,
@@ -54,7 +53,6 @@ export default function ResultCard({
   country_code,
   href,
   single_cell_modality,
-  isTopResult = false,
 }: ResultCardProps) {
   const accessionUpper = accession.toUpperCase();
   const isArrayExpressAccession = accessionUpper.startsWith("E-");
@@ -72,14 +70,7 @@ export default function ResultCard({
       gap="2"
       py="4"
       pr="2"
-      style={
-        isTopResult
-          ? {
-              borderLeft: "2px solid var(--accent-8)",
-              paddingLeft: "calc(var(--space-3) - 2px)",
-            }
-          : { paddingLeft: "var(--space-3)" }
-      }
+      className="seqout-result-card"
     >
         <Flex
           gap="3"
@@ -88,17 +79,14 @@ export default function ResultCard({
           wrap="wrap"
         >
           <Text
-            size={
-              isTopResult
-                ? { initial: "3", md: "4" }
-                : { initial: "2", md: "3" }
-            }
+            size={{ initial: "2", md: "3" }}
             weight="bold"
             asChild
             style={{ flex: "1 1 16rem", minWidth: 0 }}
           >
             <Link
               href={href ?? getProjectShortUrl(accession)}
+              data-result-link="true"
               style={{
                 cursor: "pointer",
                 userSelect: "none",
@@ -122,22 +110,23 @@ export default function ResultCard({
                 </Badge>
               )}
               {cleanedJournal && (
-                <Badge
-                  size="2"
-                  color="blue"
-                  variant="soft"
-                  style={{ cursor: doi ? "pointer" : undefined }}
-                  onClick={
-                    doi
-                      ? (e) => {
-                          e.stopPropagation();
-                          window.open(`https://doi.org/${doi}`, "_blank");
-                        }
-                      : undefined
-                  }
-                >
-                  {cleanedJournal} <ExternalLinkIcon />
-                </Badge>
+                doi ? (
+                  <Badge size="2" color="blue" variant="soft" asChild>
+                    <a
+                      href={`https://doi.org/${doi}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ textDecoration: "none", color: "inherit" }}
+                    >
+                      {cleanedJournal} <ExternalLinkIcon />
+                    </a>
+                  </Badge>
+                ) : (
+                  <Badge size="2" color="blue" variant="soft">
+                    {cleanedJournal} <ExternalLinkIcon />
+                  </Badge>
+                )
               )}
               {formattedDate && (
                 <Text size="1" style={{ color: "var(--gray-11)" }}>
@@ -172,10 +161,6 @@ export default function ResultCard({
                     )}
                     {authorList.length > 2 && (
                       <>
-                        {/* First author + senior (last) author with the
-                            middle authors collapsed into a +N popover.
-                            This is the convention biologists actually scan:
-                            who did the work, and who ran the lab. */}
                         <Text size="2">{authorList[0]}</Text>
                         <Popover.Root
                           open={authorsPopoverOpen}
@@ -184,7 +169,7 @@ export default function ResultCard({
                           <Popover.Trigger>
                             <button
                               type="button"
-                              aria-label={`Show ${authorList.length - 2} middle authors`}
+                              aria-label={`${authorList.length - 2} middle authors: ${authorList.slice(1, -1).join(", ")}`}
                               onMouseEnter={() => setAuthorsPopoverOpen(true)}
                               onMouseLeave={() => setAuthorsPopoverOpen(false)}
                               style={{
@@ -300,3 +285,5 @@ export default function ResultCard({
     </Flex>
   );
 }
+
+export default memo(ResultCard);

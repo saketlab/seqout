@@ -202,7 +202,6 @@ export default function RootLayout({
             letter-spacing: -0.022em;
           }
 
-          /* Tabular numerals for counts, badges, dates, table cells. */
           .rt-Badge,
           .rt-TableCell,
           .ag-cell {
@@ -231,7 +230,6 @@ export default function RootLayout({
             -moz-osx-font-smoothing: grayscale;
           }
 
-          /* Hairline divider between siblings; first child stays borderless. */
           .seqout-divided-list > * + * {
             border-top: 1px solid var(--gray-a4);
           }
@@ -259,12 +257,12 @@ export default function RootLayout({
             z-index: 3000;
             padding: 0.75rem 1.25rem;
             background: var(--accent-9);
-            color: white;
+            color: var(--accent-contrast);
             font-size: 0.875rem;
             font-weight: 500;
             text-decoration: none;
             border-radius: 0 0 var(--radius-3) var(--radius-3);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 16px var(--black-a6);
             transition: top 160ms cubic-bezier(0.25, 1, 0.5, 1);
           }
           .seqout-skip-link:focus,
@@ -291,6 +289,46 @@ export default function RootLayout({
           .rt-SelectTrigger:focus-visible {
             outline-color: revert;
             outline-offset: revert;
+          }
+
+          .seqout-paginator-btn {
+            min-width: 2.5rem;
+          }
+          @media (min-width: 1024px) {
+            .seqout-paginator-btn {
+              min-width: 2rem;
+            }
+          }
+
+          .seqout-result-card {
+            border-left: 2px solid transparent;
+            padding-left: calc(var(--space-3) - 2px);
+            scroll-margin-top: 6rem;
+            scroll-margin-bottom: 1rem;
+            transition:
+              background-color 80ms ease-out,
+              border-left-color 80ms ease-out;
+          }
+          .seqout-result-card:focus-within {
+            background-color: var(--accent-a3);
+            border-left-color: var(--accent-11);
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .seqout-result-card {
+              transition: none;
+            }
+          }
+
+          .seqout-sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
           }
 
           @keyframes seqout-toast-enter {
@@ -343,7 +381,6 @@ export default function RootLayout({
             min-width: 0;
           }
 
-          /* Fatter, indigo-tinted horizontal scrollbar so overflow is obvious. */
           .ag-theme-quartz,
           .ag-theme-quartz-dark {
             --ag-scroll-bar-thickness: 14px;
