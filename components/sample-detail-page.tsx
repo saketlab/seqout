@@ -20,6 +20,7 @@ import {
   DownloadIcon,
   ExternalLinkIcon,
   HomeIcon,
+  InfoCircledIcon,
   MagnifyingGlassIcon,
   ReloadIcon,
 } from "@radix-ui/react-icons";
@@ -478,6 +479,8 @@ function RunsSection({
           const bytes = row.fastq_bytes
             ? row.fastq_bytes.split(";").filter(Boolean)
             : [];
+          const isInterleavedPaired =
+            row.library_layout === "PAIRED" && urls.length === 1;
           if (urls.length > 0) {
             return (
               <Flex direction="column" gap="1" py="1">
@@ -503,6 +506,13 @@ function RunsSection({
                     </Flex>
                   );
                 })}
+                {isInterleavedPaired && (
+                  <Tooltip content="Paired-end reads are in a single interleaved file. Use fasterq-dump --split-3 to extract R1/R2.">
+                    <Badge size="1" color="amber" variant="soft" style={{ cursor: "help", width: "fit-content" }}>
+                      <InfoCircledIcon /> Interleaved PE
+                    </Badge>
+                  </Tooltip>
+                )}
               </Flex>
             );
           }
