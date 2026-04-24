@@ -153,6 +153,7 @@ type ExperimentGridRow = {
 
 type RunRow = {
   run_accession: string;
+  run_alias: string | null;
   experiment_accession: string | null;
   library_layout: string | null;
   fastq_ftp: string | null;
