@@ -101,6 +101,7 @@ type GeoChannel = {
 
 type RunRow = {
   run_accession: string;
+  run_alias: string | null;
   experiment_accession: string | null;
   library_layout: string | null;
   fastq_ftp: string | null;
@@ -444,6 +445,15 @@ function RunsSection({
         minWidth: 110,
         maxWidth: 140,
         pinned: "left",
+      },
+      {
+        headerName: "Run Alias",
+        field: "run_alias",
+        minWidth: 160,
+        maxWidth: 280,
+        tooltipField: "run_alias",
+        valueFormatter: (params) => params.value || "-",
+        cellStyle: { fontFamily: "var(--code-font-family)", fontSize: "0.8rem" },
       },
       {
         headerName: "Layout",

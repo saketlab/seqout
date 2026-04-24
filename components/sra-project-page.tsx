@@ -476,7 +476,7 @@ function DownloadFastqSection({
 
   const buildTsvContent = (runs: RunRow[]): string => {
     const header =
-      "run_accession\texperiment_accession\tlibrary_layout\t" +
+      "run_accession\trun_alias\texperiment_accession\tlibrary_layout\t" +
       "fastq_url\tfastq_bytes\tfastq_md5\t" +
       "sra_lite_url\tsra_lite_bytes\t" +
       "sra_url\tsra_bytes\t" +
@@ -507,6 +507,7 @@ function DownloadFastqSection({
           const filename = url.split("/").pop() || url;
           return [
             run.run_accession,
+            run.run_alias || "",
             run.experiment_accession || "",
             run.library_layout || "",
             `https://${url}`,
@@ -533,6 +534,7 @@ function DownloadFastqSection({
       return [
         [
           run.run_accession,
+          run.run_alias || "",
           run.experiment_accession || "",
           run.library_layout || "",
           "",
@@ -744,6 +746,15 @@ function DownloadFastqSection({
         minWidth: 110,
         maxWidth: 140,
         pinned: "left",
+      },
+      {
+        headerName: "Run Alias",
+        field: "run_alias",
+        minWidth: 160,
+        maxWidth: 280,
+        tooltipField: "run_alias",
+        valueFormatter: (params) => params.value || "-",
+        cellStyle: { fontFamily: "var(--code-font-family)", fontSize: "0.8rem" },
       },
       {
         headerName: "Experiment",
