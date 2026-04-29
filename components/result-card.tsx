@@ -135,9 +135,9 @@ function ResultCard({
                 )
               )}
               {formattedDate && (
-                <Text size="1" style={{ color: "var(--gray-11)" }}>
+                <Badge size="2" color="gray" variant="soft">
                   {formattedDate}
-                </Text>
+                </Badge>
               )}
             </Flex>
           )}
