@@ -122,6 +122,7 @@ export default function HeroSearchBar() {
               }
             }}
             autoFocus
+            style={{ fontFamily: "var(--default-font-family)" }}
           >
             <TextField.Slot>
               <MagnifyingGlassIcon height="16" width="16" />

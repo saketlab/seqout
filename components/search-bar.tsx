@@ -263,6 +263,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
                 }
               }}
               value={searchQuery}
+              style={{ fontFamily: "var(--default-font-family)" }}
             >
               <TextField.Slot>
                 <MagnifyingGlassIcon height="16" width="16" />
