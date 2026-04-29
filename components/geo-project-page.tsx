@@ -8,6 +8,7 @@ import SearchBar from "@/components/search-bar";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
+import { DownloadFastqSection } from "@/components/sra-project-page";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
@@ -189,6 +190,10 @@ type SupplementaryDataItem = {
   browserDownloadUrl: string;
   downloadUrl: string;
 };
+
+type LinkedRunsData = React.ComponentProps<
+  typeof DownloadFastqSection
+>["runsData"];
 
 const toDisplayText = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "-";
@@ -537,6 +542,15 @@ const fetchProject = async (
   return data as Project;
 };
 
+const fetchLinkedRuns = async (
+  accession: string | null,
+): Promise<LinkedRunsData | null> => {
+  if (!accession) return null;
+  const res = await fetch(`${SERVER_URL}/project/${accession}/runs`);
+  if (!res.ok) return null;
+  return (await res.json()) as LinkedRunsData;
+};
+
 const SUMMARY_CHAR_LIMIT = 350;
 const OVERALL_DESIGN_CHAR_LIMIT = 350;
 
@@ -568,7 +582,7 @@ export default function GeoProjectPage() {
   const isDark = resolvedTheme === "dark";
   const agGridThemeClassName = isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz";
 
-  useScrollSpy(["overall-design", "enriched", "samples", "publications", "similar", "supplementary"]);
+  useScrollSpy(["overall-design", "enriched", "samples", "publications", "similar", "fastq", "supplementary"]);
   const organismRowStyle = useMemo(
     () => makeOrganismRowStyle<GeoSampleGridRow>(highlightOrganism, isDark, (d) => d.organism ?? null),
     [highlightOrganism, isDark],
@@ -641,6 +655,23 @@ export default function GeoProjectPage() {
       }),
     [projectAliases],
   );
+  const { data: linkedSraRuns } = useQuery({
+    queryKey: ["linked-sra-runs", linkedSraAliases],
+    queryFn: async () => {
+      const runs = await Promise.all(
+        linkedSraAliases.map(async (sraAccession) => ({
+          accession: sraAccession,
+          runsData: await fetchLinkedRuns(sraAccession),
+        })),
+      );
+      return runs.filter(
+        (entry): entry is { accession: string; runsData: LinkedRunsData } =>
+          !!entry.runsData && entry.runsData.total_runs > 0,
+      );
+    },
+    enabled: linkedSraAliases.length > 0,
+  });
+  const linkedSraExpTitleMap = React.useMemo(() => new Map<string, string>(), []);
 
   const { data: samples, isLoading: isSamplesLoading } = useQuery({
     queryKey: ["samples", accession],
@@ -1727,6 +1758,15 @@ export default function GeoProjectPage() {
               neighbors={project.neighbors}
             />
             <SubmittingOrgPanel center={project.center} />
+            {linkedSraRuns?.map(({ accession: sraAccession, runsData }) => (
+              <DownloadFastqSection
+                key={`linked-sra-fastq-${sraAccession}`}
+                accession={sraAccession}
+                runsData={runsData}
+                agGridThemeClassName={agGridThemeClassName}
+                expTitleMap={linkedSraExpTitleMap}
+              />
+            ))}
             <Flex id="supplementary" align="center" gap="2">
               <Text weight="medium" size="6">
                 Supplementary Data

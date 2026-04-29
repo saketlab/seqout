@@ -10,6 +10,7 @@ import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
+import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
@@ -84,6 +85,7 @@ type Project = {
   updated_at: Date;
   external_id?: Record<string, string> | string | null;
   links?: unknown;
+  supplementary_data?: unknown;
   center?: CenterInfo | null;
   center_name?: string | null;
   country_code?: string | null;
@@ -421,7 +423,7 @@ const DOWNLOAD_SOURCE_LABELS: Record<DownloadSource, string> = {
 
 const ABSTRACT_CHAR_LIMIT = 350;
 
-function DownloadFastqSection({
+export function DownloadFastqSection({
   accession,
   runsData,
   agGridThemeClassName,
@@ -1603,6 +1605,7 @@ export default function ProjectPage() {
     "experiments",
     "publications",
     "similar",
+    "supplementary",
   ]);
   const organismRowStyle = useMemo(
     () =>
@@ -1680,6 +1683,30 @@ export default function ProjectPage() {
     () => normalizeExternalIds(project?.external_id),
     [project?.external_id],
   );
+  const linkedGeoAliases = React.useMemo(() => {
+    const aliases = new Set<string>();
+    const addAlias = (value: unknown) => {
+      if (typeof value !== "string") return;
+      const normalized = value.trim().toUpperCase();
+      if (normalized.startsWith("GSE")) aliases.add(normalized);
+    };
+    addAlias(project?.alias);
+    externalIds.forEach((entry) => addAlias(entry.value));
+    return Array.from(aliases);
+  }, [externalIds, project?.alias]);
+  const { data: linkedGeoProjects } = useQuery({
+    queryKey: ["linked-geo-projects", linkedGeoAliases],
+    queryFn: async () => {
+      const projects = await Promise.all(
+        linkedGeoAliases.map(async (geoAccession) => ({
+          accession: geoAccession,
+          project: await fetchProject(geoAccession),
+        })),
+      );
+      return projects.filter((entry) => entry.project);
+    },
+    enabled: linkedGeoAliases.length > 0,
+  });
 
   const publications = project?.publications ?? null;
   const projectAuthors = React.useMemo(
@@ -2445,6 +2472,16 @@ export default function ProjectPage() {
               neighbors={project.neighbors}
             />
             <SubmittingOrgPanel center={project.center} />
+
+            {linkedGeoProjects?.map(({ accession: geoAccession, project }) => (
+              <SupplementaryDataSection
+                key={`linked-geo-supplementary-${geoAccession}`}
+                accession={geoAccession}
+                rawSupplementaryData={project?.supplementary_data}
+                agGridThemeClassName={agGridThemeClassName}
+                title={`Supplementary Data (${geoAccession})`}
+              />
+            ))}
 
             {runsData && runsData.total_runs > 0 && (
               <DownloadFastqSection
