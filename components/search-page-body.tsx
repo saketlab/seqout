@@ -1517,10 +1517,6 @@ export default function SearchPageBody() {
         justify={{ initial: "start", md: "between" }}
         direction={{ initial: "column", md: "row" }}
       >
-        {shouldShowOrganismRail ? (
-          <SearchOrganismRail {...railProps} showMobile showDesktop={false} />
-        ) : null}
-
         <Flex
           gap="4"
           direction="column"
@@ -1719,7 +1715,7 @@ export default function SearchPageBody() {
           <SearchOrganismRail {...railProps} showMobile={false} showDesktop />
         ) : null}
 
-        {filteredResults.length > 0 && (
+        {(shouldShowOrganismRail || filteredResults.length > 0) && (
           <Flex
             position="fixed"
             direction="column"
@@ -1740,22 +1736,31 @@ export default function SearchPageBody() {
                 </Button>
               </Tooltip>
             )}
-            <Tooltip
-              content={
-                downloadFailed
-                  ? "Download failed. Please try again."
-                  : "Download search results as ZIP"
-              }
-            >
-              <Button
-                onClick={handleDownloadResults}
-                disabled={isDownloading}
-                aria-busy={isDownloading}
+            {shouldShowOrganismRail ? (
+              <SearchOrganismRail
+                {...railProps}
+                showMobile
+                showDesktop={false}
+              />
+            ) : null}
+            {filteredResults.length > 0 && (
+              <Tooltip
+                content={
+                  downloadFailed
+                    ? "Download failed. Please try again."
+                    : "Download search results as ZIP"
+                }
               >
-                {isDownloading ? <Spinner /> : <DownloadIcon />}
-                {isDownloading ? "Preparing ZIP..." : "Download"}
-              </Button>
-            </Tooltip>
+                <Button
+                  onClick={handleDownloadResults}
+                  disabled={isDownloading}
+                  aria-busy={isDownloading}
+                >
+                  {isDownloading ? <Spinner /> : <DownloadIcon />}
+                  {isDownloading ? "Preparing ZIP..." : "Download"}
+                </Button>
+              </Tooltip>
+            )}
           </Flex>
         )}
       </Flex>

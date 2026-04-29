@@ -468,12 +468,12 @@ export function SearchOrganismRail({
   return (
     <>
       {showMobile ? (
-        <Flex display={{ initial: "flex", md: "none" }} gap="2" wrap="wrap">
+        <Flex display={{ initial: "flex", md: "none" }} direction="column" gap="2" align="end">
           <Dialog.Root open={organismsOpen} onOpenChange={setOrganismsOpen}>
             <Dialog.Trigger>
-              <Button variant="surface" size="1">
+              <Button>
+                <MixerHorizontalIcon />
                 Organisms
-                {selectedOrganismKey ? <Badge color="blue">1</Badge> : null}
               </Button>
             </Dialog.Trigger>
             <Dialog.Content
@@ -507,12 +507,9 @@ export function SearchOrganismRail({
 
           <Dialog.Root open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen}>
             <Dialog.Trigger>
-              <Button variant="surface" size="1">
+              <Button>
                 <MixerHorizontalIcon />
                 More filters
-                {selectedFilterCount > 0 ? (
-                  <Badge color="blue">{selectedFilterCount}</Badge>
-                ) : null}
               </Button>
             </Dialog.Trigger>
             <Dialog.Content
