@@ -71,8 +71,12 @@ function ResultCard({
       py="4"
       pr="2"
       pl="0"
-      className="seqout-result-card"
-      style={{ paddingLeft: 0 }}
+      data-result-card="true"
+      style={{
+        paddingLeft: 0,
+        scrollMarginTop: "6rem",
+        scrollMarginBottom: "1rem",
+      }}
     >
         <Flex
           gap="3"

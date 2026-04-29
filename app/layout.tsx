@@ -300,11 +300,6 @@ export default function RootLayout({
             }
           }
 
-          .seqout-result-card {
-            scroll-margin-top: 6rem;
-            scroll-margin-bottom: 1rem;
-          }
-
           .seqout-sr-only {
             position: absolute;
             width: 1px;

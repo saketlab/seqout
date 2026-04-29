@@ -1219,7 +1219,7 @@ export default function SearchPageBody() {
       const next = links[nextIndex];
       if (!next) return;
       next.focus({ preventScroll: true });
-      const card = next.closest(".seqout-result-card") ?? next;
+      const card = next.closest("[data-result-card='true']") ?? next;
       card.scrollIntoView({ block: "nearest", behavior: "smooth" });
     };
     window.addEventListener("keydown", handleKey);
