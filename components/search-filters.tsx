@@ -596,7 +596,7 @@ export function SearchOrganismRail({
                   </Tabs.Trigger>
                 </Tabs.List>
 
-                <Tabs.Content value="journals">
+                <Tabs.Content value="journals" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={journalQuery}
@@ -644,7 +644,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="countries">
+                <Tabs.Content value="countries" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={countryQuery}
@@ -692,7 +692,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="library-strategy">
+                <Tabs.Content value="library-strategy" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={libraryStrategyQuery}
@@ -750,7 +750,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="instrument-models">
+                <Tabs.Content value="instrument-models" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={instrumentModelQuery}
@@ -808,7 +808,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="platform">
+                <Tabs.Content value="platform" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <Text as="label" size="2">
                       <Flex align="center" gap="2">
@@ -915,7 +915,13 @@ export function SearchOrganismRail({
                 ) : null}
               </Button>
             </Dialog.Trigger>
-            <Dialog.Content size="3">
+            <Dialog.Content
+              size="3"
+              style={{
+                width: "38rem",
+                maxWidth: "calc(100vw - 2rem)",
+              }}
+            >
               <Dialog.Title>
                 <Flex align={"center"} justify={"between"}>
                   <Flex align={"center"} gap={"2"}>
@@ -937,7 +943,13 @@ export function SearchOrganismRail({
                 defaultValue="journals"
                 style={{ marginTop: "0.5rem" }}
               >
-                <Tabs.List>
+                <Tabs.List
+                  style={{
+                    overflowX: "auto",
+                    maxWidth: "100%",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   <Tabs.Trigger value="journals">
                     <Flex align="center" gap="1">
                       <span>Journals</span>
@@ -987,7 +999,7 @@ export function SearchOrganismRail({
                   </Tabs.Trigger>
                 </Tabs.List>
 
-                <Tabs.Content value="journals">
+                <Tabs.Content value="journals" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={journalQuery}
@@ -1035,7 +1047,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="countries">
+                <Tabs.Content value="countries" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={countryQuery}
@@ -1083,7 +1095,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="library-strategy">
+                <Tabs.Content value="library-strategy" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={libraryStrategyQuery}
@@ -1141,7 +1153,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="instrument-models">
+                <Tabs.Content value="instrument-models" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={instrumentModelQuery}
@@ -1199,7 +1211,7 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="platform">
+                <Tabs.Content value="platform" style={{ height: "17rem", overflow: "auto" }}>
                   <Flex direction="column" gap="3" pt="3">
                     <Text as="label" size="2">
                       <Flex align="center" gap="2">
