@@ -1527,7 +1527,6 @@ export default function SearchPageBody() {
           width={{ initial: "100%", md: "calc(100% - 240px)", lg: "calc(100% - 300px)" }}
           minWidth="0"
         >
-          {activeFilterChips}
           <div ref={resultsTopRef} />
           {!query && !isGeoSearch ? (
             <Text>Start by typing a search query above.</Text>
@@ -1583,6 +1582,7 @@ export default function SearchPageBody() {
                 </Text>
                 {filterToolbar}
               </Flex>
+              {activeFilterChips}
 
               {suggestions?.length ? (
                 <DidYouMean

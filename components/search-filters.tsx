@@ -899,7 +899,7 @@ export function SearchOrganismRail({
           gap="2"
           width={{ md: "220px", lg: "280px" }}
           position="sticky"
-          style={{ top: "7rem", height: "fit-content" }}
+          style={{ top: "6rem", height: "fit-content" }}
         >
           <OrganismFilter
             results={results}
