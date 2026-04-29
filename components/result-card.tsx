@@ -158,68 +158,59 @@ function ResultCard({
                     {authorList.length === 1 && (
                       <Text size="2">{authorList[0]}</Text>
                     )}
-                    {authorList.length === 2 && (
-                      <Text size="2">{`${authorList[0]} and ${authorList[1]}`}</Text>
-                    )}
-                    {authorList.length > 2 && (
+                    {authorList.length >= 2 && (
                       <>
-                        <Text size="2">{authorList[0]}</Text>
-                        <Popover.Root
-                          open={authorsPopoverOpen}
-                          onOpenChange={setAuthorsPopoverOpen}
-                        >
-                          <Popover.Trigger>
-                            <button
-                              type="button"
-                              aria-label={`${authorList.length - 2} middle authors: ${authorList.slice(1, -1).join(", ")}`}
+                        <Text size="2">{authorList.slice(0, 2).join(", ")}</Text>
+                        {authorList.length > 2 && (
+                          <Popover.Root
+                            open={authorsPopoverOpen}
+                            onOpenChange={setAuthorsPopoverOpen}
+                          >
+                            <Popover.Trigger>
+                              <button
+                                type="button"
+                                aria-label={`${authorList.length - 2} more authors: ${authorList.join(", ")}`}
+                                onMouseEnter={() => setAuthorsPopoverOpen(true)}
+                                onMouseLeave={() => setAuthorsPopoverOpen(false)}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  padding: 0,
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Badge size="1" variant="soft" color="gray">
+                                  +{authorList.length - 2}
+                                </Badge>
+                              </button>
+                            </Popover.Trigger>
+                            <Popover.Content
+                              side="top"
+                              align="start"
+                              sideOffset={6}
                               onMouseEnter={() => setAuthorsPopoverOpen(true)}
                               onMouseLeave={() => setAuthorsPopoverOpen(false)}
                               style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                padding: 0,
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
+                                maxWidth: "min(320px, 85vw)",
+                                maxHeight: "14rem",
+                                overflowY: "auto",
                               }}
                             >
-                              <Badge size="1" variant="soft" color="gray">
-                                +{authorList.length - 2}
-                              </Badge>
-                            </button>
-                          </Popover.Trigger>
-                          <Popover.Content
-                            side="top"
-                            align="start"
-                            sideOffset={6}
-                            onMouseEnter={() => setAuthorsPopoverOpen(true)}
-                            onMouseLeave={() => setAuthorsPopoverOpen(false)}
-                            style={{
-                              maxWidth: "min(320px, 85vw)",
-                              maxHeight: "14rem",
-                              overflowY: "auto",
-                            }}
-                          >
-                            <Flex direction="column" gap="1">
-                              {authorList.map((author, i) => (
-                                <Text
-                                  key={`${author}-${i}`}
-                                  size="1"
-                                  weight={
-                                    i === 0 || i === authorList.length - 1
-                                      ? "medium"
-                                      : "regular"
-                                  }
-                                >
-                                  {author}
-                                </Text>
-                              ))}
-                            </Flex>
-                          </Popover.Content>
-                        </Popover.Root>
-                        <Text size="2">
-                          {authorList[authorList.length - 1]}
-                        </Text>
+                              <Flex direction="column" gap="1">
+                                {authorList.map((author, i) => (
+                                  <Text
+                                    key={`${author}-${i}`}
+                                    size="1"
+                                  >
+                                    {author}
+                                  </Text>
+                                ))}
+                              </Flex>
+                            </Popover.Content>
+                          </Popover.Root>
+                        )}
                       </>
                     )}
                     {(formattedCenter || country_code) && (
