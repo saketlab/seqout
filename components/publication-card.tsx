@@ -2,14 +2,10 @@
 
 import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
-import { cleanJournalName } from "@/utils/format";
 import { SERVER_URL } from "@/utils/constants";
-import {
-  CheckIcon,
-  CopyIcon,
-  ExternalLinkIcon,
-} from "@radix-ui/react-icons";
-import { Badge, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
+import { cleanJournalName } from "@/utils/format";
+import { CheckIcon, CopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
+import { Badge, Card, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
 import { useState } from "react";
 
 export type StudyPublication = {
@@ -60,7 +56,10 @@ function toCellAuthor(fullName: string): string {
 }
 
 function formatCellAuthors(authors: string): string {
-  const list = authors.split(",").map((a) => a.trim()).filter(Boolean);
+  const list = authors
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
   const formatted = list.map(toCellAuthor);
   if (formatted.length > 10) {
     return formatted.slice(0, 10).join(", ") + ", et al.";
@@ -194,7 +193,8 @@ export default function PublicationCard({
   };
 
   return (
-    <Flex direction="column" gap="2" py="3" px="3">
+    <Card>
+      <Flex direction="column" gap="2">
         {/* Header row: title (left, expands) + triage meta (right, wraps
             below on narrow viewports). Same structural skeleton as the
             search result card — citations, journal, year live next to the
@@ -213,8 +213,7 @@ export default function PublicationCard({
                 rel="noopener noreferrer"
                 style={{ color: "inherit", textDecoration: "none" }}
               >
-                {publication.title}
-                {" "}
+                {publication.title}{" "}
                 <ExternalLinkIcon
                   style={{ verticalAlign: "middle", opacity: 0.6 }}
                 />
@@ -231,12 +230,7 @@ export default function PublicationCard({
           )}
 
           {(hasCitations || cleanedJournal || year) && (
-            <Flex
-              gap="2"
-              align="center"
-              wrap="wrap"
-              style={{ flexShrink: 0 }}
-            >
+            <Flex gap="2" align="center" wrap="wrap" style={{ flexShrink: 0 }}>
               {hasCitations && (
                 <Badge size="2" color="iris" variant="soft">
                   {publication.citation_count!.toLocaleString()} citations
@@ -302,6 +296,7 @@ export default function PublicationCard({
                 style={{ cursor: "pointer" }}
               >
                 PMID {publication.pmid}
+                <ExternalLinkIcon color="gray" />
               </Badge>
             </Link>
           )}
@@ -336,6 +331,7 @@ export default function PublicationCard({
             />
           )}
         </Flex>
-    </Flex>
+      </Flex>
+    </Card>
   );
 }
