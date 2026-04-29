@@ -10,10 +10,10 @@ import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
-import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
+import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
@@ -38,6 +38,7 @@ import {
   MagnifyingGlassIcon,
   PersonIcon,
   ReloadIcon,
+  SewingPinIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -756,7 +757,10 @@ export function DownloadFastqSection({
         maxWidth: 280,
         tooltipField: "run_alias",
         valueFormatter: (params) => params.value || "-",
-        cellStyle: { fontFamily: "var(--code-font-family)", fontSize: "0.8rem" },
+        cellStyle: {
+          fontFamily: "var(--code-font-family)",
+          fontSize: "0.8rem",
+        },
       },
       {
         headerName: "Experiment",
@@ -837,7 +841,12 @@ export function DownloadFastqSection({
                 })}
                 {isInterleavedPaired && (
                   <Tooltip content="Paired-end reads are in a single interleaved file. Use fasterq-dump --split-3 to extract R1/R2.">
-                    <Badge size="1" color="amber" variant="soft" style={{ cursor: "help", width: "fit-content" }}>
+                    <Badge
+                      size="1"
+                      color="amber"
+                      variant="soft"
+                      style={{ cursor: "help", width: "fit-content" }}
+                    >
                       <InfoCircledIcon /> Interleaved PE
                     </Badge>
                   </Tooltip>
@@ -2257,8 +2266,11 @@ export default function ProjectPage() {
               </Flex>
             )}
             {headerCenter && (
-              <Flex align="center" gap="2">
-                <Text size="2" style={{ color: "var(--gray-11)" }}>
+              <Flex align="baseline" gap="2">
+                <SewingPinIcon
+                  style={{ flexShrink: 0, marginTop: "0.125rem" }}
+                />
+                <Text style={{ color: "var(--gray-11)" }}>
                   {headerCenter.label}
                 </Text>
                 {headerCenter.countryCode && (

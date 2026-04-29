@@ -1,10 +1,12 @@
 "use client";
 import CountryFlagIcon from "@/components/country-flag-icon";
+import EnrichedMetadataCard from "@/components/enriched-metadata-card";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
@@ -12,8 +14,6 @@ import { DownloadFastqSection } from "@/components/sra-project-page";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
-import EnrichedMetadataCard from "@/components/enriched-metadata-card";
-import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks, {
   normalizeLineBreakText,
 } from "@/components/text-with-line-breaks";
@@ -22,7 +22,11 @@ import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { titleCaseCenter } from "@/utils/format";
-import { getOrganismBannerStyle, makeOrganismPostSort, makeOrganismRowStyle } from "@/utils/organism-highlight";
+import {
+  getOrganismBannerStyle,
+  makeOrganismPostSort,
+  makeOrganismRowStyle,
+} from "@/utils/organism-highlight";
 import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
@@ -36,6 +40,7 @@ import {
   MagnifyingGlassIcon,
   PersonIcon,
   ReloadIcon,
+  SewingPinIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
@@ -339,8 +344,12 @@ const normalizeSupplementaryRecord = (
       url: resolvedUrl.trim(),
       "@type":
         typeof rawType === "string" && rawType.trim() ? rawType.trim() : null,
-      path: typeof rawPath === "string" && rawPath.trim() ? rawPath.trim() : null,
-      size: typeof rawSize === "number" && Number.isFinite(rawSize) ? rawSize : null,
+      path:
+        typeof rawPath === "string" && rawPath.trim() ? rawPath.trim() : null,
+      size:
+        typeof rawSize === "number" && Number.isFinite(rawSize)
+          ? rawSize
+          : null,
     };
   }
 
@@ -479,7 +488,11 @@ const buildSupplementaryDownloadScript = (
 };
 
 const formatFileSize = (sizeInBytes: number | null): string | null => {
-  if (sizeInBytes === null || !Number.isFinite(sizeInBytes) || sizeInBytes < 0) {
+  if (
+    sizeInBytes === null ||
+    !Number.isFinite(sizeInBytes) ||
+    sizeInBytes < 0
+  ) {
     return null;
   }
   if (sizeInBytes < 1024) {
@@ -568,9 +581,8 @@ export default function GeoProjectPage() {
   const [downloadAllProgressPercent, setDownloadAllProgressPercent] = useState<
     number | null
   >(null);
-  const supplementaryGridRef = React.useRef<GridApi<SupplementaryDataItem> | null>(
-    null,
-  );
+  const supplementaryGridRef =
+    React.useRef<GridApi<SupplementaryDataItem> | null>(null);
   const [selectedSupplementaryCount, setSelectedSupplementaryCount] =
     useState(0);
   const [supplementaryScriptDialogOpen, setSupplementaryScriptDialogOpen] =
@@ -580,15 +592,34 @@ export default function GeoProjectPage() {
   const [supplementaryScriptCopied, setSupplementaryScriptCopied] =
     useState(false);
   const isDark = resolvedTheme === "dark";
-  const agGridThemeClassName = isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz";
+  const agGridThemeClassName = isDark
+    ? "ag-theme-quartz-dark"
+    : "ag-theme-quartz";
 
-  useScrollSpy(["overall-design", "enriched", "samples", "publications", "similar", "fastq", "supplementary"]);
+  useScrollSpy([
+    "overall-design",
+    "enriched",
+    "samples",
+    "publications",
+    "similar",
+    "fastq",
+    "supplementary",
+  ]);
   const organismRowStyle = useMemo(
-    () => makeOrganismRowStyle<GeoSampleGridRow>(highlightOrganism, isDark, (d) => d.organism ?? null),
+    () =>
+      makeOrganismRowStyle<GeoSampleGridRow>(
+        highlightOrganism,
+        isDark,
+        (d) => d.organism ?? null,
+      ),
     [highlightOrganism, isDark],
   );
   const organismPostSort = useMemo(
-    () => makeOrganismPostSort<GeoSampleGridRow>(highlightOrganism, (d) => d.organism ?? null),
+    () =>
+      makeOrganismPostSort<GeoSampleGridRow>(
+        highlightOrganism,
+        (d) => d.organism ?? null,
+      ),
     [highlightOrganism],
   );
 
@@ -630,9 +661,7 @@ export default function GeoProjectPage() {
   );
   const linkedArrayExpressAliases = React.useMemo(
     () =>
-      projectAliases.filter((alias) =>
-        alias.toUpperCase().startsWith("E-"),
-      ),
+      projectAliases.filter((alias) => alias.toUpperCase().startsWith("E-")),
     [projectAliases],
   );
   const linkedSraAliases = React.useMemo(
@@ -671,7 +700,10 @@ export default function GeoProjectPage() {
     },
     enabled: linkedSraAliases.length > 0,
   });
-  const linkedSraExpTitleMap = React.useMemo(() => new Map<string, string>(), []);
+  const linkedSraExpTitleMap = React.useMemo(
+    () => new Map<string, string>(),
+    [],
+  );
 
   const { data: samples, isLoading: isSamplesLoading } = useQuery({
     queryKey: ["samples", accession],
@@ -769,8 +801,7 @@ export default function GeoProjectPage() {
     const selected = supplementaryGridRef.current?.getSelectedRows() ?? [];
     setSelectedSupplementaryCount(selected.length);
     if (supplementaryScriptDialogOpen) {
-      const rows =
-        selected.length > 0 ? selected : supplementaryDataItems;
+      const rows = selected.length > 0 ? selected : supplementaryDataItems;
       setSupplementaryScriptPreview(computeSupplementaryScriptText(rows));
     }
   };
@@ -787,9 +818,7 @@ export default function GeoProjectPage() {
   ): string => {
     if (items.length === 0) return "";
     const isAll = items.length === supplementaryDataItems.length;
-    return isAll
-      ? cliDownloadCommand
-      : buildSupplementaryDownloadScript(items);
+    return isAll ? cliDownloadCommand : buildSupplementaryDownloadScript(items);
   };
 
   const handleCopySupplementaryScript = async () => {
@@ -1115,18 +1144,14 @@ export default function GeoProjectPage() {
     return formatFileSize(totalSize);
   }, [supplementaryDataItems]);
 
-  const supplementaryColDefs = React.useMemo<
-    ColDef<SupplementaryDataItem>[]
-  >(
+  const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [
       {
         headerName: "File",
         field: "fileName",
         flex: 1,
         minWidth: 260,
-        cellRenderer: (
-          params: ICellRendererParams<SupplementaryDataItem>,
-        ) => {
+        cellRenderer: (params: ICellRendererParams<SupplementaryDataItem>) => {
           const row = params.data;
           if (!row) return "-";
           return (
@@ -1449,8 +1474,11 @@ export default function GeoProjectPage() {
               </Flex>
             )}
             {headerCenter && (
-              <Flex align="center" gap="2">
-                <Text size="2" style={{ color: "var(--gray-11)" }}>
+              <Flex align="baseline" gap="2">
+                <SewingPinIcon
+                  style={{ flexShrink: 0, marginTop: "0.125rem" }}
+                />
+                <Text style={{ color: "var(--gray-11)" }}>
                   {headerCenter.label}
                 </Text>
                 {headerCenter.countryCode && (
@@ -1689,9 +1717,19 @@ export default function GeoProjectPage() {
               {!isSamplesLoading && samples && samples.length > 0 && (
                 <>
                   {highlightOrganism && (
-                    <Flex align="center" gap="2" py="1" px="3" style={getOrganismBannerStyle(isDark)}>
+                    <Flex
+                      align="center"
+                      gap="2"
+                      py="1"
+                      px="3"
+                      style={getOrganismBannerStyle(isDark)}
+                    >
                       <Text size="2" color="gray">
-                        Showing <Text weight="medium" style={{ fontStyle: "italic" }}>{highlightOrganism}</Text> samples first
+                        Showing{" "}
+                        <Text weight="medium" style={{ fontStyle: "italic" }}>
+                          {highlightOrganism}
+                        </Text>{" "}
+                        samples first
                       </Text>
                     </Flex>
                   )}
@@ -1798,8 +1836,9 @@ export default function GeoProjectPage() {
                       variant="surface"
                       disabled={isDownloadingAllSupplementary}
                       onClick={() => {
-                        const items =
-                          getSupplementaryDownloadItems(supplementaryDataItems);
+                        const items = getSupplementaryDownloadItems(
+                          supplementaryDataItems,
+                        );
                         if (items.length === 0) return;
                         void handleDownloadAllSupplementaryFiles(items);
                       }}
@@ -1824,10 +1863,9 @@ export default function GeoProjectPage() {
                       onOpenChange={(open) => {
                         setSupplementaryScriptDialogOpen(open);
                         if (open) {
-                          const items =
-                            getSupplementaryDownloadItems(
-                              supplementaryDataItems,
-                            );
+                          const items = getSupplementaryDownloadItems(
+                            supplementaryDataItems,
+                          );
                           setSupplementaryScriptPreview(
                             computeSupplementaryScriptText(items),
                           );
@@ -1881,8 +1919,7 @@ export default function GeoProjectPage() {
                               maxHeight: "24rem",
                               fontSize: "12px",
                               lineHeight: "1.5",
-                              fontFamily:
-                                "var(--default-mono-font-family)",
+                              fontFamily: "var(--default-mono-font-family)",
                               whiteSpace: "pre-wrap",
                               wordBreak: "break-all",
                             }}
