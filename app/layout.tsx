@@ -301,22 +301,8 @@ export default function RootLayout({
           }
 
           .seqout-result-card {
-            border-left: 2px solid transparent;
-            padding-left: calc(var(--space-3) - 2px);
             scroll-margin-top: 6rem;
             scroll-margin-bottom: 1rem;
-            transition:
-              background-color 80ms ease-out,
-              border-left-color 80ms ease-out;
-          }
-          .seqout-result-card:focus-within {
-            background-color: var(--accent-a3);
-            border-left-color: var(--accent-11);
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .seqout-result-card {
-              transition: none;
-            }
           }
 
           .seqout-sr-only {

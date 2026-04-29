@@ -70,7 +70,9 @@ function ResultCard({
       gap="2"
       py="4"
       pr="2"
+      pl="0"
       className="seqout-result-card"
+      style={{ paddingLeft: 0 }}
     >
         <Flex
           gap="3"

@@ -1527,7 +1527,6 @@ export default function SearchPageBody() {
           width={{ initial: "100%", md: "calc(100% - 240px)", lg: "calc(100% - 300px)" }}
           minWidth="0"
         >
-          {filterToolbar}
           {activeFilterChips}
           <div ref={resultsTopRef} />
           {!query && !isGeoSearch ? (
@@ -1582,6 +1581,7 @@ export default function SearchPageBody() {
                     <> ({filteredTotal.toLocaleString()} after filters)</>
                   )}
                 </Text>
+                {filterToolbar}
               </Flex>
 
               {suggestions?.length ? (
@@ -1640,6 +1640,7 @@ export default function SearchPageBody() {
                   direction="column"
                   gap="0"
                   className="seqout-divided-list"
+                  style={{ paddingLeft: 0 }}
                 >
                   {pageResults.map((searchResult) => (
                     <ResultCard

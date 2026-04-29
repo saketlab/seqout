@@ -88,7 +88,7 @@ export function SearchFilters({
         value={sortBy}
         name="sort"
         onValueChange={(value) => setSortBy(value as SortBy)}
-        size="2"
+        size="1"
       >
         <Select.Trigger aria-label="Sort by" />
         <Select.Content>
@@ -105,7 +105,7 @@ export function SearchFilters({
         value={timeFilter}
         name="time"
         onValueChange={(value) => setTimeFilter(value as TimeFilter)}
-        size="2"
+        size="1"
       >
         <Select.Trigger aria-label="Time range" />
         <Select.Content>
@@ -126,7 +126,7 @@ export function SearchFilters({
           if (!query) return;
           onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "both");
         }}
-        size="2"
+        size="1"
       >
         <Select.Trigger aria-label="Source database" />
         <Select.Content>
@@ -156,7 +156,7 @@ export function SearchFilters({
             }
             placeholder="YYYY"
             variant="surface"
-            size="2"
+            size="1"
             style={{ width: "4.5rem" }}
             aria-label="Year from"
           />
@@ -178,7 +178,7 @@ export function SearchFilters({
             }
             placeholder="YYYY"
             variant="surface"
-            size="2"
+            size="1"
             style={{ width: "4.5rem" }}
             aria-label="Year to"
           />
