@@ -55,10 +55,14 @@ export default function HomeSearchBar() {
         size={{ initial: "3", md: "4" }}
         weight="medium"
         align="center"
-        style={{ letterSpacing: "-0.02em", maxWidth: "40rem" }}
+        color="gray"
+        style={{
+          letterSpacing: "-0.02em",
+          maxWidth: "40rem",
+        }}
       >
         Search 1M+ public sequencing datasets across GEO, SRA, ENA &amp;
-        ArrayExpress.
+        ArrayExpress
       </Text>
 
       <HeroSearchBar />
@@ -72,16 +76,9 @@ export default function HomeSearchBar() {
         align="center"
         style={{ maxWidth: "42rem" }}
       >
-        <Text
-          size="1"
-          align="center"
-          style={{ color: "var(--gray-11)" }}
-        >
+        <Text size="1" align="center" style={{ color: "var(--gray-11)" }}>
           Search by keyword &mdash;{" "}
-          <Link
-            href="/search?q=naked+mole+rat"
-            className="seqout-inline-link"
-          >
+          <Link href="/search?q=naked+mole+rat" className="seqout-inline-link">
             organism
           </Link>
           ,{" "}
