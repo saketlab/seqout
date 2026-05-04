@@ -484,7 +484,7 @@ const buildSupplementaryDownloadScript = (
   items: { browserDownloadUrl: string }[],
 ): string => {
   if (items.length === 0) return "";
-  return `curl -L ${items.map((item) => `-O ${shellEscapeSingleQuotes(item.browserDownloadUrl)}`).join(" ")}`;
+  return `curl -L -C - --retry 10 --retry-delay 5 --retry-all-errors --fail ${items.map((item) => `-O ${shellEscapeSingleQuotes(item.browserDownloadUrl)}`).join(" ")}`;
 };
 
 const formatFileSize = (sizeInBytes: number | null): string | null => {
