@@ -430,9 +430,7 @@ const WGET_RESUME_FLAGS =
 const toInt = (v: string | null | undefined): number =>
   parseInt(v || "0", 10) || 0;
 
-const DOWNLOAD_HELPER = `# Verify file integrity. wget -c only checks size; this checks content
-# (gzip stream / BAM header) so silently-corrupted files get redownloaded.
-# A .done sentinel caches the result so re-runs skip the multi-GB gzip -t.
+const DOWNLOAD_HELPER = `# Verify file integrity. 
 _is_complete() {
   local f="$1"
   [ -s "$f" ] || return 1
@@ -456,18 +454,27 @@ _done_count=0
 _total_count=0
 
 # Per-file progress line so re-runs don't look hung during multi-GB gzip -t.
+# Expected size (4th arg) shown in the "checking..." line lets the user see
+# local vs remote bytes; oversized triggers a from-scratch redownload before
+# the slow gzip -t even runs.
 download_one() {
-  local url="$1" out="$2" method="\${3:-wget}"
+  local url="$1" out="$2" method="\${3:-wget}" expected="\${4:-0}"
   _done_count=$((_done_count + 1))
   local prefix="[$_done_count/$_total_count] $out"
-  printf '%s: checking... ' "$prefix" >&2
-  if _is_complete "$out"; then
+  local sz=0
+  [ -f "$out" ] && sz=$(stat -c %s "$out" 2>/dev/null || echo 0)
+  local sz_msg=""
+  [ "$expected" -gt 0 ] && sz_msg=" ($(_human $sz) / $(_human $expected))"
+  printf '%s: checking%s... ' "$prefix" "$sz_msg" >&2
+
+  if [ "$expected" -gt 0 ] && [ "$sz" -gt "$expected" ]; then
+    echo "oversized, redownloading" >&2
+    rm -f "$out" "$out.done"
+  elif _is_complete "$out"; then
     : > "$out.done"
     echo "valid, skip" >&2
     return 0
-  fi
-  mkdir -p "\${out%/*}"
-  if [ -s "$out" ] && { [ "$method" = "wget" ] || [ "$method" = "curl" ]; }; then
+  elif [ "$sz" -gt 0 ] && { [ "$method" = "wget" ] || [ "$method" = "curl" ]; }; then
     echo "partial, resuming" >&2
     rm -f "$out.done"
     case "$method" in
@@ -485,6 +492,8 @@ download_one() {
     echo "missing, downloading" >&2
     rm -f "$out.done"
   fi
+
+  mkdir -p "\${out%/*}"
   case "$method" in
     wget)   wget -q --show-progress --tries=10 --timeout=60 --retry-connrefused -O "$out" "$url" ;;
     curl)   curl -L --retry 10 --retry-delay 5 --retry-all-errors --fail -o "$out" "$url" ;;
@@ -765,7 +774,7 @@ export function DownloadFastqSection({
     const method =
       source === "s3" ? "aws" : source === "gcs" ? "gsutil" : "wget";
     const downloadCmd = (u: Entry) =>
-      `download_one "${u.url}" "${u.dirpath}/${u.filename}" ${method}`;
+      `download_one "${u.url}" "${u.dirpath}/${u.filename}" ${method} ${u.bytes}`;
 
     const sourceLabel = DOWNLOAD_SOURCE_LABELS[source];
     const checksums = entries
@@ -1410,7 +1419,7 @@ function BamFilesSection({
       ...bams.map((b) => {
         const url = b.https_url || b.url;
         const dirpath = `${accession}/${b.experiment_accession || "unknown"}/${b.run_accession}`;
-        return `download_one "${url}" "${dirpath}/${b.filename}" wget`;
+        return `download_one "${url}" "${dirpath}/${b.filename}" wget ${toInt(b.size)}`;
       }),
       "",
       `echo "Done. Files saved under ./${accession}/"`,
