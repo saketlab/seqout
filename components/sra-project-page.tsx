@@ -427,18 +427,116 @@ const ABSTRACT_CHAR_LIMIT = 350;
 const WGET_RESUME_FLAGS =
   "-c -q --show-progress --tries=10 --timeout=60 --retry-connrefused";
 
-const buildResumeStatusLines = (paths: string[]): string[] => {
+const toInt = (v: string | null | undefined): number =>
+  parseInt(v || "0", 10) || 0;
+
+const DOWNLOAD_HELPER = `# Verify file integrity. wget -c only checks size; this checks content
+# (gzip stream / BAM header) so silently-corrupted files get redownloaded.
+# A .done sentinel caches the result so re-runs skip the multi-GB gzip -t.
+_is_complete() {
+  local f="$1"
+  [ -s "$f" ] || return 1
+  [ -f "$f.done" ] && [ ! "$f" -nt "$f.done" ] && return 0
+  case "$f" in
+    *.gz) gzip -t "$f" 2>/dev/null ;;
+    *.bam)
+      if command -v samtools >/dev/null 2>&1; then
+        samtools quickcheck "$f" 2>/dev/null
+      else
+        return 0
+      fi
+      ;;
+    *) return 0 ;;
+  esac
+}
+
+_human() { numfmt --to=iec --suffix=B --format='%.1f' "$1" 2>/dev/null || echo "\${1}B"; }
+
+_done_count=0
+_total_count=0
+
+# Per-file progress line so re-runs don't look hung during multi-GB gzip -t.
+download_one() {
+  local url="$1" out="$2" method="\${3:-wget}"
+  _done_count=$((_done_count + 1))
+  local prefix="[$_done_count/$_total_count] $out"
+  printf '%s: checking... ' "$prefix" >&2
+  if _is_complete "$out"; then
+    : > "$out.done"
+    echo "valid, skip" >&2
+    return 0
+  fi
+  mkdir -p "\${out%/*}"
+  if [ -s "$out" ] && { [ "$method" = "wget" ] || [ "$method" = "curl" ]; }; then
+    echo "partial, resuming" >&2
+    rm -f "$out.done"
+    case "$method" in
+      wget) wget -c -q --show-progress --tries=10 --timeout=60 --retry-connrefused -O "$out" "$url" || true ;;
+      curl) curl -L -C - --retry 10 --retry-delay 5 --retry-all-errors --fail -o "$out" "$url" || true ;;
+    esac
+    if _is_complete "$out"; then
+      : > "$out.done"
+      echo "$prefix: resumed OK" >&2
+      return 0
+    fi
+    echo "$prefix: WARN integrity check failed after resume; redownloading from scratch" >&2
+    rm -f "$out" "$out.done"
+  else
+    echo "missing, downloading" >&2
+    rm -f "$out.done"
+  fi
+  case "$method" in
+    wget)   wget -q --show-progress --tries=10 --timeout=60 --retry-connrefused -O "$out" "$url" ;;
+    curl)   curl -L --retry 10 --retry-delay 5 --retry-all-errors --fail -o "$out" "$url" ;;
+    aws)    aws s3 cp --no-progress "$url" "$out" ;;
+    gsutil) gsutil cp "$url" "$out" ;;
+    *) echo "ERR: unknown download method '$method'" >&2; return 1 ;;
+  esac
+  _is_complete "$out" || { echo "$prefix: ERR corrupted after fresh download (re-run script)" >&2; rm -f "$out" "$out.done"; return 1; }
+  : > "$out.done"
+  echo "$prefix: done" >&2
+}
+`;
+
+const buildResumeStatusLines = (
+  paths: string[],
+  sizes?: number[],
+): string[] => {
   if (paths.length === 0) return [];
+  if (sizes && sizes.length === paths.length && sizes.some((s) => s > 0)) {
+    return [
+      "# Resume estimate from local file sizes vs known remote sizes.",
+      "expected_files=(",
+      ...paths.map((p) => `  "${p}"`),
+      ")",
+      "expected_sizes=(",
+      ...sizes.map((s) => `  ${s}`),
+      ")",
+      "_total_count=${#expected_files[@]}",
+      "present=0; local_bytes=0; total_bytes=0",
+      'for i in "${!expected_files[@]}"; do',
+      "  exp=${expected_sizes[$i]}; total_bytes=$((total_bytes + exp))",
+      "  f=${expected_files[$i]}",
+      '  if [ -f "$f" ]; then',
+      '    sz=$(stat -c %s "$f" 2>/dev/null || echo 0)',
+      '    [ "$sz" -gt "$exp" ] && sz=0',
+      "    local_bytes=$((local_bytes + sz))",
+      '    [ "$sz" -ge "$exp" ] && [ "$exp" -gt 0 ] && present=$((present + 1))',
+      "  fi",
+      "done",
+      "pct=$(( total_bytes > 0 ? local_bytes * 100 / total_bytes : 0 ))",
+      'echo "Resume estimate: $present/$_total_count files complete ($(_human $local_bytes) / $(_human $total_bytes) ≈ ${pct}%)."',
+      "",
+    ];
+  }
   return [
-    "# Resume status: count files already complete on disk",
+    "# Resume estimate (size-only, fast). Per-file integrity check runs in download_one below.",
     "expected_files=(",
     ...paths.map((p) => `  "${p}"`),
     ")",
-    'complete=0; for f in "${expected_files[@]}"; do [ -s "$f" ] && complete=$((complete+1)); done',
-    "total=${#expected_files[@]}",
-    "remaining=$((total - complete))",
-    "pct=$(( total > 0 ? 100 - complete * 100 / total : 0 ))",
-    'echo "Resume: $complete/$total files already complete; $remaining remaining (~${pct}% of files left to download)."',
+    'present=0; for f in "${expected_files[@]}"; do [ -s "$f" ] && present=$((present+1)); done',
+    "_total_count=${#expected_files[@]}",
+    'echo "Resume estimate: $present/$_total_count files present on disk (will integrity-check each below)."',
     "",
   ];
 };
@@ -597,6 +695,7 @@ export function DownloadFastqSection({
     filename: string;
     dirpath: string;
     md5: string;
+    bytes: number;
   };
 
   const resolveRunUrls = (
@@ -605,6 +704,8 @@ export function DownloadFastqSection({
   ): ResolvedEntry[] => {
     const dirpath = `${accession}/${run.experiment_accession || "unknown"}/${run.run_accession}`;
     const sraMd5 = run.sra_md5 || "";
+    const sraBytes = toInt(run.ncbi_sra_normalized_bytes);
+    const sraLiteBytes = toInt(run.ncbi_sra_lite_bytes);
 
     if (source === "fastq") {
       const ftps = run.fastq_ftp
@@ -614,35 +715,36 @@ export function DownloadFastqSection({
         const md5s = run.fastq_md5
           ? run.fastq_md5.split(";").filter(Boolean)
           : [];
-        return ftps.map((ftp, i) => {
-          const filename = ftp.split("/").pop() || ftp;
-          return {
-            url: `https://${ftp}`,
-            filename,
-            dirpath,
-            md5: md5s[i] || "",
-          };
-        });
+        const sizes = run.fastq_bytes
+          ? run.fastq_bytes.split(";").filter(Boolean)
+          : [];
+        return ftps.map((ftp, i) => ({
+          url: `https://${ftp}`,
+          filename: ftp.split("/").pop() || ftp,
+          dirpath,
+          md5: md5s[i] || "",
+          bytes: toInt(sizes[i]),
+        }));
       }
-      // Fall through to best cloud URL if no FASTQ available
       const fallback = getBestCloudUrl(run);
       if (fallback) {
         const filename = fallback.split("/").pop() || run.run_accession;
-        return [{ url: fallback, filename, dirpath, md5: sraMd5 }];
+        return [{ url: fallback, filename, dirpath, md5: sraMd5, bytes: sraBytes || sraLiteBytes }];
       }
       return [];
     }
 
-    const urlMap: Record<Exclude<DownloadSource, "fastq">, string | null> = {
-      sra: run.ncbi_sra_normalized_url,
-      sra_lite: run.ncbi_sra_lite_url,
-      s3: run.ncbi_sra_lite_s3_url,
-      gcs: run.ncbi_sra_lite_gs_url,
+    // s3/gcs/sra_lite all serve the SRA-Lite object; only "sra" uses normalized SRA bytes.
+    const sourceMap: Record<Exclude<DownloadSource, "fastq">, { url: string | null; bytes: number }> = {
+      sra: { url: run.ncbi_sra_normalized_url, bytes: sraBytes },
+      sra_lite: { url: run.ncbi_sra_lite_url, bytes: sraLiteBytes },
+      s3: { url: run.ncbi_sra_lite_s3_url, bytes: sraLiteBytes },
+      gcs: { url: run.ncbi_sra_lite_gs_url, bytes: sraLiteBytes },
     };
-    const url = urlMap[source];
+    const { url, bytes } = sourceMap[source];
     if (!url) return [];
     const filename = url.split("/").pop() || run.run_accession;
-    return [{ url, filename, dirpath, md5: sraMd5 }];
+    return [{ url, filename, dirpath, md5: sraMd5, bytes }];
   };
 
   const buildDownloadScript = (
@@ -660,17 +762,10 @@ export function DownloadFastqSection({
     }, 0);
 
     type Entry = (typeof entries)[0];
-    let downloadCmd: (u: Entry) => string;
-    if (source === "s3") {
-      downloadCmd = (u) =>
-        `mkdir -p "${u.dirpath}" && [ -s "${u.dirpath}/${u.filename}" ] || aws s3 cp --no-progress "${u.url}" "${u.dirpath}/${u.filename}"`;
-    } else if (source === "gcs") {
-      downloadCmd = (u) =>
-        `mkdir -p "${u.dirpath}" && [ -s "${u.dirpath}/${u.filename}" ] || gsutil cp "${u.url}" "${u.dirpath}/${u.filename}"`;
-    } else {
-      downloadCmd = (u) =>
-        `mkdir -p "${u.dirpath}" && wget ${WGET_RESUME_FLAGS} -O "${u.dirpath}/${u.filename}" "${u.url}"`;
-    }
+    const method =
+      source === "s3" ? "aws" : source === "gcs" ? "gsutil" : "wget";
+    const downloadCmd = (u: Entry) =>
+      `download_one "${u.url}" "${u.dirpath}/${u.filename}" ${method}`;
 
     const sourceLabel = DOWNLOAD_SOURCE_LABELS[source];
     const checksums = entries
@@ -683,11 +778,14 @@ export function DownloadFastqSection({
       `# ${entries.length} files from ${runs.length} runs${totalBytes > 0 ? ` · ${formatBytes(totalBytes)}` : ""}`,
       "# Generated by seqout.org",
       "# Resumable: re-run this script to skip completed files and continue partial transfers.",
+      "# Integrity-checked: corrupted .gz / .bam files are detected and redownloaded automatically.",
       "",
       "set -euo pipefail",
       "",
+      DOWNLOAD_HELPER,
       ...buildResumeStatusLines(
         entries.map((u) => `${u.dirpath}/${u.filename}`),
+        entries.map((u) => u.bytes),
       ),
       "# Download metadata",
       `curl -sS --retry 10 --retry-delay 5 --retry-all-errors --fail "https://seqout.org/api/project/${accession}/metadata/download" -o "${accession}/metadata.csv" --create-dirs`,
@@ -1289,10 +1387,7 @@ function BamFilesSection({
     if (bams.length === 0) return "";
 
     const isSubset = bams.length < bamsData.bams.length;
-    const totalBytes = bams.reduce(
-      (sum, b) => sum + (parseInt(b.size || "0", 10) || 0),
-      0,
-    );
+    const totalBytes = bams.reduce((sum, b) => sum + toInt(b.size), 0);
 
     const lines = [
       "#!/usr/bin/env bash",
@@ -1300,19 +1395,22 @@ function BamFilesSection({
       `# ${bams.length} files${totalBytes > 0 ? ` · ${formatBytes(totalBytes)}` : ""}`,
       "# Generated by seqout.org",
       "# Resumable: re-run this script to continue any partial/failed transfers.",
+      "# Integrity-checked: corrupted .bam files are detected (samtools quickcheck) and redownloaded.",
       "",
       "set -euo pipefail",
       "",
+      DOWNLOAD_HELPER,
       ...buildResumeStatusLines(
         bams.map(
           (b) =>
             `${accession}/${b.experiment_accession || "unknown"}/${b.run_accession}/${b.filename}`,
         ),
+        bams.map((b) => toInt(b.size)),
       ),
       ...bams.map((b) => {
         const url = b.https_url || b.url;
         const dirpath = `${accession}/${b.experiment_accession || "unknown"}/${b.run_accession}`;
-        return `mkdir -p "${dirpath}" && wget ${WGET_RESUME_FLAGS} -O "${dirpath}/${b.filename}" "${url}"`;
+        return `download_one "${url}" "${dirpath}/${b.filename}" wget`;
       }),
       "",
       `echo "Done. Files saved under ./${accession}/"`,
