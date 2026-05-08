@@ -1270,7 +1270,7 @@ export default function GeoProjectPage() {
             The project may not exist, or the server may be temporarily
             unavailable. Retrying is safe.
           </Text>
-          <Flex gap="2" mt="1">
+          <Flex gap="2" mt="1" align={"center"}>
             <Button variant="surface" onClick={() => refetchProject()}>
               <ReloadIcon /> Retry
             </Button>
