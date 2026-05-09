@@ -194,6 +194,7 @@ type SupplementaryDataItem = {
   curlCommand: string;
   browserDownloadUrl: string;
   downloadUrl: string;
+  sourceSampleAccession?: string | null;
 };
 
 type LinkedRunsData = React.ComponentProps<
@@ -512,6 +513,39 @@ const formatFileSize = (sizeInBytes: number | null): string | null => {
   return `${rounded} ${units[unitIndex]}`;
 };
 
+const buildSupplementaryItems = ({
+  rawValue,
+  idPrefix,
+  sourceSampleAccession = null,
+}: {
+  rawValue: unknown;
+  idPrefix: string;
+  sourceSampleAccession?: string | null;
+}): SupplementaryDataItem[] =>
+  parseSupplementaryData(rawValue)
+    .map((entry, index): SupplementaryDataItem | null => {
+      const url = entry.url?.trim();
+      if (!url) {
+        return null;
+      }
+      const browserDownloadUrl = getBrowserDownloadUrl(url);
+      const fileName = entry.path?.trim() || getFileNameFromUrl(url);
+      return {
+        id: `${idPrefix}-${index}`,
+        url: browserDownloadUrl,
+        fileName,
+        fileSizeBytes: entry.size,
+        fileSizeLabel: formatFileSize(entry.size),
+        curlCommand: buildCurlCommand(browserDownloadUrl),
+        browserDownloadUrl,
+        downloadUrl: shouldUseProxyDownload(browserDownloadUrl, fileName)
+          ? getAppDownloadUrl(browserDownloadUrl, fileName)
+          : browserDownloadUrl,
+        sourceSampleAccession,
+      };
+    })
+    .filter((entry): entry is SupplementaryDataItem => entry !== null);
+
 const fetchSamples = async (accession: string): Promise<GeoSample[]> => {
   const res = await fetch(`${SERVER_URL}/geo/series/${accession}/samples`);
   if (!res.ok) {
@@ -590,6 +624,20 @@ export default function GeoProjectPage() {
   const [supplementaryScriptPreview, setSupplementaryScriptPreview] =
     useState("");
   const [supplementaryScriptCopied, setSupplementaryScriptCopied] =
+    useState(false);
+  const [isDownloadingAllSampleSupplementary, setIsDownloadingAllSampleSupplementary] =
+    useState(false);
+  const [sampleDownloadAllProgressPercent, setSampleDownloadAllProgressPercent] =
+    useState<number | null>(null);
+  const sampleSupplementaryGridRef =
+    React.useRef<GridApi<SupplementaryDataItem> | null>(null);
+  const [selectedSampleSupplementaryCount, setSelectedSampleSupplementaryCount] =
+    useState(0);
+  const [sampleSupplementaryScriptDialogOpen, setSampleSupplementaryScriptDialogOpen] =
+    useState(false);
+  const [sampleSupplementaryScriptPreview, setSampleSupplementaryScriptPreview] =
+    useState("");
+  const [sampleSupplementaryScriptCopied, setSampleSupplementaryScriptCopied] =
     useState(false);
   const isDark = resolvedTheme === "dark";
   const agGridThemeClassName = isDark
@@ -838,6 +886,81 @@ export default function GeoProjectPage() {
     setSupplementaryScriptCopied(didCopy);
     window.setTimeout(() => setSupplementaryScriptCopied(false), 1500);
     if (didCopy) showToast("Download script copied");
+  };
+
+  const handleDownloadAllSampleSupplementaryFiles = async (
+    items: SupplementaryDataItem[],
+  ) => {
+    if (items.length === 0) return;
+
+    try {
+      setIsDownloadingAllSampleSupplementary(true);
+      setSampleDownloadAllProgressPercent(0);
+      for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        const link = document.createElement("a");
+        link.href = item.downloadUrl;
+        link.download = item.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        const progress = Math.round(((index + 1) / items.length) * 100);
+        setSampleDownloadAllProgressPercent(progress);
+        await new Promise((resolve) => window.setTimeout(resolve, 150));
+      }
+    } catch (error) {
+      console.error("Failed to download sample supplementary files:", error);
+    } finally {
+      setIsDownloadingAllSampleSupplementary(false);
+      window.setTimeout(() => {
+        setSampleDownloadAllProgressPercent(null);
+      }, 300);
+    }
+  };
+
+  const handleSampleSupplementaryGridReady = React.useCallback(
+    (params: { api: GridApi<SupplementaryDataItem> }) => {
+      sampleSupplementaryGridRef.current = params.api;
+    },
+    [],
+  );
+
+  const handleSampleSupplementarySelectionChanged = () => {
+    const selected = sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
+    setSelectedSampleSupplementaryCount(selected.length);
+    if (sampleSupplementaryScriptDialogOpen) {
+      const rows =
+        selected.length > 0 ? selected : sampleSupplementaryDataItems;
+      setSampleSupplementaryScriptPreview(
+        buildSupplementaryDownloadScript(rows),
+      );
+    }
+  };
+
+  const getSampleSupplementaryDownloadItems = (
+    allItems: SupplementaryDataItem[],
+  ): SupplementaryDataItem[] => {
+    const selected = sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
+    return selected.length > 0 ? selected : allItems;
+  };
+
+  const handleCopySampleSupplementaryScript = async () => {
+    if (!sampleSupplementaryScriptPreview) return;
+    let didCopy = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(sampleSupplementaryScriptPreview);
+        didCopy = true;
+      } catch {
+        didCopy = false;
+      }
+    }
+    if (!didCopy) {
+      didCopy = copyToClipboard(sampleSupplementaryScriptPreview);
+    }
+    setSampleSupplementaryScriptCopied(didCopy);
+    window.setTimeout(() => setSampleSupplementaryScriptCopied(false), 1500);
+    if (didCopy) showToast("Sample download script copied");
   };
 
   // Collect all unique characteristic tags across all samples and channels
@@ -1100,30 +1223,28 @@ export default function GeoProjectPage() {
     [accession, characteristicTags, isArrayExpress],
   );
 
-  const supplementaryDataItems = React.useMemo(() => {
-    return parseSupplementaryData(project?.supplementary_data)
-      .map((entry, index): SupplementaryDataItem | null => {
-        const url = entry.url?.trim();
-        if (!url) {
-          return null;
-        }
-        const browserDownloadUrl = getBrowserDownloadUrl(url);
-        const fileName = entry.path?.trim() || getFileNameFromUrl(url);
-        return {
-          id: `supplementary-${index}`,
-          url: browserDownloadUrl,
-          fileName,
-          fileSizeBytes: entry.size,
-          fileSizeLabel: formatFileSize(entry.size),
-          curlCommand: buildCurlCommand(browserDownloadUrl),
-          browserDownloadUrl,
-          downloadUrl: shouldUseProxyDownload(browserDownloadUrl, fileName)
-            ? getAppDownloadUrl(browserDownloadUrl, fileName)
-            : browserDownloadUrl,
-        };
-      })
-      .filter((entry): entry is SupplementaryDataItem => entry !== null);
-  }, [project?.supplementary_data]);
+  const supplementaryDataItems = React.useMemo(
+    () =>
+      buildSupplementaryItems({
+        rawValue: project?.supplementary_data,
+        idPrefix: "supplementary",
+      }),
+    [project?.supplementary_data],
+  );
+
+  const sampleSupplementaryDataItems = React.useMemo(() => {
+    if (!samples || samples.length === 0) {
+      return [];
+    }
+
+    return samples.flatMap((sample, sampleIndex) =>
+      buildSupplementaryItems({
+        rawValue: sample.supplementary_data,
+        idPrefix: `sample-supplementary-${sample.accession || sampleIndex}`,
+        sourceSampleAccession: sample.accession,
+      }),
+    );
+  }, [samples]);
 
   const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${accession}/supplementary/download" | bash`;
 
@@ -1143,6 +1264,23 @@ export default function GeoProjectPage() {
     );
     return formatFileSize(totalSize);
   }, [supplementaryDataItems]);
+
+  const allSampleSupplementarySizeLabel = React.useMemo(() => {
+    if (sampleSupplementaryDataItems.length === 0) {
+      return null;
+    }
+    const missingSize = sampleSupplementaryDataItems.some(
+      (item) => item.fileSizeBytes === null,
+    );
+    if (missingSize) {
+      return null;
+    }
+    const totalSize = sampleSupplementaryDataItems.reduce(
+      (sum, item) => sum + (item.fileSizeBytes ?? 0),
+      0,
+    );
+    return formatFileSize(totalSize);
+  }, [sampleSupplementaryDataItems]);
 
   const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [
@@ -1194,6 +1332,14 @@ export default function GeoProjectPage() {
   const supplementaryScriptLabel =
     selectedSupplementaryCount > 0
       ? `Copy script (${selectedSupplementaryCount} selected)`
+      : "Copy script";
+  const sampleSupplementaryDownloadLabel =
+    selectedSampleSupplementaryCount > 0
+      ? `Download ${selectedSampleSupplementaryCount} selected`
+      : "Download all";
+  const sampleSupplementaryScriptLabel =
+    selectedSampleSupplementaryCount > 0
+      ? `Copy script (${selectedSampleSupplementaryCount} selected)`
       : "Copy script";
 
   return (
@@ -1956,6 +2102,161 @@ export default function GeoProjectPage() {
                     }}
                     onGridReady={handleSupplementaryGridReady}
                     onSelectionChanged={handleSupplementarySelectionChanged}
+                    theme="legacy"
+                  />
+                </div>
+              </Flex>
+            )}
+            <Flex align="center" gap="2" mt="4">
+              <Text weight="medium" size="4">
+                Sample supplementary files
+              </Text>
+            </Flex>
+            {sampleSupplementaryDataItems.length === 0 && (
+              <Text size="2" color="gray">
+                No sample supplementary files found
+              </Text>
+            )}
+            {sampleSupplementaryDataItems.length > 0 && (
+              <Flex direction="column" gap="2" style={{ width: "100%" }}>
+                <Flex gap="3" justify="between" wrap="wrap">
+                  <Flex gap="2" align="center" wrap="wrap">
+                    <Badge size="2" color="blue">
+                      {sampleSupplementaryDataItems.length.toLocaleString()} file
+                      {sampleSupplementaryDataItems.length !== 1 ? "s" : ""}
+                    </Badge>
+                    {allSampleSupplementarySizeLabel && (
+                      <Badge size="2" variant="soft">
+                        {allSampleSupplementarySizeLabel} total
+                      </Badge>
+                    )}
+                  </Flex>
+                  <Flex gap="2" wrap="wrap">
+                    <Button
+                      size="2"
+                      variant="surface"
+                      disabled={isDownloadingAllSampleSupplementary}
+                      onClick={() => {
+                        const items = getSampleSupplementaryDownloadItems(
+                          sampleSupplementaryDataItems,
+                        );
+                        if (items.length === 0) return;
+                        void handleDownloadAllSampleSupplementaryFiles(items);
+                      }}
+                    >
+                      {isDownloadingAllSampleSupplementary ? (
+                        <Flex align="center" gap="1">
+                          <Spinner size="1" />
+                          <Text size="1">
+                            {sampleDownloadAllProgressPercent !== null
+                              ? `${sampleDownloadAllProgressPercent}%`
+                              : "..."}
+                          </Text>
+                        </Flex>
+                      ) : (
+                        <>
+                          <DownloadIcon /> {sampleSupplementaryDownloadLabel}
+                        </>
+                      )}
+                    </Button>
+                    <Dialog.Root
+                      open={sampleSupplementaryScriptDialogOpen}
+                      onOpenChange={(open) => {
+                        setSampleSupplementaryScriptDialogOpen(open);
+                        if (open) {
+                          const items = getSampleSupplementaryDownloadItems(
+                            sampleSupplementaryDataItems,
+                          );
+                          setSampleSupplementaryScriptPreview(
+                            buildSupplementaryDownloadScript(items),
+                          );
+                          setSampleSupplementaryScriptCopied(false);
+                        }
+                      }}
+                    >
+                      <Dialog.Trigger>
+                        <Button size="2" variant="surface">
+                          <FileTextIcon /> {sampleSupplementaryScriptLabel}
+                        </Button>
+                      </Dialog.Trigger>
+                      <Dialog.Content size="3">
+                        <Flex justify="between" align="center" gap="3" mb="3">
+                          <Dialog.Title mb="0">
+                            Copy sample download script
+                          </Dialog.Title>
+                          <Button
+                            size="2"
+                            variant="soft"
+                            onClick={() => {
+                              void handleCopySampleSupplementaryScript();
+                            }}
+                            disabled={!sampleSupplementaryScriptPreview}
+                          >
+                            {sampleSupplementaryScriptCopied ? (
+                              <CheckIcon />
+                            ) : (
+                              <CopyIcon />
+                            )}
+                            {sampleSupplementaryScriptCopied ? "Copied!" : "Copy"}
+                          </Button>
+                        </Flex>
+                        <div
+                          style={{
+                            width: "100%",
+                            maxWidth: "100%",
+                            overflow: "hidden",
+                            background: "var(--gray-3)",
+                            border: "1px solid var(--gray-6)",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          <pre
+                            style={{
+                              margin: 0,
+                              width: "100%",
+                              boxSizing: "border-box",
+                              padding: "0.875rem",
+                              overflowY: "auto",
+                              maxHeight: "24rem",
+                              fontSize: "12px",
+                              lineHeight: "1.5",
+                              fontFamily: "var(--default-mono-font-family)",
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            <code>
+                              {sampleSupplementaryScriptPreview ||
+                                "# No sample supplementary files available"}
+                            </code>
+                          </pre>
+                        </div>
+                      </Dialog.Content>
+                    </Dialog.Root>
+                  </Flex>
+                </Flex>
+                <div
+                  className={agGridThemeClassName}
+                  style={{
+                    width: "100%",
+                    height: `${Math.min(
+                      sampleSupplementaryDataItems.length * 42 + 49,
+                      320,
+                    )}px`,
+                  }}
+                >
+                  <AgGridReact<SupplementaryDataItem>
+                    columnDefs={supplementaryColDefs}
+                    defaultColDef={supplementaryDefaultColDef}
+                    rowData={sampleSupplementaryDataItems}
+                    getRowId={(params) => params.data.id}
+                    rowSelection={{
+                      mode: "multiRow",
+                      checkboxes: true,
+                      headerCheckbox: true,
+                    }}
+                    onGridReady={handleSampleSupplementaryGridReady}
+                    onSelectionChanged={handleSampleSupplementarySelectionChanged}
                     theme="legacy"
                   />
                 </div>
