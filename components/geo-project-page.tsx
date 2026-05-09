@@ -197,6 +197,14 @@ type SupplementaryDataItem = {
   sourceSampleAccession?: string | null;
 };
 
+type SampleSupplementaryGroupRow = {
+  id: string;
+  sampleAccession: string;
+  items: SupplementaryDataItem[];
+  fileCount: number;
+  totalSizeBytes: number | null;
+};
+
 type LinkedRunsData = React.ComponentProps<
   typeof DownloadFastqSection
 >["runsData"];
@@ -324,6 +332,24 @@ const normalizeAuthors = (value: Project["authors"]): string[] => {
     .filter(Boolean);
 };
 
+const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
+  "NONE",
+  "NULL",
+  "N/A",
+  "NA",
+  "-",
+  "",
+]);
+
+const isValidSupplementaryUrl = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (SUPPLEMENTARY_PLACEHOLDER_VALUES.has(trimmed.toUpperCase())) {
+    return false;
+  }
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
+};
+
 const normalizeSupplementaryRecord = (
   value: unknown,
 ): SupplementaryDataRecord | null => {
@@ -335,7 +361,10 @@ const normalizeSupplementaryRecord = (
       typeof record["#text"] === "string" ? record["#text"] : null;
     const urlValue = typeof record.url === "string" ? record.url : null;
     const resolvedUrl = textValue ?? urlValue;
-    if (typeof resolvedUrl !== "string" || resolvedUrl.trim().length === 0) {
+    if (
+      typeof resolvedUrl !== "string" ||
+      !isValidSupplementaryUrl(resolvedUrl)
+    ) {
       return null;
     }
     const rawType = record["@type"];
@@ -360,11 +389,7 @@ const normalizeSupplementaryRecord = (
       return null;
     }
 
-    if (
-      trimmed.startsWith("http://") ||
-      trimmed.startsWith("https://") ||
-      trimmed.startsWith("ftp://")
-    ) {
+    if (isValidSupplementaryUrl(trimmed)) {
       return { url: trimmed, "@type": null, path: null, size: null };
     }
 
@@ -630,7 +655,7 @@ export default function GeoProjectPage() {
   const [sampleDownloadAllProgressPercent, setSampleDownloadAllProgressPercent] =
     useState<number | null>(null);
   const sampleSupplementaryGridRef =
-    React.useRef<GridApi<SupplementaryDataItem> | null>(null);
+    React.useRef<GridApi<SampleSupplementaryGroupRow> | null>(null);
   const [selectedSampleSupplementaryCount, setSelectedSampleSupplementaryCount] =
     useState(0);
   const [sampleSupplementaryScriptDialogOpen, setSampleSupplementaryScriptDialogOpen] =
@@ -919,29 +944,33 @@ export default function GeoProjectPage() {
   };
 
   const handleSampleSupplementaryGridReady = React.useCallback(
-    (params: { api: GridApi<SupplementaryDataItem> }) => {
+    (params: { api: GridApi<SampleSupplementaryGroupRow> }) => {
       sampleSupplementaryGridRef.current = params.api;
     },
     [],
   );
 
   const handleSampleSupplementarySelectionChanged = () => {
-    const selected = sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
-    setSelectedSampleSupplementaryCount(selected.length);
+    const selectedGroups =
+      sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
+    const selectedItems = selectedGroups.flatMap((group) => group.items);
+    setSelectedSampleSupplementaryCount(selectedItems.length);
     if (sampleSupplementaryScriptDialogOpen) {
       const rows =
-        selected.length > 0 ? selected : sampleSupplementaryDataItems;
+        selectedItems.length > 0 ? selectedItems : sampleSupplementaryDataItems;
       setSampleSupplementaryScriptPreview(
         buildSupplementaryDownloadScript(rows),
       );
     }
   };
 
-  const getSampleSupplementaryDownloadItems = (
-    allItems: SupplementaryDataItem[],
-  ): SupplementaryDataItem[] => {
-    const selected = sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
-    return selected.length > 0 ? selected : allItems;
+  const getSampleSupplementaryDownloadItems = (): SupplementaryDataItem[] => {
+    const selectedGroups =
+      sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
+    if (selectedGroups.length === 0) {
+      return sampleSupplementaryDataItems;
+    }
+    return selectedGroups.flatMap((group) => group.items);
   };
 
   const handleCopySampleSupplementaryScript = async () => {
@@ -1246,6 +1275,39 @@ export default function GeoProjectPage() {
     );
   }, [samples]);
 
+  const sampleSupplementaryGroupedRows = React.useMemo<
+    SampleSupplementaryGroupRow[]
+  >(() => {
+    if (sampleSupplementaryDataItems.length === 0) {
+      return [];
+    }
+    const groups = new Map<string, SupplementaryDataItem[]>();
+    for (const item of sampleSupplementaryDataItems) {
+      const sampleAccession = item.sourceSampleAccession?.trim() || "Unknown";
+      const existing = groups.get(sampleAccession);
+      if (existing) {
+        existing.push(item);
+      } else {
+        groups.set(sampleAccession, [item]);
+      }
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([sampleAccession, items], index) => {
+        const hasUnknownSize = items.some((item) => item.fileSizeBytes === null);
+        const totalSizeBytes = hasUnknownSize
+          ? null
+          : items.reduce((sum, item) => sum + (item.fileSizeBytes ?? 0), 0);
+        return {
+          id: `sample-supp-group-${sampleAccession}-${index}`,
+          sampleAccession,
+          items,
+          fileCount: items.length,
+          totalSizeBytes,
+        };
+      });
+  }, [sampleSupplementaryDataItems]);
+
   const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${accession}/supplementary/download" | bash`;
 
   const allSupplementarySizeLabel = React.useMemo(() => {
@@ -1320,9 +1382,98 @@ export default function GeoProjectPage() {
     ],
     [],
   );
+  const sampleSupplementaryColDefs = React.useMemo<
+    ColDef<SampleSupplementaryGroupRow>[]
+  >(
+    () => [
+      {
+        headerName: "Sample",
+        field: "sampleAccession",
+        minWidth: 160,
+        maxWidth: 220,
+        pinned: "left",
+        cellRenderer: (
+          params: ICellRendererParams<SampleSupplementaryGroupRow>,
+        ) => {
+          const sampleAccession = params.data?.sampleAccession || "-";
+          if (sampleAccession === "Unknown" || sampleAccession === "-") {
+            return <span>{sampleAccession}</span>;
+          }
+          return (
+            <Link
+              href={`/s/${sampleAccession}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="1"
+              style={{ fontFamily: "var(--code-font-family)" }}
+            >
+              {sampleAccession}
+            </Link>
+          );
+        },
+      },
+      {
+        headerName: "Supplementary files",
+        minWidth: 360,
+        flex: 1,
+        autoHeight: true,
+        wrapText: true,
+        cellRenderer: (
+          params: ICellRendererParams<SampleSupplementaryGroupRow>,
+        ) => {
+          const row = params.data;
+          if (!row || row.items.length === 0) {
+            return "-";
+          }
+          return (
+            <Flex direction="column" gap="1" py="1">
+              {row.items.map((item) => (
+                <Flex key={item.id} align="center" gap="2">
+                  <Link
+                    href={item.browserDownloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="1"
+                    style={{ fontFamily: "var(--code-font-family)" }}
+                  >
+                    {item.fileName}
+                  </Link>
+                  {item.fileSizeLabel && (
+                    <Text size="1" color="gray">
+                      {item.fileSizeLabel}
+                    </Text>
+                  )}
+                </Flex>
+              ))}
+            </Flex>
+          );
+        },
+      },
+      {
+        headerName: "Count",
+        field: "fileCount",
+        minWidth: 90,
+        maxWidth: 110,
+      },
+      {
+        headerName: "Total size",
+        field: "totalSizeBytes",
+        minWidth: 120,
+        maxWidth: 140,
+        valueFormatter: (params) =>
+          typeof params.value === "number"
+            ? (formatFileSize(params.value as number) ?? "-")
+            : "-",
+      },
+    ],
+    [],
+  );
 
   const supplementaryDefaultColDef = React.useMemo<
     ColDef<SupplementaryDataItem>
+  >(() => ({ filter: true, resizable: true, sortable: true }), []);
+  const sampleSupplementaryDefaultColDef = React.useMemo<
+    ColDef<SampleSupplementaryGroupRow>
   >(() => ({ filter: true, resizable: true, sortable: true }), []);
 
   const supplementaryDownloadLabel =
@@ -2125,6 +2276,10 @@ export default function GeoProjectPage() {
                       {sampleSupplementaryDataItems.length.toLocaleString()} file
                       {sampleSupplementaryDataItems.length !== 1 ? "s" : ""}
                     </Badge>
+                    <Badge size="2" variant="soft">
+                      {sampleSupplementaryGroupedRows.length.toLocaleString()} sample
+                      {sampleSupplementaryGroupedRows.length !== 1 ? "s" : ""}
+                    </Badge>
                     {allSampleSupplementarySizeLabel && (
                       <Badge size="2" variant="soft">
                         {allSampleSupplementarySizeLabel} total
@@ -2137,9 +2292,7 @@ export default function GeoProjectPage() {
                       variant="surface"
                       disabled={isDownloadingAllSampleSupplementary}
                       onClick={() => {
-                        const items = getSampleSupplementaryDownloadItems(
-                          sampleSupplementaryDataItems,
-                        );
+                        const items = getSampleSupplementaryDownloadItems();
                         if (items.length === 0) return;
                         void handleDownloadAllSampleSupplementaryFiles(items);
                       }}
@@ -2164,9 +2317,7 @@ export default function GeoProjectPage() {
                       onOpenChange={(open) => {
                         setSampleSupplementaryScriptDialogOpen(open);
                         if (open) {
-                          const items = getSampleSupplementaryDownloadItems(
-                            sampleSupplementaryDataItems,
-                          );
+                          const items = getSampleSupplementaryDownloadItems();
                           setSampleSupplementaryScriptPreview(
                             buildSupplementaryDownloadScript(items),
                           );
@@ -2240,15 +2391,15 @@ export default function GeoProjectPage() {
                   style={{
                     width: "100%",
                     height: `${Math.min(
-                      sampleSupplementaryDataItems.length * 42 + 49,
-                      320,
+                      Math.max(sampleSupplementaryGroupedRows.length * 72 + 49, 180),
+                      420,
                     )}px`,
                   }}
                 >
-                  <AgGridReact<SupplementaryDataItem>
-                    columnDefs={supplementaryColDefs}
-                    defaultColDef={supplementaryDefaultColDef}
-                    rowData={sampleSupplementaryDataItems}
+                  <AgGridReact<SampleSupplementaryGroupRow>
+                    columnDefs={sampleSupplementaryColDefs}
+                    defaultColDef={sampleSupplementaryDefaultColDef}
+                    rowData={sampleSupplementaryGroupedRows}
                     getRowId={(params) => params.data.id}
                     rowSelection={{
                       mode: "multiRow",
