@@ -1,7 +1,10 @@
+from typing import Iterator
+
 import httpx
 
 from seqoutdb._internal._constants import BASE_URL
-from seqoutdb.models import SearchParams, SearchResponse
+from seqoutdb._internal._utils import _send_get_req
+from seqoutdb.models import SearchParams, SearchResponse, SearchResult, SearchResults
 
 
 class Seqout:
@@ -9,20 +12,53 @@ class Seqout:
         self, http_client: httpx.Client | None = None, base_url=BASE_URL
     ) -> None:
         self._client = httpx.Client()
-        self._own_client = http_client is None  # is the http client created by seqout?
+        # is the http client created by seqout?
+        self._own_client = http_client is None
         self._base_url = base_url
 
-    def search(self, params: SearchParams) -> SearchResponse:
-        response = self._client.get(
-            f"{self._base_url}/search", params=params.model_dump(exclude_none=True)
+    # internal method for accessing `/search` endpoint
+    def _search(self, params: SearchParams) -> SearchResponse:
+        response = _send_get_req(
+            client=self._client,
+            url=f"{self._base_url}/search",
+            params=params,
+            response_model=SearchResponse,
         )
+        return response
 
-        response.raise_for_status()
-        return SearchResponse.model_validate(response.json())
+    def search(self, params: SearchParams) -> SearchResults:
+        response = self._search(params)
+        return response.to_results()
+
+    def search_all(
+        self, params: SearchParams, limit: int | None = None
+    ) -> Iterator[SearchResult]:
+        fetched = 0
+
+        while True:
+            response = self._search(params)
+            for res in response.results:
+                if limit is not None and fetched >= limit:
+                    return
+
+                yield res
+                fetched += 1
+
+            if not response.next_cursor:
+                break
+
+            params = params.model_copy(
+                update={
+                    "cursor_rank": response.next_cursor.rank,
+                    "cursor_acc": response.next_cursor.accession,
+                },
+            )
 
     def close(self) -> None:
         if self._own_client:
-            self._client.close()  # close the http client only if it was created by seqout. as if it was created by the user then he might use it elsewhere
+            # close the http client only if it was created seqout class
+            # if user passes his own instance of http client then it is not closed
+            self._client.close()
 
     def __enter__(self) -> "Seqout":
         return self
