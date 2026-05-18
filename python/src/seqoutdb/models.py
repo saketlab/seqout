@@ -34,6 +34,29 @@ class SearchParams(BaseModel):
         return v
 
 
+class SearchStructuredParams(BaseModel):
+    q: str | None = None
+    organism: str | None = None
+    library_strategy: str | None = None
+    platform: str | None = None
+    country: str | None = None
+    center: str | None = None
+    year_from: int | None = None
+    year_to: int | None = None
+    source: str | None = None
+    journal: str | None = None
+    instrument_model: str | None = None
+    multi_platform: bool | None = None
+    assay_l1: str | None = None
+    assay_l2: str | None = None
+    geo_country_code_iso2: str | None = None
+    geo_lat: float | None = None
+    geo_lng: float | None = None
+    geo_radius_km: float | None = None
+    cursor_rank: float | None = None
+    cursor_acc: str | None = None
+
+
 class Publication(BaseModel):
     doi: str | None = None
     issn: str | None = None
@@ -53,7 +76,7 @@ class Publication(BaseModel):
 class SearchResult(BaseModel):
     accession: str
     title: str
-    summary: str
+    summary: str | None = None
     updated_at: str | None = None
     organisms: list[str] = []
     countries: list[str] = []
@@ -67,10 +90,11 @@ class SearchResult(BaseModel):
     journal: str | None = None
     doi: str | None = None
     authors: str | None = None
-    citation_count: int | None = None
+    citation_count: int = 0
     center_name: str | None = None
     country_code: str | None = None
     is_single_cell: bool | None = None
+    single_cell_modality: str | None = None
 
     @field_validator(
         "organisms", "countries", "instrument_models", "publications", mode="before"
@@ -78,6 +102,11 @@ class SearchResult(BaseModel):
     @classmethod
     def _null_to_empty_list(cls, v):
         return v or []
+
+    @field_validator("citation_count", mode="before")
+    @classmethod
+    def _normalize_nullable_ints(cls, v):
+        return v or 0
 
     @field_validator("countries", mode="after")
     @classmethod
