@@ -34,7 +34,7 @@ class SearchParams(BaseModel):
         return v
 
 
-class SearchStructuredParams(BaseModel):
+class StructuredSearchParams(BaseModel):
     q: str | None = None
     organism: str | None = None
     library_strategy: str | None = None
