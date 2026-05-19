@@ -2,14 +2,43 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
-from typing import TYPE_CHECKING, Iterable, Iterator, Literal
+from typing import TYPE_CHECKING, Generic, Iterable, Iterator, Literal, TypeVar
 
 from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
 
-from seqoutdb.constants import COUNTRY_CODE_MAP
-
 if TYPE_CHECKING:
     from pandas import DataFrame
+
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class BaseContainer(RootModel[list[T]], Generic[T]):
+    def to_dict(self) -> list[dict]:
+        return [r.model_dump() for r in self.root]
+
+    def to_csv(self, path: str) -> None:
+        with open(path, "w", newline="") as f:
+            if not self.root:
+                return
+
+            writer = csv.DictWriter(f, fieldnames=self.root[0].model_fields.keys())
+            writer.writeheader()
+            writer.writerows(self.to_dict())
+
+    def to_df(self) -> DataFrame:
+        import pandas
+
+        return pandas.DataFrame(self.to_dict())
+
+    def __len__(self) -> int:
+        return len(self.root)
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def __getitem__(self, index: int) -> T:
+        return self.root[index]
 
 
 class SearchParams(BaseModel):
@@ -119,7 +148,7 @@ class SearchResult(BaseModel):
             # fix the top level country code
             self.country_code = self.countries[0].upper()
 
-        self.countries = [COUNTRY_CODE_MAP.get(code, code) for code in self.countries]
+        self.countries = [code.upper() for code in self.countries]
         return self
 
     def has_organism(self, org: str) -> bool:
@@ -142,27 +171,18 @@ class SearchResponse(BaseModel):
 
 
 # wrapper over list of search results with a bunch of util methods
-class SearchResults:
-    def __init__(self, results: Iterable[SearchResult]):
-        self.results: list[SearchResult] = list(results)
-
-    def __iter__(self) -> Iterator[SearchResult]:
-        return iter(self.results)
-
-    def __len__(self):
-        return len(self.results)
-
+class SearchResults(BaseContainer[SearchResult]):
     def offset(self, n: int) -> SearchResults:
-        return SearchResults(self.results[n:])
+        return SearchResults(self.root[n:])
 
     def limit(self, n: int) -> SearchResults:
-        return SearchResults(self.results[:n])
+        return SearchResults(self.root[:n])
 
     def slice(self, start: int, stop: int) -> SearchResults:
-        return SearchResults(self.results[start:stop])
+        return SearchResults(self.root[start:stop])
 
     def filter(self, **kwargs) -> SearchResults:
-        filtered = self.results
+        filtered = self.root
 
         for field, value in kwargs.items():
             is_string_filter = isinstance(value, str)
@@ -183,7 +203,7 @@ class SearchResults:
         return SearchResults(filtered)
 
     def exclude(self, **kwargs) -> SearchResults:
-        filtered = self.results
+        filtered = self.root
         for field, value in kwargs.items():
             filtered = [r for r in filtered if not getattr(r, field, None) == value]
         return SearchResults(filtered)
@@ -192,24 +212,24 @@ class SearchResults:
         return self.filter(source=source)
 
     def by_organism(self, organism: str) -> SearchResults:
-        return SearchResults(r for r in self if r.has_organism(organism))
+        return SearchResults(list(r for r in self if r.has_organism(organism)))
 
     def organisms(self) -> Counter[str]:
-        return Counter(org for r in self.results for org in r.organisms)
+        return Counter(org for r in self.root for org in r.organisms)
 
     def sources(self) -> Counter[str]:
-        return Counter(r.source for r in self.results if r.source)
+        return Counter(r.source for r in self.root if r.source)
 
     def countries(self) -> Counter[str]:
-        return Counter(c for r in self.results for c in r.countries)
+        return Counter(c for r in self.root for c in r.countries)
 
     def sort_by(self, field: str, reverse: bool = False) -> SearchResults:
         def sort_key(r):
             value = getattr(r, field)
             return value if value is not None else 0
 
-        not_none = [r for r in self.results if getattr(r, field) is not None]
-        none_values = [r for r in self.results if getattr(r, field) is None]
+        not_none = [r for r in self.root if getattr(r, field) is not None]
+        none_values = [r for r in self.root if getattr(r, field) is None]
 
         return SearchResults(
             sorted(not_none, key=sort_key, reverse=reverse) + none_values
@@ -220,23 +240,6 @@ class SearchResults:
 
     def most_recent(self, n: int = 10) -> SearchResults:
         return self.sort_by("updated_at", reverse=True).limit(n)
-
-    def to_dict(self) -> list[dict]:
-        return [r.model_dump() for r in self.results]
-
-    def to_csv(self, path: str) -> None:
-        with open(path, "w", newline="") as f:
-            if not self.results:
-                return
-
-            writer = csv.DictWriter(f, fieldnames=self.results[0].model_fields.keys())
-            writer.writeheader()
-            writer.writerows(self.to_dict())
-
-    def to_df(self) -> DataFrame:
-        import pandas
-
-        return pandas.DataFrame(self.to_dict())
 
 
 class ProjectMetadataResult(BaseModel):
@@ -251,9 +254,13 @@ class ProjectCrossReferenceResult(BaseModel):
     source: str
 
 
+class ProjectCrossReferenceList(BaseContainer[ProjectCrossReferenceResult]):
+    pass
+
+
 class ProjectCrossReferenceResponse(BaseModel):
     accession: str
-    xref: list[ProjectCrossReferenceResult]
+    xref: ProjectCrossReferenceList
 
 
 class ExperimentSampleOrganism(BaseModel):
@@ -304,5 +311,5 @@ class ExperimentSample(BaseModel):
 
 
 # wrapper pydantic model over list of experiment samples
-class ExperimentSampleList(RootModel[list[ExperimentSample]]):
+class ExperimentSampleList(BaseContainer[ExperimentSample]):
     pass
