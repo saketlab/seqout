@@ -10,6 +10,7 @@ from seqoutdb.constants import BASE_URL
 from seqoutdb.models import (
     ExperimentSample,
     ExperimentSampleList,
+    ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
     ProjectCrossReferenceResult,
     ProjectMetadataResult,
@@ -148,10 +149,10 @@ class Seqout:
 
         return response
 
-    def samples_by_accession(self, accession_id: str) -> list[ExperimentSample]:
+    def samples_by_accession(self, accession_id: str) -> ExperimentSampleList:
         if not accession_id.startswith("GSE") and not accession_id.startswith("E-"):
             raise ValueError(
-                "samples can be only fetched for GEO series and ArrayExpress experiment"
+                "samples can be only fetched for GEO series and ArrayExpress experiments"
             )
 
         response = self._sender(
@@ -161,11 +162,11 @@ class Seqout:
             response_model=ExperimentSampleList,
         )
 
-        return response.root
+        return response
 
     def cross_reference_lookup_by_accession(
         self, accession_id: str
-    ) -> list[ProjectCrossReferenceResult]:
+    ) -> ProjectCrossReferenceList:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/xref",
