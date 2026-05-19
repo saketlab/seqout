@@ -1,7 +1,7 @@
 from seqoutdb.models import (
     NextCursor,
     ProjectCrossReferenceResult,
-    ProjectMetadataResult,
+    ProjectSummaryResult,
     Publication,
     SearchParams,
     SearchResult,
@@ -19,7 +19,7 @@ __all__ = [
     "NextCursor",
     "SearchResult",
     "SearchResults",
-    "ProjectMetadataResult",
+    "ProjectSummaryResult",
     "ProjectCrossReferenceResult",
     "country_code_to_name",
     "country_name_to_code",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
-from typing import TYPE_CHECKING, Generic, Iterable, Iterator, Literal, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
 
@@ -41,6 +41,7 @@ class BaseContainer(RootModel[list[T]], Generic[T]):
         return self.root[index]
 
 
+# full-text search
 class SearchParams(BaseModel):
     q: str
     db: Literal["geo", "sra", "arrayexpress", "ena"] | None = None
@@ -242,18 +243,62 @@ class SearchResults(BaseContainer[SearchResult]):
         return self.sort_by("updated_at", reverse=True).limit(n)
 
 
-class ProjectMetadataResult(BaseModel):
+# project summary
+class ProjectSummaryResult(BaseModel):
     accession: str
     title: str
     description: str | None = None
 
 
+# project metadata
+class ProjectMetadataRelation(BaseModel):
+    type: str = Field(alias="@type")
+    target: str = Field(alias="@target")
+
+
+class ProjectMetadataResult(BaseModel):
+    accession: str
+    alias: list[str]
+    title: str
+    summary: str | None = None
+    overall_design: str
+    pubmed_ids: list[str] = Field(alias="pubmed_id")
+    publications: list[Publication] | None = None
+    samples_ref: list[str]
+    series_type: list[str]
+    relations: list[ProjectMetadataRelation] = Field(alias="relation")
+    supplementary_data: list[tuple[str, str]]
+    published_at: str | None = None
+    updated_at: str | None = None
+    organisms: list[str] | None = None
+    pmid: str | None = None
+    publication_title: str | None = None
+    journal: str | None = None
+    doi: str | None = None
+    authors: str | None = None
+    citation_count: int = 0
+    center_name: str | None = None
+    country_code: str | None = None
+    is_single_cell: bool | None = None
+    single_cell_modality: str | None = None
+
+    @field_validator("supplementary_data", mode="before")
+    @classmethod
+    def _flatten_supplementary_data(cls, v):
+        list: list[tuple[str, str]] = []
+        for item in v:
+            list.append((item["#text"], item["@type"]))
+        return list
+
+
+# project cross references
 class ProjectCrossReferenceResult(BaseModel):
     accession: str
     link_type: str
     source: str
 
 
+# wrapper pydantic model over list of experiment samples
 class ProjectCrossReferenceList(BaseContainer[ProjectCrossReferenceResult]):
     pass
 
@@ -263,6 +308,7 @@ class ProjectCrossReferenceResponse(BaseModel):
     xref: ProjectCrossReferenceList
 
 
+# experiment samples
 class ExperimentSampleOrganism(BaseModel):
     text: str = Field(alias="#text")
     taxonomy_id: str = Field(alias="@taxid")
