@@ -268,17 +268,17 @@ class ProjectMetadataNeighbor(BaseModel):
 
 class ProjectMetadataResult(BaseModel):
     accession: str
-    alias: list[str]
+    alias: list[str] | str
     title: str
     summary: str | None = None
-    overall_design: str
-    pubmed_ids: list[str] = Field(alias="pubmed_id")
+    overall_design: str | None = None
+    pubmed_ids: list[str] = Field(alias="pubmed_id", default=[])
     publications: list[Publication] | None = None
-    samples_ref: list[str]
-    series_type: list[str]
-    relations: list[ProjectMetadataRelation] = Field(alias="relation")
-    neighbors: list[ProjectMetadataNeighbor]
-    supplementary_data: list[tuple[str, str]]
+    samples_ref: list[str] = []
+    series_type: list[str] = []
+    relations: list[ProjectMetadataRelation] = Field(alias="relation", default=[])
+    neighbors: list[ProjectMetadataNeighbor] = []
+    supplementary_data: list[tuple[str, str]] = []
     published_at: str | None = None
     updated_at: str | None = None
     organisms: list[str] | None = None
@@ -300,6 +300,19 @@ class ProjectMetadataResult(BaseModel):
         for item in v:
             list.append((item["#text"], item["@type"]))
         return list
+
+    @field_validator(
+        "relations",
+        "neighbors",
+        "samples_ref",
+        "series_type",
+        "supplementary_data",
+        "pubmed_ids",
+        mode="before",
+    )
+    @classmethod
+    def _null_to_empty_list(cls, v):
+        return v or []
 
 
 # project cross references
@@ -369,6 +382,26 @@ class ProjectLLMEnrichedSampleMetadataResponse(BaseModel):
     single_cell_modality: str | None = None
     version: str
     samples: ProjectLLMEnrichedSampleMetadataResults
+
+
+# study experiments
+class StudyExperimentsResult(BaseModel):
+    accession: str
+    title: str
+    design_description: str | None = None
+    library_layout: str
+    library_name: str | None = None
+    library_selection: str
+    library_source: str
+    library_strategy: str
+    samples: list[str]
+    platform: str
+    instrument_model: str
+    submission: str
+
+
+class StudyExperimentsResults(BaseContainer[StudyExperimentsResult]):
+    pass
 
 
 # experiment samples

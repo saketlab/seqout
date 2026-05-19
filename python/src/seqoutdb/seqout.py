@@ -13,6 +13,7 @@ from typing import Iterator
 import httpx
 from tqdm import tqdm
 
+from seqoutdb import StudyExperimentsResults
 from seqoutdb.constants import BASE_URL
 from seqoutdb.models import (
     ExperimentSampleList,
@@ -148,7 +149,6 @@ class Seqout:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/metadata",
-            params=None,
             response_model=ProjectSummaryResult,
         )
 
@@ -158,7 +158,6 @@ class Seqout:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}",
-            params=None,
             response_model=ProjectMetadataResult,
         )
 
@@ -173,7 +172,6 @@ class Seqout:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/geo/series/{accession_id}/samples",
-            params=None,
             response_model=ExperimentSampleList,
         )
 
@@ -183,7 +181,6 @@ class Seqout:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/xref",
-            params=None,
             response_model=ProjectCrossReferenceResponse,
         )
 
@@ -257,12 +254,20 @@ class Seqout:
     ) -> ProjectLLMEnrichedSampleMetadataResults:
         response = self._sender(
             client=self._client,
-            url=f"https://seqout.org/api/project/{accession_id}/enriched",
-            params=None,
+            url=f"{self._base_url}/project/{accession_id}/enriched",
             response_model=ProjectLLMEnrichedSampleMetadataResponse,
         )
 
         return response.samples
+
+    def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
+        response = self._sender(
+            client=self._client,
+            url=f"{self._base_url}/project/{study_id}/experiments",
+            response_model=StudyExperimentsResults,
+        )
+
+        return response
 
     def close(self) -> None:
         if self._own_client:
