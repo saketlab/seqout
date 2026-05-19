@@ -256,6 +256,16 @@ class ProjectMetadataRelation(BaseModel):
     target: str = Field(alias="@target")
 
 
+class ProjectMetadataNeighbor(BaseModel):
+    x_2d: float
+    x_3d: float
+    y_2d: float
+    y_3d: float
+    z_3d: float
+    source: str
+    accession: str
+
+
 class ProjectMetadataResult(BaseModel):
     accession: str
     alias: list[str]
@@ -267,6 +277,7 @@ class ProjectMetadataResult(BaseModel):
     samples_ref: list[str]
     series_type: list[str]
     relations: list[ProjectMetadataRelation] = Field(alias="relation")
+    neighbors: list[ProjectMetadataNeighbor]
     supplementary_data: list[tuple[str, str]]
     published_at: str | None = None
     updated_at: str | None = None
@@ -306,6 +317,58 @@ class ProjectCrossReferenceList(BaseContainer[ProjectCrossReferenceResult]):
 class ProjectCrossReferenceResponse(BaseModel):
     accession: str
     xref: ProjectCrossReferenceList
+
+
+# llm enriched sample metadata
+class ProjectLLMEnrichedSampleMetadataResult(BaseModel):
+    sample: str
+    age: str | None = None
+    sex: str | None = None
+    ethnicity: str | None = None
+    phenotype: str | None = None
+    cell_type: str | None = None
+    tissue: str | None = None
+    strain: str | None = None
+    disease: str | None = None
+    assay: str | None = None
+    assay_category: str | None = None
+    cell_line: str | None = None
+    treatment: str | None = None
+    development_stage: str | None = None
+    sample_type: str | None = None
+    genetic_modification: str | None = None
+    organism: str | None = None
+    taxid: str | None = None
+    tissue_primary_site: str | None = None
+    tissue_site_type: str | None = None
+    cell_count: int | None = None
+    gene_count: int | None = None
+    cell_count_estimated: int | None = None
+    disease_ontology_id: str | None = None
+    disease_ontology_name: str | None = None
+    tissue_ontology_id: str | None = None
+    tissue_ontology_name: str | None = None
+    cell_type_ontology_id: str | None = None
+    cell_type_ontology_name: str | None = None
+    assay_ontology_id: str | None = None
+    assay_ontology_name: str | None = None
+    development_stage_ontology_id: str | None = None
+    development_stage_ontology_name: str | None = None
+
+
+class ProjectLLMEnrichedSampleMetadataResults(
+    BaseContainer[ProjectLLMEnrichedSampleMetadataResult]
+):
+    pass
+
+
+class ProjectLLMEnrichedSampleMetadataResponse(BaseModel):
+    accession: str
+    title: str
+    n_samples: int
+    single_cell_modality: str | None = None
+    version: str
+    samples: ProjectLLMEnrichedSampleMetadataResults
 
 
 # experiment samples
