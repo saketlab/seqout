@@ -4,9 +4,9 @@ import csv
 from collections import Counter
 from typing import TYPE_CHECKING, Iterable, Iterator, Literal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
 
-from seqoutdb._internal._constants import COUNTRY_CODE_MAP
+from seqoutdb.constants import COUNTRY_CODE_MAP
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -82,7 +82,7 @@ class SearchResult(BaseModel):
     countries: list[str] = []
     rank: float
     source: str
-    total_count: int
+    total_count: int | None = None
     instrument_models: list[str] = []
     publications: list[Publication] = []
     pmid: str | None = None
@@ -115,9 +115,9 @@ class SearchResult(BaseModel):
 
     @model_validator(mode="after")
     def _normalize_countries(self):
-        if not self.country_code:
-            if self.countries:
-                self.country_code = self.countries[0].upper()
+        if self.countries:
+            # fix the top level country code
+            self.country_code = self.countries[0].upper()
 
         self.countries = [COUNTRY_CODE_MAP.get(code, code) for code in self.countries]
         return self
@@ -144,25 +144,25 @@ class SearchResponse(BaseModel):
 # wrapper over list of search results with a bunch of util methods
 class SearchResults:
     def __init__(self, results: Iterable[SearchResult]):
-        self._results: list[SearchResult] = list(results)
+        self.results: list[SearchResult] = list(results)
 
     def __iter__(self) -> Iterator[SearchResult]:
-        return iter(self._results)
+        return iter(self.results)
 
     def __len__(self):
-        return len(self._results)
+        return len(self.results)
 
     def offset(self, n: int) -> SearchResults:
-        return SearchResults(self._results[n:])
+        return SearchResults(self.results[n:])
 
     def limit(self, n: int) -> SearchResults:
-        return SearchResults(self._results[:n])
+        return SearchResults(self.results[:n])
 
     def slice(self, start: int, stop: int) -> SearchResults:
-        return SearchResults(self._results[start:stop])
+        return SearchResults(self.results[start:stop])
 
     def filter(self, **kwargs) -> SearchResults:
-        filtered = self._results
+        filtered = self.results
 
         for field, value in kwargs.items():
             is_string_filter = isinstance(value, str)
@@ -183,7 +183,7 @@ class SearchResults:
         return SearchResults(filtered)
 
     def exclude(self, **kwargs) -> SearchResults:
-        filtered = self._results
+        filtered = self.results
         for field, value in kwargs.items():
             filtered = [r for r in filtered if not getattr(r, field, None) == value]
         return SearchResults(filtered)
@@ -195,21 +195,21 @@ class SearchResults:
         return SearchResults(r for r in self if r.has_organism(organism))
 
     def organisms(self) -> Counter[str]:
-        return Counter(org for r in self._results for org in r.organisms)
+        return Counter(org for r in self.results for org in r.organisms)
 
     def sources(self) -> Counter[str]:
-        return Counter(r.source for r in self._results if r.source)
+        return Counter(r.source for r in self.results if r.source)
 
     def countries(self) -> Counter[str]:
-        return Counter(c for r in self._results for c in r.countries)
+        return Counter(c for r in self.results for c in r.countries)
 
     def sort_by(self, field: str, reverse: bool = False) -> SearchResults:
         def sort_key(r):
             value = getattr(r, field)
             return value if value is not None else 0
 
-        not_none = [r for r in self._results if getattr(r, field) is not None]
-        none_values = [r for r in self._results if getattr(r, field) is None]
+        not_none = [r for r in self.results if getattr(r, field) is not None]
+        none_values = [r for r in self.results if getattr(r, field) is None]
 
         return SearchResults(
             sorted(not_none, key=sort_key, reverse=reverse) + none_values
@@ -222,14 +222,14 @@ class SearchResults:
         return self.sort_by("updated_at", reverse=True).limit(n)
 
     def to_dict(self) -> list[dict]:
-        return [r.model_dump() for r in self._results]
+        return [r.model_dump() for r in self.results]
 
     def to_csv(self, path: str) -> None:
         with open(path, "w", newline="") as f:
-            if not self._results:
+            if not self.results:
                 return
 
-            writer = csv.DictWriter(f, fieldnames=self._results[0].model_fields.keys())
+            writer = csv.DictWriter(f, fieldnames=self.results[0].model_fields.keys())
             writer.writeheader()
             writer.writerows(self.to_dict())
 
@@ -237,3 +237,72 @@ class SearchResults:
         import pandas
 
         return pandas.DataFrame(self.to_dict())
+
+
+class ProjectMetadataResult(BaseModel):
+    accession: str
+    title: str
+    description: str | None = None
+
+
+class ProjectCrossReferenceResult(BaseModel):
+    accession: str
+    link_type: str
+    source: str
+
+
+class ProjectCrossReferenceResponse(BaseModel):
+    accession: str
+    xref: list[ProjectCrossReferenceResult]
+
+
+class ExperimentSampleOrganism(BaseModel):
+    text: str = Field(alias="#text")
+    taxonomy_id: str = Field(alias="@taxid")
+
+
+class ExperimentSampleChannel(BaseModel):
+    source: str = Field(alias="Source")
+    molecule: str = Field(alias="Molecule")
+    organism: ExperimentSampleOrganism | None = None
+    position: int = Field(alias="@position")
+    characteristics: dict[str, str] = Field(alias="Characteristics")
+    growth_protocol: str | None = None
+    extract_protocol: str | None = None
+    treatment_protocol: str | None = None
+
+    @field_validator("characteristics", mode="before")
+    @classmethod
+    def _flatten_characteristics(cls, v):
+        map: dict[str, str] = {}
+        for item in v:
+            map[item["@tag"]] = item["#text"]
+        return map
+
+
+class ExperimentSample(BaseModel):
+    accession: str
+    title: str
+    description: str
+    sample_type: str
+    channel_count: int
+    channels: list[ExperimentSampleChannel]
+    platform_ref: str
+    supplementary_data: list[str]
+    hybridization_protocol: str | None = None
+    scan_protocol: str | None = None
+    published_at: str
+    updated_at: str
+
+    @field_validator("supplementary_data", mode="before")
+    @classmethod
+    def _flatten_supplementary_data(cls, v):
+        links: list[str] = []
+        for item in v:
+            links.append(item["#text"])
+        return links
+
+
+# wrapper pydantic model over list of experiment samples
+class ExperimentSampleList(RootModel[list[ExperimentSample]]):
+    pass

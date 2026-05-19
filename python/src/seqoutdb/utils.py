@@ -4,6 +4,8 @@ from typing import TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from seqoutdb.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
+
 # accepts the class itself and not an instance of it
 T = TypeVar("T", bound=BaseModel)
 
@@ -11,7 +13,7 @@ T = TypeVar("T", bound=BaseModel)
 def _send_get_req(
     client: httpx.Client,
     url: str,
-    params: BaseModel,
+    params: BaseModel | None,
     response_model: type[T],
     max_attempts: int,
     backoff_factor: float,
@@ -22,7 +24,9 @@ def _send_get_req(
             req = client.build_request(
                 "GET",
                 url,
-                params=params.model_dump(exclude_none=True, by_alias=True),
+                params=None
+                if params is None
+                else params.model_dump(exclude_none=True, by_alias=True),
                 timeout=timeout,
             )
 
@@ -51,3 +55,11 @@ def _send_get_req(
     # hacky for python type system
     temp = response_model()
     return temp
+
+
+def country_name_to_code(name: str) -> str | None:
+    return COUNTRY_NAME_MAP.get(name)
+
+
+def country_code_to_name(code: str) -> str | None:
+    return COUNTRY_CODE_MAP.get(code)

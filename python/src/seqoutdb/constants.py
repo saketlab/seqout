@@ -194,3 +194,4 @@ COUNTRY_CODE_MAP: dict[str, str] = {
     "zmb": "Zambia",
     "zwe": "Zimbabwe",
 }
+COUNTRY_NAME_MAP: dict[str, str] = {v: k.upper() for k, v in COUNTRY_CODE_MAP.items()}
