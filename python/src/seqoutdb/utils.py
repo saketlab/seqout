@@ -16,11 +16,11 @@ T = TypeVar("T", bound=BaseModel)
 def _send_get_req(
     client: httpx.Client,
     url: str,
-    params: BaseModel | None,
     response_model: type[T],
     max_attempts: int,
     backoff_factor: float,
     timeout: int,
+    params: BaseModel | None = None,
 ) -> T:
     for attempt in range(max_attempts):
         try:
