@@ -1,22 +1,26 @@
 from seqoutdb.models import (
     NextCursor,
+    ProjectCrossReferenceResult,
+    ProjectMetadataResult,
     Publication,
     SearchParams,
-    SearchResponse,
     SearchResult,
     SearchResults,
     StructuredSearchParams,
 )
 from seqoutdb.seqout import Seqout
+from seqoutdb.utils import country_code_to_name, country_name_to_code
 
-# def search_structured(self, params: StructuredSearchParams) -> SearchResults:
 __all__ = [
-    "NextCursor",
-    "Publication",
+    "Seqout",
     "SearchParams",
-    "SearchResponse",
+    "StructuredSearchParams",
+    "Publication",
+    "NextCursor",
     "SearchResult",
     "SearchResults",
-    "StructuredSearchParams",
-    "Seqout",
+    "ProjectMetadataResult",
+    "ProjectCrossReferenceResult",
+    "country_code_to_name",
+    "country_name_to_code",
 ]
