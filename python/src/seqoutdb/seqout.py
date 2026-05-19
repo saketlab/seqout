@@ -1,32 +1,39 @@
 import functools
 import itertools
-import os
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    Future,
+    ProcessPoolExecutor,
+    as_completed,
+)
+from multiprocessing import Manager
+from pathlib import Path
+from queue import Queue
 from typing import Iterator
 
 import httpx
+from tqdm import tqdm
 
 from seqoutdb.constants import BASE_URL
 from seqoutdb.models import (
-    ExperimentSample,
     ExperimentSampleList,
     ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
-    ProjectCrossReferenceResult,
     ProjectMetadataResult,
+    ProjectSummaryResult,
     SearchParams,
     SearchResponse,
     SearchResult,
     SearchResults,
     StructuredSearchParams,
 )
-from seqoutdb.utils import _send_get_req
+from seqoutdb.utils import _download_file, _send_get_req, _validate_num_workers
 
 SearchParamsType = SearchParams | StructuredSearchParams
 
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_BACKOFF_FACTOR = 2.0
 DEFAULT_TIMEOUT = 30
+DEFAULT_DOWNLOAD_CHUNK_SIZE = 1024
 
 
 class Seqout:
@@ -54,7 +61,7 @@ class Seqout:
             timeout=self.timeout,
         )
 
-    def _search(
+    def _fetch_search_page(
         self,
         params: SearchParamsType,
     ) -> SearchResponse:
@@ -72,12 +79,12 @@ class Seqout:
 
         return response
 
-    def _search_paginate(
+    def _iter_search_pages(
         self,
         params: SearchParamsType,
     ) -> Iterator[SearchResult]:
         while True:
-            response = self._search(
+            response = self._fetch_search_page(
                 params,
             )
             yield from response.results
@@ -96,18 +103,18 @@ class Seqout:
         self,
         params: SearchParamsType,
     ) -> SearchResults:
-        response = self._search(
+        response = self._fetch_search_page(
             params,
         )
 
         return response.to_results()
 
-    def search_all(
+    def iter_search(
         self,
         params: SearchParamsType,
         limit: int | None = None,
     ) -> Iterator[SearchResult]:
-        iterator = self._search_paginate(params)
+        iterator = self._iter_search_pages(params)
         if limit is None:
             yield from iterator
         else:
@@ -118,16 +125,12 @@ class Seqout:
         params: list[SearchParamsType],
         n_workers: int | None = None,
     ) -> dict[int, SearchResults]:
-        if n_workers is None:
-            cpu_count = os.cpu_count()
-            n_workers = cpu_count - 2 if cpu_count else None
-            if n_workers is None:
-                raise SystemError("failed to fetch cpu count")
+        n_workers = _validate_num_workers(n_workers)
 
         def _do_search(params: SearchParamsType) -> SearchResults:
             return self.search(params)
 
-        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures: dict[Future[SearchResults], int] = {
                 pool.submit(_do_search, p): i for i, p in enumerate(params)
             }
@@ -139,17 +142,27 @@ class Seqout:
 
         return results
 
-    def metadata_by_accession(self, accession_id: str) -> ProjectMetadataResult:
+    def fetch_project_summary(self, accession_id: str) -> ProjectSummaryResult:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/metadata",
+            params=None,
+            response_model=ProjectSummaryResult,
+        )
+
+        return response
+
+    def fetch_project_metadata(self, accession_id: str) -> ProjectMetadataResult:
+        response = self._sender(
+            client=self._client,
+            url=f"{self._base_url}/project/{accession_id}",
             params=None,
             response_model=ProjectMetadataResult,
         )
 
         return response
 
-    def samples_by_accession(self, accession_id: str) -> ExperimentSampleList:
+    def fetch_samples(self, accession_id: str) -> ExperimentSampleList:
         if not accession_id.startswith("GSE") and not accession_id.startswith("E-"):
             raise ValueError(
                 "samples can be only fetched for GEO series and ArrayExpress experiments"
@@ -164,9 +177,7 @@ class Seqout:
 
         return response
 
-    def cross_reference_lookup_by_accession(
-        self, accession_id: str
-    ) -> ProjectCrossReferenceList:
+    def fetch_cross_references(self, accession_id: str) -> ProjectCrossReferenceList:
         response = self._sender(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/xref",
@@ -175,6 +186,69 @@ class Seqout:
         )
 
         return response.xref
+
+    def download_supplementary_data(
+        self,
+        metadata: ProjectMetadataResult,
+        out_dir: Path,
+        n_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        verbose: bool = True,
+    ):
+        n_workers = _validate_num_workers(n_workers)
+        failed: list[tuple[str, Exception]] = []
+
+        with Manager() as manager:
+            queue: Queue[tuple[str, str, int | None]] | None = (
+                manager.Queue() if verbose else None
+            )
+
+            with ProcessPoolExecutor(max_workers=n_workers) as pool:
+                futures = {}
+                pbars = {}
+
+                for link, _ in metadata.supplementary_data:
+                    if link.startswith("ftp://"):
+                        link = link.replace(
+                            "ftp://", "https://"
+                        )  # download file over https instead of ftp
+
+                    dest_path = out_dir / Path(link.split("/")[-1])
+                    futures[
+                        pool.submit(_download_file, link, dest_path, chunk_size, queue)
+                    ] = link
+
+                if queue:
+                    pbars: dict[str, tqdm] = {}
+                    pending = len(futures)
+
+                    while pending > 0:
+                        msg = queue.get()
+                        url, kind, value = msg
+
+                        if kind == "total":
+                            pbars[url] = tqdm(
+                                total=value,
+                                unit="B",
+                                unit_scale=True,
+                                unit_divisor=1024,
+                                desc=dest_path.name,
+                            )
+                        elif kind == "update":
+                            pbars[url].update(value)
+                        elif kind == "done":
+                            pbars[url].close()
+                            pending -= 1
+
+                for future, url in futures.items():
+                    try:
+                        future.result()
+                    except Exception as e:
+                        failed.append((url, e))
+
+        if failed:
+            summary = "\n".join(f"  {url}: {e}" for url, e in failed)
+            raise RuntimeError(f"{len(failed)} download(s) failed:\n{summary}")
 
     def close(self) -> None:
         if self._own_client:

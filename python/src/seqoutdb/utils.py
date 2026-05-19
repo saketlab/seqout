@@ -1,4 +1,7 @@
+import os
+import queue
 import time
+from pathlib import Path
 from typing import TypeVar
 
 import httpx
@@ -55,6 +58,43 @@ def _send_get_req(
     # hacky for python type system
     temp = response_model()
     return temp
+
+
+def _validate_num_workers(n_workers: int | None) -> int:
+    cpu_count = os.cpu_count()
+    if cpu_count is None:
+        cpu_count = 1
+
+    if n_workers is None:
+        n_workers = max(1, cpu_count - 2)
+    else:
+        if n_workers >= cpu_count:
+            raise ValueError(
+                "num of workers must be less than total number of CPUs in the system"
+            )
+
+    return n_workers
+
+
+def _download_file(
+    url: str, dest: Path, chunk_size: int, queue: queue.Queue | None = None
+):
+    with httpx.stream("GET", url, follow_redirects=True) as response:
+        response.raise_for_status()
+        dest.parent.mkdir(exist_ok=True, parents=True)
+
+        total = int(response.headers.get("content-length", 0))
+        if queue:
+            queue.put((url, "total", total))
+
+        with open(dest, "wb") as f:
+            for chunk in response.iter_bytes(chunk_size):
+                f.write(chunk)
+                if queue:
+                    queue.put((url, "update", len(chunk)))
+
+    if queue:
+        queue.put((url, "done", None))
 
 
 def country_name_to_code(name: str) -> str | None:

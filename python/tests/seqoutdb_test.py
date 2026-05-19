@@ -9,7 +9,7 @@ shutil.rmtree(output_dir, ignore_errors=True)  # delete the folder
 output_dir.mkdir(exist_ok=True)  # create it freshly
 
 with Seqout() as sq:
-    # find top 50 cited papers related to brca1
+    # find top 50 cited papers related to scRNA-seq
     response = sq.search(params=SearchParams(q="scRNA-seq")).top_cited(50)
 
     # print names of the countries related to those above papers
@@ -31,7 +31,9 @@ with Seqout() as sq:
     accession_id = response[0].accession
 
     # export samples and cross references to csv
-    sq.samples_by_accession(accession_id).to_csv(str(output_dir / "samples.csv"))
-    sq.cross_reference_lookup_by_accession(accession_id).to_csv(
-        str(output_dir / "references.csv")
-    )
+    sq.fetch_samples(accession_id).to_csv(str(output_dir / "samples.csv"))
+    sq.fetch_cross_references(accession_id).to_csv(str(output_dir / "references.csv"))
+
+    # download supplementary data of the project
+    metadata = sq.fetch_project_metadata(accession_id)
+    sq.download_supplementary_data(metadata, Path("./output"))
