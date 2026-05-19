@@ -37,3 +37,8 @@ with Seqout() as sq:
     # download supplementary data of the project
     metadata = sq.fetch_project_metadata(accession_id)
     sq.download_supplementary_data(metadata, Path("./output"))
+
+    # fetch llm enriched sample metadata and store it in csv file
+    sq.fetch_project_enriched_metadata(accession_id).to_csv(
+        str(output_dir / "enriched_metadata.csv")
+    )

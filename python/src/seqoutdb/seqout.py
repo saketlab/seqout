@@ -18,6 +18,8 @@ from seqoutdb.models import (
     ExperimentSampleList,
     ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
+    ProjectLLMEnrichedSampleMetadataResponse,
+    ProjectLLMEnrichedSampleMetadataResults,
     ProjectMetadataResult,
     ProjectSummaryResult,
     SearchParams,
@@ -249,6 +251,18 @@ class Seqout:
         if failed:
             summary = "\n".join(f"  {url}: {e}" for url, e in failed)
             raise RuntimeError(f"{len(failed)} download(s) failed:\n{summary}")
+
+    def fetch_project_enriched_metadata(
+        self, accession_id: str
+    ) -> ProjectLLMEnrichedSampleMetadataResults:
+        response = self._sender(
+            client=self._client,
+            url=f"https://seqout.org/api/project/{accession_id}/enriched",
+            params=None,
+            response_model=ProjectLLMEnrichedSampleMetadataResponse,
+        )
+
+        return response.samples
 
     def close(self) -> None:
         if self._own_client:
