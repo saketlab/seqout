@@ -12,6 +12,8 @@ from seqoutdb.models import (
     ProjectMetadataResult,
     ProjectSummaryResult,
     Publication,
+    SampleDetailedMetadata,
+    SampleMetadataResult,
     SearchParams,
     SearchResult,
     SearchResults,
@@ -47,6 +49,8 @@ __all__ = [
     ExperimentSampleChannel,
     ExperimentSample,
     ExperimentSampleList,
+    SampleMetadataResult,
+    SampleDetailedMetadata,
     country_code_to_name,
     country_name_to_code,
 ]
