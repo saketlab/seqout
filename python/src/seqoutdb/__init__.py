@@ -19,6 +19,9 @@ from seqoutdb.models import (
     StructuredSearchParams,
     StudyExperimentsResult,
     StudyExperimentsResults,
+    StudyRunsResponse,
+    StudyRunsResult,
+    StudyRunsResults,
 )
 from seqoutdb.seqout import Seqout
 from seqoutdb.utils import country_code_to_name, country_name_to_code
@@ -45,6 +48,9 @@ __all__ = [
     "ProjectMetadataResult",
     "StudyExperimentsResult",
     "StudyExperimentsResults",
+    "StudyRunsResponse",
+    "StudyRunsResult",
+    "StudyRunsResults",
     "country_code_to_name",
     "country_name_to_code",
 ]

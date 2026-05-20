@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Generic, Iterator, Literal, TypeVar
 
-from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    field_validator,
+    model_validator,
+)
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -14,6 +21,8 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class BaseContainer(RootModel[list[T]], Generic[T]):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     def to_dict(self) -> list[dict]:
         return [r.model_dump() for r in self.root]
 
@@ -34,7 +43,7 @@ class BaseContainer(RootModel[list[T]], Generic[T]):
     def __len__(self) -> int:
         return len(self.root)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[T]:  # ty: ignore[invalid-method-override]
         return iter(self.root)
 
     def __getitem__(self, index: int) -> T:
@@ -252,8 +261,8 @@ class ProjectSummaryResult(BaseModel):
 
 # project metadata
 class ProjectMetadataRelation(BaseModel):
-    type: str = Field(alias="@type")
-    target: str = Field(alias="@target")
+    type: str | None = Field(alias="@type", default=None)
+    target: str | None = Field(alias="@target", default=None)
 
 
 class ProjectMetadataNeighbor(BaseModel):
@@ -313,6 +322,18 @@ class ProjectMetadataResult(BaseModel):
     @classmethod
     def _null_to_empty_list(cls, v):
         return v or []
+
+    @field_validator("relations", mode="before")
+    @classmethod
+    def _filter_invalid_relations(cls, v):
+        if not v:
+            return []
+
+        return [
+            item
+            for item in v
+            if isinstance(item, dict) and item.get("@type") and item.get("@target")
+        ]
 
 
 # project cross references
@@ -404,6 +425,40 @@ class StudyExperimentsResults(BaseContainer[StudyExperimentsResult]):
     pass
 
 
+# study runs
+class StudyRunsResult(BaseModel):
+    run_accession: str
+    experiment_accession: str
+    library_layout: str
+    run_alias: str
+    fastq_ftp: str | None = None
+    fastq_bytes: str | None = None
+    fastq_md5: str | None = None
+    sra_ftp: str | None = None
+    sra_bytes: str | None = None
+    sra_md5: str | None = None
+    ncbi_sra_url: str | None = None
+    ncbi_sra_url_aws: str | None = None
+    ncbi_sra_normalized_url: str | None = None
+    ncbi_sra_normalized_bytes: int | None = None
+    ncbi_sra_lite_url: str | None = None
+    ncbi_sra_lite_bytes: str | None = None
+    ncbi_sra_lite_s3_url: str | None = None
+    ncbi_sra_lite_gs_url: str | None = None
+
+
+class StudyRunsResults(BaseContainer[StudyRunsResult]):
+    pass
+
+
+class StudyRunsResponse(BaseModel):
+    total_runs: int
+    paired_runs: int
+    single_runs: int
+    total_fastq_bytes: int
+    runs: StudyRunsResults
+
+
 # experiment samples
 class ExperimentSampleOrganism(BaseModel):
     text: str = Field(alias="#text")
@@ -432,7 +487,7 @@ class ExperimentSampleChannel(BaseModel):
 class ExperimentSample(BaseModel):
     accession: str
     title: str
-    description: str
+    description: str | None = None
     sample_type: str
     channel_count: int
     channels: list[ExperimentSampleChannel]
