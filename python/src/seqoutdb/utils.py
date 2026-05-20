@@ -1,5 +1,6 @@
 import os
 from typing import Literal
+from urllib.parse import urlparse
 
 from seqoutdb import StudyRunsResult, StudyRunsResults
 from seqoutdb.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
@@ -75,10 +76,14 @@ def _normalize_num_workers(n_workers: int | None) -> int:
 
 
 def _normalize_url(url: str) -> str:
-    # use https over ftp
-    url = url.replace("ftp://", "https://")
-    if not url.startswith("https://"):
+    url = url.strip()
+    parsed = urlparse(url)
+
+    if parsed.scheme == "ftp":
+        url = url.replace("ftp://", "https://", 1)
+    elif parsed.scheme == "":
         url = "https://" + url
+
     return url
 
 
