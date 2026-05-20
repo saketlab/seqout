@@ -2,6 +2,7 @@ import hashlib
 import os
 import queue
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Literal, TypeVar
 
@@ -67,7 +68,17 @@ def _download_file(
     dest: Path,
     chunk_size: int,
     queue: queue.Queue[tuple[str, str, int | None]] | None = None,
+    if_exists_ttl: int | None = None,
 ):
+    if dest.exists() and if_exists_ttl:
+        now = datetime.now().second
+        diff = now - int(dest.stat().st_ctime)
+        if diff <= if_exists_ttl:
+            print(
+                f"skipped download for {dest.name} as it already exists and it is within TTL limits ({if_exists_ttl} seconds)"
+            )
+            return
+
     with httpx.stream("GET", url, follow_redirects=True) as response:
         response.raise_for_status()
         dest.parent.mkdir(exist_ok=True, parents=True)
