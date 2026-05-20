@@ -1,13 +1,12 @@
+import hashlib
 import os
 import queue
 import time
-from concurrent.futures import Future
 from pathlib import Path
 from typing import Literal, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
-from tqdm import tqdm
 
 from seqoutdb import StudyRunsResult, StudyRunsResults
 from seqoutdb.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
@@ -59,9 +58,8 @@ def _send_get_req(
         except ValidationError as e:
             raise ValueError(f"unexpected response format: {e}") from e
 
-    # hacky for python type system
-    temp = response_model()
-    return temp
+    # just to pleasure the lsp
+    return response_model()
 
 
 def _download_file(
@@ -88,87 +86,36 @@ def _download_file(
         queue.put((url, "done", None))
 
 
-def _run_parallel_downloads(
-    futures: dict[Future, str],
-    queue: queue.Queue[tuple[str, str, int | None]] | None,
-    url_to_dest: dict[str, Path],
-    url_to_bytes_and_checksum: dict[str, tuple[int, str]] | None = None,
-) -> list[tuple[str, Exception]]:
-    failed: list[tuple[str, Exception]] = []
+def _verify_file(
+    path: Path, expected_bytes: int, expected_md5: str
+) -> tuple[str, bool, str]:
+    if not path.exists():
+        return path.name, False, "file not found"
 
-    if queue is not None:
-        pbars: dict[str, tqdm] = {}
-        pending = len(futures)
+    actual_size = path.stat().st_size
+    if actual_size != expected_bytes:
+        return (
+            path.name,
+            False,
+            f"size mismatch: got {actual_size} bytes, expected {expected_bytes} bytes",
+        )
 
-        while pending > 0:
-            try:
-                url, kind, value = queue.get(timeout=0.5)
-            except Exception:
-                all_done = all(f.done() for f in futures)
-                if all_done and queue.empty():
-                    break
-                continue
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(
+            lambda: f.read(64 * 1024), b""
+        ):  # 64 KiB chunks until it reaches EOF
+            h.update(chunk)
 
-            if kind == "total":
-                pbars[url] = tqdm(
-                    total=value,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=url_to_dest[url].name,
-                    dynamic_ncols=True,
-                )
-            elif kind == "update":
-                if url in pbars:
-                    pbars[url].update(value)
-            elif kind == "done":
-                if url in pbars:
-                    pbars[url].close()
-                pending -= 1
+    actual_md5 = h.digest()
+    if actual_md5 != expected_md5:
+        return (
+            path.name,
+            False,
+            f"checksum mismatch: got {actual_md5}, expected {expected_md5}",
+        )
 
-        for bar in pbars.values():
-            if not bar.disable:
-                bar.close()
-
-    for future, url in futures.items():
-        try:
-            future.result()
-
-            if url_to_bytes_and_checksum:
-                dest_path = url_to_dest[url]
-                expected_bytes, expected_checksum = url_to_bytes_and_checksum[url]
-                actual_bytes = os.path.getsize(dest_path)
-
-                if expected_bytes != actual_bytes:
-                    failed.append(
-                        (
-                            url,
-                            Exception(
-                                f"download verification failed for {dest_path.name}: excepted {expected_bytes} bytes, got {actual_bytes} bytes"
-                            ),
-                        )
-                    )
-
-        except Exception as e:
-            failed.append((url, e))
-
-    return failed
-
-
-def _validate_num_workers(n_workers: int | None) -> int:
-    cpu_count = os.cpu_count()
-    if cpu_count is None:
-        cpu_count = 1
-
-    if n_workers is None:
-        n_workers = max(1, cpu_count - 2)
-    else:
-        if n_workers >= cpu_count:
-            raise ValueError(
-                "num of workers must be less than total number of CPUs in the system"
-            )
-
-    return n_workers
+    return path.name, True, "ok"
 
 
 def _validate_study_runs_data(runs: StudyRunsResults, mode: StudyRunDownloadMode):
@@ -220,6 +167,22 @@ def _extract_download_info_for_study_run(
         md5_checksum_text = run.sra_md5
 
     return (url_text.split(";"), bytes_text.split(";"), md5_checksum_text.split(";"))
+
+
+def _normalize_num_workers(n_workers: int | None) -> int:
+    cpu_count = os.cpu_count()
+    if cpu_count is None:
+        cpu_count = 1
+
+    if n_workers is None:
+        n_workers = max(1, cpu_count - 2)
+    else:
+        if n_workers >= cpu_count:
+            raise ValueError(
+                "num of workers must be less than total number of CPUs in the system"
+            )
+
+    return n_workers
 
 
 def _normalize_url(url: str) -> str:

@@ -13,6 +13,7 @@ import httpx
 
 from seqoutdb import StudyExperimentsResults, StudyRunsResults
 from seqoutdb.constants import BASE_URL
+from seqoutdb.helpers import _run_parallel_downloads, _verify_downloads
 from seqoutdb.models import (
     ExperimentSampleList,
     ProjectCrossReferenceList,
@@ -31,10 +32,9 @@ from seqoutdb.models import (
 from seqoutdb.utils import (
     _download_file,
     _extract_download_info_for_study_run,
+    _normalize_num_workers,
     _normalize_url,
-    _run_parallel_downloads,
     _send_get_req,
-    _validate_num_workers,
     _validate_study_runs_data,
 )
 
@@ -135,7 +135,7 @@ class Seqout:
         params: list[SearchParamsType],
         n_workers: int | None = None,
     ) -> dict[int, SearchResults]:
-        n_workers = _validate_num_workers(n_workers)
+        n_workers = _normalize_num_workers(n_workers)
 
         def _do_search(params: SearchParamsType) -> SearchResults:
             return self.search(params)
@@ -230,7 +230,7 @@ class Seqout:
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         verbose: bool = True,
     ):
-        n_workers = _validate_num_workers(n_workers)
+        n_workers = _normalize_num_workers(n_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         all_urls: list[str] = []
@@ -272,12 +272,12 @@ class Seqout:
         verbose: bool = True,
     ):
         _validate_study_runs_data(runs, mode)
-        n_workers = _validate_num_workers(n_workers)
+        n_workers = _normalize_num_workers(n_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         all_urls: list[str] = []
-        url_to_bytes_and_checksum: dict[str, tuple[int, str]] = {}
         url_to_dest: dict[str, Path] = {}
+        verify_plan: list[tuple[Path, int, str]] = []
 
         for r in runs:
             run_urls, run_bytes, run_md5s = _extract_download_info_for_study_run(
@@ -291,9 +291,11 @@ class Seqout:
 
             for i, url in enumerate(run_urls):
                 url = _normalize_url(url)
+                dest_path = out_dir / Path(url.split("/")[-1])
+
                 all_urls.append(url)
-                url_to_bytes_and_checksum[url] = (int(run_bytes[i]), run_md5s[i])
-                url_to_dest[url] = out_dir / Path(url.split("/")[-1])
+                url_to_dest[url] = dest_path
+                verify_plan.append((dest_path, int(run_bytes[i]), run_md5s[i]))
 
         with Manager() as manager:
             queue = manager.Queue() if verbose else None
@@ -307,12 +309,24 @@ class Seqout:
                 }
 
                 failed = _run_parallel_downloads(
-                    futures, queue, url_to_dest, url_to_bytes_and_checksum
+                    futures,
+                    queue,
+                    url_to_dest,
                 )
 
         if failed:
             summary = "\n".join(f"  {url}: {e}" for url, e in failed)
             raise RuntimeError(f"{len(failed)} download(s) failed:\n{summary}")
+
+        # verifying downloads by validating the file size and md5 checksum
+        failed_downloads = _verify_downloads(verify_plan, n_workers)
+        if failed_downloads:
+            summary = "\n".join(
+                f"  {filename}: {reason}" for filename, reason in failed_downloads
+            )
+            raise RuntimeError(
+                f"{len(failed_downloads)} file(s) failed download verification:\n{summary}"
+            )
 
     def close(self) -> None:
         if self._own_client:
