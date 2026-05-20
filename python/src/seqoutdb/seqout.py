@@ -3,6 +3,7 @@ import itertools
 from concurrent.futures import (
     Future,
     ProcessPoolExecutor,
+    ThreadPoolExecutor,
     as_completed,
 )
 from multiprocessing import Manager
@@ -154,7 +155,7 @@ class Seqout:
         def _do_search(params: SearchParamsType) -> SearchResults:
             return self.search(params)
 
-        with ProcessPoolExecutor(max_workers=n_workers) as pool:
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
             futures: dict[Future[SearchResults], int] = {
                 pool.submit(_do_search, p): i for i, p in enumerate(params)
             }
@@ -231,6 +232,7 @@ class Seqout:
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return ProjectLLMEnrichedSampleMetadataResults([])
+            raise
 
         return response.samples
 

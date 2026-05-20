@@ -164,7 +164,7 @@ class SearchResult(BaseModel):
         return self
 
     def has_organism(self, org: str) -> bool:
-        return org.lower() in self.organisms
+        return any(o.casefold() == org.casefold() for o in self.organisms)
 
 
 class NextCursor(BaseModel):

@@ -2,7 +2,6 @@ import hashlib
 import queue
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
 from pathlib import Path
 from typing import TypeVar
 
@@ -25,9 +24,12 @@ def _send_req(
     params: BaseModel | None = None,
     body: dict | None = None,
 ) -> T:
+    if max_attempts < 1:
+        raise ValueError("max attempts should be 1 at minimum")
+
     for attempt in range(max_attempts):
         try:
-            params = (
+            params_dict = (
                 None
                 if params is None
                 else params.model_dump(exclude_none=True, by_alias=True)
@@ -36,7 +38,7 @@ def _send_req(
             req = client.build_request(
                 method=method,
                 url=url,
-                params=params,
+                params=params_dict,
                 json=body,
                 timeout=timeout,
             )
@@ -75,8 +77,8 @@ def _download_file(
     if_exists_ttl: int | None = None,
 ):
     if dest.exists() and if_exists_ttl:
-        now = datetime.now().second
-        diff = now - int(dest.stat().st_ctime)
+        now = time.time()
+        diff = now - int(dest.stat().st_mtime)
         if diff <= if_exists_ttl:
             print(
                 f"skipped download for {dest.name} as it already exists and it is within TTL limits ({if_exists_ttl} seconds)"
@@ -122,7 +124,7 @@ def _verify_file(
         ):  # 64 KiB chunks until it reaches EOF
             h.update(chunk)
 
-    actual_md5 = h.digest()
+    actual_md5 = h.hexdigest()
     if actual_md5 != expected_md5:
         return (
             path.name,
