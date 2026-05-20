@@ -39,7 +39,13 @@ with Seqout() as sq:
     metadata = sq.fetch_project_metadata(accession_id)
 
     # download supplementary data of the project
-    sq.download_supplementary_data(metadata, Path("./output"))
+    sq.download_project_supplementary_data(
+        metadata,
+        output_dir / "supplementary_data",
+        n_workers=8,
+        chunk_size=2048,
+        verbose=True,
+    )
 
     # fetch LLM enriched sample metadata and store it in CSV file
     sq.fetch_project_enriched_metadata(accession_id).to_csv(
@@ -51,16 +57,28 @@ with Seqout() as sq:
     study_id: str | None = None
 
     for r in relations:
+        if r.type is None or r.target is None:
+            continue
+
         if r.type.upper() == "SRA":
-            pat = re.compile("(?:SRP|ERP|DRP|PRJ)[A-Z0-9]+")
+            pat = re.compile("(?:SRP)[A-Z0-9]+")
             matches = re.findall(pat, r.target)
 
             if len(matches) > 0:
                 study_id = matches[0]
                 break
 
-    # saving all the information related to the study's experiment in a CSV file
     if study_id is not None:
-        sq.fetch_study_experiments(study_id).to_csv(
-            str(output_dir / "study_experiments.csv")
+        # saving all the information related to the study's experiment in a CSV file
+        sq.fetch_study_experiments(study_id).to_csv(str(output_dir / "experiments.csv"))
+
+        # fetching all runs of the study
+        runs = sq.fetch_study_runs(study_id)
+        runs.to_csv(str(output_dir / "runs.csv"))
+
+        # downloading fastq files related for all the runs of that study
+        sq.download_study_runs_data(
+            runs, output_dir / "study_runs", "fastq", n_workers=10
         )
+    else:
+        print("no SRA study was found")

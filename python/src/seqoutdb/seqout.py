@@ -7,13 +7,11 @@ from concurrent.futures import (
 )
 from multiprocessing import Manager
 from pathlib import Path
-from queue import Queue
-from typing import Iterator
+from typing import Iterator, Literal
 
 import httpx
-from tqdm import tqdm
 
-from seqoutdb import StudyExperimentsResults
+from seqoutdb import StudyExperimentsResults, StudyRunsResults
 from seqoutdb.constants import BASE_URL
 from seqoutdb.models import (
     ExperimentSampleList,
@@ -28,8 +26,17 @@ from seqoutdb.models import (
     SearchResult,
     SearchResults,
     StructuredSearchParams,
+    StudyRunsResponse,
 )
-from seqoutdb.utils import _download_file, _send_get_req, _validate_num_workers
+from seqoutdb.utils import (
+    _download_file,
+    _extract_download_info_for_study_run,
+    _normalize_url,
+    _run_parallel_downloads,
+    _send_get_req,
+    _validate_num_workers,
+    _validate_study_runs_data,
+)
 
 SearchParamsType = SearchParams | StructuredSearchParams
 
@@ -186,69 +193,6 @@ class Seqout:
 
         return response.xref
 
-    def download_supplementary_data(
-        self,
-        metadata: ProjectMetadataResult,
-        out_dir: Path,
-        n_workers: int | None = None,
-        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
-        verbose: bool = True,
-    ):
-        n_workers = _validate_num_workers(n_workers)
-        failed: list[tuple[str, Exception]] = []
-
-        with Manager() as manager:
-            queue: Queue[tuple[str, str, int | None]] | None = (
-                manager.Queue() if verbose else None
-            )
-
-            with ProcessPoolExecutor(max_workers=n_workers) as pool:
-                futures = {}
-                pbars = {}
-
-                for link, _ in metadata.supplementary_data:
-                    if link.startswith("ftp://"):
-                        link = link.replace(
-                            "ftp://", "https://"
-                        )  # download file over https instead of ftp
-
-                    dest_path = out_dir / Path(link.split("/")[-1])
-                    futures[
-                        pool.submit(_download_file, link, dest_path, chunk_size, queue)
-                    ] = link
-
-                if queue:
-                    pbars: dict[str, tqdm] = {}
-                    pending = len(futures)
-
-                    while pending > 0:
-                        msg = queue.get()
-                        url, kind, value = msg
-
-                        if kind == "total":
-                            pbars[url] = tqdm(
-                                total=value,
-                                unit="B",
-                                unit_scale=True,
-                                unit_divisor=1024,
-                                desc=dest_path.name,
-                            )
-                        elif kind == "update":
-                            pbars[url].update(value)
-                        elif kind == "done":
-                            pbars[url].close()
-                            pending -= 1
-
-                for future, url in futures.items():
-                    try:
-                        future.result()
-                    except Exception as e:
-                        failed.append((url, e))
-
-        if failed:
-            summary = "\n".join(f"  {url}: {e}" for url, e in failed)
-            raise RuntimeError(f"{len(failed)} download(s) failed:\n{summary}")
-
     def fetch_project_enriched_metadata(
         self, accession_id: str
     ) -> ProjectLLMEnrichedSampleMetadataResults:
@@ -268,6 +212,107 @@ class Seqout:
         )
 
         return response
+
+    def fetch_study_runs(self, study_id: str) -> StudyRunsResults:
+        response = self._sender(
+            client=self._client,
+            url=f"{self._base_url}/project/{study_id}/runs",
+            response_model=StudyRunsResponse,
+        )
+
+        return response.runs
+
+    def download_project_supplementary_data(
+        self,
+        metadata: ProjectMetadataResult,
+        out_dir: Path,
+        n_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        verbose: bool = True,
+    ):
+        n_workers = _validate_num_workers(n_workers)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        all_urls: list[str] = []
+        url_to_dest: dict[str, Path] = {}
+
+        for url, _ in metadata.supplementary_data:
+            url = _normalize_url(url)
+            all_urls.append(url)
+            url_to_dest[url] = out_dir / Path(url.split("/")[-1])
+
+        with Manager() as manager:
+            queue = manager.Queue() if verbose else None
+
+            with ProcessPoolExecutor(max_workers=n_workers) as pool:
+                futures: dict[Future, str] = {
+                    pool.submit(
+                        _download_file, url, url_to_dest[url], chunk_size, queue
+                    ): url
+                    for url in all_urls
+                }
+
+                failed = _run_parallel_downloads(
+                    futures,
+                    queue,
+                    url_to_dest,
+                )
+
+        if failed:
+            summary = "\n".join(f"  {url}: {e}" for url, e in failed)
+            raise RuntimeError(f"{len(failed)} download(s) failed:\n{summary}")
+
+    def download_study_runs_data(
+        self,
+        runs: StudyRunsResults,
+        out_dir: Path,
+        mode: Literal["fastq", "sra", "sra_lite", "s3", "gcs"],
+        n_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        verbose: bool = True,
+    ):
+        _validate_study_runs_data(runs, mode)
+        n_workers = _validate_num_workers(n_workers)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        all_urls: list[str] = []
+        url_to_bytes_and_checksum: dict[str, tuple[int, str]] = {}
+        url_to_dest: dict[str, Path] = {}
+
+        for r in runs:
+            run_urls, run_bytes, run_md5s = _extract_download_info_for_study_run(
+                r, mode
+            )
+
+            if not run_urls or not run_bytes or not run_md5s:
+                raise ValueError(
+                    f"failed to extract download info for {r.run_accession}"
+                )
+
+            for i, url in enumerate(run_urls):
+                url = _normalize_url(url)
+                all_urls.append(url)
+                url_to_bytes_and_checksum[url] = (int(run_bytes[i]), run_md5s[i])
+                url_to_dest[url] = out_dir / Path(url.split("/")[-1])
+
+        with Manager() as manager:
+            queue = manager.Queue() if verbose else None
+
+            with ProcessPoolExecutor(max_workers=n_workers) as pool:
+                futures: dict[Future, str] = {
+                    pool.submit(
+                        _download_file, url, url_to_dest[url], chunk_size, queue
+                    ): url
+                    for url in all_urls
+                }
+
+                failed = _run_parallel_downloads(
+                    futures, queue, url_to_dest, url_to_bytes_and_checksum
+                )
+
+        if failed:
+            summary = "\n".join(f"  {url}: {e}" for url, e in failed)
+            raise RuntimeError(f"{len(failed)} download(s) failed:\n{summary}")
 
     def close(self) -> None:
         if self._own_client:
