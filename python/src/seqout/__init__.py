@@ -1,4 +1,4 @@
-from seqoutdb.models import (
+from seqout.models import (
     ExperimentSample,
     ExperimentSampleChannel,
     ExperimentSampleList,
@@ -23,8 +23,8 @@ from seqoutdb.models import (
     StudyRunsResult,
     StudyRunsResults,
 )
-from seqoutdb.seqout import Seqout
-from seqoutdb.utils import country_code_to_name, country_name_to_code
+from seqout.seqout import Seqout
+from seqout.utils import country_code_to_name, country_name_to_code
 
 __all__ = [
     "Seqout",

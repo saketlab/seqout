@@ -3,7 +3,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from seqoutdb import SearchParams, Seqout, country_code_to_name
+from seqout import SearchParams, Seqout, country_code_to_name
 
 output_dir = Path("./output")
 shutil.rmtree(output_dir, ignore_errors=True)  # delete the folder

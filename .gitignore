@@ -35,3 +35,10 @@ tests/testthat/Rplots.pdf
 # Python related
 .venv/
 __pycache__
+output/
+
+# Quarto related
+.jupyter_cache/
+.quarto/
+**/*.quarto_ipynb
+_output/

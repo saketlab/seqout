@@ -182,7 +182,6 @@ class SearchResponse(BaseModel):
         return SearchResults(self.results)
 
 
-# wrapper over list of search results with a bunch of util methods
 class SearchResults(BaseContainer[SearchResult]):
     def offset(self, n: int) -> SearchResults:
         return SearchResults(self.root[n:])

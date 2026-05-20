@@ -1,0 +1,16 @@
+project:
+  type: website
+  output-dir: _output
+
+execute:
+  cache: true
+
+website:
+  navbar:
+    title: "**Seqout**"
+    left: []
+    right:
+      - href: index.qmd
+        text: Home
+      - href: recipes.qmd
+        text: Recipes

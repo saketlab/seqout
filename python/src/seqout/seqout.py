@@ -4,7 +4,6 @@ from concurrent.futures import (
     Future,
     ProcessPoolExecutor,
     ThreadPoolExecutor,
-    as_completed,
 )
 from multiprocessing import Manager
 from pathlib import Path
@@ -12,15 +11,14 @@ from typing import Iterator, Literal
 
 import httpx
 
-from seqoutdb import StudyExperimentsResults, StudyRunsResults
-from seqoutdb.constants import BASE_URL
-from seqoutdb.helpers import (
+from seqout.constants import BASE_URL
+from seqout.helpers import (
     _download_file,
     _run_parallel_downloads,
     _send_req,
     _verify_downloads,
 )
-from seqoutdb.models import (
+from seqout.models import (
     ExperimentSampleList,
     ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
@@ -36,9 +34,11 @@ from seqoutdb.models import (
     SearchResult,
     SearchResults,
     StructuredSearchParams,
+    StudyExperimentsResults,
     StudyRunsResponse,
+    StudyRunsResults,
 )
-from seqoutdb.utils import (
+from seqout.utils import (
     _extract_download_info_for_study_run,
     _normalize_num_workers,
     _normalize_url,
@@ -57,7 +57,6 @@ class Seqout:
     def __init__(
         self,
         http_client: httpx.Client | None = None,
-        base_url=BASE_URL,
         max_attempts: int = DEFAULT_MAX_ATTEMPTS,
         backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
         timeout: int = DEFAULT_TIMEOUT,
@@ -65,7 +64,7 @@ class Seqout:
         self._client = http_client or httpx.Client()
         # is the http client created by seqout?
         self._own_client = http_client is None
-        self._base_url = base_url
+        self._base_url = BASE_URL
 
         self.max_attempts = max_attempts
         self.backoff_factor = backoff_factor
@@ -77,7 +76,7 @@ class Seqout:
             backoff_factor=self.backoff_factor,
             timeout=self.timeout,
         )
-        self._sender = functools.partial(
+        self._getter = functools.partial(
             self._req_builder,
             method="GET",
         )
@@ -91,7 +90,7 @@ class Seqout:
         params: SearchParamsType,
     ) -> SearchResponse:
         is_structured = isinstance(params, StructuredSearchParams)
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=(
                 f"{self._base_url}/search"
@@ -137,7 +136,7 @@ class Seqout:
     def iter_search(
         self,
         params: SearchParamsType,
-        limit: int | None = None,
+        limit: int | None,
     ) -> Iterator[SearchResult]:
         iterator = self._iter_search_pages(params)
         if limit is None:
@@ -161,14 +160,13 @@ class Seqout:
             }
             results: dict[int, SearchResults] = {}
 
-            for f in as_completed(futures):
-                idx = futures[f]
-                results[idx] = f.result()
+            for idx, future in enumerate(futures):
+                results[idx] = future.result()
 
         return results
 
     def fetch_project_summary(self, accession_id: str) -> ProjectSummaryResult:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/metadata",
             response_model=ProjectSummaryResult,
@@ -189,7 +187,7 @@ class Seqout:
         return response
 
     def fetch_project_metadata(self, accession_id: str) -> ProjectMetadataResult:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}",
             response_model=ProjectMetadataResult,
@@ -203,7 +201,7 @@ class Seqout:
                 "samples can be only fetched for GEO series and ArrayExpress experiments"
             )
 
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/geo/series/{accession_id}/samples",
             response_model=ExperimentSampleList,
@@ -212,7 +210,7 @@ class Seqout:
         return response
 
     def fetch_cross_references(self, accession_id: str) -> ProjectCrossReferenceList:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/project/{accession_id}/xref",
             response_model=ProjectCrossReferenceResponse,
@@ -224,7 +222,7 @@ class Seqout:
         self, accession_id: str
     ) -> ProjectLLMEnrichedSampleMetadataResults:
         try:
-            response = self._sender(
+            response = self._getter(
                 client=self._client,
                 url=f"{self._base_url}/project/{accession_id}/enriched",
                 response_model=ProjectLLMEnrichedSampleMetadataResponse,
@@ -237,7 +235,7 @@ class Seqout:
         return response.samples
 
     def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/project/{study_id}/experiments",
             response_model=StudyExperimentsResults,
@@ -246,7 +244,7 @@ class Seqout:
         return response
 
     def fetch_study_runs(self, study_id: str) -> StudyRunsResults:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/project/{study_id}/runs",
             response_model=StudyRunsResponse,
@@ -255,7 +253,7 @@ class Seqout:
         return response.runs
 
     def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/sample/{sample_id}",
             response_model=SampleMetadataResult,
@@ -264,7 +262,7 @@ class Seqout:
         return response
 
     def fetch_sample_detailed_metadata(self, sample_id: str) -> SampleDetailedMetadata:
-        response = self._sender(
+        response = self._getter(
             client=self._client,
             url=f"{self._base_url}/sample-detail/{sample_id}",
             response_model=SampleDetailedMetadata,

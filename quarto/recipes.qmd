@@ -1,0 +1,9 @@
+---
+title: Recipes
+date: "May 17, 2026"
+toc: true
+jupyter: seqoutdb
+format:
+    html:
+        theme: cosmo
+---

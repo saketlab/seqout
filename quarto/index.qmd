@@ -1,0 +1,416 @@
+---
+title: Getting started with Seqout
+date: "May 17, 2026"
+toc: true
+jupyter: seqoutdb
+format:
+    html:
+        theme: cosmo
+---
+
+## Installation
+
+To install the Seqout Python library, run one of the following commands based on your preferred package manager:
+
+::: {.panel-tabset}
+
+## pip
+
+```bash
+pip install seqout
+```
+
+## uv
+
+```bash
+uv add seqout
+```
+
+:::
+
+## Setup
+
+All main methods are available under the `Seqout` class, which can be instantiated directly or used as a context manager.
+
+```python
+from seqout import Seqout
+
+sq = Seqout()
+```
+```python
+# or
+
+with Seqout() as sq:
+   # ...
+```
+
+The constructor accepts the following optional arguments:
+
+- `http_client`: A custom HTTP client ([`httpx.Client`](https://www.python-httpx.org/)). If provided, it takes precedence over the default HTTP client.
+- `max_attempts`: The maximum number of retry attempts before the request fails.
+- `backoff_factor`: A multiplier used to compute the delay between retry attempts. The delay after each attempt is calculated as `backoff_factor ** attempt`.
+- `timeout`: The maximum time (in seconds) to wait for a response before the request is aborted.
+
+## Searching
+
+### Full-text search
+
+Seqout supports full-text search via the `search` method using `SearchParams`.
+
+```python
+from seqout import SearchParams
+
+response = sq.search(params=SearchParams(q="16S rRNA amplicon sequencing"))
+```
+
+The `search` method returns a [Pydantic](https://docs.pydantic.dev/latest/) model, which can be converted into common data analysis formats using the following chained methods:
+
+- `to_df()`: Converts the response into a Pandas DataFrame.
+- `to_csv()`: Exports the response as a CSV file.
+- `to_dict()`: Converts the response into a Python dictionary.
+
+```python
+response.to_df().head(3)
+```
+
+`SearchParams` also accepts the following optional arguments to further filter the results:
+
+- `db`: The source database. Accepted values are `geo`, `sra`, `arrayexpress`, or `ena`. If not specified, all databases are queried.
+- `sortby`: The field to sort results by. Accepted values are `citations` (citation count), `journal`, or `year` (year of publication).
+- `order`: The sort order. Accepted values are `asc` (ascending) or `desc` (descending).
+
+```python
+response = sq.search(params=SearchParams(q="scRNA-seq", db="sra"))
+response.to_df().head(3)
+```
+
+### Structured search
+
+Seqout also supports structured search via `search` method using `StructuredSearchParams`.
+
+```python
+from seqout import StructuredSearchParams
+
+response = sq.search(params=StructuredSearchParams(q="scRNA-Seq", organism="Homo sapiens", source="sra"))
+response.to_df().head(3)
+```
+
+`StructuredSearchParams` accepts the following arguments:
+
+- `q`: A descriptive text query.
+- `organism`: The scientific name of the organism to filter by.
+- `library_strategy`: The sequencing library strategy (e.g. `RNA-Seq`, `WGS`).
+- `platform`: The sequencing platform (e.g. `ILLUMINA`, `OXFORD_NANOPORE`).
+- `country`: The country of origin of the samples.
+- `center`: The name of the sequencing center that submitted the data.
+- `year_from`: The start year for filtering results by publication or submission date.
+- `year_to`: The end year for filtering results by publication or submission date.
+- `source`: The source database to query (e.g. `geo`, `sra`, `arrayexpress` or `ena`).
+- `journal`: The journal in which the associated study was published.
+- `instrument_model`: The specific sequencing instrument model used.
+- `multi_platform`: Whether to include studies that used multiple sequencing platforms.
+- `assay_l1`: The top-level assay type classification.
+- `assay_l2`: The second-level assay type classification.
+- `geo_country_code_iso2`: The ISO 3166-1 alpha-2 country code for geolocation filtering.
+- `geo_lat`: The latitude coordinate for geolocation-based filtering.
+- `geo_lng`: The longitude coordinate for geolocation-based filtering.
+- `geo_radius_km`: The search radius (in kilometers) around the specified geolocation.
+
+### Lazy loading results
+
+Seqout search results are paginated, so retrieving a large number of results all at once can block downstream processing. The `iter_search` method solves this by lazily loading results one page at a time, allowing processing to begin before all results have been fetched. It accepts both `SearchParams` and `StructuredSearchParams`, along with a required limit argument specifying the total number of results to retrieve.
+
+```python
+from seqout import SearchParams
+
+from result in sq.iter_search(params=SearchParams(q="scRNA-seq"), limit=5):
+    print(result.accession)
+```
+
+### Bulk search
+
+To execute multiple search queries in parallel, use the `bulk_search` method. It accepts a list of `SearchParams` and/or `StructuredSearchParams` objects, along with an optional `n_workers` argument that controls the number of parallel workers.
+
+```python
+from seqout import SearchParams
+
+results = sq.bulk_search(params=[
+    SearchParams(q="16S rRNA amplicon sequencing"),
+    StructuredSearchParams(q="scRNA-Seq", organism="Homo sapiens", source="sra")
+])
+
+for _, result in results.items():
+    print(result.accession)
+```
+
+## Chained methods
+
+Search results returned by `search`, `iter_search`, and `bulk_search` expose a set of chainable methods that allow you to filter, sort, and slice results without making additional network requests.
+
+### `filter`
+
+Filters results by one or more criteria. All specified criteria must be satisfied simultaneously (logical AND). Accepted keyword arguments are:
+
+- `country_code`: ISO 3166-1 alpha-3 country code (e.g. `"USA"`, `"DEU"`).
+- `organism`: Scientific name of the organism (e.g. `"Homo sapiens"`).
+- `source`: Source database (`"geo"`, `"sra"`, `"arrayexpress"`, or `"ena"`).
+
+```python
+response = sq.search(params=SearchParams(q="scRNA-seq"))
+
+us_results = response.filter(country_code="USA")
+human_sra = response.filter(organism="Homo sapiens", source="sra")
+```
+
+### `by_source`
+
+Shorthand for filtering results to a single source database. Equivalent to `.filter(source=...)`.
+
+```python
+response.by_source("geo")
+```
+
+### `by_organism`
+
+Shorthand for filtering results to a single organism. Equivalent to `.filter(organism=...)`.
+
+```python
+response.by_organism("Mus musculus")
+```
+
+### `organisms`
+
+Returns a dictionary mapping each organism name found in the results to its occurrence count, sorted in descending order.
+
+```python
+for organism, count in response.organisms().items():
+    print(f"{organism}: {count}")
+```
+
+### `sources`
+
+Returns a dictionary mapping each source database found in the results to its occurrence count, sorted in descending order.
+
+```python
+for source, count in response.sources().items():
+    print(f"{source}: {count}")
+```
+
+### `countries`
+
+Returns a dictionary mapping each ISO 3166-1 alpha-3 country code found in the results to its occurrence count, sorted in descending order. Use `country_code_to_name` to resolve codes to full names.
+
+```python
+from seqout import country_code_to_name
+
+for code, count in response.countries().items():
+    name = country_code_to_name(code)
+    print(f"{name}: {count}")
+```
+
+### `sort_by`
+
+Sorts results by a specified field. Accepted arguments are:
+
+- `field`: The field to sort by — `"citations"`, `"year"`, or `"journal"`.
+- `order`: Sort direction — `"asc"` or `"desc"` (default: `"desc"`).
+
+```python
+response.sort_by("citations", order="desc")
+```
+
+### `top_cited`
+
+Returns the top `n` results sorted by citation count in descending order. Equivalent to `.sort_by("citations", order="desc").limit(n)`.
+
+```python
+top_50 = response.top_cited(50)
+```
+
+### `most_recent`
+
+Returns the top `n` results sorted by year of publication in descending order. Equivalent to `.sort_by("year", order="desc").limit(n)`.
+
+```python
+recent_10 = response.most_recent(10)
+```
+
+### `exclude`
+
+Excludes results matching one or more criteria. Accepted keyword arguments mirror those of `filter`:
+
+- `country_code`
+- `organism`
+- `source`
+
+```python
+response.exclude(source="arrayexpress")
+```
+
+### `limit`
+
+Returns at most `n` results from the beginning of the current result set.
+
+```python
+response.limit(20)
+```
+
+### `offset`
+
+Skips the first `n` results and returns the remainder.
+
+```python
+response.offset(10)
+```
+
+`limit` and `offset` can be combined for pagination-style access:
+
+```python
+response.offset(10).limit(10)
+```
+
+A convenience alias `slice(start, end)` is also available and is equivalent to `.offset(start).limit(end - start)`:
+
+```python
+response.slice(0, 10)
+response.slice(10, 20)
+```
+
+## Fetching project data
+
+### Project summary
+
+To fetch a high-level summary for a single project, use `fetch_project_summary` with the project's accession ID.
+
+```python
+summary = sq.fetch_project_summary("GSE123456")
+```
+
+To fetch summaries for multiple projects in a single request, use `bulk_fetch_project_summary`, passing a list of accession IDs.
+
+```python
+summaries = sq.bulk_fetch_project_summary(["GSE123456", "GSE789012", "SRP123456"])
+summaries.to_csv("summaries.csv")
+```
+
+### Project metadata
+
+To fetch detailed metadata for a project, use `fetch_project_metadata`.
+
+```python
+metadata = sq.fetch_project_metadata("GSE123456")
+```
+
+### Samples
+
+To fetch the list of samples associated with a GEO series or ArrayExpress experiment, use `fetch_samples`. Note that this method only supports accession IDs prefixed with `GSE` (GEO series) or `E-` (ArrayExpress experiments).
+
+```python
+samples = sq.fetch_samples("GSE123456")
+samples.to_csv("samples.csv")
+```
+
+### Cross references
+
+To fetch cross-references for a project (links to related records in other databases), use `fetch_cross_references`.
+
+```python
+xrefs = sq.fetch_cross_references("GSE123456")
+xrefs.to_csv("cross_refs.csv")
+```
+
+### LLM-enriched sample metadata
+
+Seqout provides access to LLM-enriched sample metadata, which contains additional structured annotations derived from the project's raw metadata. Use `fetch_project_enriched_metadata` to retrieve it. If no enriched metadata is available for the given accession, an empty result is returned.
+
+```python
+enriched = sq.fetch_project_enriched_metadata("GSE123456")
+enriched.to_csv("enriched_metadata.csv")
+```
+
+## Fetching study data
+
+### Experiments
+
+To fetch the list of experiments associated with a study, use `fetch_study_experiments` with the study's SRA accession ID.
+
+```python
+experiments = sq.fetch_study_experiments("SRP123456")
+experiments.to_csv("experiments.csv")
+```
+
+### Runs
+
+To fetch all runs associated with a study, use `fetch_study_runs`.
+
+```python
+runs = sq.fetch_study_runs("SRP123456")
+runs.to_csv("runs.csv")
+```
+
+## Fetching sample metadata
+
+To fetch metadata for a single sample, use `fetch_sample_metadata`.
+
+```python
+sample = sq.fetch_sample_metadata("SRS123456")
+```
+
+For a more detailed view including additional annotations, use `fetch_sample_detailed_metadata`.
+
+```python
+sample = sq.fetch_sample_detailed_metadata("SRS123456")
+```
+
+## Downloading data
+
+### Project supplementary data
+
+To download supplementary files associated with a project, use `download_project_supplementary_data`. This requires a `ProjectMetadataResult` object (obtained via `fetch_project_metadata`) and an output directory. Downloads are parallelized across multiple workers.
+
+```python
+from pathlib import Path
+
+metadata = sq.fetch_project_metadata("GSE123456")
+
+sq.download_project_supplementary_data(
+    metadata=metadata,
+    out_dir=Path("./supplementary_data"),
+    n_workers=10,
+    verbose=True,
+)
+```
+
+The method accepts the following optional arguments:
+
+- `n_workers`: Number of parallel download workers. Defaults to the number of available CPU cores.
+- `chunk_size`: Size of each downloaded chunk in bytes. Defaults to `1024`.
+- `if_exists_ttl`: If set, skips re-downloading a file if it already exists and was last modified within the given number of seconds.
+- `verbose`: Whether to display download progress. Defaults to `True`.
+
+### Study run data
+
+To download sequencing data files for all runs in a study, use `download_study_runs_data`. This requires a `StudyRunsResults` object (obtained via `fetch_study_runs`) and a download mode specifying the file format.
+
+```python
+from pathlib import Path
+
+runs = sq.fetch_study_runs("SRP123456")
+
+sq.download_study_runs_data(
+    runs=runs,
+    out_dir=Path("./runs"),
+    mode="fastq",
+    n_workers=10,
+)
+```
+
+The `mode` argument controls which file format is downloaded. Accepted values are:
+
+- `fastq`: FASTQ files.
+- `sra`: SRA-format files.
+- `sra_lite`: Lightweight SRA-format files.
+- `s3`: Files sourced from AWS S3.
+- `gcs`: Files sourced from Google Cloud Storage.
+
+The method accepts the same optional arguments as `download_project_supplementary_data`: `n_workers`, `chunk_size`, `if_exists_ttl`, and `verbose`. After all files are downloaded, their sizes and MD5 checksums are automatically verified. An error is raised if any file fails verification.
