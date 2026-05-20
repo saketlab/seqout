@@ -13,7 +13,12 @@ import httpx
 
 from seqoutdb import StudyExperimentsResults, StudyRunsResults
 from seqoutdb.constants import BASE_URL
-from seqoutdb.helpers import _run_parallel_downloads, _verify_downloads
+from seqoutdb.helpers import (
+    _download_file,
+    _run_parallel_downloads,
+    _send_req,
+    _verify_downloads,
+)
 from seqoutdb.models import (
     ExperimentSampleList,
     ProjectCrossReferenceList,
@@ -21,7 +26,10 @@ from seqoutdb.models import (
     ProjectLLMEnrichedSampleMetadataResponse,
     ProjectLLMEnrichedSampleMetadataResults,
     ProjectMetadataResult,
+    ProjectSummarResultList,
     ProjectSummaryResult,
+    SampleDetailedMetadata,
+    SampleMetadataResult,
     SearchParams,
     SearchResponse,
     SearchResult,
@@ -30,11 +38,9 @@ from seqoutdb.models import (
     StudyRunsResponse,
 )
 from seqoutdb.utils import (
-    _download_file,
     _extract_download_info_for_study_run,
     _normalize_num_workers,
     _normalize_url,
-    _send_get_req,
     _validate_study_runs_data,
 )
 
@@ -64,11 +70,19 @@ class Seqout:
         self.backoff_factor = backoff_factor
         self.timeout = timeout
 
-        self._sender = functools.partial(
-            _send_get_req,
+        self._req_builder = functools.partial(
+            _send_req,
             max_attempts=self.max_attempts,
             backoff_factor=self.backoff_factor,
             timeout=self.timeout,
+        )
+        self._sender = functools.partial(
+            self._req_builder,
+            method="GET",
+        )
+        self._poster = functools.partial(
+            self._req_builder,
+            method="POST",
         )
 
     def _fetch_search_page(
@@ -161,6 +175,18 @@ class Seqout:
 
         return response
 
+    def bulk_fetch_project_summary(
+        self, accession_ids: list[str]
+    ) -> ProjectSummarResultList:
+        response = self._poster(
+            client=self._client,
+            url=f"{self._base_url}/bulk/project-metadata",
+            response_model=ProjectSummarResultList,
+            body={"accessions": accession_ids},
+        )
+
+        return response
+
     def fetch_project_metadata(self, accession_id: str) -> ProjectMetadataResult:
         response = self._sender(
             client=self._client,
@@ -196,11 +222,15 @@ class Seqout:
     def fetch_project_enriched_metadata(
         self, accession_id: str
     ) -> ProjectLLMEnrichedSampleMetadataResults:
-        response = self._sender(
-            client=self._client,
-            url=f"{self._base_url}/project/{accession_id}/enriched",
-            response_model=ProjectLLMEnrichedSampleMetadataResponse,
-        )
+        try:
+            response = self._sender(
+                client=self._client,
+                url=f"{self._base_url}/project/{accession_id}/enriched",
+                response_model=ProjectLLMEnrichedSampleMetadataResponse,
+            )
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return ProjectLLMEnrichedSampleMetadataResults([])
 
         return response.samples
 
@@ -221,6 +251,24 @@ class Seqout:
         )
 
         return response.runs
+
+    def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
+        response = self._sender(
+            client=self._client,
+            url=f"{self._base_url}/sample/{sample_id}",
+            response_model=SampleMetadataResult,
+        )
+
+        return response
+
+    def fetch_sample_detailed_metadata(self, sample_id: str) -> SampleDetailedMetadata:
+        response = self._sender(
+            client=self._client,
+            url=f"{self._base_url}/sample-detail/{sample_id}",
+            response_model=SampleDetailedMetadata,
+        )
+
+        return response
 
     def download_project_supplementary_data(
         self,

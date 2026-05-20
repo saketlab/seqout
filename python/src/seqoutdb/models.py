@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import csv
+import json
 from collections import Counter
+from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Iterator, Literal, TypeVar
 
 from pydantic import (
@@ -26,7 +28,7 @@ class BaseContainer(RootModel[list[T]], Generic[T]):
     def to_dict(self) -> list[dict]:
         return [r.model_dump() for r in self.root]
 
-    def to_csv(self, path: str) -> None:
+    def to_csv(self, path: Path | str) -> None:
         with open(path, "w", newline="") as f:
             if not self.root:
                 return
@@ -257,6 +259,11 @@ class ProjectSummaryResult(BaseModel):
     accession: str
     title: str
     description: str | None = None
+    organisms: list[str] | None = None
+
+
+class ProjectSummarResultList(BaseContainer[ProjectSummaryResult]):
+    pass
 
 
 # project metadata
@@ -343,7 +350,6 @@ class ProjectCrossReferenceResult(BaseModel):
     source: str
 
 
-# wrapper pydantic model over list of experiment samples
 class ProjectCrossReferenceList(BaseContainer[ProjectCrossReferenceResult]):
     pass
 
@@ -507,6 +513,33 @@ class ExperimentSample(BaseModel):
         return links
 
 
-# wrapper pydantic model over list of experiment samples
 class ExperimentSampleList(BaseContainer[ExperimentSample]):
     pass
+
+
+# sample metadata
+class SampleMetadataResult(BaseModel):
+    accession: str
+    alias: str | None = None
+    title: str
+    description: str | None = None
+    scientific_name: str | None = None
+    taxon_id: int
+    submission: str
+    external_ids: dict | None = Field(alias="external_id", default=None)
+    links: dict | None = None
+    attributes: dict | None = Field(alias="attributes_json", default=None)
+
+    @field_validator("external_ids", "attributes", "links", mode="before")
+    @classmethod
+    def _parse_json_str(cls, v):
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+
+# sample detailed metadata
+class SampleDetailedMetadata(BaseModel):
+    sample_type: str
+    project: ProjectMetadataResult
+    sample: SampleMetadataResult
