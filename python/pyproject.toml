@@ -1,0 +1,32 @@
+[project]
+name = "seqoutdb"
+version = "0.1.0"
+description = "Python API to interact with seqout.org"
+readme = "../README.md"
+authors = [
+    { name = "Mukesh", email = "mukeshreddy.work@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "pandas>=3.0.3",
+    "pydantic>=2.13.4",
+    "tqdm>=4.67.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.12,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/seqoutdb"]
+
+[tool.setuptools.package-data]
+seqoutdb = ["py.typed"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+    "pytest>=9.0.3",
+    "pytest-httpx>=0.36.2",
+]

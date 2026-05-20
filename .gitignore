@@ -31,3 +31,7 @@ tests/testthat/Rplots.pdf
 *.duckdb
 *.duckdb.wal
 *.bib
+
+# Python related
+.venv/
+__pycache__
