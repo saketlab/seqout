@@ -228,6 +228,7 @@ class Seqout:
         out_dir: Path,
         n_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        if_exists_ttl: int | None = None,
         verbose: bool = True,
     ):
         n_workers = _normalize_num_workers(n_workers)
@@ -247,7 +248,12 @@ class Seqout:
             with ProcessPoolExecutor(max_workers=n_workers) as pool:
                 futures: dict[Future, str] = {
                     pool.submit(
-                        _download_file, url, url_to_dest[url], chunk_size, queue
+                        _download_file,
+                        url,
+                        url_to_dest[url],
+                        chunk_size,
+                        queue,
+                        if_exists_ttl,
                     ): url
                     for url in all_urls
                 }
@@ -269,6 +275,7 @@ class Seqout:
         mode: Literal["fastq", "sra", "sra_lite", "s3", "gcs"],
         n_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        if_exists_ttl: int | None = None,
         verbose: bool = True,
     ):
         _validate_study_runs_data(runs, mode)
@@ -303,7 +310,12 @@ class Seqout:
             with ProcessPoolExecutor(max_workers=n_workers) as pool:
                 futures: dict[Future, str] = {
                     pool.submit(
-                        _download_file, url, url_to_dest[url], chunk_size, queue
+                        _download_file,
+                        url,
+                        url_to_dest[url],
+                        chunk_size,
+                        queue,
+                        if_exists_ttl,
                     ): url
                     for url in all_urls
                 }

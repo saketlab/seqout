@@ -40,8 +40,8 @@ with Seqout() as sq:
 
     # download supplementary data of the project
     sq.download_project_supplementary_data(
-        metadata,
-        output_dir / "supplementary_data",
+        metadata=metadata,
+        out_dir=output_dir / "supplementary_data",
         n_workers=8,
         chunk_size=2048,
         verbose=True,
@@ -78,7 +78,10 @@ with Seqout() as sq:
 
         # downloading fastq files related for all the runs of that study
         sq.download_study_runs_data(
-            runs, output_dir / "study_runs", "fastq", n_workers=10
+            runs=runs,
+            out_dir=output_dir / "study_runs",
+            mode="fastq",
+            n_workers=10,
         )
     else:
         print("no SRA study was found")
