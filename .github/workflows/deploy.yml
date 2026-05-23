@@ -16,16 +16,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: "20"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build standalone frontend
         run: npm run build
 
-      - name: Prepare deployment directory
+      - name: Prepare standalone package
+        run: |
+          mkdir -p deploy
+
+          cp -r .next/standalone/* deploy/
+
+          mkdir -p deploy/.next
+          cp -r .next/static deploy/.next/static
+
+          cp -r public deploy/public
+
+      - name: Prepare deployment directory on server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
@@ -34,20 +45,19 @@ jobs:
           port: 22
           script: |
             mkdir -p /var/www/sramap/frontend
-            rm -rf /var/www/sramap/frontend/*
 
-      - name: Deploy to server
+      - name: Upload standalone frontend
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: 22
-          source: ".next,public,package.json,package-lock.json"
+          source: "deploy/*"
           target: /var/www/sramap/frontend
-          strip_components: 0
+          strip_components: 1
 
-      - name: Install and restart frontend
+      - name: Restart frontend service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
@@ -55,13 +65,12 @@ jobs:
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: 22
           script: |
-            export PATH="/home/sramap/.nvm/versions/node/v24.13.0/bin:$PATH"
-            cd /var/www/sramap/frontend
-            # Clean npm cache and node_modules to prevent build errors
-            rm -rf node_modules package-lock.json
-            npm cache clean --force
-            npm install
+            set -e
+
             sudo systemctl restart sramap-frontend
-            sudo systemctl restart sramap-backend
-            sleep 3
-            curl -f http://localhost:3002 || echo "Health check pending..."
+
+            sleep 5
+
+            curl -f http://127.0.0.1:3002
+
+            echo "Frontend deployment successful"
