@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Next.js 16 blocks cross-origin requests to /_next/* dev resources
   // (HMR, source maps, dev assets) by default. When the dev server is
   // accessed via a non-localhost address — Tailscale, LAN IPs, etc. —
