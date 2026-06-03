@@ -79,30 +79,37 @@ function ResultCard({
       }}
     >
         <Flex
-          gap="3"
-          justify="between"
+          direction={{ initial: "column", md: "row" }}
+          gap="2"
+          justify={{ initial: "start", md: "between" }}
           align="start"
           wrap="wrap"
         >
-          <Text
-            size={{ initial: "2", md: "3" }}
-            weight="bold"
-            asChild
-            style={{ flex: "1 1 16rem", minWidth: 0 }}
+          <Box
+            flexGrow={{ initial: "0", md: "1" }}
+            flexShrink={{ initial: "1", md: "1" }}
+            flexBasis={{ initial: "auto", md: "16rem" }}
+            style={{ minWidth: 0 }}
           >
-            <Link
-              href={href ?? getProjectShortUrl(accession)}
-              data-result-link="true"
-              style={{
-                cursor: "pointer",
-                userSelect: "none",
-                color: "inherit",
-                textDecoration: "none",
-              }}
+            <Text
+              size={{ initial: "2", md: "3" }}
+              weight="bold"
+              asChild
             >
-              {title}
-            </Link>
-          </Text>
+              <Link
+                href={href ?? getProjectShortUrl(accession)}
+                data-result-link="true"
+                style={{
+                  cursor: "pointer",
+                  userSelect: "none",
+                  color: "inherit",
+                  textDecoration: "none",
+                }}
+              >
+                {title}
+              </Link>
+            </Text>
+          </Box>
           {(hasCitations || cleanedJournal || formattedDate) && (
             <Flex
               gap="2"
