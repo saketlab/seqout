@@ -1744,13 +1744,13 @@ export default function ProjectPage() {
     : "ag-theme-quartz";
 
   useScrollSpy([
-    "fastq",
-    "bam",
     "enriched",
     "experiments",
     "publications",
-    "similar",
     "supplementary",
+    "fastq",
+    "bam",
+    "similar",
   ]);
   const organismRowStyle = useMemo(
     () =>
@@ -2600,27 +2600,6 @@ export default function ProjectPage() {
                 No linked publications found
               </Text>
             )}
-            <Flex id="similar" align="center" gap="2">
-              <Text weight="medium" size="6">
-                Similar projects
-              </Text>
-              <Badge color="teal" size={"2"}>
-                Beta
-              </Badge>
-              <SectionAnchor id="similar" />
-            </Flex>
-            <SimilarProjectsGraph
-              accession={project.accession}
-              source="sra"
-              title={project.title}
-              description={project.abstract}
-              organisms={project.organisms}
-              coords2d={project.coords_2d}
-              coords3d={project.coords_3d}
-              neighbors={project.neighbors}
-            />
-            <SubmittingOrgPanel center={project.center} />
-
             {linkedGeoProjects?.map(({ accession: geoAccession, project }) => (
               <SupplementaryDataSection
                 key={`linked-geo-supplementary-${geoAccession}`}
@@ -2648,6 +2627,27 @@ export default function ProjectPage() {
                 expTitleMap={expTitleMap}
               />
             )}
+
+            <Flex id="similar" align="center" gap="2">
+              <Text weight="medium" size="6">
+                Similar projects
+              </Text>
+              <Badge color="teal" size={"2"}>
+                Beta
+              </Badge>
+              <SectionAnchor id="similar" />
+            </Flex>
+            <SimilarProjectsGraph
+              accession={project.accession}
+              source="sra"
+              title={project.title}
+              description={project.abstract}
+              organisms={project.organisms}
+              coords2d={project.coords_2d}
+              coords3d={project.coords_3d}
+              neighbors={project.neighbors}
+            />
+            <SubmittingOrgPanel center={project.center} />
           </Flex>
         </>
       )}

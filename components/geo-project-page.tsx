@@ -674,9 +674,9 @@ export default function GeoProjectPage() {
     "enriched",
     "samples",
     "publications",
-    "similar",
     "fastq",
     "supplementary",
+    "similar",
   ]);
   const organismRowStyle = useMemo(
     () =>
@@ -2073,26 +2073,7 @@ export default function GeoProjectPage() {
                 No linked publications found
               </Text>
             )}
-            <Flex id="similar" align="center" gap="2">
-              <Text weight="medium" size="6">
-                Similar projects
-              </Text>
-              <Badge color="teal" size={"2"}>
-                Beta
-              </Badge>
-              <SectionAnchor id="similar" />
-            </Flex>
-            <SimilarProjectsGraph
-              accession={project.accession}
-              source="geo"
-              title={project.title}
-              description={project.summary}
-              organisms={project.organisms}
-              coords2d={project.coords_2d}
-              coords3d={project.coords_3d}
-              neighbors={project.neighbors}
-            />
-            <SubmittingOrgPanel center={project.center} />
+
             {linkedSraRuns?.map(({ accession: sraAccession, runsData }) => (
               <DownloadFastqSection
                 key={`linked-sra-fastq-${sraAccession}`}
@@ -2413,6 +2394,27 @@ export default function GeoProjectPage() {
                 </div>
               </Flex>
             )}
+
+            <Flex id="similar" align="center" gap="2">
+              <Text weight="medium" size="6">
+                Similar projects
+              </Text>
+              <Badge color="teal" size={"2"}>
+                Beta
+              </Badge>
+              <SectionAnchor id="similar" />
+            </Flex>
+            <SimilarProjectsGraph
+              accession={project.accession}
+              source="geo"
+              title={project.title}
+              description={project.summary}
+              organisms={project.organisms}
+              coords2d={project.coords_2d}
+              coords3d={project.coords_3d}
+              neighbors={project.neighbors}
+            />
+            <SubmittingOrgPanel center={project.center} />
           </Flex>
         </>
       )}
