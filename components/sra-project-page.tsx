@@ -1302,6 +1302,8 @@ export function DownloadFastqSection({
         <AgGridReact<RunRow>
           columnDefs={runColDefs}
           defaultColDef={defaultColDef}
+          enableCellTextSelection
+          ensureDomOrder
           rowData={runsData.runs}
           getRowId={(params) => params.data.run_accession}
           rowSelection={{
@@ -1659,6 +1661,8 @@ function BamFilesSection({
         <AgGridReact<BamRow>
           columnDefs={bamColDefs}
           defaultColDef={defaultColDef}
+          enableCellTextSelection
+          ensureDomOrder
           rowData={bamsData.bams}
           getRowId={(params) =>
             `${params.data.run_accession}_${params.data.filename}`
@@ -2568,6 +2572,8 @@ export default function ProjectPage() {
                       <AgGridReact<ExperimentGridRow>
                         columnDefs={experimentColumnDefs}
                         defaultColDef={experimentsGridDefaultColDef}
+                        enableCellTextSelection
+                        ensureDomOrder
                         getRowId={(params) => params.data.rowKey}
                         rowData={experimentRows}
                         theme="legacy"

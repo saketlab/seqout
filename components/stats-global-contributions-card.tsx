@@ -1188,6 +1188,8 @@ export default function StatsGlobalContributionsCard() {
             <AgGridReact<LocationPoint>
               columnDefs={countryTableColumns}
               defaultColDef={{ resizable: true, sortable: true }}
+              enableCellTextSelection
+              ensureDomOrder
               rowData={countryTableRows}
               getRowId={(p) => `${p.data.lat}-${p.data.lng}`}
               theme="legacy"

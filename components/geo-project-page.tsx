@@ -2040,6 +2040,8 @@ export default function GeoProjectPage() {
                     <AgGridReact<GeoSampleGridRow>
                       columnDefs={sampleColumnDefs}
                       defaultColDef={sampleGridDefaultColDef}
+                      enableCellTextSelection
+                      ensureDomOrder
                       getRowId={(params) => params.data.rowKey}
                       rowData={sampleRows}
                       theme="legacy"
@@ -2225,6 +2227,8 @@ export default function GeoProjectPage() {
                   <AgGridReact<SupplementaryDataItem>
                     columnDefs={supplementaryColDefs}
                     defaultColDef={supplementaryDefaultColDef}
+                    enableCellTextSelection
+                    ensureDomOrder
                     rowData={supplementaryDataItems}
                     getRowId={(params) => params.data.id}
                     rowSelection={{
@@ -2380,6 +2384,8 @@ export default function GeoProjectPage() {
                   <AgGridReact<SampleSupplementaryGroupRow>
                     columnDefs={sampleSupplementaryColDefs}
                     defaultColDef={sampleSupplementaryDefaultColDef}
+                    enableCellTextSelection
+                    ensureDomOrder
                     rowData={sampleSupplementaryGroupedRows}
                     getRowId={(params) => params.data.id}
                     rowSelection={{

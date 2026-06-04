@@ -294,6 +294,8 @@ export default function EnrichedMetadataCard({
         <AgGridReact<OntologySample>
           columnDefs={columnDefs}
           defaultColDef={{ filter: true, sortable: true, resizable: true }}
+          enableCellTextSelection
+          ensureDomOrder
           getRowId={(params) => params.data.sample}
           rowData={data.samples}
           theme="legacy"

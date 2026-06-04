@@ -592,6 +592,8 @@ export function SupplementaryDataSection({
             <AgGridReact<SupplementaryDataItem>
               columnDefs={supplementaryColDefs}
               defaultColDef={supplementaryDefaultColDef}
+              enableCellTextSelection
+              ensureDomOrder
               rowData={supplementaryDataItems}
               getRowId={(params) => params.data.id}
               rowSelection={{

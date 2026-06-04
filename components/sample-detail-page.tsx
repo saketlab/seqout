@@ -679,6 +679,8 @@ function RunsSection({
         <AgGridReact<RunRow>
           columnDefs={colDefs}
           defaultColDef={defaultColDef}
+          enableCellTextSelection
+          ensureDomOrder
           rowData={runs}
           getRowId={(params) => params.data.run_accession}
           theme="legacy"
