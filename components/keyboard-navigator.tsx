@@ -21,7 +21,7 @@ export default function KeyboardNavigator() {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
         return;
       }
-      if (event.key !== "Backspace" && event.key !== "ArrowLeft") {
+      if (event.key !== "Backspace") {
         return;
       }
       if (isInputContext(event.target)) return;
