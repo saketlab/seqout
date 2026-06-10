@@ -1,4 +1,4 @@
-import MapGraph from "@/components/map-graph";
+import MapGraph from "@/components/seqout-map";
 import SearchBar from "@/components/search-bar";
 import { Flex } from "@radix-ui/themes";
 import type { Metadata } from "next";

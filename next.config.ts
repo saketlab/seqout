@@ -12,6 +12,21 @@ const nextConfig: NextConfig = {
     "10.195.102.16", // lan
     "localhost",
   ],
+  async headers() {
+    // Force no caching on every page/route so clients and CDNs always
+    // fetch fresh content.
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     // Proxy to localhost:8000 during local development
     // In production, /api routes are handled by the deployed backend
