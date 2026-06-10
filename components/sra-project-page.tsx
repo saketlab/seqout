@@ -1,6 +1,6 @@
 "use client";
 import CountryFlagIcon from "@/components/country-flag-icon";
-import EnrichedMetadataCard from "@/components/enriched-metadata-card";
+import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -737,13 +737,24 @@ export function DownloadFastqSection({
       const fallback = getBestCloudUrl(run);
       if (fallback) {
         const filename = fallback.split("/").pop() || run.run_accession;
-        return [{ url: fallback, filename, dirpath, md5: sraMd5, bytes: sraBytes || sraLiteBytes }];
+        return [
+          {
+            url: fallback,
+            filename,
+            dirpath,
+            md5: sraMd5,
+            bytes: sraBytes || sraLiteBytes,
+          },
+        ];
       }
       return [];
     }
 
     // s3/gcs/sra_lite all serve the SRA-Lite object; only "sra" uses normalized SRA bytes.
-    const sourceMap: Record<Exclude<DownloadSource, "fastq">, { url: string | null; bytes: number }> = {
+    const sourceMap: Record<
+      Exclude<DownloadSource, "fastq">,
+      { url: string | null; bytes: number }
+    > = {
       sra: { url: run.ncbi_sra_normalized_url, bytes: sraBytes },
       sra_lite: { url: run.ncbi_sra_lite_url, bytes: sraLiteBytes },
       s3: { url: run.ncbi_sra_lite_s3_url, bytes: sraLiteBytes },
@@ -2120,6 +2131,23 @@ export default function ProjectPage() {
     [attributeKeys],
   );
 
+  // Hide columns whose value is "-" for every row (still exported to CSV).
+  const visibleExperimentColumnDefs = React.useMemo<
+    ColDef<ExperimentGridRow>[]
+  >(() => {
+    if (experimentRows.length === 0) return experimentColumnDefs;
+    return experimentColumnDefs.filter((col) => {
+      if (col.field === "accession") return true; // always keep pinned accession column
+      const getValue = (row: ExperimentGridRow): unknown =>
+        col.field
+          ? row[col.field as keyof ExperimentGridRow]
+          : col.headerName
+            ? row.attributes[col.headerName]
+            : undefined;
+      return experimentRows.some((row) => toDisplayText(getValue(row)) !== "-");
+    });
+  }, [experimentColumnDefs, experimentRows]);
+
   return (
     <>
       <SearchBar initialQuery={""} />
@@ -2449,145 +2477,140 @@ export default function ProjectPage() {
               text={project.abstract}
               charLimit={ABSTRACT_CHAR_LIMIT}
             />
-            <EnrichedMetadataCard accession={accession} />
-
-            <Flex id="experiments" justify={"between"} align={"center"}>
-              <Flex align="center" gap="2">
-                <Text weight="medium" size="6">
-                  Experiments
-                </Text>
-                <SectionAnchor id="experiments" />
-              </Flex>
-              <Button
-                onClick={() => {
-                  if (!experiments || !samplesMap) return;
-                  const baseHeaders = [
-                    "Accession",
-                    "Title",
-                    "Library",
-                    "Layout",
-                    "Platform",
-                    "Instrument",
-                    "Sample",
-                    "Sample Alias",
-                    "Sample Title",
-                    "Description",
-                    "Scientific Name",
-                    "Taxon ID",
+            {/* Experiments (Original) + AI Enriched metadata, merged via tabs */}
+            <MetadataTableTabs
+              accession={accession}
+              sectionId="experiments"
+              sectionTitle="Experiments"
+              onExportOriginalCsv={() => {
+                if (!experiments || !samplesMap) return;
+                const baseHeaders = [
+                  "Accession",
+                  "Title",
+                  "Library",
+                  "Layout",
+                  "Platform",
+                  "Instrument",
+                  "Sample",
+                  "Sample Alias",
+                  "Sample Title",
+                  "Description",
+                  "Scientific Name",
+                  "Taxon ID",
+                ];
+                const allHeaders = baseHeaders.concat(attributeKeys);
+                const rows = experiments.map((e) => {
+                  const sampleAcc = e.samples[0];
+                  const sample =
+                    sampleAcc && samplesMap ? samplesMap.get(sampleAcc) : null;
+                  const baseRow = [
+                    e.accession,
+                    e.title ?? "-",
+                    e.library_name ?? e.library_strategy ?? "-",
+                    e.library_layout ?? "-",
+                    e.platform ?? "-",
+                    e.instrument_model ?? "-",
+                    sampleAcc ?? "-",
+                    sample?.alias ?? "-",
+                    sample?.title ?? "-",
+                    sample?.description ?? "-",
+                    sample?.scientific_name ?? "-",
+                    sample?.taxon_id ?? "-",
                   ];
-                  const allHeaders = baseHeaders.concat(attributeKeys);
-                  const rows = experiments.map((e) => {
-                    const sampleAcc = e.samples[0];
-                    const sample =
-                      sampleAcc && samplesMap
-                        ? samplesMap.get(sampleAcc)
-                        : null;
-                    const baseRow = [
-                      e.accession,
-                      e.title ?? "-",
-                      e.library_name ?? e.library_strategy ?? "-",
-                      e.library_layout ?? "-",
-                      e.platform ?? "-",
-                      e.instrument_model ?? "-",
-                      sampleAcc ?? "-",
-                      sample?.alias ?? "-",
-                      sample?.title ?? "-",
-                      sample?.description ?? "-",
-                      sample?.scientific_name ?? "-",
-                      sample?.taxon_id ?? "-",
-                    ];
-                    const attrRow = attributeKeys.map(
-                      (key) => sample?.attributes_json?.[key] ?? "-",
-                    );
-                    return [...baseRow, ...attrRow];
-                  });
-                  const escape = (val: string) =>
-                    `"${String(val).replace(/"/g, '""')}"`;
-                  const csv = [
-                    allHeaders.map(escape).join(","),
-                    ...rows.map((row) => row.map(escape).join(",")),
-                  ].join("\n");
-                  const blob = new Blob([csv], { type: "text/csv" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `${accession}_experiments.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  setTimeout(() => {
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }, 0);
-                }}
-              >
-                <DownloadIcon /> CSV
-              </Button>
-            </Flex>
-            <Flex
-              align="start"
-              gap="2"
-              direction="column"
-              style={{ width: "100%" }}
-            >
-              {isExperimentsLoading && (
-                <Flex gap="2" align="center">
-                  <Spinner size="2" />
-                  <Text size="2">Loading experiments...</Text>
-                </Flex>
-              )}
-              {isExperimentsError && (
-                <Text color="red">Failed to load experiments</Text>
-              )}
-              {!isExperimentsLoading &&
-                experiments &&
-                experiments.length === 0 && (
-                  <Text size="2" color="gray">
-                    No experiments found
-                  </Text>
-                )}
-              {!isExperimentsLoading &&
-                experiments &&
-                experiments.length > 0 && (
-                  <>
-                    {highlightOrganism && (
-                      <Flex
-                        align="center"
-                        gap="2"
-                        py="1"
-                        px="3"
-                        style={getOrganismBannerStyle(isDark)}
-                      >
-                        <Text size="2" color="gray">
-                          Showing{" "}
-                          <Text weight="medium" style={{ fontStyle: "italic" }}>
-                            {highlightOrganism}
-                          </Text>{" "}
-                          samples first
-                        </Text>
-                      </Flex>
+                  const attrRow = attributeKeys.map(
+                    (key) => sample?.attributes_json?.[key] ?? "-",
+                  );
+                  return [...baseRow, ...attrRow];
+                });
+                const escape = (val: string) =>
+                  `"${String(val).replace(/"/g, '""')}"`;
+                const csv = [
+                  allHeaders.map(escape).join(","),
+                  ...rows.map((row) => row.map(escape).join(",")),
+                ].join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${accession}_experiments.csv`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }, 0);
+              }}
+              originalContent={
+                <Flex
+                  align="start"
+                  gap="2"
+                  direction="column"
+                  style={{ width: "100%" }}
+                >
+                  {isExperimentsLoading && (
+                    <Flex gap="2" align="center">
+                      <Spinner size="2" />
+                      <Text size="2">Loading experiments...</Text>
+                    </Flex>
+                  )}
+                  {isExperimentsError && (
+                    <Text color="red">Failed to load experiments</Text>
+                  )}
+                  {!isExperimentsLoading &&
+                    experiments &&
+                    experiments.length === 0 && (
+                      <Text size="2" color="gray">
+                        No experiments found
+                      </Text>
                     )}
-                    <div
-                      className={agGridThemeClassName}
-                      style={{
-                        width: "100%",
-                        height: `${experimentsGridHeight}px`,
-                      }}
-                    >
-                      <AgGridReact<ExperimentGridRow>
-                        columnDefs={experimentColumnDefs}
-                        defaultColDef={experimentsGridDefaultColDef}
-                        enableCellTextSelection
-                        ensureDomOrder
-                        getRowId={(params) => params.data.rowKey}
-                        rowData={experimentRows}
-                        theme="legacy"
-                        getRowStyle={organismRowStyle}
-                        postSortRows={organismPostSort}
-                      />
-                    </div>
-                  </>
-                )}
-            </Flex>
+                  {!isExperimentsLoading &&
+                    experiments &&
+                    experiments.length > 0 && (
+                      <>
+                        {highlightOrganism && (
+                          <Flex
+                            align="center"
+                            gap="2"
+                            py="1"
+                            px="3"
+                            style={getOrganismBannerStyle(isDark)}
+                          >
+                            <Text size="2" color="gray">
+                              Showing{" "}
+                              <Text
+                                weight="medium"
+                                style={{ fontStyle: "italic" }}
+                              >
+                                {highlightOrganism}
+                              </Text>{" "}
+                              samples first
+                            </Text>
+                          </Flex>
+                        )}
+                        <div
+                          className={agGridThemeClassName}
+                          style={{
+                            width: "100%",
+                            height: `${experimentsGridHeight}px`,
+                          }}
+                        >
+                          <AgGridReact<ExperimentGridRow>
+                            columnDefs={visibleExperimentColumnDefs}
+                            defaultColDef={experimentsGridDefaultColDef}
+                            enableCellTextSelection
+                            ensureDomOrder
+                            getRowId={(params) => params.data.rowKey}
+                            rowData={experimentRows}
+                            theme="legacy"
+                            getRowStyle={organismRowStyle}
+                            postSortRows={organismPostSort}
+                          />
+                        </div>
+                      </>
+                    )}
+                </Flex>
+              }
+            />
             <Flex id="publications" align="center" gap="2">
               <Text weight="medium" size="6">
                 Linked publications

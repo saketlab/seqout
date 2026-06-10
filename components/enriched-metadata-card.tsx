@@ -1,9 +1,8 @@
 "use client";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
-import SectionAnchor from "@/components/section-anchor";
-import { DownloadIcon } from "@radix-ui/react-icons";
-import { Badge, Button, Flex, Spinner, Text, Tooltip } from "@radix-ui/themes";
+import { InfoCircledIcon, MagicWandIcon } from "@radix-ui/react-icons";
+import { Badge, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
@@ -14,7 +13,7 @@ ensureAgGridModules();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type OntologySample = Record<string, any>;
 
-interface EnrichedResponse {
+export interface EnrichedResponse {
   accession: string;
   title: string;
   n_samples: number;
@@ -24,8 +23,10 @@ interface EnrichedResponse {
 }
 
 const ONTOLOGY_URLS: Record<string, string> = {
-  MONDO: "https://www.ebi.ac.uk/ols4/ontologies/mondo/terms?iri=http://purl.obolibrary.org/obo/",
-  UBERON: "https://www.ebi.ac.uk/ols4/ontologies/uberon/terms?iri=http://purl.obolibrary.org/obo/",
+  MONDO:
+    "https://www.ebi.ac.uk/ols4/ontologies/mondo/terms?iri=http://purl.obolibrary.org/obo/",
+  UBERON:
+    "https://www.ebi.ac.uk/ols4/ontologies/uberon/terms?iri=http://purl.obolibrary.org/obo/",
   CL: "https://www.ebi.ac.uk/ols4/ontologies/cl/terms?iri=http://purl.obolibrary.org/obo/",
   EFO: "https://www.ebi.ac.uk/ols4/ontologies/efo/terms?iri=http://purl.obolibrary.org/obo/",
 };
@@ -37,10 +38,7 @@ function ontologyUrl(id: string): string | null {
   return `${base}${id.replace(":", "_")}`;
 }
 
-function OntologyCellRenderer(
-  idField: string,
-  nameField: string,
-) {
+function OntologyCellRenderer(idField: string, nameField: string) {
   return function Renderer(params: ICellRendererParams<OntologySample>) {
     const raw = params.value;
     const data = params.data;
@@ -55,7 +53,9 @@ function OntologyCellRenderer(
     const url = ontologyUrl(ontoId);
     return (
       <Flex align="center" gap="1" style={{ overflow: "hidden" }}>
-        <Text truncate size="2">{ontoName}</Text>
+        <Text truncate size="2">
+          {ontoName}
+        </Text>
         <Tooltip content={ontoId}>
           {url ? (
             <a
@@ -64,7 +64,11 @@ function OntologyCellRenderer(
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
             >
-              <Badge color="iris" size="1" style={{ cursor: "pointer", flexShrink: 0 }}>
+              <Badge
+                color="iris"
+                size="1"
+                style={{ cursor: "pointer", flexShrink: 0 }}
+              >
                 {prefix}
               </Badge>
             </a>
@@ -84,16 +88,21 @@ const ONTOLOGY_MAPPED_FIELDS: Record<string, { id: string; name: string }> = {
   tissue: { id: "tissue_ontology_id", name: "tissue_ontology_name" },
   cell_type: { id: "cell_type_ontology_id", name: "cell_type_ontology_name" },
   assay: { id: "assay_ontology_id", name: "assay_ontology_name" },
-  development_stage: { id: "development_stage_ontology_id", name: "development_stage_ontology_name" },
+  development_stage: {
+    id: "development_stage_ontology_id",
+    name: "development_stage_ontology_name",
+  },
 };
 
 const ONTOLOGY_RENDERERS = Object.fromEntries(
   Object.entries(ONTOLOGY_MAPPED_FIELDS).map(([field, onto]) => [
-    field, OntologyCellRenderer(onto.id, onto.name),
+    field,
+    OntologyCellRenderer(onto.id, onto.name),
   ]),
 );
 
-const numericComparator = (a: number | null, b: number | null) => (a ?? 0) - (b ?? 0);
+const numericComparator = (a: number | null, b: number | null) =>
+  (a ?? 0) - (b ?? 0);
 
 type FieldDef = {
   field: string;
@@ -139,36 +148,24 @@ async function fetchEnrichedMetadata(
   return res.json();
 }
 
-export default function EnrichedMetadataCard({
-  accession,
-}: {
-  accession: string;
-}) {
-  const { resolvedTheme } = useTheme();
-  const agGridThemeClassName =
-    resolvedTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz";
-
+/**
+ * Shared query for enriched metadata. Deduped by react-query across consumers.
+ * Returns `data: null` when enriched metadata is unavailable (404) or empty.
+ */
+export function useEnrichedMetadata(accession: string) {
   const { data, isLoading } = useQuery({
     queryKey: ["enriched-metadata", accession],
     queryFn: () => fetchEnrichedMetadata(accession),
     enabled: !!accession,
   });
+  const hasData = !!data && data.samples.length > 0;
+  return { data: hasData ? data : null, isLoading };
+}
 
-  if (isLoading) {
-    return (
-      <Flex gap="2" align="center">
-        <Spinner size="2" />
-        <Text size="2">Loading enriched metadata...</Text>
-      </Flex>
-    );
-  }
-
-  if (!data || data.samples.length === 0) return null;
-
+function getVisibleFields(data: EnrichedResponse): FieldDef[] {
   const isV3 = data.version === "v3";
   const allFields = isV3 ? V3_FIELDS : V1_FIELDS;
-
-  const visibleFields = allFields.filter(
+  return allFields.filter(
     (f) =>
       f.field === "sample" ||
       data.samples.some((s) => {
@@ -182,10 +179,96 @@ export default function EnrichedMetadataCard({
         return false;
       }),
   );
+}
+
+/**
+ * Badges (AI / Ontology / single-cell modality) describing the enriched data.
+ * Rendered next to the section title when the enriched tab is active.
+ */
+export function EnrichedMetadataBadges({ data }: { data: EnrichedResponse }) {
+  const isV3 = data.version === "v3";
+  return (
+    <>
+      <Tooltip content="Attributes are generated with an AI-assisted pipeline. Their correctness is not guaranteed.">
+        <Badge size="2" style={{ cursor: "help" }} variant="soft">
+          <MagicWandIcon /> AI Generated
+        </Badge>
+      </Tooltip>
+      {isV3 && (
+        <Tooltip content="Includes standardised ontology mappings (MONDO, UBERON, CL, EFO)">
+          <Badge size="2" variant="soft" style={{ cursor: "help" }}>
+            <InfoCircledIcon /> Ontology
+          </Badge>
+        </Tooltip>
+      )}
+      {data.single_cell_modality && (
+        <Tooltip content={`Single-cell modality: ${data.single_cell_modality}`}>
+          <Badge color="cyan" size="2" variant="soft">
+            {data.single_cell_modality}
+          </Badge>
+        </Tooltip>
+      )}
+    </>
+  );
+}
+
+export function exportEnrichedCsv(data: EnrichedResponse, accession: string) {
+  const isV3 = data.version === "v3";
+  const visibleFields = getVisibleFields(data);
+  const exportFields: { key: string; header: string }[] = [];
+  for (const f of visibleFields) {
+    exportFields.push({ key: f.field, header: f.header });
+    const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
+    if (onto) {
+      exportFields.push({ key: onto.id, header: `${f.header} Ontology ID` });
+      exportFields.push({
+        key: onto.name,
+        header: `${f.header} Ontology Name`,
+      });
+    }
+  }
+  const headers = exportFields.map((f) => f.header);
+  const escape = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
+  const rows = data.samples.map((s) =>
+    exportFields.map((f) => escape(s[f.key] ?? "")),
+  );
+  const csv = [
+    headers.map(escape).join(","),
+    ...rows.map((r) => r.join(",")),
+  ].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${accession}_enriched_metadata.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
+/**
+ * Renders the enriched-metadata ag-grid (plus footnote) for the given data.
+ * The section header / CSV button are owned by the parent tab container.
+ */
+export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
+  const { resolvedTheme } = useTheme();
+  const agGridThemeClassName =
+    resolvedTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz";
+
+  const isV3 = data.version === "v3";
+  const visibleFields = getVisibleFields(data);
 
   const columnDefs: ColDef<OntologySample>[] = visibleFields.map((f) => {
     const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
-    const base = { field: f.field, headerName: f.header, minWidth: f.minWidth ?? 100, flex: 1 };
+    const base = {
+      field: f.field,
+      headerName: f.header,
+      minWidth: f.minWidth ?? 100,
+      flex: 1,
+    };
 
     // Show "~N" when cell_count_estimated is true
     if (f.field === "cell_count") {
@@ -196,7 +279,9 @@ export default function EnrichedMetadataCard({
           if (!params.data) return "";
           const count = params.data["cell_count"];
           if (count == null) return "";
-          return params.data["cell_count_estimated"] ? `~${count.toLocaleString()}` : count.toLocaleString();
+          return params.data["cell_count_estimated"]
+            ? `~${count.toLocaleString()}`
+            : count.toLocaleString();
         },
       };
     }
@@ -228,65 +313,8 @@ export default function EnrichedMetadataCard({
 
   const gridHeight = Math.min(400, 42 + data.samples.length * 42);
 
-  const handleExportCsv = () => {
-    const exportFields: { key: string; header: string }[] = [];
-    for (const f of visibleFields) {
-      exportFields.push({ key: f.field, header: f.header });
-      const onto = isV3 ? ONTOLOGY_MAPPED_FIELDS[f.field] : undefined;
-      if (onto) {
-        exportFields.push({ key: onto.id, header: `${f.header} Ontology ID` });
-        exportFields.push({ key: onto.name, header: `${f.header} Ontology Name` });
-      }
-    }
-    const headers = exportFields.map((f) => f.header);
-    const escape = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
-    const rows = data.samples.map((s) =>
-      exportFields.map((f) => escape(s[f.key] ?? "")),
-    );
-    const csv = [headers.map(escape).join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${accession}_enriched_metadata.csv`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 0);
-  };
-
   return (
     <>
-      <Flex id="enriched" justify="between" align="center">
-        <Flex align="center" gap="2">
-          <Text weight="medium" size="6">
-            Enriched metadata
-          </Text>
-          <Badge color="purple" size="2">
-            AI
-          </Badge>
-          {isV3 && (
-            <Tooltip content="Includes standardised ontology mappings (MONDO, UBERON, CL, EFO)">
-              <Badge color="iris" size="1" variant="soft">
-                Ontology
-              </Badge>
-            </Tooltip>
-          )}
-          {data.single_cell_modality && (
-            <Tooltip content={`Single-cell modality: ${data.single_cell_modality}`}>
-              <Badge color="cyan" size="1" variant="soft">
-                {data.single_cell_modality}
-              </Badge>
-            </Tooltip>
-          )}
-          <SectionAnchor id="enriched" />
-        </Flex>
-        <Button onClick={handleExportCsv}>
-          <DownloadIcon /> CSV
-        </Button>
-      </Flex>
       <div
         className={agGridThemeClassName}
         style={{ width: "100%", height: `${gridHeight}px` }}
@@ -303,7 +331,8 @@ export default function EnrichedMetadataCard({
       </div>
       {data.samples.some((s) => s["cell_count_estimated"]) && (
         <Text size="1" color="gray">
-          ~ Cell counts marked with ~ are series-level estimates distributed across samples.
+          ~ Cell counts marked with ~ are series-level estimates distributed
+          across samples.
         </Text>
       )}
     </>

@@ -1,6 +1,6 @@
 "use client";
 import CountryFlagIcon from "@/components/country-flag-icon";
-import EnrichedMetadataCard from "@/components/enriched-metadata-card";
+import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -611,18 +611,28 @@ export default function GeoProjectPage() {
     useState("");
   const [supplementaryScriptCopied, setSupplementaryScriptCopied] =
     useState(false);
-  const [isDownloadingAllSampleSupplementary, setIsDownloadingAllSampleSupplementary] =
-    useState(false);
-  const [sampleDownloadAllProgressPercent, setSampleDownloadAllProgressPercent] =
-    useState<number | null>(null);
+  const [
+    isDownloadingAllSampleSupplementary,
+    setIsDownloadingAllSampleSupplementary,
+  ] = useState(false);
+  const [
+    sampleDownloadAllProgressPercent,
+    setSampleDownloadAllProgressPercent,
+  ] = useState<number | null>(null);
   const sampleSupplementaryGridRef =
     React.useRef<GridApi<SampleSupplementaryGroupRow> | null>(null);
-  const [selectedSampleSupplementaryCount, setSelectedSampleSupplementaryCount] =
-    useState(0);
-  const [sampleSupplementaryScriptDialogOpen, setSampleSupplementaryScriptDialogOpen] =
-    useState(false);
-  const [sampleSupplementaryScriptPreview, setSampleSupplementaryScriptPreview] =
-    useState("");
+  const [
+    selectedSampleSupplementaryCount,
+    setSelectedSampleSupplementaryCount,
+  ] = useState(0);
+  const [
+    sampleSupplementaryScriptDialogOpen,
+    setSampleSupplementaryScriptDialogOpen,
+  ] = useState(false);
+  const [
+    sampleSupplementaryScriptPreview,
+    setSampleSupplementaryScriptPreview,
+  ] = useState("");
   const [sampleSupplementaryScriptCopied, setSampleSupplementaryScriptCopied] =
     useState(false);
   const isDark = resolvedTheme === "dark";
@@ -1190,6 +1200,23 @@ export default function GeoProjectPage() {
     [accession, characteristicTags, isArrayExpress],
   );
 
+  // Hide columns whose value is "-" for every row (still exported to CSV).
+  const visibleSampleColumnDefs = React.useMemo<
+    ColDef<GeoSampleGridRow>[]
+  >(() => {
+    if (sampleRows.length === 0) return sampleColumnDefs;
+    return sampleColumnDefs.filter((col) => {
+      if (col.field === "sample") return true; // always keep pinned accession column
+      const getValue = (row: GeoSampleGridRow): unknown =>
+        col.field
+          ? row[col.field as keyof GeoSampleGridRow]
+          : col.headerName
+            ? row.characteristics[col.headerName]
+            : undefined;
+      return sampleRows.some((row) => toDisplayText(getValue(row)) !== "-");
+    });
+  }, [sampleColumnDefs, sampleRows]);
+
   const supplementaryDataItems = React.useMemo(
     () =>
       buildSupplementaryItems({
@@ -1232,7 +1259,9 @@ export default function GeoProjectPage() {
     return Array.from(groups.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([sampleAccession, items], index) => {
-        const hasUnknownSize = items.some((item) => item.fileSizeBytes === null);
+        const hasUnknownSize = items.some(
+          (item) => item.fileSizeBytes === null,
+        );
         const totalSizeBytes = hasUnknownSize
           ? null
           : items.reduce((sum, item) => sum + (item.fileSizeBytes ?? 0), 0);
@@ -1814,182 +1843,178 @@ export default function GeoProjectPage() {
               charLimit={OVERALL_DESIGN_CHAR_LIMIT}
             />
 
-            <EnrichedMetadataCard accession={accession} />
+            {/* Samples (Original) + AI Enriched metadata, merged via tabs */}
+            <MetadataTableTabs
+              accession={accession}
+              sectionId="samples"
+              sectionTitle="Samples"
+              onExportOriginalCsv={() => {
+                if (!samples || samples.length === 0) return;
+                // Build CSV headers
+                const headers = [
+                  "Sample",
+                  "Title",
+                  "Description",
+                  "Channel Count",
+                  "Sample Type",
+                  "Platform",
+                  "Channel Position",
+                  "Label",
+                  "Source",
+                  "Molecule",
+                  "Organism",
+                  "Label Protocol",
+                  "Extract Protocol",
+                  ...characteristicTags,
+                  "Hybridization Protocol",
+                  "Scan Protocol",
+                ];
 
-            {/* Samples table */}
-            <Flex id="samples" justify={"between"} align={"center"}>
-              <Flex align="center" gap="2">
-                <Text weight="medium" size="6">
-                  Samples
-                </Text>
-                <SectionAnchor id="samples" />
-              </Flex>
-              <Button
-                onClick={() => {
-                  if (!samples || samples.length === 0) return;
-                  // Build CSV headers
-                  const headers = [
-                    "Sample",
-                    "Title",
-                    "Description",
-                    "Channel Count",
-                    "Sample Type",
-                    "Platform",
-                    "Channel Position",
-                    "Label",
-                    "Source",
-                    "Molecule",
-                    "Organism",
-                    "Label Protocol",
-                    "Extract Protocol",
-                    ...characteristicTags,
-                    "Hybridization Protocol",
-                    "Scan Protocol",
-                  ];
-
-                  // Build CSV rows
-                  const rows = samples.flatMap((sample) => {
-                    const channels = sample.channels ?? [];
-                    if (channels.length === 0) {
-                      return [
-                        [
-                          sample.accession,
-                          sample.title ?? "-",
-                          sample.description ?? "-",
-                          sample.channel_count ?? "-",
-                          sample.sample_type ?? "-",
-                          sample.platform_ref ?? "-",
-                          "-",
-                          "-",
-                          "-",
-                          "-",
-                          "-",
-                          "-",
-                          "-",
-                          ...characteristicTags.map(() => "-"),
-                          sample.hybridization_protocol ?? "-",
-                          sample.scan_protocol ?? "-",
-                        ],
-                      ];
-                    }
-                    return channels.map((channel, channelIdx) => {
-                      const charMap = new Map();
-                      if (Array.isArray(channel.Characteristics)) {
-                        channel.Characteristics.forEach((char) => {
-                          if (char["@tag"])
-                            charMap.set(char["@tag"], char["#text"] ?? "-");
-                        });
-                      } else if (
-                        channel.Characteristics &&
-                        typeof channel.Characteristics === "object"
-                      ) {
-                        if (channel.Characteristics["@tag"])
-                          charMap.set(
-                            channel.Characteristics["@tag"],
-                            channel.Characteristics["#text"] ?? "-",
-                          );
-                      }
-                      return [
+                // Build CSV rows
+                const rows = samples.flatMap((sample) => {
+                  const channels = sample.channels ?? [];
+                  if (channels.length === 0) {
+                    return [
+                      [
                         sample.accession,
                         sample.title ?? "-",
                         sample.description ?? "-",
                         sample.channel_count ?? "-",
                         sample.sample_type ?? "-",
                         sample.platform_ref ?? "-",
-                        channel["@position"] ?? channelIdx + 1,
-                        channel.Label ?? "-",
-                        channel.Source ?? "-",
-                        channel.Molecule ?? "-",
-                        channel.Organism?.["#text"] ?? "-",
-                        channel["Label-Protocol"] ?? "-",
-                        channel["Extract-Protocol"] ?? "-",
-                        ...characteristicTags.map(
-                          (tag) => charMap.get(tag) ?? "-",
-                        ),
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        ...characteristicTags.map(() => "-"),
                         sample.hybridization_protocol ?? "-",
                         sample.scan_protocol ?? "-",
-                      ];
-                    });
-                  });
-
-                  // Use exportCsv utility
-                  import("@/utils/exportCsv").then((mod) => {
-                    // Convert rows to array of objects for exportExperimentsToCsv
-                    const experiments = rows.map((row) => {
-                      const obj: Record<string, unknown> = {};
-                      headers.forEach((header, idx) => {
-                        obj[header] = row[idx];
+                      ],
+                    ];
+                  }
+                  return channels.map((channel, channelIdx) => {
+                    const charMap = new Map();
+                    if (Array.isArray(channel.Characteristics)) {
+                      channel.Characteristics.forEach((char) => {
+                        if (char["@tag"])
+                          charMap.set(char["@tag"], char["#text"] ?? "-");
                       });
-                      return obj;
-                    });
-                    mod.default(experiments, `${accession}_samples.csv`);
+                    } else if (
+                      channel.Characteristics &&
+                      typeof channel.Characteristics === "object"
+                    ) {
+                      if (channel.Characteristics["@tag"])
+                        charMap.set(
+                          channel.Characteristics["@tag"],
+                          channel.Characteristics["#text"] ?? "-",
+                        );
+                    }
+                    return [
+                      sample.accession,
+                      sample.title ?? "-",
+                      sample.description ?? "-",
+                      sample.channel_count ?? "-",
+                      sample.sample_type ?? "-",
+                      sample.platform_ref ?? "-",
+                      channel["@position"] ?? channelIdx + 1,
+                      channel.Label ?? "-",
+                      channel.Source ?? "-",
+                      channel.Molecule ?? "-",
+                      channel.Organism?.["#text"] ?? "-",
+                      channel["Label-Protocol"] ?? "-",
+                      channel["Extract-Protocol"] ?? "-",
+                      ...characteristicTags.map(
+                        (tag) => charMap.get(tag) ?? "-",
+                      ),
+                      sample.hybridization_protocol ?? "-",
+                      sample.scan_protocol ?? "-",
+                    ];
                   });
-                }}
-              >
-                <DownloadIcon /> CSV
-              </Button>
-            </Flex>
-            <Flex
-              align="start"
-              gap="2"
-              direction="column"
-              style={{
-                width: "100%",
-                maxHeight: "500px",
+                });
+
+                // Use exportCsv utility
+                import("@/utils/exportCsv").then((mod) => {
+                  // Convert rows to array of objects for exportExperimentsToCsv
+                  const experiments = rows.map((row) => {
+                    const obj: Record<string, unknown> = {};
+                    headers.forEach((header, idx) => {
+                      obj[header] = row[idx];
+                    });
+                    return obj;
+                  });
+                  mod.default(experiments, `${accession}_samples.csv`);
+                });
               }}
-            >
-              {isSamplesLoading && (
-                <Flex gap="2" align="center">
-                  <Spinner size="2" />
-                  <Text size="2">Loading samples...</Text>
-                </Flex>
-              )}
-              {!isSamplesLoading && samples && samples.length === 0 && (
-                <Text size="2" color="gray">
-                  No samples found
-                </Text>
-              )}
-              {!isSamplesLoading && samples && samples.length > 0 && (
-                <>
-                  {highlightOrganism && (
-                    <Flex
-                      align="center"
-                      gap="2"
-                      py="1"
-                      px="3"
-                      style={getOrganismBannerStyle(isDark)}
-                    >
-                      <Text size="2" color="gray">
-                        Showing{" "}
-                        <Text weight="medium" style={{ fontStyle: "italic" }}>
-                          {highlightOrganism}
-                        </Text>{" "}
-                        samples first
-                      </Text>
+              originalContent={
+                <Flex
+                  align="start"
+                  gap="2"
+                  direction="column"
+                  style={{
+                    width: "100%",
+                    maxHeight: "500px",
+                  }}
+                >
+                  {isSamplesLoading && (
+                    <Flex gap="2" align="center">
+                      <Spinner size="2" />
+                      <Text size="2">Loading samples...</Text>
                     </Flex>
                   )}
-                  <div
-                    className={agGridThemeClassName}
-                    style={{
-                      height: "500px",
-                      width: "100%",
-                    }}
-                  >
-                    <AgGridReact<GeoSampleGridRow>
-                      columnDefs={sampleColumnDefs}
-                      defaultColDef={sampleGridDefaultColDef}
-                      enableCellTextSelection
-                      ensureDomOrder
-                      getRowId={(params) => params.data.rowKey}
-                      rowData={sampleRows}
-                      theme="legacy"
-                      getRowStyle={organismRowStyle}
-                      postSortRows={organismPostSort}
-                    />
-                  </div>
-                </>
-              )}
-            </Flex>
+                  {!isSamplesLoading && samples && samples.length === 0 && (
+                    <Text size="2" color="gray">
+                      No samples found
+                    </Text>
+                  )}
+                  {!isSamplesLoading && samples && samples.length > 0 && (
+                    <>
+                      {highlightOrganism && (
+                        <Flex
+                          align="center"
+                          gap="2"
+                          py="1"
+                          px="3"
+                          style={getOrganismBannerStyle(isDark)}
+                        >
+                          <Text size="2" color="gray">
+                            Showing{" "}
+                            <Text
+                              weight="medium"
+                              style={{ fontStyle: "italic" }}
+                            >
+                              {highlightOrganism}
+                            </Text>{" "}
+                            samples first
+                          </Text>
+                        </Flex>
+                      )}
+                      <div
+                        className={agGridThemeClassName}
+                        style={{
+                          height: "500px",
+                          width: "100%",
+                        }}
+                      >
+                        <AgGridReact<GeoSampleGridRow>
+                          columnDefs={visibleSampleColumnDefs}
+                          defaultColDef={sampleGridDefaultColDef}
+                          enableCellTextSelection
+                          ensureDomOrder
+                          getRowId={(params) => params.data.rowKey}
+                          rowData={sampleRows}
+                          theme="legacy"
+                          getRowStyle={organismRowStyle}
+                          postSortRows={organismPostSort}
+                        />
+                      </div>
+                    </>
+                  )}
+                </Flex>
+              }
+            />
 
             <Flex id="publications" align="center" gap="2">
               <Text weight="medium" size="6">
@@ -2196,11 +2221,13 @@ export default function GeoProjectPage() {
                 <Flex gap="3" justify="between" wrap="wrap">
                   <Flex gap="2" align="center" wrap="wrap">
                     <Badge size="2" color="blue">
-                      {sampleSupplementaryDataItems.length.toLocaleString()} file
+                      {sampleSupplementaryDataItems.length.toLocaleString()}{" "}
+                      file
                       {sampleSupplementaryDataItems.length !== 1 ? "s" : ""}
                     </Badge>
                     <Badge size="2" variant="soft">
-                      {sampleSupplementaryGroupedRows.length.toLocaleString()} sample
+                      {sampleSupplementaryGroupedRows.length.toLocaleString()}{" "}
+                      sample
                       {sampleSupplementaryGroupedRows.length !== 1 ? "s" : ""}
                     </Badge>
                     {allSampleSupplementarySizeLabel && (
@@ -2271,7 +2298,9 @@ export default function GeoProjectPage() {
                             ) : (
                               <CopyIcon />
                             )}
-                            {sampleSupplementaryScriptCopied ? "Copied!" : "Copy"}
+                            {sampleSupplementaryScriptCopied
+                              ? "Copied!"
+                              : "Copy"}
                           </Button>
                         </Flex>
                         <div
@@ -2314,7 +2343,10 @@ export default function GeoProjectPage() {
                   style={{
                     width: "100%",
                     height: `${Math.min(
-                      Math.max(sampleSupplementaryGroupedRows.length * 72 + 49, 180),
+                      Math.max(
+                        sampleSupplementaryGroupedRows.length * 72 + 49,
+                        180,
+                      ),
                       420,
                     )}px`,
                   }}
@@ -2332,7 +2364,9 @@ export default function GeoProjectPage() {
                       headerCheckbox: true,
                     }}
                     onGridReady={handleSampleSupplementaryGridReady}
-                    onSelectionChanged={handleSampleSupplementarySelectionChanged}
+                    onSelectionChanged={
+                      handleSampleSupplementarySelectionChanged
+                    }
                     theme="legacy"
                   />
                 </div>
