@@ -14,9 +14,6 @@ import { DownloadFastqSection } from "@/components/sra-project-page";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
-import TextWithLineBreaks, {
-  normalizeLineBreakText,
-} from "@/components/text-with-line-breaks";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
@@ -65,42 +62,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 
 ensureAgGridModules();
-
-// Component to truncate text in table cells with more/less toggle
-function TruncatedCell({
-  text,
-  wordLimit = 10,
-}: {
-  text: string | null;
-  wordLimit?: number;
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (!text || text === "-") return <>{text ?? "-"}</>;
-  const normalizedText = normalizeLineBreakText(text);
-
-  const words = normalizedText.split(/\s+/);
-  const shouldTruncate = words.length > wordLimit;
-
-  if (!shouldTruncate) return <TextWithLineBreaks text={normalizedText} />;
-
-  const display = expanded
-    ? normalizedText
-    : words.slice(0, wordLimit).join(" ") + "...";
-
-  return (
-    <>
-      <TextWithLineBreaks text={display} />
-      <Link
-        ml="1"
-        style={{ cursor: "pointer" }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? "less" : "more"}
-      </Link>
-    </>
-  );
-}
 
 type Project = {
   accession: string;
@@ -1091,6 +1052,18 @@ export default function GeoProjectPage() {
       filter: true,
       resizable: true,
       sortable: true,
+      autoHeight: false,
+      wrapText: false,
+      minWidth: 20,
+      width: 150,
+      cellStyle: {
+        fontSize: "14px",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      },
+      valueFormatter: (params) => toDisplayText(params.value),
+      tooltipValueGetter: (params) => toDisplayText(params.value),
     }),
     [],
   );
@@ -1100,7 +1073,7 @@ export default function GeoProjectPage() {
       {
         headerName: "Sample",
         field: "sample",
-        minWidth: 140,
+        width: 130,
         pinned: "left",
         cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
@@ -1119,39 +1092,29 @@ export default function GeoProjectPage() {
       {
         headerName: "Title",
         field: "title",
-        minWidth: 220,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 180,
       },
       {
         headerName: "Description",
         field: "description",
-        minWidth: 260,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 200,
       },
       {
         headerName: "Channel Count",
         field: "channelCount",
-        minWidth: 140,
+        width: 120,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Sample Type",
         field: "sampleType",
-        minWidth: 140,
+        width: 120,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Platform",
         field: "platform",
-        minWidth: 140,
+        width: 120,
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
           const platform = toDisplayText(params.value);
           if (platform === "-") return "-";
@@ -1169,61 +1132,46 @@ export default function GeoProjectPage() {
       {
         headerName: "Channel Position",
         field: "channelPosition",
-        minWidth: 150,
+        width: 130,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Label",
         field: "label",
-        minWidth: 120,
+        width: 110,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Source",
         field: "source",
-        minWidth: 220,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 160,
       },
       {
         headerName: "Molecule",
         field: "molecule",
-        minWidth: 140,
+        width: 120,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Organism",
         field: "organism",
-        minWidth: 160,
+        width: 140,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Label Protocol",
         field: "labelProtocol",
-        minWidth: 300,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 220,
       },
       {
         headerName: "Extract Protocol",
         field: "extractProtocol",
-        minWidth: 300,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 220,
       },
       ...characteristicTags.map(
         (tag): ColDef<GeoSampleGridRow> => ({
           headerName: tag,
-          minWidth: 140,
+          width: 140,
           valueGetter: (params: ValueGetterParams<GeoSampleGridRow>) =>
             params.data?.characteristics[tag] ?? "-",
         }),
@@ -1231,22 +1179,12 @@ export default function GeoProjectPage() {
       {
         headerName: "Hybridization Protocol",
         field: "hybridizationProtocol",
-        minWidth: 300,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 220,
       },
       {
         headerName: "Scan Protocol",
         field: "scanProtocol",
-        minWidth: 300,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => (
-          <TruncatedCell text={toDisplayText(params.value)} />
-        ),
+        width: 220,
       },
     ],
     [accession, characteristicTags, isArrayExpress],

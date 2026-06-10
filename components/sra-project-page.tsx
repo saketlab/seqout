@@ -14,7 +14,6 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import { SupplementaryDataSection } from "@/components/supplementary-data-section";
-import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
@@ -1960,6 +1959,18 @@ export default function ProjectPage() {
       filter: true,
       resizable: true,
       sortable: true,
+      autoHeight: false,
+      wrapText: false,
+      minWidth: 20,
+      width: 150,
+      cellStyle: {
+        fontSize: "14px",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      },
+      valueFormatter: (params) => toDisplayText(params.value),
+      tooltipValueGetter: (params) => toDisplayText(params.value),
     }),
     [],
   );
@@ -1969,7 +1980,7 @@ export default function ProjectPage() {
       {
         headerName: "Accession",
         field: "accession",
-        minWidth: 140,
+        width: 130,
         pinned: "left",
         cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
@@ -1989,37 +2000,37 @@ export default function ProjectPage() {
       {
         headerName: "Title",
         field: "title",
-        minWidth: 220,
+        width: 180,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Library",
         field: "library",
-        minWidth: 140,
+        width: 130,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Layout",
         field: "layout",
-        minWidth: 120,
+        width: 100,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Platform",
         field: "platform",
-        minWidth: 130,
+        width: 110,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Instrument",
         field: "instrument",
-        minWidth: 150,
+        width: 140,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Sample",
         field: "sample",
-        minWidth: 130,
+        width: 120,
         cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
@@ -2045,7 +2056,7 @@ export default function ProjectPage() {
       {
         headerName: "Sample Alias",
         field: "sampleAlias",
-        minWidth: 150,
+        width: 130,
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const sampleAlias = toDisplayText(params.value);
           if (sampleAlias === "-") return "-";
@@ -2077,37 +2088,30 @@ export default function ProjectPage() {
       {
         headerName: "Sample Title",
         field: "sampleTitle",
-        minWidth: 220,
+        width: 180,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Description",
         field: "description",
-        minWidth: 240,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
-          const value = toDisplayText(params.value);
-          if (value === "-") return "-";
-          return <TextWithLineBreaks text={value} />;
-        },
+        width: 200,
       },
       {
         headerName: "Scientific Name",
         field: "scientificName",
-        minWidth: 200,
+        width: 160,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Taxon ID",
         field: "taxonId",
-        minWidth: 120,
+        width: 100,
         valueFormatter: (params) => toDisplayText(params.value),
       },
       ...attributeKeys.map(
         (key): ColDef<ExperimentGridRow> => ({
           headerName: key,
-          minWidth: 170,
+          width: 150,
           valueGetter: (params: ValueGetterParams<ExperimentGridRow>) =>
             params.data?.attributes[key] ?? "-",
         }),
