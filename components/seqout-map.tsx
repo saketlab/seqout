@@ -1,21 +1,29 @@
 "use client";
 
-import { SERVER_URL } from "@/utils/constants";
 import { cachedJson, getMapRev, purgeMapCache } from "@/lib/map-cache";
+import { SERVER_URL } from "@/utils/constants";
 import {
+  BarChartIcon,
   Cross1Icon,
+  Cross2Icon,
+  GlobeIcon,
+  GroupIcon,
+  InfoCircledIcon,
   MagnifyingGlassIcon,
-  Component1Icon,
+  TrashIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
   Badge,
   Box,
   Button,
+  Callout,
   Checkbox,
+  Code,
   Flex,
   Heading,
   IconButton,
+  Kbd,
   Link,
   ScrollArea,
   Separator,
@@ -24,14 +32,9 @@ import {
   Text,
   TextField,
   Tooltip,
-  Code,
 } from "@radix-ui/themes";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  COUNTRY_CHART_COLORS,
-  ORGANISM_CHART_COLORS,
-} from "./seqout-map/constants.js";
 
 const DEEPSCATTER_ID = "seqout-deepscatter";
 const SIDEBAR_WIDTH = 272;
@@ -75,29 +78,32 @@ function backgroundForTheme(theme: string | undefined): string {
 function BarChart({
   entries,
   total,
-  palette,
+  fullLabels = false,
 }: {
   entries: [string, number][];
   total: number;
-  palette: string[];
+  fullLabels?: boolean;
 }) {
   const max = entries[0]?.[1] || 1;
   return (
     <Flex direction="column" gap="2">
-      {entries.map(([name, count], i) => {
+      {entries.map(([name, count]) => {
         const pct = Math.round((count / total) * 100);
         const width = (count / max) * 100;
-        const color = palette[i] ?? palette[palette.length - 1];
         return (
-          <Flex key={name} align="center" gap="3">
+          <Flex key={name} align="center" gap="2">
             <Text
               size="1"
-              style={{
-                width: 120,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
+              style={
+                fullLabels
+                  ? { width: 100, flexShrink: 0 }
+                  : {
+                      width: 120,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }
+              }
               title={name}
             >
               {name}
@@ -116,7 +122,7 @@ function BarChart({
                   width: `${width}%`,
                   height: "100%",
                   borderRadius: 4,
-                  background: color,
+                  background: "var(--accent-9)",
                   transition: "width 0.4s ease",
                 }}
               />
@@ -154,19 +160,24 @@ export default function MapGraph() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countries, setCountries] = useState<string[]>([]);
-  const [countryColorMap, setCountryColorMap] = useState<Record<string, string>>({});
+  const [countryColorMap, setCountryColorMap] = useState<
+    Record<string, string>
+  >({});
 
-  const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(
+    null,
+  );
   const [descExpanded, setDescExpanded] = useState(false);
 
   const [searchValue, setSearchValue] = useState("");
-  const [searchStatus, setSearchStatus] = useState<SearchStatus>({ kind: "idle" });
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>({
+    kind: "idle",
+  });
 
   const [colorByClusters, setColorByClusters] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
-  const [lassoEnabled, setLassoEnabled] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
   const [drawPoints, setDrawPoints] = useState<ScreenPoint[]>([]);
   const [hasSelection, setHasSelection] = useState(false);
@@ -175,9 +186,7 @@ export default function MapGraph() {
   const [statsData, setStatsData] = useState<StatsData | null>(null);
 
   const isDrawingRef = useRef(false);
-  const lassoEnabledRef = useRef(false);
   const hasSelectionRef = useRef(false);
-  lassoEnabledRef.current = lassoEnabled;
   hasSelectionRef.current = hasSelection;
 
   // ---- mount: build the scatterplot ---------------------------------------
@@ -191,70 +200,75 @@ export default function MapGraph() {
       const rect = areaEl.getBoundingClientRect();
 
       try {
-      const engine = await import("./seqout-map/engine.js");
-      if (destroyed) return;
-      engineRef.current = engine;
+        const engine = await import("./seqout-map/engine.js");
+        if (destroyed) return;
+        engineRef.current = engine;
 
-      const handlePick = async ({
-        accession,
-        clusterId,
-      }: {
-        accession: string;
-        clusterId?: number;
-      }) => {
-        try {
-          const res = await fetch(`${SERVER_URL}/project/${accession}/metadata`);
-          if (!res.ok) return;
-          const data = await res.json();
-          const clusterName =
-            ctxRef.current?.clusters[clusterId ?? -1]?.properties?.title ?? "";
-          setSelectedPoint({
-            accession,
-            clusterName,
-            title: data.title,
-            description: data.description,
-          });
-          setDescExpanded(false);
-        } catch {
-          /* ignore metadata fetch errors */
-        }
-      };
+        const handlePick = async ({
+          accession,
+          clusterId,
+        }: {
+          accession: string;
+          clusterId?: number;
+        }) => {
+          try {
+            const res = await fetch(
+              `${SERVER_URL}/project/${accession}/metadata`,
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            const clusterName =
+              ctxRef.current?.clusters[clusterId ?? -1]?.properties?.title ??
+              "";
+            setSelectedPoint({
+              accession,
+              clusterName,
+              title: data.title,
+              description: data.description,
+            });
+            setDescExpanded(false);
+          } catch {
+            /* ignore metadata fetch errors */
+          }
+        };
 
-      // Resolve the current asset version from the backend (this request lazily
-      // triggers tile generation the very first time), then load the versioned,
-      // purge-revisioned assets — JSON via the browser cache, tiles via the URL
-      // we hand to deepscatter.
-      const meta = await fetch(`${SERVER_URL}/map/meta`).then((r) => r.json());
-      if (destroyed) return;
-      const base = `${SERVER_URL}/map/${meta.version}/${getMapRev()}`;
-      const [geojson, countries] = await Promise.all([
-        cachedJson<GeoJson>(`${base}/geojson.json`),
-        cachedJson<string[]>(`${base}/countries.json`),
-      ]);
-      if (destroyed) return;
+        // Resolve the current asset version from the backend (this request lazily
+        // triggers tile generation the very first time), then load the versioned,
+        // purge-revisioned assets — JSON via the browser cache, tiles via the URL
+        // we hand to deepscatter.
+        const meta = await fetch(`${SERVER_URL}/map/meta`).then((r) =>
+          r.json(),
+        );
+        if (destroyed) return;
+        const base = `${SERVER_URL}/map/${meta.version}/${getMapRev()}`;
+        const [geojson, countries] = await Promise.all([
+          cachedJson<GeoJson>(`${base}/geojson.json`),
+          cachedJson<string[]>(`${base}/countries.json`),
+        ]);
+        if (destroyed) return;
 
-      const ctx = await engine.createMap({
-        mapSelector: `#${DEEPSCATTER_ID}`,
-        width: rect.width,
-        height: rect.height,
-        tilesUrl: `${base}/tiles`,
-        geojson,
-        countries,
-        backgroundColor: backgroundForTheme(themeRef.current),
-        onPick: handlePick,
-      });
-      if (destroyed) return;
+        const ctx = await engine.createMap({
+          mapSelector: `#${DEEPSCATTER_ID}`,
+          width: rect.width,
+          height: rect.height,
+          tilesUrl: `${base}/tiles`,
+          geojson,
+          countries,
+          backgroundColor: backgroundForTheme(themeRef.current),
+          onPick: handlePick,
+        });
+        if (destroyed) return;
 
-      spRef.current = ctx.sp;
-      ctxRef.current = {
-        clusters: ctx.clusters,
-        countries: ctx.countries,
-        countryColorMap: ctx.countryColorMap,
-        clusterColors: ctx.clusterColors,
-      };
-      setCountries(ctx.countries);
-      setCountryColorMap(ctx.countryColorMap);
-      setLoading(false);
+        spRef.current = ctx.sp;
+        ctxRef.current = {
+          clusters: ctx.clusters,
+          countries: ctx.countries,
+          countryColorMap: ctx.countryColorMap,
+          clusterColors: ctx.clusterColors,
+        };
+        setCountries(ctx.countries);
+        setCountryColorMap(ctx.countryColorMap);
+        setLoading(false);
       } catch (err) {
         if (destroyed) return;
         console.error("Failed to load map:", err);
@@ -282,10 +296,10 @@ export default function MapGraph() {
   // ---- lasso keyboard (Shift to draw, Escape to cancel) -------------------
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Shift" && lassoEnabledRef.current && !isDrawingRef.current) {
+      if (e.key === "Shift" && !isDrawingRef.current) {
         setShiftHeld(true);
       }
-      if (e.key === "Escape" && lassoEnabledRef.current) {
+      if (e.key === "Escape") {
         isDrawingRef.current = false;
         setDrawPoints([]);
         if (hasSelectionRef.current) {
@@ -338,7 +352,12 @@ export default function MapGraph() {
     const sp = spRef.current;
     const ctx = ctxRef.current;
     if (sp && ctx) {
-      engineRef.current?.setColorByClusters(sp, value, ctx.clusterColors, ctx.clusters);
+      engineRef.current?.setColorByClusters(
+        sp,
+        value,
+        ctx.clusterColors,
+        ctx.clusters,
+      );
     }
   }, []);
 
@@ -357,19 +376,6 @@ export default function MapGraph() {
     }
   }, []);
 
-  const onToggleLasso = useCallback((value: boolean) => {
-    setLassoEnabled(value);
-    if (!value) {
-      const sp = spRef.current;
-      if (sp) engineRef.current?.clearLasso(sp);
-      isDrawingRef.current = false;
-      setHasSelection(false);
-      setDrawPoints([]);
-      setStatsOpen(false);
-      setShiftHeld(false);
-    }
-  }, []);
-
   const onClearLasso = useCallback(() => {
     const sp = spRef.current;
     if (sp) engineRef.current?.clearLasso(sp);
@@ -384,10 +390,17 @@ export default function MapGraph() {
     if (!sp || !engine) return;
     setStatsOpen(true);
     setStatsLoading(true);
-    const { accessions, countryCount, topCountries } = await engine.collectLassoData(sp);
+    const { accessions, countryCount, topCountries } =
+      await engine.collectLassoData(sp);
     setStatsLoading(false);
     if (accessions.length === 0) {
-      setStatsData({ empty: true, total: 0, countryCount: 0, topCountries: [], organisms: [] });
+      setStatsData({
+        empty: true,
+        total: 0,
+        countryCount: 0,
+        topCountries: [],
+        organisms: [],
+      });
       return;
     }
     setStatsData({
@@ -397,10 +410,15 @@ export default function MapGraph() {
       organisms: null,
     });
     try {
-      const organisms = await engine.fetchOrganismCounts(accessions, SERVER_URL);
+      const organisms = await engine.fetchOrganismCounts(
+        accessions,
+        SERVER_URL,
+      );
       setStatsData((d) => (d ? { ...d, organisms } : d));
     } catch {
-      setStatsData((d) => (d ? { ...d, organisms: [], organismsError: true } : d));
+      setStatsData((d) =>
+        d ? { ...d, organisms: [], organismsError: true } : d,
+      );
     }
   }, []);
 
@@ -423,7 +441,7 @@ export default function MapGraph() {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!lassoEnabled || e.button !== 0 || !e.shiftKey) return;
+    if (e.button !== 0 || !e.shiftKey) return;
     isDrawingRef.current = true;
     setDrawPoints([coordsOf(e)]);
     overlayRef.current?.setPointerCapture(e.pointerId);
@@ -452,10 +470,14 @@ export default function MapGraph() {
     setHasSelection(true);
     setSelectedPoint(null);
     setDrawPoints([]);
+    openStats();
   };
 
   // ---- render --------------------------------------------------------------
-  const statusColor: Record<SearchStatus["kind"], "gray" | "green" | "red" | "orange"> = {
+  const statusColor: Record<
+    SearchStatus["kind"],
+    "gray" | "green" | "red" | "orange"
+  > = {
     idle: "gray",
     searching: "gray",
     found: "green",
@@ -485,12 +507,18 @@ export default function MapGraph() {
   const descTruncated = desc.length > DESC_LIMIT && !descExpanded;
 
   return (
-    <Flex height="100%" width="100%" style={{ overflow: "hidden", position: "relative" }}>
+    <Flex
+      height="100%"
+      width="100%"
+      style={{ overflow: "hidden", position: "relative" }}
+    >
       {/* Sidebar */}
       <Box
         style={{
           width: SIDEBAR_WIDTH,
           flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
           background: "var(--color-panel-solid)",
           borderRight: "1px solid var(--gray-a5)",
           overflowY: "auto",
@@ -522,7 +550,12 @@ export default function MapGraph() {
         {/* Selected point */}
         <Box p="3">
           <Flex align="center" justify="between" mb="2">
-            <Text size="1" weight="bold" color="gray" style={{ letterSpacing: "0.06em" }}>
+            <Text
+              size="1"
+              weight="bold"
+              color="gray"
+              style={{ letterSpacing: "0.06em" }}
+            >
               SELECTED POINT
             </Text>
             {selectedPoint?.accession && (
@@ -577,10 +610,11 @@ export default function MapGraph() {
         {/* Country filter */}
         <Box p="3">
           <Flex align="center" justify="between" mb="2">
-            <Text size="1" weight="bold" color="gray" style={{ letterSpacing: "0.06em" }}>
-              COUNTRIES
-            </Text>
-            <Text as="label" size="1" color="gray">
+            <Flex align={"center"} gap={"2"}>
+              <GlobeIcon />
+              <Text size="2">Countries</Text>
+            </Flex>
+            <Text as="label" size="2">
               <Flex align="center" gap="2">
                 Color by cluster
                 <Switch
@@ -602,10 +636,19 @@ export default function MapGraph() {
               <MagnifyingGlassIcon height="12" width="12" />
             </TextField.Slot>
           </TextField.Root>
-          <ScrollArea type="auto" scrollbars="vertical" style={{ maxHeight: 180 }}>
+          <ScrollArea
+            type="auto"
+            scrollbars="vertical"
+            style={{ maxHeight: 180 }}
+          >
             <Flex direction="column" gap="1" pr="2">
               {visibleCountries.map((country) => (
-                <Text as="label" size="2" key={country} style={{ cursor: "pointer" }}>
+                <Text
+                  as="label"
+                  size="2"
+                  key={country}
+                  style={{ cursor: "pointer" }}
+                >
                   <Flex align="center" gap="2">
                     <Checkbox
                       size="1"
@@ -632,50 +675,65 @@ export default function MapGraph() {
           </ScrollArea>
         </Box>
 
-        <Separator size="4" />
-
         {/* Lasso */}
-        <Box p="3">
+        <Box p="3" style={{ marginTop: "auto" }}>
           <Flex align="center" justify="between">
             <Flex align="center" gap="2">
-              <Component1Icon height="14" width="14" color="var(--gray-9)" />
-              <Text size="2" color="gray">
-                Lasso select
-              </Text>
+              <GroupIcon />
+              <Text size="2">Lasso select</Text>
             </Flex>
-            <Switch size="1" checked={lassoEnabled} onCheckedChange={onToggleLasso} />
+            <Tooltip content="Select a subset of the map">
+              <InfoCircledIcon color="var(--gray-9)" />
+            </Tooltip>
           </Flex>
-          {lassoEnabled && !hasSelection && (
-            <Text as="p" size="1" color="gray" mt="2">
-              Hold <Code size="1">Shift</Code> and drag on the map to draw a selection.
-            </Text>
+          {!hasSelection && (
+            <Callout.Root mt="4">
+              <Callout.Text>
+                Hold <Kbd>Shift</Kbd> and drag on the map to draw a selection.
+              </Callout.Text>
+            </Callout.Root>
           )}
           {hasSelection && (
             <Flex direction="column" gap="2" mt="2">
-              <Button size="1" variant="soft" color="red" onClick={onClearLasso}>
+              <Button
+                size="2"
+                variant="soft"
+                color="red"
+                onClick={onClearLasso}
+              >
+                <TrashIcon />
                 Clear selection
               </Button>
-              <Button size="1" variant="soft" onClick={onToggleStats}>
+              <Button size="2" variant="soft" onClick={onToggleStats}>
+                {statsOpen ? <Cross2Icon /> : <BarChartIcon />}
                 {statsOpen ? "Close lasso stats" : "Show lasso stats"}
               </Button>
             </Flex>
           )}
         </Box>
 
-        <Separator size="4" />
-
         {/* Data cache */}
         <Box p="3">
+          <Separator size="4" mb="3" />
           <Tooltip content="Clear the browser cache and reload fresh map data from the server">
-            <Button size="1" variant="ghost" color="gray" onClick={onPurge}>
-              <UpdateIcon /> Refresh map data
+            <Button
+              size="2"
+              mb={"4"}
+              variant="soft"
+              onClick={onPurge}
+              style={{ width: "100%" }}
+            >
+              <UpdateIcon /> Refresh data
             </Button>
           </Tooltip>
         </Box>
       </Box>
 
       {/* Map */}
-      <Box ref={mapAreaRef} style={{ position: "relative", flex: 1, minWidth: 0 }}>
+      <Box
+        ref={mapAreaRef}
+        style={{ position: "relative", flex: 1, minWidth: 0 }}
+      >
         <div id={DEEPSCATTER_ID} style={{ position: "absolute", inset: 0 }} />
 
         {/* lasso polygon (drawn while selecting) */}
@@ -705,23 +763,21 @@ export default function MapGraph() {
         )}
 
         {/* lasso capture overlay */}
-        {lassoEnabled && (
-          <div
-            ref={overlayRef}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 10,
-              cursor: "crosshair",
-              touchAction: "none",
-              userSelect: "none",
-              pointerEvents: shiftHeld || isDrawingRef.current ? "auto" : "none",
-            }}
-          />
-        )}
+        <div
+          ref={overlayRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+            cursor: "crosshair",
+            touchAction: "none",
+            userSelect: "none",
+            pointerEvents: shiftHeld || isDrawingRef.current ? "auto" : "none",
+          }}
+        />
 
         {(loading || error) && (
           <Flex
@@ -770,7 +826,12 @@ export default function MapGraph() {
               <Text size="2" weight="medium">
                 Summary
               </Text>
-              <IconButton size="1" variant="ghost" color="gray" onClick={() => setStatsOpen(false)}>
+              <IconButton
+                size="2"
+                variant="outline"
+                color="red"
+                onClick={() => setStatsOpen(false)}
+              >
                 <Cross1Icon />
               </IconButton>
             </Flex>
@@ -795,52 +856,46 @@ export default function MapGraph() {
                         {statsData.total}
                       </Text>
                     </Text>
-                    <Text size="1" color="gray">
-                      No. of countries:{" "}
-                      <Text size="1" weight="medium">
-                        {statsData.countryCount}
-                      </Text>
-                    </Text>
                   </Flex>
                   <Separator size="4" />
-                  <Box>
-                    <Text size="1" weight="bold" color="gray" style={{ letterSpacing: "0.06em" }}>
-                      TOP COUNTRIES
-                    </Text>
-                    <Box mt="2">
-                      <BarChart
-                        entries={statsData.topCountries}
-                        total={statsData.total}
-                        palette={COUNTRY_CHART_COLORS}
-                      />
-                    </Box>
-                  </Box>
-                  <Separator size="4" />
-                  <Box>
-                    <Text size="1" weight="bold" color="gray" style={{ letterSpacing: "0.06em" }}>
-                      TOP ORGANISMS
-                    </Text>
-                    <Box mt="2">
-                      {statsData.organisms === null ? (
-                        <Flex align="center" gap="2">
-                          <Spinner size="1" />
-                          <Text size="1" color="gray">
-                            Fetching organism data…
-                          </Text>
-                        </Flex>
-                      ) : statsData.organismsError ? (
-                        <Text size="1" color="gray">
-                          Failed to load organism data.
-                        </Text>
-                      ) : (
+                  <Flex gap="5" align="start">
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text size="2" weight="bold">
+                        Countries
+                      </Text>
+                      <Box mt="2">
                         <BarChart
-                          entries={statsData.organisms}
+                          entries={statsData.topCountries}
                           total={statsData.total}
-                          palette={ORGANISM_CHART_COLORS}
                         />
-                      )}
+                      </Box>
                     </Box>
-                  </Box>
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text size="2" weight="bold">
+                        Organisms
+                      </Text>
+                      <Box mt="2">
+                        {statsData.organisms === null ? (
+                          <Flex align="center" gap="2">
+                            <Spinner size="1" />
+                            <Text size="1" color="gray">
+                              Fetching organism data…
+                            </Text>
+                          </Flex>
+                        ) : statsData.organismsError ? (
+                          <Text size="1" color="gray">
+                            Failed to load organism data.
+                          </Text>
+                        ) : (
+                          <BarChart
+                            entries={statsData.organisms}
+                            total={statsData.total}
+                            fullLabels
+                          />
+                        )}
+                      </Box>
+                    </Box>
+                  </Flex>
                 </Flex>
               ) : null}
             </Box>
