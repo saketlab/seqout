@@ -14,7 +14,22 @@ export default function Wrapper({
 }: Readonly<{
   children: ReactNode;
 }>) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            // Treat fetched data as fresh for a minute so remounts and
+            // client-side navigation reuse the cache instead of refiring
+            // the request, and don't refetch just because the tab regained
+            // focus. Queries that need different behaviour (e.g. the stats
+            // cards with staleTime: Infinity) still override these per-query.
+            staleTime: 60_000,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute={"class"} defaultTheme="dark">
