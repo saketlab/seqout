@@ -1,6 +1,6 @@
 "use client";
 import { useToast } from "@/components/toast-provider";
-import { copyToClipboard } from "@/utils/clipboard";
+import { copySectionLink } from "@/utils/shareSectionLink";
 import { Link2Icon } from "@radix-ui/react-icons";
 import { useState } from "react";
 
@@ -10,25 +10,7 @@ export default function SectionAnchor({ id }: { id: string }) {
   const [hovered, setHovered] = useState(false);
 
   const handleClick = async () => {
-    const url = new URL(window.location.href);
-    url.hash = id;
-    const sectionUrl = url.toString();
-
-    let didCopy = false;
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(sectionUrl);
-        didCopy = true;
-      } catch {
-        didCopy = false;
-      }
-    }
-
-    if (!didCopy) {
-      didCopy = copyToClipboard(sectionUrl);
-    }
-
-    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);
+    const didCopy = await copySectionLink(id);
     setCopied(didCopy);
     window.setTimeout(() => setCopied(false), 1500);
     if (didCopy) showToast("Link to section copied");

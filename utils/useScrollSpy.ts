@@ -1,3 +1,4 @@
+import { parseSectionHash } from "@/utils/sectionHash";
 import { useEffect } from "react";
 
 /**
@@ -17,7 +18,9 @@ export function useScrollSpy(sectionIds: string[]) {
 
     const update = () => {
       const active = ids.find((id) => visibleSet.has(id));
-      const current = window.location.hash.slice(1);
+      // Compare against the section id only so a tab suffix (e.g.
+      // `#samples=enriched`) is preserved while that section stays in view.
+      const { id: current } = parseSectionHash(window.location.hash);
       if (active && active !== current) {
         history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${active}`);
       } else if (!active && current) {
