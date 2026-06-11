@@ -9,36 +9,24 @@ import {
   type ReactNode,
 } from "react";
 
-const STORAGE_KEY = "seqout:last-search-query";
-
-// Fallback for SSR and privacy-mode browsers where localStorage throws.
-let memoryFallback = "";
+// In-memory only: the last submitted query persists across client-side
+// navigation between pages (the provider lives above the router outlet),
+// but intentionally NOT across a full reload. We deliberately do NOT touch
+// localStorage — the search bar should only show a query the user actually
+// typed this session, never auto-fill itself on a fresh visit.
+let currentQuery = "";
 
 function readQuery(): string {
-  if (typeof window === "undefined") return memoryFallback;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? "";
-  } catch {
-    return memoryFallback;
-  }
+  return currentQuery;
 }
 
 function writeQuery(q: string): void {
-  memoryFallback = q;
-  if (typeof window === "undefined") return;
-  try {
-    if (q) {
-      window.localStorage.setItem(STORAGE_KEY, q);
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    /* privacy-mode browsers — silently skip */
-  }
+  currentQuery = q;
 }
 
-// localStorage's native "storage" event only fires in other tabs, so
-// we run our own pub/sub for same-tab writes.
+// Multiple components subscribe in the same tab (e.g. the results page sets
+// the query while the header bar reads it), so we run a small pub/sub to
+// keep every subscriber in sync.
 const listeners = new Set<() => void>();
 function subscribe(callback: () => void) {
   listeners.add(callback);
