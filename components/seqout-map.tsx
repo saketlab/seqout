@@ -6,6 +6,7 @@ import {
   BarChartIcon,
   Cross1Icon,
   Cross2Icon,
+  DownloadIcon,
   GlobeIcon,
   GroupIcon,
   InfoCircledIcon,
@@ -188,6 +189,7 @@ export default function MapGraph() {
   const isDrawingRef = useRef(false);
   const hasSelectionRef = useRef(false);
   hasSelectionRef.current = hasSelection;
+  const accessionsRef = useRef<string[]>([]);
 
   // ---- mount: build the scatterplot ---------------------------------------
   useEffect(() => {
@@ -392,6 +394,7 @@ export default function MapGraph() {
     setStatsLoading(true);
     const { accessions, countryCount, topCountries } =
       await engine.collectLassoData(sp);
+    accessionsRef.current = accessions;
     setStatsLoading(false);
     if (accessions.length === 0) {
       setStatsData({
@@ -426,6 +429,21 @@ export default function MapGraph() {
     if (statsOpen) setStatsOpen(false);
     else openStats();
   }, [statsOpen, openStats]);
+
+  const downloadAccessions = useCallback(() => {
+    const accessions = accessionsRef.current;
+    if (accessions.length === 0) return;
+    const csv = ["accessions", ...accessions].join("\n") + "\n";
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "lasso-accessions.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const onPurge = useCallback(async () => {
     await purgeMapCache();
@@ -826,14 +844,25 @@ export default function MapGraph() {
               <Text size="2" weight="medium">
                 Summary
               </Text>
-              <IconButton
-                size="2"
-                variant="outline"
-                color="red"
-                onClick={() => setStatsOpen(false)}
-              >
-                <Cross1Icon />
-              </IconButton>
+              <Flex align="center" gap="2">
+                <Button
+                  size="2"
+                  variant="soft"
+                  onClick={downloadAccessions}
+                  disabled={!statsData || statsData.empty}
+                >
+                  <DownloadIcon />
+                  Accessions
+                </Button>
+                <IconButton
+                  size="2"
+                  variant="outline"
+                  color="red"
+                  onClick={() => setStatsOpen(false)}
+                >
+                  <Cross1Icon />
+                </IconButton>
+              </Flex>
             </Flex>
             <Box p="4">
               {statsLoading ? (
