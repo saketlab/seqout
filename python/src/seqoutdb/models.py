@@ -543,3 +543,10 @@ class SampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
     sample: SampleMetadataResult
+
+
+# GEO sample detailed metadata (sample is channel-shaped, like an experiment sample)
+class GeoSampleDetailedMetadata(BaseModel):
+    sample_type: str
+    project: ProjectMetadataResult
+    sample: ExperimentSample
