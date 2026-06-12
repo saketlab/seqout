@@ -78,18 +78,10 @@ def main() -> None:
 
 def run_norm(accession: str, model_spec: str | None) -> None:
     from rich.console import Console
+    from rich.live import Live
     from rich.panel import Panel
-    from rich.progress import (
-        BarColumn,
-        MofNCompleteColumn,
-        Progress,
-        SpinnerColumn,
-        TextColumn,
-        TimeElapsedColumn,
-    )
-    from rich.table import Table
-
     from rich.prompt import Prompt
+    from rich.table import Table
 
     from seqoutdb.norm import (
         LABEL_FIELDS,
@@ -177,30 +169,6 @@ def run_norm(accession: str, model_spec: str | None) -> None:
         console.print(f"\n[red]Failed to prepare the model:[/] {e}")
         raise SystemExit(1)
 
-    # 3. run inference per sample
-    results: list[tuple[str, dict | None, str]] = []
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Normalizing samples", total=len(records))
-        for r in records:
-            progress.update(task, description=f"Normalizing {r.sample}")
-            try:
-                raw = engine.chat(SYS_PROMPT, r.user_prompt())
-                labels = parse_labels(raw)
-            except Exception as e:
-                raw, labels = f"<error: {e}>", None
-            results.append((r.sample, labels, raw))
-            progress.advance(task)
-
-    # 4. render the model response in the for-ref.md 16-field format. With a
-    #    single sample, lay it out vertically (field/value); with several, use
-    #    one row per sample (fields as columns).
     console.print()
 
     def cell(value) -> str:
@@ -215,48 +183,70 @@ def run_norm(accession: str, model_spec: str | None) -> None:
             )
         )
 
-    if len(results) == 1:
-        sample, labels, raw = results[0]
+    def normalize(record):
+        try:
+            raw = engine.chat(SYS_PROMPT, record.user_prompt())
+            return parse_labels(raw), raw
+        except Exception as e:
+            return None, f"<error: {e}>"
+
+    # 3. Single sample -> vertical field/value table (no streaming benefit).
+    if len(records) == 1:
+        r = records[0]
+        with console.status(f"[bold]Normalizing {r.sample}…[/]"):
+            labels, raw = normalize(r)
         if labels is None:
-            invalid_panel(sample, raw)
-        else:
-            table = Table(
-                title=sample,
-                show_lines=False,
-                header_style="bold green",
-                title_style="bold",
-            )
-            table.add_column("field", style="cyan", no_wrap=True)
-            table.add_column("value", overflow="fold")
-            for f in LABEL_FIELDS:
-                table.add_row(f, cell(labels.get(f)))
-            console.print(table)
+            invalid_panel(r.sample, raw)
+            return
+        table = Table(
+            title=r.sample,
+            show_lines=False,
+            header_style="bold green",
+            title_style="bold",
+        )
+        table.add_column("field", style="cyan", no_wrap=True)
+        table.add_column("value", overflow="fold")
+        for f in LABEL_FIELDS:
+            table.add_row(f, cell(labels.get(f)))
+        console.print(table)
         return
 
-    table = Table(
-        title="Normalized labels",
-        show_lines=True,
-        header_style="bold green",
-    )
-    table.add_column("sample", style="bold cyan", no_wrap=True)
-    for f in LABEL_FIELDS:
-        table.add_column(f, overflow="fold")
-    for sample, labels, raw in results:
-        if labels is None:
-            table.add_row(sample, *(["[red]—[/]"] * len(LABEL_FIELDS)))
-        else:
-            table.add_row(sample, *(cell(labels.get(f)) for f in LABEL_FIELDS))
-    # Render at the table's natural width so columns don't get crushed on a
-    # narrower terminal (it fits cleanly when the terminal is wide enough).
-    min_width = 14 * (len(LABEL_FIELDS) + 1)
-    if console.size.width >= min_width:
-        console.print(table)
-    else:
-        Console(width=min_width).print(table)
+    # 3b. Several samples -> stream one row per sample into a live table as each
+    #     finishes, then leave the full table rendered at its natural width.
+    def build_table() -> "Table":
+        t = Table(title="Normalized labels", show_lines=True, header_style="bold green")
+        t.add_column("sample", style="bold cyan", no_wrap=True)
+        for f in LABEL_FIELDS:
+            t.add_column(f, overflow="fold")
+        return t
 
-    for sample, labels, raw in results:
+    def add_result_row(t, sample, labels):
         if labels is None:
-            invalid_panel(sample, raw)
+            t.add_row(sample, *(["[red]—[/]"] * len(LABEL_FIELDS)))
+        else:
+            t.add_row(sample, *(cell(labels.get(f)) for f in LABEL_FIELDS))
+
+    invalid: list[tuple[str, str]] = []
+    live_table = build_table()
+    n = len(records)
+    with Live(live_table, console=console, transient=True, refresh_per_second=12) as live:
+        for i, r in enumerate(records, 1):
+            labels, raw = normalize(r)
+            if labels is None:
+                invalid.append((r.sample, raw))
+            add_result_row(live_table, r.sample, labels)
+            live_table.caption = f"normalized {i}/{n}"
+            live.update(live_table)
+
+    # Final, full-width render (the live view is transient and cleared on exit;
+    # live_table already holds every row).
+    live_table.caption = None
+    min_width = 14 * (len(LABEL_FIELDS) + 1)
+    target = console if console.size.width >= min_width else Console(width=min_width)
+    target.print(live_table)
+
+    for sample, raw in invalid:
+        invalid_panel(sample, raw)
 
 
 if __name__ == "__main__":
