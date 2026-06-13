@@ -157,7 +157,6 @@ class SearchResult(BaseModel):
     @model_validator(mode="after")
     def _normalize_countries(self):
         if self.countries:
-            # fix the top level country code
             self.country_code = self.countries[0].upper()
 
         self.countries = [code.upper() for code in self.countries]
@@ -182,7 +181,6 @@ class SearchResponse(BaseModel):
         return SearchResults(self.results)
 
 
-# wrapper over list of search results with a bunch of util methods
 class SearchResults(BaseContainer[SearchResult]):
     def offset(self, n: int) -> SearchResults:
         return SearchResults(self.root[n:])
@@ -204,10 +202,7 @@ class SearchResults(BaseContainer[SearchResult]):
                 if (field_val := getattr(r, field, None)) is not None
                 and (
                     field_val.casefold() == value.casefold()
-                    if is_string_filter
-                    and isinstance(
-                        field_val, str
-                    )  # if the field is a string then do case insensitive matching
+                    if is_string_filter and isinstance(field_val, str)
                     else field_val == value
                 )
             ]

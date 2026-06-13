@@ -64,7 +64,6 @@ class Seqout:
         timeout: int = DEFAULT_TIMEOUT,
     ) -> None:
         self._client = http_client or httpx.Client()
-        # is the http client created by seqout?
         self._own_client = http_client is None
         self._base_url = base_url
 
@@ -403,9 +402,8 @@ class Seqout:
             )
 
     def close(self) -> None:
+        # leave a caller-supplied client open; only close one we created
         if self._own_client:
-            # close the http client only if it was created seqout class
-            # if user passes his own instance of http client then it is not closed
             self._client.close()
 
     def __enter__(self) -> "Seqout":

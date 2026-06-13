@@ -60,10 +60,9 @@ DEFAULT_HF_REPO = "saketlab/seqoutlm-1B-GGUF"
 DEFAULT_OLLAMA_MODEL = f"hf.co/{DEFAULT_HF_REPO}"
 KNOWN_ENGINES = ("ollama", "llamacpp", "lmstudio")
 
+DEFAULT_PORTS = {"ollama": 11434, "llamacpp": 8080, "lmstudio": 1234}
 
-# ---------------------------------------------------------------------------
-# text helpers (mirrors for-ref.md)
-# ---------------------------------------------------------------------------
+
 _TAG_RE = re.compile(r"<[^>]+>")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+")
 _NONALNUM_RE = re.compile(r"[^A-Za-z0-9]+")
@@ -115,9 +114,6 @@ def _study_dict(title=None, summary=None, overall_design=None) -> dict:
     return out
 
 
-# ---------------------------------------------------------------------------
-# per-sample record
-# ---------------------------------------------------------------------------
 @dataclass
 class SampleRecord:
     sample: str
@@ -257,9 +253,6 @@ def build_records(sq: Seqout, accession: str, on_progress=None) -> list[SampleRe
     raise ValueError(f"don't know how to fetch samples for accession '{acc}'")
 
 
-# ---------------------------------------------------------------------------
-# inference engines
-# ---------------------------------------------------------------------------
 class EngineError(RuntimeError):
     """Raised with a user-facing message when an engine can't be prepared."""
 
@@ -362,11 +355,11 @@ class OllamaEngine:
     """Fully managed: starts `ollama serve`, pulls the model, and chats."""
 
     name = "ollama"
-    base = "http://localhost:11434"
     detected = False
 
-    def __init__(self, model: str):
+    def __init__(self, model: str, port: int = DEFAULT_PORTS["ollama"]):
         self.model = model
+        self.base = f"http://localhost:{port}"
 
     def hf_repo(self) -> str | None:
         if self.detected:
@@ -452,7 +445,7 @@ class _OpenAICompatEngine:
     """Shared client for llama.cpp / LM Studio OpenAI-compatible servers."""
 
     name = "openai-compat"
-    base = ""  # set by subclass, e.g. http://localhost:8080/v1
+    base = ""  # set per instance, e.g. http://localhost:8080/v1
     api_model = "default"
     repo = ""
     detected = False
@@ -461,6 +454,11 @@ class _OpenAICompatEngine:
         if self.detected:
             return None  # already being served; nothing to download
         return self.repo or None
+
+    def ensure_ready(self, status=None) -> None:
+        # base class is only used for already-running servers (detected=True);
+        # subclasses override this to launch a server.
+        return
 
     def chat(self, system: str, user: str) -> str:
         resp = httpx.post(
@@ -483,10 +481,11 @@ class LlamaCppEngine(_OpenAICompatEngine):
     """Serves the HF repo with `llama-server -hf <repo>`."""
 
     name = "llamacpp"
-    base = "http://localhost:8080/v1"
 
-    def __init__(self, repo: str):
+    def __init__(self, repo: str, port: int = DEFAULT_PORTS["llamacpp"]):
         self.repo = repo
+        self.port = port
+        self.base = f"http://localhost:{port}/v1"
 
     def ensure_ready(self, status=None) -> None:
         if self.detected:
@@ -497,24 +496,25 @@ class LlamaCppEngine(_OpenAICompatEngine):
                 "  Install it (e.g. `brew install llama.cpp`) and re-run, or use "
                 "`--model ollama/...`."
             )
+        health = f"http://localhost:{self.port}/health"
         try:
-            httpx.get("http://localhost:8080/health", timeout=2)
+            httpx.get(health, timeout=2)
             return
         except httpx.HTTPError:
             pass
         if status:
             status(f"Starting llama-server with {self.repo}")
         subprocess.Popen(
-            ["llama-server", "-hf", self.repo, "--port", "8080", "--jinja"],
+            ["llama-server", "-hf", self.repo, "--port", str(self.port), "--jinja"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=_subprocess_env(),
         )
-        if not _wait_for("http://localhost:8080/health", timeout=180):
+        if not _wait_for(health, timeout=180):
             raise EngineError(
                 "llama-server did not become ready (model download can take a while). "
                 "Try starting it manually: "
-                f"`llama-server -hf {self.repo} --port 8080 --jinja`"
+                f"`llama-server -hf {self.repo} --port {self.port} --jinja`"
             )
 
 
@@ -522,11 +522,12 @@ class LMStudioEngine(_OpenAICompatEngine):
     """Uses the `lms` CLI to start the server and load the model."""
 
     name = "lmstudio"
-    base = "http://localhost:1234/v1"
 
-    def __init__(self, repo: str):
+    def __init__(self, repo: str, port: int = DEFAULT_PORTS["lmstudio"]):
         self.repo = repo
         self.api_model = repo
+        self.port = port
+        self.base = f"http://localhost:{port}/v1"
 
     def ensure_ready(self, status=None) -> None:
         if self.detected:
@@ -545,7 +546,7 @@ class LMStudioEngine(_OpenAICompatEngine):
             stderr=subprocess.DEVNULL,
             env=_subprocess_env(),
         )
-        if not _wait_for("http://localhost:1234/v1/models", timeout=30):
+        if not _wait_for(f"{self.base}/models", timeout=30):
             raise EngineError("Could not start the LM Studio server (`lms server start`).")
         if status:
             status(f"Loading {self.repo} into LM Studio")
@@ -568,10 +569,10 @@ def _openai_loaded_model(base: str) -> str | None:
     return data[0].get("id") if data else None
 
 
-def _ollama_running_model() -> str | None:
+def _ollama_running_model(port: int = DEFAULT_PORTS["ollama"]) -> str | None:
     """Name of a model currently loaded in ollama (`/api/ps`), or None."""
     try:
-        resp = httpx.get("http://localhost:11434/api/ps", timeout=1.5)
+        resp = httpx.get(f"http://localhost:{port}/api/ps", timeout=1.5)
         resp.raise_for_status()
         models = resp.json().get("models") or []
     except (httpx.HTTPError, ValueError):
@@ -579,40 +580,68 @@ def _ollama_running_model() -> str | None:
     return models[0].get("name") if models else None
 
 
-def autodetect_engine():
-    """Find a model on any already-running server. Returns (engine, name, model)
+def autodetect_engine(port: int | None = None):
+    """Find a model on an already-running server. Returns (engine, name, model)
     with the engine marked as detected (so it won't download or prompt), or None.
+
+    With `port` set, only that port is probed (in llama.cpp -> LM Studio -> ollama
+    order); otherwise each engine's default port is tried.
     """
-    model = _openai_loaded_model("http://localhost:8080/v1")
+    llamacpp_port = port or DEFAULT_PORTS["llamacpp"]
+    model = _openai_loaded_model(f"http://localhost:{llamacpp_port}/v1")
     if model is not None:
-        engine = LlamaCppEngine(model)
+        engine = LlamaCppEngine(model, port=llamacpp_port)
         engine.api_model = model or "default"
         engine.detected = True
         return engine, "llamacpp", model or "(loaded model)"
 
-    model = _openai_loaded_model("http://localhost:1234/v1")
+    lmstudio_port = port or DEFAULT_PORTS["lmstudio"]
+    model = _openai_loaded_model(f"http://localhost:{lmstudio_port}/v1")
     if model is not None:
-        engine = LMStudioEngine(model)
+        engine = LMStudioEngine(model, port=lmstudio_port)
         engine.api_model = model or "default"
         engine.detected = True
         return engine, "lmstudio", model or "(loaded model)"
 
-    model = _ollama_running_model()
+    ollama_port = port or DEFAULT_PORTS["ollama"]
+    model = _ollama_running_model(ollama_port)
     if model:
-        engine = OllamaEngine(model)
+        engine = OllamaEngine(model, port=ollama_port)
         engine.detected = True
         return engine, "ollama", model
 
     return None
 
 
-def make_engine(engine: str, model: str):
+def engine_from_base_url(base_url: str):
+    """Build an OpenAI-compatible engine talking to an already-running server at
+    `base_url` (e.g. http://host:8080/v1). Marked detected: never launches or
+    downloads. Returns (engine, name, model) or raises EngineError if unreachable.
+    """
+    base = base_url.rstrip("/")
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+    model = _openai_loaded_model(base)
+    if model is None:
+        raise EngineError(
+            f"No OpenAI-compatible server reachable at {base}.\n"
+            "  Start one there first, e.g. "
+            "`llama-server -hf <repo> --port <port> --jinja`."
+        )
+    engine = _OpenAICompatEngine()
+    engine.base = base
+    engine.api_model = model or "default"
+    engine.detected = True
+    return engine, "openai-compat", model or "(loaded model)"
+
+
+def make_engine(engine: str, model: str, port: int | None = None):
     if engine == "ollama":
-        return OllamaEngine(model)
+        return OllamaEngine(model, port=port or DEFAULT_PORTS["ollama"])
     if engine == "llamacpp":
-        return LlamaCppEngine(model)
+        return LlamaCppEngine(model, port=port or DEFAULT_PORTS["llamacpp"])
     if engine == "lmstudio":
-        return LMStudioEngine(model)
+        return LMStudioEngine(model, port=port or DEFAULT_PORTS["lmstudio"])
     raise EngineError(
         f"unknown engine '{engine}'. Use one of: {', '.join(KNOWN_ENGINES)} "
         "(e.g. --model ollama/hf.co/saketlab/seqoutlm-1B-GGUF)"

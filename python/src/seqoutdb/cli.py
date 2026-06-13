@@ -48,6 +48,24 @@ def main() -> None:
             "Defaults to ollama/hf.co/saketlab/seqoutlm-1B-GGUF"
         ),
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        metavar="PORT",
+        help=(
+            "port the local model server listens on. A running server there is "
+            "reused; otherwise --model is started on it "
+            "(default: 8080 llamacpp, 1234 lmstudio, 11434 ollama)"
+        ),
+    )
+    parser.add_argument(
+        "--base-url",
+        metavar="URL",
+        help=(
+            "talk to an already-running OpenAI-compatible server at this URL "
+            "(e.g. http://host:8080/v1); never starts one. Overrides --model/--port"
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -61,7 +79,7 @@ def main() -> None:
         raise SystemExit(1)
 
     if args.norm is not None:
-        run_norm(args.norm, args.model)
+        run_norm(args.norm, args.model, port=args.port, base_url=args.base_url)
 
     if args.enriched is not None:
         with Seqout() as sq:
@@ -76,7 +94,12 @@ def main() -> None:
         print(result.to_df().to_string(index=False))
 
 
-def run_norm(accession: str, model_spec: str | None) -> None:
+def run_norm(
+    accession: str,
+    model_spec: str | None,
+    port: int | None = None,
+    base_url: str | None = None,
+) -> None:
     from rich.console import Console
     from rich.live import Live
     from rich.panel import Panel
@@ -89,6 +112,7 @@ def run_norm(accession: str, model_spec: str | None) -> None:
         EngineError,
         autodetect_engine,
         build_records,
+        engine_from_base_url,
         hf_repo_is_private,
         hf_token_from_env,
         make_engine,
@@ -118,22 +142,26 @@ def run_norm(accession: str, model_spec: str | None) -> None:
         console.print(f"[yellow]No samples found for {accession}.[/]")
         raise SystemExit(1)
 
-    # 2. pick the model: an explicit --model wins; otherwise reuse whatever a
-    #    running llama.cpp / LM Studio / ollama server already has loaded; and if
-    #    nothing is running, fall back to the default (pull on first use).
-    if model_spec is not None:
-        engine_name, model_name = parse_model_spec(model_spec)
-        engine = make_engine(engine_name, model_name)
-        detected = False
+    # 2. pick the model. --base-url points at an already-running server and never
+    #    starts one. Otherwise: reuse a server already running on the target port
+    #    (even when --model was given), and only start one if nothing is there —
+    #    using --model if supplied, else the default (pull/download on first use).
+    detected = False
+    if base_url is not None:
+        try:
+            engine, engine_name, model_name = engine_from_base_url(base_url)
+        except EngineError as e:
+            console.print(f"[red]{e}[/]")
+            raise SystemExit(1)
+        detected = True
     else:
-        found = autodetect_engine()
+        found = autodetect_engine(port)
         if found is not None:
             engine, engine_name, model_name = found
             detected = True
         else:
-            engine_name, model_name = parse_model_spec(None)
-            engine = make_engine(engine_name, model_name)
-            detected = False
+            engine_name, model_name = parse_model_spec(model_spec)
+            engine = make_engine(engine_name, model_name, port=port)
 
     label = f"[dim]Engine:[/] {engine_name}   [dim]Model:[/] {model_name}"
     if detected:

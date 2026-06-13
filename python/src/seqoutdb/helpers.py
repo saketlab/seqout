@@ -65,7 +65,6 @@ def _send_req(
         except ValidationError as e:
             raise ValueError(f"unexpected response format: {e}") from e
 
-    # just to pleasure the lsp
     return response_model()
 
 

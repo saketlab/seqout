@@ -6,8 +6,8 @@ from pathlib import Path
 from seqoutdb import SearchParams, Seqout, country_code_to_name
 
 output_dir = Path("./output")
-shutil.rmtree(output_dir, ignore_errors=True)  # delete the folder
-output_dir.mkdir(exist_ok=True)  # create it freshly
+shutil.rmtree(output_dir, ignore_errors=True)
+output_dir.mkdir(exist_ok=True)
 
 with Seqout() as sq:
     # find top 50 cited papers related to 16S rRNA amplicon sequencing
