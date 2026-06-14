@@ -50,7 +50,7 @@ export default function HeroSearchBar() {
     : [];
 
   return (
-    <Box width={{ initial: "92%", md: "50%" }}>
+    <Box width={{ initial: "92%", md: "50%" }} style={{ position: "relative" }}>
       <Flex direction={"column"} gap={"4"}>
         <form onSubmit={handleSubmit}>
           <TextField.Root
@@ -136,7 +136,7 @@ export default function HeroSearchBar() {
         onHistoryClick={handleHistoryClick}
         onRemoveItem={removeItem}
         activeItem={activeIndex >= 0 ? filteredHistory[activeIndex] : null}
-        position="relative"
+        position="absolute"
       />
     </Box>
   );
