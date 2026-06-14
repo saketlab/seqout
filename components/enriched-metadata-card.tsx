@@ -1,7 +1,11 @@
 "use client";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
-import { InfoCircledIcon, MagicWandIcon } from "@radix-ui/react-icons";
+import {
+  ExclamationTriangleIcon,
+  InfoCircledIcon,
+  MagicWandIcon,
+} from "@radix-ui/react-icons";
 import { Badge, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
@@ -38,16 +42,86 @@ function ontologyUrl(id: string): string | null {
   return `${base}${id.replace(":", "_")}`;
 }
 
+/**
+ * Fields that inherit a low-confidence flag when `organism` is uncertain —
+ * an unreliable organism call undermines these organism-dependent attributes.
+ */
+const ORGANISM_DEPENDENT_FIELDS = [
+  "tissue",
+  "disease",
+  "sample_type",
+  "cell_line",
+  "taxid",
+];
+
+/** Whether `field` is flagged low-confidence for the given sample row. */
+function isLowConfidence(
+  data: OntologySample | undefined,
+  field: string | undefined,
+): boolean {
+  if (!data || !field) return false;
+  const tags = data["low_confidence_tags"];
+  if (!Array.isArray(tags)) return false;
+  if (tags.includes(field)) return true;
+  return (
+    tags.includes("organism") && ORGANISM_DEPENDENT_FIELDS.includes(field)
+  );
+}
+
+/** Amber warning badge shown in cells flagged as low-confidence. */
+function LowConfidenceBadge() {
+  return (
+    <Tooltip content="Low-confidence value">
+      <Badge
+        color="amber"
+        size="1"
+        variant="soft"
+        style={{ cursor: "help", flexShrink: 0 }}
+      >
+        <ExclamationTriangleIcon />
+      </Badge>
+    </Tooltip>
+  );
+}
+
+/**
+ * Default cell renderer that shows the (optionally formatted) value and
+ * appends a low-confidence warning badge when the field is flagged for the row.
+ */
+function PlainCellRenderer(params: ICellRendererParams<OntologySample>) {
+  const field = params.colDef?.field;
+  const low = isLowConfidence(params.data, field);
+  const text = params.valueFormatted ?? params.value ?? "";
+  return (
+    <Flex align="center" gap="1" style={{ overflow: "hidden" }}>
+      <Text truncate size="2">
+        {text}
+      </Text>
+      {low && <LowConfidenceBadge />}
+    </Flex>
+  );
+}
+
 function OntologyCellRenderer(idField: string, nameField: string) {
   return function Renderer(params: ICellRendererParams<OntologySample>) {
     const raw = params.value;
     const data = params.data;
+    const low = isLowConfidence(data, params.colDef?.field);
     if (!data) return <>{raw ?? ""}</>;
 
     const ontoName = data[nameField];
     const ontoId = data[idField];
 
-    if (!ontoId || !ontoName) return <>{raw ?? ""}</>;
+    if (!ontoId || !ontoName) {
+      return (
+        <Flex align="center" gap="1" style={{ overflow: "hidden" }}>
+          <Text truncate size="2">
+            {raw ?? ""}
+          </Text>
+          {low && <LowConfidenceBadge />}
+        </Flex>
+      );
+    }
 
     const prefix = ontoId.split(":")[0];
     const url = ontologyUrl(ontoId);
@@ -78,6 +152,7 @@ function OntologyCellRenderer(idField: string, nameField: string) {
             </Badge>
           )}
         </Tooltip>
+        {low && <LowConfidenceBadge />}
       </Flex>
     );
   };
@@ -275,6 +350,7 @@ export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
       return {
         ...base,
         comparator: numericComparator,
+        cellRenderer: PlainCellRenderer,
         valueFormatter: (params: { data?: OntologySample }) => {
           if (!params.data) return "";
           const count = params.data["cell_count"];
@@ -290,6 +366,7 @@ export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
       return {
         ...base,
         comparator: numericComparator,
+        cellRenderer: PlainCellRenderer,
         valueFormatter: (params: { value?: number | null }) => {
           if (params.value == null) return "";
           return params.value.toLocaleString();
@@ -307,7 +384,7 @@ export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
               return params.data[onto.name] ?? params.data[f.field] ?? null;
             },
           }
-        : {}),
+        : { cellRenderer: PlainCellRenderer }),
     };
   });
 
@@ -334,6 +411,21 @@ export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
           ~ Cell counts marked with ~ are series-level estimates distributed
           across samples.
         </Text>
+      )}
+      {data.samples.some(
+        (s) =>
+          Array.isArray(s["low_confidence_tags"]) &&
+          s["low_confidence_tags"].length > 0,
+      ) && (
+        <Flex align="center" gap="1">
+          <Text size="1" color="gray">
+            Cells marked with{" "}
+            <ExclamationTriangleIcon
+              style={{ display: "inline", verticalAlign: "-2px" }}
+            />{" "}
+            are low-confidence values.
+          </Text>
+        </Flex>
       )}
     </>
   );
