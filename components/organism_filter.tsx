@@ -80,6 +80,70 @@ function parseCommonName(payload: unknown): string | null {
   return null;
 }
 
+const commonNameCache = new Map<string, string | null>();
+const commonNameRequests = new Map<string, Promise<string | null>>();
+
+function getCachedCommonNames(scientificNames: string[]): Map<string, string> {
+  const commonNames = new Map<string, string>();
+
+  for (const scientificName of scientificNames) {
+    const commonName = commonNameCache.get(scientificName);
+    if (commonName) {
+      commonNames.set(scientificName, commonName);
+    }
+  }
+
+  return commonNames;
+}
+
+async function fetchCommonName(
+  scientificName: string,
+): Promise<string | null> {
+  if (commonNameCache.has(scientificName)) {
+    return commonNameCache.get(scientificName) ?? null;
+  }
+
+  const existingRequest = commonNameRequests.get(scientificName);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = (async () => {
+    try {
+      const url = `${SERVER_URL}/common-name?scientific_name=${encodeURIComponent(
+        scientificName,
+      )}`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+
+      const raw = (await res.text()).trim();
+      if (!raw) return null;
+
+      let payload: unknown = raw;
+      try {
+        payload = JSON.parse(raw);
+      } catch {}
+
+      return (
+        parseCommonName(payload) ??
+        (payload !== raw ? parseCommonName(raw) : null)
+      );
+    } catch {
+      return null;
+    }
+  })()
+    .then((commonName) => {
+      commonNameCache.set(scientificName, commonName);
+      return commonName;
+    })
+    .finally(() => {
+      commonNameRequests.delete(scientificName);
+    });
+
+  commonNameRequests.set(scientificName, request);
+  return request;
+}
+
 function buildCommonFacets(
   scientificFacets: ScientificFacet[],
   commonNamesByScientific: Map<string, string>,
@@ -234,58 +298,31 @@ export function OrganismFilter({
     () => buildScientificFacets(results),
     [results],
   );
-  const [commonNamesByScientific, setCommonNamesByScientific] = React.useState(
-    new Map<string, string>(),
+  const scientificNames = React.useMemo(
+    () => scientificFacets.map((facet) => facet.name),
+    [scientificFacets],
   );
-  const cacheRef = React.useRef(new Map<string, string>());
+  const [, refreshCommonNames] = React.useReducer(
+    (version: number) => version + 1,
+    0,
+  );
+  const commonNamesByScientific = getCachedCommonNames(scientificNames);
 
   React.useEffect(() => {
-    if (mode !== "common" || scientificFacets.length === 0) return;
+    if (mode !== "common" || scientificNames.length === 0) return;
 
-    const scientificNames = scientificFacets.map((facet) => facet.name);
     const missing = scientificNames.filter(
-      (name) => !cacheRef.current.has(name),
+      (name) => !commonNameCache.has(name),
     );
-    if (missing.length === 0) {
-      setCommonNamesByScientific(new Map(cacheRef.current));
-      return;
-    }
+    if (missing.length === 0) return;
 
     let cancelled = false;
 
     const fetchMissing = async () => {
-      await Promise.all(
-        missing.map(async (scientificName) => {
-          try {
-            const url = `${SERVER_URL}/common-name?scientific_name=${encodeURIComponent(
-              scientificName,
-            )}`;
-            const res = await fetch(url);
-            if (!res.ok) return;
-
-            const raw = (await res.text()).trim();
-            if (!raw) return;
-
-            let payload: unknown = raw;
-            try {
-              payload = JSON.parse(raw);
-            } catch {
-              // Non-JSON responses are valid; treat as plain text.
-            }
-
-            const commonName =
-              parseCommonName(payload) ??
-              (payload !== raw ? parseCommonName(raw) : null);
-            if (!commonName) return;
-            cacheRef.current.set(scientificName, commonName);
-          } catch {
-            // Best-effort only: leave unresolved values as scientific names.
-          }
-        }),
-      );
+      await Promise.all(missing.map(fetchCommonName));
 
       if (!cancelled) {
-        setCommonNamesByScientific(new Map(cacheRef.current));
+        refreshCommonNames();
       }
     };
 
@@ -294,7 +331,7 @@ export function OrganismFilter({
     return () => {
       cancelled = true;
     };
-  }, [mode, scientificFacets]);
+  }, [mode, scientificNames]);
 
   const facets = React.useMemo(
     () => buildDisplayFacets(scientificFacets, mode, commonNamesByScientific),
