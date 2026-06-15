@@ -124,7 +124,7 @@ export function ExportFooter({
         gap="3"
         wrap="wrap"
       >
-        <Text size="1" style={{ color: "var(--gray-9)", lineHeight: 1.4 }}>
+        <Text size="1" style={{ color: "var(--gray-11)", lineHeight: 1.4 }}>
           Source:{" "}
           <a
             href="https://seqout.org"
@@ -137,7 +137,7 @@ export function ExportFooter({
         </Text>
 
         <Flex align="center" gap="3">
-          <Text size="1" style={{ color: "var(--gray-9)" }}>
+          <Text size="1" style={{ color: "var(--gray-11)" }}>
             CC-BY seqout.org
           </Text>
           <Tooltip content={copied ? "Copied!" : "Copy chart to clipboard"}>

@@ -7,11 +7,13 @@ import { SERVER_URL } from "@/utils/constants";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { loess } from "@/utils/smooth";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 import { Cross1Icon } from "@radix-ui/react-icons";
 import {
   Badge,
   Checkbox,
   Flex,
+  Heading,
   IconButton,
   ScrollArea,
   SegmentedControl,
@@ -109,6 +111,7 @@ export default function StatsPlatformComparisonCard() {
   const [db, setDb] = useState<DbFilter>("overall");
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reduced = useReducedMotion();
 
   const { data: totalsData, isLoading: totalsLoading } = useQuery({
     queryKey: ["platform-totals"],
@@ -235,7 +238,7 @@ export default function StatsPlatformComparisonCard() {
           export: { svg: { filename: "seqout-platform-comparison" } },
         },
         zoom: { enabled: true },
-        animations: { enabled: false },
+        animations: { enabled: !reduced },
         events: chartFooterEvents,
       },
       theme: { mode: isDark ? "dark" : "light" },
@@ -286,7 +289,7 @@ export default function StatsPlatformComparisonCard() {
           : {}),
       },
     };
-  }, [isDark, logScale, view, mode, useSmooth, chartSeries]);
+  }, [isDark, logScale, view, mode, useSmooth, chartSeries, reduced]);
 
   const platformOptions = useMemo(() => {
     return (totalsData?.platforms ?? []).map((p) => ({
@@ -305,9 +308,9 @@ export default function StatsPlatformComparisonCard() {
     >
       <Flex direction="column" mb="4" gap="3">
         <Flex align="center" gap="2">
-          <Text size="5" weight="bold" ml="1">
+          <Heading as="h2" size="5" weight="bold" ml="1">
             Platform comparison
-          </Text>
+          </Heading>
           <SectionAnchor id="comparison" />
         </Flex>
 
@@ -326,6 +329,7 @@ export default function StatsPlatformComparisonCard() {
                 <IconButton
                   size="1"
                   variant="ghost"
+                  aria-label={`Remove ${displayNames.get(p) ?? p}`}
                   style={{ color: "white", marginLeft: 2 }}
                   onClick={() => removePlatform(p)}
                 >

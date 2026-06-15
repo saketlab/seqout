@@ -28,6 +28,7 @@ import {
   Badge,
   Button,
   Flex,
+  Heading,
   Link,
   Spinner,
   Text,
@@ -645,9 +646,9 @@ function RunsSection({
   return (
     <>
       <Flex id="runs" align="center" gap="2">
-        <Text weight="medium" size="5">
+        <Heading as="h2" weight="medium" size="5">
           Runs
-        </Text>
+        </Heading>
         <SectionAnchor id="runs" />
         <Badge size="2" color="gray">
           {runs.length} run{runs.length !== 1 ? "s" : ""}
@@ -878,9 +879,9 @@ export default function SampleDetailPage() {
         >
           {/* Sample header */}
           <Flex justify="between" style={{ width: "100%" }} align="center">
-            <Text size={{ initial: "4", md: "6" }} weight="bold">
+            <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
               {sample?.title || accession}
-            </Text>
+            </Heading>
           </Flex>
 
           <Flex justify="start" align="center" gap="2" wrap="wrap">
@@ -972,9 +973,9 @@ export default function SampleDetailPage() {
           {/* Sample detail */}
           <Flex direction="column" gap="3">
             <Flex id="sample" align="center" gap="2">
-              <Text weight="medium" size="5">
+              <Heading as="h2" weight="medium" size="5">
                 Sample metadata
-              </Text>
+              </Heading>
               <SectionAnchor id="sample" />
             </Flex>
             {sampleType === "geo_sample" && sample ? (
@@ -996,9 +997,9 @@ export default function SampleDetailPage() {
           {project && (
             <Flex direction="column" gap="3">
               <Flex id="project" align="center" gap="2">
-                <Text weight="medium" size="5">
+                <Heading as="h2" weight="medium" size="5">
                   Parent project
-                </Text>
+                </Heading>
                 <SectionAnchor id="project" />
                 {projectAccession && (
                   <a href={`/p/${projectAccession}`}>
@@ -1034,9 +1035,9 @@ export default function SampleDetailPage() {
           {publications && publications.length > 0 && (
             <Flex direction="column" gap="3">
               <Flex id="publications" align="center" gap="2">
-                <Text weight="medium" size="5">
+                <Heading as="h2" weight="medium" size="5">
                   Publications
-                </Text>
+                </Heading>
                 <SectionAnchor id="publications" />
               </Flex>
               {publications.map((pub, i) => (

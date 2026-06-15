@@ -20,6 +20,11 @@ import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { titleCaseCenter } from "@/utils/format";
 import {
+  normalizeAuthors,
+  parsePostgresTextArray,
+  toDisplayText,
+} from "@/utils/project";
+import {
   getOrganismBannerStyle,
   makeOrganismPostSort,
   makeOrganismRowStyle,
@@ -44,6 +49,7 @@ import {
   Button,
   Dialog,
   Flex,
+  Heading,
   Link,
   Spinner,
   Text,
@@ -170,66 +176,6 @@ type LinkedRunsData = React.ComponentProps<
   typeof DownloadFastqSection
 >["runsData"];
 
-const toDisplayText = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "-";
-  return String(value);
-};
-
-const parsePostgresTextArray = (value: string): string[] => {
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-    return [];
-  }
-
-  const content = trimmed.slice(1, -1);
-  if (!content) {
-    return [];
-  }
-
-  const items: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  let escaped = false;
-
-  for (const char of content) {
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-
-    if (char === "\\") {
-      if (inQuotes) {
-        escaped = true;
-      } else {
-        current += char;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      if (current.trim()) {
-        items.push(current.trim());
-      }
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-
-  if (current.trim()) {
-    items.push(current.trim());
-  }
-
-  return items;
-};
-
 const normalizeAliases = (value: Project["alias"]): string[] => {
   if (!value) return [];
 
@@ -264,33 +210,6 @@ const normalizeAliases = (value: Project["alias"]): string[] => {
     .filter((alias) => alias.length > 0)
     .forEach((alias) => deduped.add(alias));
   return Array.from(deduped);
-};
-
-const normalizeAuthors = (value: Project["authors"]): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.map((author) => author.trim()).filter(Boolean);
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter((author): author is string => typeof author === "string")
-        .map((author) => author.trim())
-        .filter(Boolean);
-    }
-  } catch {
-    // Fall through to plain-text parsing.
-  }
-
-  return trimmed
-    .split(",")
-    .map((author) => author.trim())
-    .filter(Boolean);
 };
 
 const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
@@ -1560,9 +1479,9 @@ export default function GeoProjectPage() {
             gap="4"
           >
             <Flex justify="between" style={{ width: "100%" }} align="center">
-              <Text size={{ initial: "4", md: "6" }} weight="bold">
+              <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
                 {project.title}
-              </Text>
+              </Heading>
             </Flex>
             <Flex justify={"start"} align="center" gap="2" wrap="wrap">
               <Badge
@@ -1833,9 +1752,9 @@ export default function GeoProjectPage() {
                 );
               })()}
             <Flex id="overall-design" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Overall design
-              </Text>
+              </Heading>
               <SectionAnchor id="overall-design" />
             </Flex>
             <ProjectSummary
@@ -2017,9 +1936,9 @@ export default function GeoProjectPage() {
             />
 
             <Flex id="publications" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Linked publications
-              </Text>
+              </Heading>
               <SectionAnchor id="publications" />
             </Flex>
 
@@ -2049,9 +1968,9 @@ export default function GeoProjectPage() {
               />
             ))}
             <Flex id="supplementary" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Supplementary Data
-              </Text>
+              </Heading>
               <SectionAnchor id="supplementary" />
             </Flex>
             {supplementaryDataItems.length === 0 && (
@@ -2374,9 +2293,9 @@ export default function GeoProjectPage() {
             )}
 
             <Flex id="similar" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Similar projects
-              </Text>
+              </Heading>
               <Badge color="teal" size={"2"}>
                 Beta
               </Badge>

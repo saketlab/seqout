@@ -24,6 +24,7 @@ import {
   makeOrganismPostSort,
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
+import { normalizeAuthors, toDisplayText } from "@/utils/project";
 import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
@@ -44,6 +45,7 @@ import {
   Button,
   Dialog,
   Flex,
+  Heading,
   Link,
   Select,
   Spinner,
@@ -206,38 +208,6 @@ const getBestCloudUrl = (run: RunRow): string =>
   run.ncbi_sra_url ||
   run.ncbi_sra_url_aws ||
   "";
-
-const normalizeAuthors = (value: Project["authors"]): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.map((author) => author.trim()).filter(Boolean);
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter((author): author is string => typeof author === "string")
-        .map((author) => author.trim())
-        .filter(Boolean);
-    }
-  } catch {
-    // Fall through to plain-text parsing.
-  }
-
-  return trimmed
-    .split(",")
-    .map((author) => author.trim())
-    .filter(Boolean);
-};
-
-const toDisplayText = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "-";
-  return String(value);
-};
 
 const fetchProject = async (
   accession: string | null,
@@ -1182,9 +1152,9 @@ export function DownloadFastqSection({
     <>
       <Flex id="fastq" justify="between" align="center" wrap="wrap" gap="2">
         <Flex align="center" gap="2">
-          <Text weight="medium" size="6">
+          <Heading as="h2" weight="medium" size="6">
             FASTQ files
-          </Text>
+          </Heading>
           <SectionAnchor id="fastq" />
         </Flex>
         <Badge size={{ initial: "2", md: "3" }} color="gray">
@@ -1620,9 +1590,9 @@ function BamFilesSection({
     <>
       <Flex id="bam" justify="between" align="center">
         <Flex align="center" gap="2">
-          <Text weight="medium" size="6">
+          <Heading as="h2" weight="medium" size="6">
             BAM files
-          </Text>
+          </Heading>
           <SectionAnchor id="bam" />
           <Badge size={{ initial: "2", md: "3" }} color="orange">
             {bamsData.total_bams.toLocaleString()} files
@@ -2245,9 +2215,9 @@ export default function ProjectPage() {
             gap="4"
           >
             <Flex justify="between" style={{ width: "100%" }} align="center">
-              <Text size={{ initial: "4", md: "6" }} weight="bold">
+              <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
                 {project.title}
-              </Text>
+              </Heading>
             </Flex>
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
               <Badge
@@ -2612,9 +2582,9 @@ export default function ProjectPage() {
               }
             />
             <Flex id="publications" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Linked publications
-              </Text>
+              </Heading>
               <SectionAnchor id="publications" />
             </Flex>
 
@@ -2662,9 +2632,9 @@ export default function ProjectPage() {
             )}
 
             <Flex id="similar" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Similar projects
-              </Text>
+              </Heading>
               <Badge color="teal" size={"2"}>
                 Beta
               </Badge>

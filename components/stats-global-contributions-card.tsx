@@ -17,10 +17,12 @@ import {
   getMapPanelBackground,
 } from "@/utils/chart-theme";
 import { copyToClipboard } from "@/utils/clipboard";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 import { CheckIcon, CopyIcon, Cross1Icon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
   Card,
   Flex,
+  Heading,
   IconButton,
   Link,
   Popover,
@@ -344,6 +346,7 @@ export default function StatsGlobalContributionsCard() {
   const { resolvedTheme } = useTheme();
   const { showToast } = useToast();
   const isDark = resolvedTheme === "dark";
+  const reduced = useReducedMotion();
   const agGridThemeClassName = isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz";
 
   const activeFilters = {
@@ -641,11 +644,11 @@ export default function StatsGlobalContributionsCard() {
         getFillColor: [scaleBy, isDark],
       },
       transitions: {
-        getRadius: 300,
-        getFillColor: 300,
+        getRadius: reduced ? 0 : 300,
+        getFillColor: reduced ? 0 : 300,
       },
     });
-  }, [data, scaleBy, isDark, sizeFactor]);
+  }, [data, scaleBy, isDark, sizeFactor, reduced]);
 
   const indiaBorderLayer = useMemo(
     () =>
@@ -789,17 +792,17 @@ export default function StatsGlobalContributionsCard() {
       <Flex justify="between" align="center" mb="3" gap="3" wrap="wrap">
         <Flex direction="column" gap="1">
           <Flex align="center" gap="2">
-            <Text size="5" weight="bold" ml="1">
+            <Heading as="h2" size="5" weight="bold" ml="1">
               Data origin
               {isFetching && !isLoading && (
-                <Text size="2" ml="2" style={{ color: "var(--gray-9)" }}>
+                <Text size="2" ml="2" style={{ color: "var(--gray-11)" }}>
                   updating...
                 </Text>
             )}
-          </Text>
+          </Heading>
             <SectionAnchor id="map" />
           </Flex>
-          <Text size="2" ml="1" style={{ color: "var(--gray-9)" }}>
+          <Text size="2" ml="1" style={{ color: "var(--gray-11)" }}>
             {data
               ? `${humanize(data.total)} locations across ${humanize(data.locations.reduce((s, d) => s + d.n_projects, 0))} projects`
               : "Loading..."}
@@ -808,7 +811,7 @@ export default function StatsGlobalContributionsCard() {
         </Flex>
         <Flex gap="3" align="center" wrap="wrap">
           <Flex gap="2" align="center">
-            <Text size="1" style={{ color: "var(--gray-9)" }}>
+            <Text size="1" style={{ color: "var(--gray-11)" }}>
               Point size
             </Text>
             <Slider
@@ -838,7 +841,7 @@ export default function StatsGlobalContributionsCard() {
 
       <Flex gap="3" mb="3" wrap="wrap" align="center">
         <Flex gap="2" align="center">
-          <Text size="1" style={{ color: "var(--gray-9)" }}>
+          <Text size="1" style={{ color: "var(--gray-11)" }}>
             Organism
           </Text>
           <Select.Root value={organism} onValueChange={setOrganism} size="1">
@@ -859,7 +862,7 @@ export default function StatsGlobalContributionsCard() {
         </Flex>
 
         <Flex gap="2" align="center">
-          <Text size="1" style={{ color: "var(--gray-9)" }}>
+          <Text size="1" style={{ color: "var(--gray-11)" }}>
             Assay
           </Text>
           <Select.Root value={assayL2} onValueChange={setAssayL2} size="1">
@@ -880,7 +883,7 @@ export default function StatsGlobalContributionsCard() {
         </Flex>
 
         <Flex gap="2" align="center">
-          <Text size="1" style={{ color: "var(--gray-9)" }}>
+          <Text size="1" style={{ color: "var(--gray-11)" }}>
             Place type
           </Text>
           <Select.Root value={placeType} onValueChange={setPlaceType} size="1">
@@ -901,7 +904,7 @@ export default function StatsGlobalContributionsCard() {
         </Flex>
 
         <Flex gap="2" align="center">
-          <Text size="1" style={{ color: "var(--gray-9)" }}>
+          <Text size="1" style={{ color: "var(--gray-11)" }}>
             Address type
           </Text>
           <Select.Root value={addressType} onValueChange={setAddressType} size="1">
@@ -1014,7 +1017,7 @@ export default function StatsGlobalContributionsCard() {
                         </Text>
                       )}
                       {selectedLocation.point.place_type && (
-                        <Text size="1" style={{ color: "var(--gray-9)", fontStyle: "italic" }}>
+                        <Text size="1" style={{ color: "var(--gray-11)", fontStyle: "italic" }}>
                           {selectedLocation.point.place_type}
                           {selectedLocation.point.address_type && ` · ${selectedLocation.point.address_type}`}
                         </Text>
@@ -1075,7 +1078,7 @@ export default function StatsGlobalContributionsCard() {
                       {selectedLocation.point.top_organisms.map((o) => (
                         <Text size="1" key={o.name} style={{ color: "var(--gray-12)" }}>
                           {o.name}{" "}
-                          <Text size="1" style={{ color: "var(--gray-9)" }}>({o.count.toLocaleString()})</Text>
+                          <Text size="1" style={{ color: "var(--gray-11)" }}>({o.count.toLocaleString()})</Text>
                         </Text>
                       ))}
                     </Flex>
@@ -1119,7 +1122,7 @@ export default function StatsGlobalContributionsCard() {
             minWidth={180}
           />
           <Flex gap="2" align="center">
-            <Text size="1" style={{ color: "var(--gray-9)" }}>Organism</Text>
+            <Text size="1" style={{ color: "var(--gray-11)" }}>Organism</Text>
             <SearchableSelect
               value={organism}
               onValueChange={(v) => {
@@ -1136,7 +1139,7 @@ export default function StatsGlobalContributionsCard() {
             />
           </Flex>
           <Flex gap="2" align="center">
-            <Text size="1" style={{ color: "var(--gray-9)" }}>Assay</Text>
+            <Text size="1" style={{ color: "var(--gray-11)" }}>Assay</Text>
             <SearchableSelect
               value={assayL2}
               onValueChange={setAssayL2}
@@ -1152,7 +1155,7 @@ export default function StatsGlobalContributionsCard() {
 
           {selectedCountry !== ALL && (
             <Flex gap="2" align="center">
-              <Text size="1" style={{ color: "var(--gray-9)" }}>
+              <Text size="1" style={{ color: "var(--gray-11)" }}>
                 {countryTableRows.length.toLocaleString()} locations ·{" "}
                 {countryTableProjectTotal.toLocaleString()} projects ·{" "}
                 {countryTableExperimentTotal.toLocaleString()} experiments
@@ -1168,7 +1171,7 @@ export default function StatsGlobalContributionsCard() {
                 {copyState === "done" ? <CheckIcon /> : <CopyIcon />}
               </IconButton>
               {copyState === "loading" && (
-                <Text size="1" style={{ color: "var(--gray-9)" }}>
+                <Text size="1" style={{ color: "var(--gray-11)" }}>
                   fetching...
                 </Text>
               )}

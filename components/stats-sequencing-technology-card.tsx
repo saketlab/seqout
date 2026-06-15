@@ -7,9 +7,11 @@ import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { loess } from "@/utils/smooth";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
   Flex,
+  Heading,
   Popover,
   ScrollArea,
   SegmentedControl,
@@ -138,6 +140,7 @@ export default function StatsSequencingTechnologyCard() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reduced = useReducedMotion();
 
   const activeOrganism = organism !== ALL ? organism : null;
   const activeAssay = libraryStrategy !== ALL ? libraryStrategy : null;
@@ -267,7 +270,7 @@ export default function StatsSequencingTechnologyCard() {
           export: { svg: { filename: `seqout-platform-${selectedPlatform}` } },
         },
         zoom: { enabled: true },
-        animations: { enabled: false },
+        animations: { enabled: !reduced },
         events: chartFooterEvents,
       },
       theme: { mode: isDark ? "dark" : "light" },
@@ -331,7 +334,7 @@ export default function StatsSequencingTechnologyCard() {
       },
     };
     return opts;
-  }, [isDark, logScale, view, mode, selectedPlatform, useSmooth, growthData]);
+  }, [isDark, logScale, view, mode, selectedPlatform, useSmooth, growthData, reduced]);
 
   return (
     <Flex
@@ -341,9 +344,9 @@ export default function StatsSequencingTechnologyCard() {
     >
       <Flex direction="column" mb="4" gap="3">
         <Flex align="center" gap="2">
-          <Text size="5" weight="bold" ml="1">
+          <Heading as="h2" size="5" weight="bold" ml="1">
             Sequencing technology
-          </Text>
+          </Heading>
           <SectionAnchor id="sequencing" />
         </Flex>
         <Flex justify="between" align="center" gap="3" wrap="wrap">
@@ -523,7 +526,7 @@ export default function StatsSequencingTechnologyCard() {
         {filtersData && (
           <Flex gap="3" wrap="wrap" align="center">
             <Flex gap="2" align="center">
-              <Text size="1" style={{ color: "var(--gray-9)" }}>
+              <Text size="1" style={{ color: "var(--gray-11)" }}>
                 Organism
               </Text>
               <Select.Root
@@ -548,7 +551,7 @@ export default function StatsSequencingTechnologyCard() {
             </Flex>
 
             <Flex gap="2" align="center">
-              <Text size="1" style={{ color: "var(--gray-9)" }}>
+              <Text size="1" style={{ color: "var(--gray-11)" }}>
                 Assay
               </Text>
               <Select.Root
@@ -573,7 +576,7 @@ export default function StatsSequencingTechnologyCard() {
             </Flex>
 
             <Flex gap="2" align="center">
-              <Text size="1" style={{ color: "var(--gray-9)" }}>
+              <Text size="1" style={{ color: "var(--gray-11)" }}>
                 Country
               </Text>
               <Select.Root

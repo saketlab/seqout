@@ -7,11 +7,18 @@ import { SERVER_URL } from "@/utils/constants";
 import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize, humanizeBytes } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
-import { Flex, SegmentedControl, Skeleton, Text } from "@radix-ui/themes";
+import {
+  Flex,
+  Heading,
+  SegmentedControl,
+  Skeleton,
+  Text,
+} from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
 import { useMemo, useState } from "react";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 import { useQuery } from "@tanstack/react-query";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -56,6 +63,7 @@ export default function StatsGrowthChartCard() {
   const [logScale, setLogScale] = useState(false);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reduced = useReducedMotion();
 
   const { data, isLoading } = useQuery({
     queryKey: ["growth", mode],
@@ -124,7 +132,7 @@ export default function StatsGrowthChartCard() {
         },
         foreColor: theme.foreColor,
         zoom: { enabled: true },
-        animations: { enabled: false },
+        animations: { enabled: !reduced },
         events: chartFooterEvents,
       },
       title: {
@@ -213,7 +221,7 @@ export default function StatsGrowthChartCard() {
       },
       };
     },
-    [mode, view, logScale, isDark, xaxisTicks],
+    [mode, view, logScale, isDark, xaxisTicks, reduced],
   );
 
   return (
@@ -224,9 +232,9 @@ export default function StatsGrowthChartCard() {
     >
       <Flex justify="between" align="center" mb="4" gap="3" wrap="wrap">
         <Flex align="center" gap="2">
-          <Text size="5" weight="bold" ml="1">
+          <Heading as="h2" size="5" weight="bold" ml="1">
             Database growth
-          </Text>
+          </Heading>
           <SectionAnchor id="growth" />
         </Flex>
         <Flex gap="3" align="center" wrap="wrap">

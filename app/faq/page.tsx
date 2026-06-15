@@ -3,6 +3,7 @@ import SearchBar from "@/components/search-bar";
 import {
   Flex,
   Grid,
+  Heading,
   Link,
   Separator,
   Text,
@@ -235,9 +236,9 @@ function FaqItem({
   return (
     <Flex direction="column" gap="3" id={id}>
       <Flex align="center" gap="2">
-        <Text size={{ initial: "4", md: "5" }} weight="medium">
+        <Heading as="h3" size={{ initial: "4", md: "5" }} weight="medium">
           {question}
-        </Text>
+        </Heading>
         <SectionAnchor id={id} />
       </Flex>
       <Text size={{ initial: "2", md: "3" }} style={{ color: "var(--gray-11)" }}>
@@ -264,9 +265,9 @@ export default function FAQ() {
         direction="column"
       >
         <Flex align="center" gap="2" id="about">
-          <Text size={{ initial: "6", md: "8" }} weight="bold">
+          <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
             About
-          </Text>
+          </Heading>
           <SectionAnchor id="about" />
         </Flex>
 
@@ -304,9 +305,9 @@ export default function FAQ() {
         <Separator size="4" />
 
         <Flex align="center" gap="2" id="features">
-          <Text size={{ initial: "6", md: "8" }} weight="bold">
+          <Heading as="h2" size={{ initial: "6", md: "8" }} weight="bold">
             Features
-          </Text>
+          </Heading>
           <SectionAnchor id="features" />
         </Flex>
 
@@ -337,9 +338,9 @@ export default function FAQ() {
         <Separator size="4" />
 
         <Flex align="center" gap="2" id="faq">
-          <Text size={{ initial: "6", md: "8" }} weight="bold">
+          <Heading as="h2" size={{ initial: "6", md: "8" }} weight="bold">
             Frequently Asked Questions
-          </Text>
+          </Heading>
           <SectionAnchor id="faq" />
         </Flex>
 
@@ -357,9 +358,9 @@ export default function FAQ() {
         <Separator size="4" />
 
         <Flex align="center" gap="2" id="sources">
-          <Text size={{ initial: "6", md: "8" }} weight="bold">
+          <Heading as="h2" size={{ initial: "6", md: "8" }} weight="bold">
             Data Sources
-          </Text>
+          </Heading>
           <SectionAnchor id="sources" />
         </Flex>
 
@@ -383,9 +384,9 @@ export default function FAQ() {
         <Separator size="4" />
 
         <Flex align="center" gap="2" id="contact">
-          <Text size={{ initial: "5", md: "7" }} weight="bold">
+          <Heading as="h2" size={{ initial: "5", md: "7" }} weight="bold">
             Feedback & Contact
-          </Text>
+          </Heading>
           <SectionAnchor id="contact" />
         </Flex>
 

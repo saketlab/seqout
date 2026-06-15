@@ -15,6 +15,7 @@ import {
   Button,
   Dialog,
   Flex,
+  Heading,
   Link,
   Spinner,
   Text,
@@ -462,9 +463,9 @@ export function SupplementaryDataSection({
   return (
     <>
       <Flex id="supplementary" align="center" gap="2">
-        <Text weight="medium" size="6">
+        <Heading as="h2" weight="medium" size="6">
           {title}
-        </Text>
+        </Heading>
         <SectionAnchor id="supplementary" />
       </Flex>
       {supplementaryDataItems.length === 0 && (
