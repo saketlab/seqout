@@ -21,7 +21,7 @@ import {
 } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 
 interface SearchBarProps {
   initialQuery?: string | null;
@@ -43,10 +43,13 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
     useState(resolvedQuery);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Reset local edits when the resolved query prop changes (adjust during render).
+  const [prevResolvedQuery, setPrevResolvedQuery] = useState(resolvedQuery);
+  if (resolvedQuery !== prevResolvedQuery) {
+    setPrevResolvedQuery(resolvedQuery);
     setSearchQuery(resolvedQuery);
     setSuggestionFilterQuery(resolvedQuery);
-  }, [resolvedQuery]);
+  }
   const [isFocused, setIsFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const { history, saveHistory, performSearch } = useSearchHistory();
@@ -96,13 +99,13 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         .slice(0, 5)
     : [];
 
-  useEffect(() => {
-    if (!isFocused) {
-      setActiveIndex(-1);
-      return;
-    }
+  // Reset keyboard selection whenever focus or the visible suggestions change.
+  const resetKey = `${isFocused}|${filteredHistory.length}|${trimmedQuery}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey);
     setActiveIndex(-1);
-  }, [isFocused, filteredHistory.length, trimmedQuery]);
+  }
 
   return (
     <Flex

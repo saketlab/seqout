@@ -155,7 +155,9 @@ export default function MapGraph() {
     clusterColors: string[];
   } | null>(null);
   const themeRef = useRef(resolvedTheme);
-  themeRef.current = resolvedTheme;
+  useEffect(() => {
+    themeRef.current = resolvedTheme;
+  }, [resolvedTheme]);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -187,8 +189,16 @@ export default function MapGraph() {
   const [statsData, setStatsData] = useState<StatsData | null>(null);
 
   const isDrawingRef = useRef(false);
+  // Mirror of isDrawingRef for render (pointerEvents); ref stays for sync reads in handlers.
+  const [isDrawing, setIsDrawing] = useState(false);
+  const setDrawing = (value: boolean) => {
+    isDrawingRef.current = value;
+    setIsDrawing(value);
+  };
   const hasSelectionRef = useRef(false);
-  hasSelectionRef.current = hasSelection;
+  useEffect(() => {
+    hasSelectionRef.current = hasSelection;
+  }, [hasSelection]);
   const accessionsRef = useRef<string[]>([]);
 
   // ---- mount: build the scatterplot ---------------------------------------
@@ -302,7 +312,7 @@ export default function MapGraph() {
         setShiftHeld(true);
       }
       if (e.key === "Escape") {
-        isDrawingRef.current = false;
+        setDrawing(false);
         setDrawPoints([]);
         if (hasSelectionRef.current) {
           const sp = spRef.current;
@@ -460,7 +470,7 @@ export default function MapGraph() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || !e.shiftKey) return;
-    isDrawingRef.current = true;
+    setDrawing(true);
     setDrawPoints([coordsOf(e)]);
     overlayRef.current?.setPointerCapture(e.pointerId);
   };
@@ -473,7 +483,7 @@ export default function MapGraph() {
 
   const onPointerUp = async (e: React.PointerEvent) => {
     if (!isDrawingRef.current) return;
-    isDrawingRef.current = false;
+    setDrawing(false);
     overlayRef.current?.releasePointerCapture(e.pointerId);
     const points = drawPoints;
     if (points.length < 3) {
@@ -793,7 +803,7 @@ export default function MapGraph() {
             cursor: "crosshair",
             touchAction: "none",
             userSelect: "none",
-            pointerEvents: shiftHeld || isDrawingRef.current ? "auto" : "none",
+            pointerEvents: shiftHeld || isDrawing ? "auto" : "none",
           }}
         />
 

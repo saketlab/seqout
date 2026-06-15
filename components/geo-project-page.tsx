@@ -1115,32 +1115,23 @@ export default function GeoProjectPage() {
     });
   }, [sampleColumnDefs, sampleRows]);
 
-  const supplementaryDataItems = React.useMemo(
-    () =>
-      buildSupplementaryItems({
-        rawValue: project?.supplementary_data,
-        idPrefix: "supplementary",
-      }),
-    [project?.supplementary_data],
-  );
+  const supplementaryDataItems = buildSupplementaryItems({
+    rawValue: project?.supplementary_data,
+    idPrefix: "supplementary",
+  });
 
-  const sampleSupplementaryDataItems = React.useMemo(() => {
-    if (!samples || samples.length === 0) {
-      return [];
-    }
+  const sampleSupplementaryDataItems =
+    !samples || samples.length === 0
+      ? []
+      : samples.flatMap((sample, sampleIndex) =>
+          buildSupplementaryItems({
+            rawValue: sample.supplementary_data,
+            idPrefix: `sample-supplementary-${sample.accession || sampleIndex}`,
+            sourceSampleAccession: sample.accession,
+          }),
+        );
 
-    return samples.flatMap((sample, sampleIndex) =>
-      buildSupplementaryItems({
-        rawValue: sample.supplementary_data,
-        idPrefix: `sample-supplementary-${sample.accession || sampleIndex}`,
-        sourceSampleAccession: sample.accession,
-      }),
-    );
-  }, [samples]);
-
-  const sampleSupplementaryGroupedRows = React.useMemo<
-    SampleSupplementaryGroupRow[]
-  >(() => {
+  const sampleSupplementaryGroupedRows: SampleSupplementaryGroupRow[] = (() => {
     if (sampleSupplementaryDataItems.length === 0) {
       return [];
     }
@@ -1171,43 +1162,20 @@ export default function GeoProjectPage() {
           totalSizeBytes,
         };
       });
-  }, [sampleSupplementaryDataItems]);
+  })();
 
   const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${accession}/supplementary/download" | bash`;
 
-  const allSupplementarySizeLabel = React.useMemo(() => {
-    if (supplementaryDataItems.length === 0) {
+  const sizeLabel = (items: SupplementaryDataItem[]) => {
+    if (items.length === 0 || items.some((item) => item.fileSizeBytes === null)) {
       return null;
     }
-    const missingSize = supplementaryDataItems.some(
-      (item) => item.fileSizeBytes === null,
+    return formatFileSize(
+      items.reduce((sum, item) => sum + (item.fileSizeBytes ?? 0), 0),
     );
-    if (missingSize) {
-      return null;
-    }
-    const totalSize = supplementaryDataItems.reduce(
-      (sum, item) => sum + (item.fileSizeBytes ?? 0),
-      0,
-    );
-    return formatFileSize(totalSize);
-  }, [supplementaryDataItems]);
-
-  const allSampleSupplementarySizeLabel = React.useMemo(() => {
-    if (sampleSupplementaryDataItems.length === 0) {
-      return null;
-    }
-    const missingSize = sampleSupplementaryDataItems.some(
-      (item) => item.fileSizeBytes === null,
-    );
-    if (missingSize) {
-      return null;
-    }
-    const totalSize = sampleSupplementaryDataItems.reduce(
-      (sum, item) => sum + (item.fileSizeBytes ?? 0),
-      0,
-    );
-    return formatFileSize(totalSize);
-  }, [sampleSupplementaryDataItems]);
+  };
+  const allSupplementarySizeLabel = sizeLabel(supplementaryDataItems);
+  const allSampleSupplementarySizeLabel = sizeLabel(sampleSupplementaryDataItems);
 
   const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [

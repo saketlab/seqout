@@ -238,7 +238,9 @@ export default function SimilarProjectsGraph({
   // Camera-fit animation duration: 0 when reduced motion is requested.
   const zoomMs = reduced ? 0 : 450;
   const zoomMsRef = useRef(zoomMs);
-  zoomMsRef.current = zoomMs;
+  useEffect(() => {
+    zoomMsRef.current = zoomMs;
+  }, [zoomMs]);
 
   const updateGraphSize = useCallback(() => {
     if (!mountRef.current || !graphRef.current) return;
@@ -491,12 +493,13 @@ export default function SimilarProjectsGraph({
     }));
   }, [filteredGraphData, neighborDistanceByAccession]);
 
-  useEffect(() => {
-    if (organismFilter === ALL_ORGANISMS) return;
-    if (!organismOptions.includes(organismFilter)) {
-      setOrganismFilter(ALL_ORGANISMS);
-    }
-  }, [organismFilter, organismOptions]);
+  // Reset to "all" if the active organism is no longer a valid option (adjust during render).
+  if (
+    organismFilter !== ALL_ORGANISMS &&
+    !organismOptions.includes(organismFilter)
+  ) {
+    setOrganismFilter(ALL_ORGANISMS);
+  }
 
   useEffect(() => {
     let isActive = true;

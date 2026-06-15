@@ -516,14 +516,13 @@ export function DownloadFastqSection({
     return { availableSources: sources, hasMissingFastq: missing };
   }, [runsData.runs]);
 
-  React.useEffect(() => {
-    if (!availableSources.has(selectedSource)) {
-      const first = (
-        Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]
-      ).find((s) => availableSources.has(s));
-      if (first) setSelectedSource(first);
-    }
-  }, [availableSources, selectedSource]);
+  // Fall back to the first available source if the selected one disappears (adjust during render).
+  if (!availableSources.has(selectedSource)) {
+    const first = (Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]).find(
+      (s) => availableSources.has(s),
+    );
+    if (first) setSelectedSource(first);
+  }
 
   const onGridReady = useCallback((params: { api: GridApi<RunRow> }) => {
     gridRef.current = params.api;

@@ -39,7 +39,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 ensureAgGridModules();
@@ -597,14 +597,15 @@ export default function StatsGlobalContributionsCard() {
 
   const sizeFactor = 0.2 + (pointSize / 100) * 1.6;
 
-  const scatterLayer = useMemo(() => {
-    if (!data?.locations) return null;
+  const [containerWidth, setContainerWidth] = useState(600);
 
-    const fillColor: [number, number, number] = isDark
-      ? [56, 189, 248]
-      : [37, 99, 235];
+  const fillColor: [number, number, number] = isDark
+    ? [56, 189, 248]
+    : [37, 99, 235];
 
-    return new ScatterplotLayer<LocationPoint>({
+  const scatterLayer = !data?.locations
+    ? null
+    : new ScatterplotLayer<LocationPoint>({
       id: "contributions",
       data: data.locations,
       pickable: true,
@@ -635,7 +636,7 @@ export default function StatsGlobalContributionsCard() {
             point: info.object,
             x: info.x,
             y: info.y,
-            containerWidth: deckContainerRef.current?.offsetWidth ?? 600,
+            containerWidth,
           });
         }
       },
@@ -648,7 +649,6 @@ export default function StatsGlobalContributionsCard() {
         getFillColor: reduced ? 0 : 300,
       },
     });
-  }, [data, scaleBy, isDark, sizeFactor, reduced]);
 
   const indiaBorderLayer = useMemo(
     () =>
@@ -699,11 +699,12 @@ export default function StatsGlobalContributionsCard() {
     [isDark],
   );
 
-  const layers = useMemo(
-    () =>
-      [tileLayer, indiaBorderLayer, scatterLayer, labelLayer].filter(Boolean),
-    [tileLayer, indiaBorderLayer, scatterLayer, labelLayer],
-  );
+  const layers = [
+    tileLayer,
+    indiaBorderLayer,
+    scatterLayer,
+    labelLayer,
+  ].filter(Boolean);
 
   const deckContainerRef = useRef<HTMLDivElement>(null);
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -712,6 +713,18 @@ export default function StatsGlobalContributionsCard() {
     y: number;
     containerWidth: number;
   } | null>(null);
+
+  // Track the map container width for popover placement (read in render, not via ref).
+  useEffect(() => {
+    const el = deckContainerRef.current;
+    if (!el) return;
+    setContainerWidth(el.offsetWidth);
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const chartTitle = useMemo(() => {
     const parts = ["Where is sequencing data generated?"];

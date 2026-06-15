@@ -14,13 +14,8 @@ export const LAST_INDEX_REFRESH = "January 17, 2026";
  * Single source of truth so the hero search bar (homepage) and the
  * sticky search bar (every other page) stay in sync.
  */
-export const SEARCH_PLACEHOLDER =
-  "GSE196830, BRCA1, breast cancer, scRNA-seq…";
+export const SEARCH_PLACEHOLDER = "GSE196830, BRCA1, breast cancer, scRNA-seq…";
 
-let SERVER_URL = "/api";
-if (process.env.NEXT_PUBLIC_SERVER_URL) {
-  SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
-} else if (process.env.NEXT_PUBLIC_ENVIRONMENT === "DEV") {
-  SERVER_URL = `${SITE_URL}/api`;
-}
+const SERVER_URL = `${SITE_URL}/api`;
+
 export { SERVER_URL };
