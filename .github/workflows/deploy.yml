@@ -68,6 +68,8 @@ jobs:
           script: |
             set -e
 
+            rm -rf /var/www/sramap/frontend/.next/cache
+
             sudo systemctl restart sramap-frontend
 
             sleep 5
