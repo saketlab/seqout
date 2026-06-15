@@ -11,6 +11,7 @@ import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { useToast } from "@/components/toast-provider";
+import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { formatBytes } from "@/utils/format";
@@ -134,9 +135,7 @@ const fetchSampleDetail = async (
   accession: string | null,
 ): Promise<SampleDetailResponse | null> => {
   if (!accession) return null;
-  const res = await fetch(`${SERVER_URL}/sample-detail/${accession}`);
-  if (!res.ok) throw new Error("Network error");
-  return (await res.json()) as SampleDetailResponse;
+  return getJson<SampleDetailResponse>(`/sample-detail/${accession}`);
 };
 
 function GeoSampleDetail({ sample }: { sample: Sample }) {

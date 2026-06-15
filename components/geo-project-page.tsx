@@ -16,9 +16,9 @@ import SubmittingOrgPanel, {
 } from "@/components/submitting-org-panel";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
+import { getJson, getJsonOrNull } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { buildCurlCommand, buildSupplementaryDownloadScript } from "@/utils/downloadScript";
-import { SERVER_URL } from "@/utils/constants";
 import { titleCaseCenter } from "@/utils/format";
 import {
   normalizeAuthors,
@@ -439,13 +439,8 @@ const buildSupplementaryItems = ({
     })
     .filter((entry): entry is SupplementaryDataItem => entry !== null);
 
-const fetchSamples = async (accession: string): Promise<GeoSample[]> => {
-  const res = await fetch(`${SERVER_URL}/geo/series/${accession}/samples`);
-  if (!res.ok) {
-    throw new Error("Network error");
-  }
-  return res.json();
-};
+const fetchSamples = async (accession: string): Promise<GeoSample[]> =>
+  getJson<GeoSample[]>(`/geo/series/${accession}/samples`);
 
 const fetchProject = async (
   accession: string | null,
@@ -454,13 +449,11 @@ const fetchProject = async (
     return null;
   }
 
-  const res = await fetch(`${SERVER_URL}/project/${accession}`);
-  if (!res.ok) {
-    throw new Error("Network error");
-  }
-  const data = (await res.json()) as Project & {
-    neighbors?: SimilarNeighbor[] | string | null;
-  };
+  const data = await getJson<
+    Project & {
+      neighbors?: SimilarNeighbor[] | string | null;
+    }
+  >(`/project/${accession}`);
   if (data && typeof data.neighbors === "string") {
     try {
       data.neighbors = JSON.parse(data.neighbors) as SimilarNeighbor[];
@@ -486,9 +479,7 @@ const fetchLinkedRuns = async (
   accession: string | null,
 ): Promise<LinkedRunsData | null> => {
   if (!accession) return null;
-  const res = await fetch(`${SERVER_URL}/project/${accession}/runs`);
-  if (!res.ok) return null;
-  return (await res.json()) as LinkedRunsData;
+  return getJsonOrNull<LinkedRunsData>(`/project/${accession}/runs`);
 };
 
 const SUMMARY_CHAR_LIMIT = 350;
