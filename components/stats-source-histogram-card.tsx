@@ -5,11 +5,16 @@ import SectionAnchor from "@/components/section-anchor";
 import { getApexChartTheme } from "@/utils/chart-theme";
 import { DB_COLORS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
-import { Flex, SegmentedControl, Text } from "@radix-ui/themes";
+import {
+  Flex,
+  Heading,
+  SegmentedControl,
+} from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
 import { useMemo, useState } from "react";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -26,6 +31,7 @@ export default function StatsSourceHistogramCard() {
   const [metric, setMetric] = useState<Metric>("Projects");
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reduced = useReducedMotion();
 
   const chartOptions = useMemo<ApexOptions>(
     () => {
@@ -37,6 +43,7 @@ export default function StatsSourceHistogramCard() {
         background: theme.background,
         toolbar: { show: false },
         foreColor: theme.foreColor,
+        animations: { enabled: !reduced },
         events: chartFooterEvents,
       },
       title: {
@@ -101,7 +108,7 @@ export default function StatsSourceHistogramCard() {
       },
       };
     },
-    [metric, isDark],
+    [metric, isDark, reduced],
   );
 
   const series = useMemo(
@@ -122,9 +129,9 @@ export default function StatsSourceHistogramCard() {
     >
       <Flex justify="between" align="center" mb="4" gap="3">
         <Flex align="center" gap="2">
-          <Text size="5" weight="bold" ml={"1"}>
+          <Heading as="h2" size="5" weight="bold" ml={"1"}>
             Source distribution
-          </Text>
+          </Heading>
           <SectionAnchor id="sources" />
         </Flex>
         <SegmentedControl.Root

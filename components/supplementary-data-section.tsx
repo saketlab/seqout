@@ -4,6 +4,7 @@ import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
+import { buildCurlCommand, buildSupplementaryDownloadScript } from "@/utils/downloadScript";
 import {
   CheckIcon,
   CopyIcon,
@@ -15,6 +16,7 @@ import {
   Button,
   Dialog,
   Flex,
+  Heading,
   Link,
   Spinner,
   Text,
@@ -175,9 +177,6 @@ const parseSupplementaryData = (
   return normalized ? [normalized] : [];
 };
 
-const shellEscapeSingleQuotes = (value: string): string =>
-  `'${value.replace(/'/g, `'\"'\"'`)}'`;
-
 const getFileNameFromUrl = (url: string): string => {
   try {
     const parsed = new URL(url);
@@ -227,18 +226,6 @@ const shouldUseProxyDownload = (url: string, fileName: string): boolean => {
   const normalizedUrl = url.toLowerCase().split("?")[0].split("#")[0];
   const urlMatch = normalizedUrl.match(/(\.[a-z0-9]+)$/);
   return urlMatch ? INLINE_PREVIEW_EXTENSIONS.has(urlMatch[1]) : false;
-};
-
-const buildCurlCommand = (url: string): string =>
-  `curl -O ${shellEscapeSingleQuotes(url)}`;
-
-const buildSupplementaryDownloadScript = (
-  items: { browserDownloadUrl: string }[],
-): string => {
-  if (items.length === 0) return "";
-  return `curl -L -C - --retry 10 --retry-delay 5 --retry-all-errors --fail ${items
-    .map((item) => `-O ${shellEscapeSingleQuotes(item.browserDownloadUrl)}`)
-    .join(" ")}`;
 };
 
 const formatFileSize = (sizeInBytes: number | null): string | null => {
@@ -462,9 +449,9 @@ export function SupplementaryDataSection({
   return (
     <>
       <Flex id="supplementary" align="center" gap="2">
-        <Text weight="medium" size="6">
+        <Heading as="h2" weight="medium" size="6">
           {title}
-        </Text>
+        </Heading>
         <SectionAnchor id="supplementary" />
       </Flex>
       {supplementaryDataItems.length === 0 && (

@@ -16,9 +16,15 @@ import SubmittingOrgPanel, {
 } from "@/components/submitting-org-panel";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
+import { getJson, getJsonOrNull } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
-import { SERVER_URL } from "@/utils/constants";
+import { buildCurlCommand, buildSupplementaryDownloadScript } from "@/utils/downloadScript";
 import { titleCaseCenter } from "@/utils/format";
+import {
+  normalizeAuthors,
+  parsePostgresTextArray,
+  toDisplayText,
+} from "@/utils/project";
 import {
   getOrganismBannerStyle,
   makeOrganismPostSort,
@@ -44,6 +50,7 @@ import {
   Button,
   Dialog,
   Flex,
+  Heading,
   Link,
   Spinner,
   Text,
@@ -170,66 +177,6 @@ type LinkedRunsData = React.ComponentProps<
   typeof DownloadFastqSection
 >["runsData"];
 
-const toDisplayText = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "-";
-  return String(value);
-};
-
-const parsePostgresTextArray = (value: string): string[] => {
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-    return [];
-  }
-
-  const content = trimmed.slice(1, -1);
-  if (!content) {
-    return [];
-  }
-
-  const items: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  let escaped = false;
-
-  for (const char of content) {
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-
-    if (char === "\\") {
-      if (inQuotes) {
-        escaped = true;
-      } else {
-        current += char;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      if (current.trim()) {
-        items.push(current.trim());
-      }
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-
-  if (current.trim()) {
-    items.push(current.trim());
-  }
-
-  return items;
-};
-
 const normalizeAliases = (value: Project["alias"]): string[] => {
   if (!value) return [];
 
@@ -264,33 +211,6 @@ const normalizeAliases = (value: Project["alias"]): string[] => {
     .filter((alias) => alias.length > 0)
     .forEach((alias) => deduped.add(alias));
   return Array.from(deduped);
-};
-
-const normalizeAuthors = (value: Project["authors"]): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.map((author) => author.trim()).filter(Boolean);
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter((author): author is string => typeof author === "string")
-        .map((author) => author.trim())
-        .filter(Boolean);
-    }
-  } catch {
-    // Fall through to plain-text parsing.
-  }
-
-  return trimmed
-    .split(",")
-    .map((author) => author.trim())
-    .filter(Boolean);
 };
 
 const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
@@ -408,9 +328,6 @@ const parseSupplementaryData = (
   return normalized ? [normalized] : [];
 };
 
-const shellEscapeSingleQuotes = (value: string): string =>
-  `'${value.replace(/'/g, `'\"'\"'`)}'`;
-
 const getFileNameFromUrl = (url: string): string => {
   try {
     const parsed = new URL(url);
@@ -462,16 +379,6 @@ const shouldUseProxyDownload = (url: string, fileName: string): boolean => {
   const normalizedUrl = url.toLowerCase().split("?")[0].split("#")[0];
   const urlMatch = normalizedUrl.match(/(\.[a-z0-9]+)$/);
   return urlMatch ? INLINE_PREVIEW_EXTENSIONS.has(urlMatch[1]) : false;
-};
-
-const buildCurlCommand = (url: string): string =>
-  `curl -O ${shellEscapeSingleQuotes(url)}`;
-
-const buildSupplementaryDownloadScript = (
-  items: { browserDownloadUrl: string }[],
-): string => {
-  if (items.length === 0) return "";
-  return `curl -L -C - --retry 10 --retry-delay 5 --retry-all-errors --fail ${items.map((item) => `-O ${shellEscapeSingleQuotes(item.browserDownloadUrl)}`).join(" ")}`;
 };
 
 const formatFileSize = (sizeInBytes: number | null): string | null => {
@@ -532,13 +439,8 @@ const buildSupplementaryItems = ({
     })
     .filter((entry): entry is SupplementaryDataItem => entry !== null);
 
-const fetchSamples = async (accession: string): Promise<GeoSample[]> => {
-  const res = await fetch(`${SERVER_URL}/geo/series/${accession}/samples`);
-  if (!res.ok) {
-    throw new Error("Network error");
-  }
-  return res.json();
-};
+const fetchSamples = async (accession: string): Promise<GeoSample[]> =>
+  getJson<GeoSample[]>(`/geo/series/${accession}/samples`);
 
 const fetchProject = async (
   accession: string | null,
@@ -547,13 +449,11 @@ const fetchProject = async (
     return null;
   }
 
-  const res = await fetch(`${SERVER_URL}/project/${accession}`);
-  if (!res.ok) {
-    throw new Error("Network error");
-  }
-  const data = (await res.json()) as Project & {
-    neighbors?: SimilarNeighbor[] | string | null;
-  };
+  const data = await getJson<
+    Project & {
+      neighbors?: SimilarNeighbor[] | string | null;
+    }
+  >(`/project/${accession}`);
   if (data && typeof data.neighbors === "string") {
     try {
       data.neighbors = JSON.parse(data.neighbors) as SimilarNeighbor[];
@@ -579,9 +479,7 @@ const fetchLinkedRuns = async (
   accession: string | null,
 ): Promise<LinkedRunsData | null> => {
   if (!accession) return null;
-  const res = await fetch(`${SERVER_URL}/project/${accession}/runs`);
-  if (!res.ok) return null;
-  return (await res.json()) as LinkedRunsData;
+  return getJsonOrNull<LinkedRunsData>(`/project/${accession}/runs`);
 };
 
 const SUMMARY_CHAR_LIMIT = 350;
@@ -1560,9 +1458,9 @@ export default function GeoProjectPage() {
             gap="4"
           >
             <Flex justify="between" style={{ width: "100%" }} align="center">
-              <Text size={{ initial: "4", md: "6" }} weight="bold">
+              <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
                 {project.title}
-              </Text>
+              </Heading>
             </Flex>
             <Flex justify={"start"} align="center" gap="2" wrap="wrap">
               <Badge
@@ -1833,9 +1731,9 @@ export default function GeoProjectPage() {
                 );
               })()}
             <Flex id="overall-design" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Overall design
-              </Text>
+              </Heading>
               <SectionAnchor id="overall-design" />
             </Flex>
             <ProjectSummary
@@ -2017,9 +1915,9 @@ export default function GeoProjectPage() {
             />
 
             <Flex id="publications" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Linked publications
-              </Text>
+              </Heading>
               <SectionAnchor id="publications" />
             </Flex>
 
@@ -2049,9 +1947,9 @@ export default function GeoProjectPage() {
               />
             ))}
             <Flex id="supplementary" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Supplementary Data
-              </Text>
+              </Heading>
               <SectionAnchor id="supplementary" />
             </Flex>
             {supplementaryDataItems.length === 0 && (
@@ -2374,9 +2272,9 @@ export default function GeoProjectPage() {
             )}
 
             <Flex id="similar" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Similar projects
-              </Text>
+              </Heading>
               <Badge color="teal" size={"2"}>
                 Beta
               </Badge>

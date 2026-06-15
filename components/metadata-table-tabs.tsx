@@ -15,7 +15,12 @@ import {
   Link2Icon,
   MagicWandIcon,
 } from "@radix-ui/react-icons";
-import { Button, Flex, Tabs, Text } from "@radix-ui/themes";
+import {
+  Button,
+  Flex,
+  Heading,
+  Tabs,
+} from "@radix-ui/themes";
 import { useEffect, useState, type ReactNode } from "react";
 
 type TabValue = "original" | "enriched";
@@ -139,9 +144,9 @@ export default function MetadataTableTabs({
     <>
       <Flex id={sectionId} justify="between" align="center" gap="2" wrap="wrap">
         <Flex align="center" gap="2">
-          <Text weight="medium" size="6">
+          <Heading as="h2" weight="medium" size="6">
             {sectionTitle}
-          </Text>
+          </Heading>
           {showEnriched && enriched && (
             <EnrichedMetadataBadges data={enriched} />
           )}

@@ -16,6 +16,7 @@ import SubmittingOrgPanel, {
 import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
+import { getJson, getJsonOrNull, parseProjectStringFields } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
@@ -24,6 +25,7 @@ import {
   makeOrganismPostSort,
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
+import { normalizeAuthors, toDisplayText } from "@/utils/project";
 import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
@@ -44,6 +46,7 @@ import {
   Button,
   Dialog,
   Flex,
+  Heading,
   Link,
   Select,
   Spinner,
@@ -207,81 +210,16 @@ const getBestCloudUrl = (run: RunRow): string =>
   run.ncbi_sra_url_aws ||
   "";
 
-const normalizeAuthors = (value: Project["authors"]): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.map((author) => author.trim()).filter(Boolean);
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter((author): author is string => typeof author === "string")
-        .map((author) => author.trim())
-        .filter(Boolean);
-    }
-  } catch {
-    // Fall through to plain-text parsing.
-  }
-
-  return trimmed
-    .split(",")
-    .map((author) => author.trim())
-    .filter(Boolean);
-};
-
-const toDisplayText = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "-";
-  return String(value);
-};
-
 const fetchProject = async (
   accession: string | null,
 ): Promise<Project | null> => {
   if (!accession) return null;
 
-  const res = await fetch(`${SERVER_URL}/project/${accession}`);
-  if (!res.ok) throw new Error("Network error");
-
-  const data = (await res.json()) as Project & {
-    neighbors?: SimilarNeighbor[] | string | null;
-  };
-  if (data && typeof data.external_id === "string") {
-    try {
-      data.external_id = JSON.parse(data.external_id) as Record<string, string>;
-    } catch {
-      data.external_id = null;
-    }
-  }
-  if (data && typeof data.links === "string") {
-    try {
-      data.links = JSON.parse(data.links) as Record<string, unknown>;
-    } catch {
-      data.links = null;
-    }
-  }
-  if (data && typeof data.neighbors === "string") {
-    try {
-      data.neighbors = JSON.parse(data.neighbors) as SimilarNeighbor[];
-    } catch {
-      data.neighbors = null;
-    }
-  }
-  if (data && typeof data.organisms === "string") {
-    const organismText = data.organisms;
-    try {
-      data.organisms = JSON.parse(organismText) as string[];
-    } catch {
-      data.organisms = organismText
-        .split(/[;,|]/)
-        .map((item: string) => item.trim())
-        .filter((item: string) => item.length > 0);
-    }
-  }
+  const data = parseProjectStringFields(
+    await getJson<Project & { neighbors?: SimilarNeighbor[] | string | null }>(
+      `/project/${accession}`,
+    ),
+  );
 
   const alias = data?.alias?.trim().toUpperCase();
   const shouldFetchGeoNeighbors =
@@ -357,16 +295,14 @@ const fetchExperiments = async (
   accession: string | null,
 ): Promise<Experiment[]> => {
   if (!accession) return [];
-  const res = await fetch(`${SERVER_URL}/project/${accession}/experiments`);
-  if (!res.ok) throw new Error("Network error");
-  return (await res.json()) as Experiment[];
+  return getJson<Experiment[]>(`/project/${accession}/experiments`);
 };
 
 const fetchSample = async (accession: string): Promise<Sample | null> => {
-  const res = await fetch(`${SERVER_URL}/sample/${accession}`);
-  if (!res.ok) return null;
-
-  const s = (await res.json()) as Sample | { attributes_json: unknown };
+  const s = await getJsonOrNull<Sample | { attributes_json: unknown }>(
+    `/sample/${accession}`,
+  );
+  if (!s) return null;
   if (typeof s.attributes_json === "string") {
     try {
       s.attributes_json = JSON.parse(s.attributes_json);
@@ -397,18 +333,14 @@ const fetchRuns = async (
   accession: string | null,
 ): Promise<RunsData | null> => {
   if (!accession) return null;
-  const res = await fetch(`${SERVER_URL}/project/${accession}/runs`);
-  if (!res.ok) return null;
-  return (await res.json()) as RunsData;
+  return getJsonOrNull<RunsData>(`/project/${accession}/runs`);
 };
 
 const fetchBams = async (
   accession: string | null,
 ): Promise<BamsData | null> => {
   if (!accession) return null;
-  const res = await fetch(`${SERVER_URL}/project/${accession}/bams`);
-  if (!res.ok) return null;
-  return (await res.json()) as BamsData;
+  return getJsonOrNull<BamsData>(`/project/${accession}/bams`);
 };
 
 type DownloadSource = "fastq" | "sra" | "sra_lite" | "s3" | "gcs";
@@ -1182,9 +1114,9 @@ export function DownloadFastqSection({
     <>
       <Flex id="fastq" justify="between" align="center" wrap="wrap" gap="2">
         <Flex align="center" gap="2">
-          <Text weight="medium" size="6">
+          <Heading as="h2" weight="medium" size="6">
             FASTQ files
-          </Text>
+          </Heading>
           <SectionAnchor id="fastq" />
         </Flex>
         <Badge size={{ initial: "2", md: "3" }} color="gray">
@@ -1620,9 +1552,9 @@ function BamFilesSection({
     <>
       <Flex id="bam" justify="between" align="center">
         <Flex align="center" gap="2">
-          <Text weight="medium" size="6">
+          <Heading as="h2" weight="medium" size="6">
             BAM files
-          </Text>
+          </Heading>
           <SectionAnchor id="bam" />
           <Badge size={{ initial: "2", md: "3" }} color="orange">
             {bamsData.total_bams.toLocaleString()} files
@@ -2245,9 +2177,9 @@ export default function ProjectPage() {
             gap="4"
           >
             <Flex justify="between" style={{ width: "100%" }} align="center">
-              <Text size={{ initial: "4", md: "6" }} weight="bold">
+              <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
                 {project.title}
-              </Text>
+              </Heading>
             </Flex>
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
               <Badge
@@ -2612,9 +2544,9 @@ export default function ProjectPage() {
               }
             />
             <Flex id="publications" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Linked publications
-              </Text>
+              </Heading>
               <SectionAnchor id="publications" />
             </Flex>
 
@@ -2662,9 +2594,9 @@ export default function ProjectPage() {
             )}
 
             <Flex id="similar" align="center" gap="2">
-              <Text weight="medium" size="6">
+              <Heading as="h2" weight="medium" size="6">
                 Similar projects
-              </Text>
+              </Heading>
               <Badge color="teal" size={"2"}>
                 Beta
               </Badge>

@@ -4,6 +4,7 @@ import type { ForceGraph3DInstance } from "3d-force-graph";
 import ProjectSummary from "@/components/project-summary";
 import { SIMILARITY_GRAPH_COLORS } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 import {
   Button,
   Flex,
@@ -233,6 +234,11 @@ export default function SimilarProjectsGraph({
   const [organismFilter, setOrganismFilter] = useState<string>(ALL_ORGANISMS);
   const [viewMode, setViewMode] = useState<"graph" | "tab">("graph");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const reduced = useReducedMotion();
+  // Camera-fit animation duration: 0 when reduced motion is requested.
+  const zoomMs = reduced ? 0 : 450;
+  const zoomMsRef = useRef(zoomMs);
+  zoomMsRef.current = zoomMs;
 
   const updateGraphSize = useCallback(() => {
     if (!mountRef.current || !graphRef.current) return;
@@ -535,7 +541,7 @@ export default function SimilarProjectsGraph({
       const rect = mountRef.current.getBoundingClientRect();
       graph.width(Math.max(320, rect.width)).height(420);
       graph.graphData({ nodes: [], links: [] });
-      graph.zoomToFit(450, 48);
+      graph.zoomToFit(zoomMsRef.current, 48);
     };
 
     mountGraph();
@@ -552,7 +558,7 @@ export default function SimilarProjectsGraph({
     if (!graph) return;
     graph.graphData(filteredGraphData);
     graph.nodeLabel((node) => nodeLabel(node as GraphNode));
-    graph.zoomToFit(450, 48);
+    graph.zoomToFit(zoomMsRef.current, 48);
   }, [filteredGraphData]);
 
   useEffect(() => {
@@ -579,7 +585,7 @@ export default function SimilarProjectsGraph({
         !!activeElement && activeElement === graphContainerRef.current,
       );
       updateGraphSize();
-      graphRef.current?.zoomToFit(450, 48);
+      graphRef.current?.zoomToFit(zoomMsRef.current, 48);
     };
 
     document.addEventListener("fullscreenchange", onFullscreenChange);
@@ -591,7 +597,7 @@ export default function SimilarProjectsGraph({
     if (!isFullscreen) return;
     const onWindowResize = () => {
       updateGraphSize();
-      graphRef.current?.zoomToFit(450, 48);
+      graphRef.current?.zoomToFit(zoomMsRef.current, 48);
     };
     window.addEventListener("resize", onWindowResize);
     return () => window.removeEventListener("resize", onWindowResize);

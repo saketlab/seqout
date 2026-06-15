@@ -42,7 +42,7 @@ export function CopyButton({ text }: { text: string }) {
         background: "transparent",
         border: "none",
         cursor: "pointer",
-        color: copied ? "var(--accent-11)" : "var(--gray-9)",
+        color: copied ? "var(--accent-11)" : "var(--gray-11)",
         padding: 4,
       }}
       aria-label="Copy code"
@@ -184,7 +184,7 @@ export function EndpointCard({ ep }: { ep: EndpointData }) {
         style={{ cursor: "pointer" }}
         onClick={() => setOpen(!open)}
       >
-        <Text style={{ color: "var(--gray-9)" }}>
+        <Text style={{ color: "var(--gray-11)" }}>
           {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
         </Text>
         <Badge
@@ -241,7 +241,7 @@ export function EndpointCard({ ep }: { ep: EndpointData }) {
                           {p.required ? (
                             <Badge size="1" color="red">required</Badge>
                           ) : (
-                            <Text size="1" style={{ color: "var(--gray-9)" }}>
+                            <Text size="1" style={{ color: "var(--gray-11)" }}>
                               {p.default !== undefined ? `default: ${p.default}` : "optional"}
                             </Text>
                           )}

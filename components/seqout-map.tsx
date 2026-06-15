@@ -858,6 +858,7 @@ export default function MapGraph() {
                   size="2"
                   variant="outline"
                   color="red"
+                  aria-label="Close lasso stats"
                   onClick={() => setStatsOpen(false)}
                 >
                   <Cross1Icon />

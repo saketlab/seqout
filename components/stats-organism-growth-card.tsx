@@ -10,6 +10,7 @@ import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
   Flex,
+  Heading,
   Popover,
   ScrollArea,
   SegmentedControl,
@@ -22,6 +23,7 @@ import type { ApexOptions } from "apexcharts";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useReducedMotion } from "@/utils/useReducedMotion";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -103,6 +105,7 @@ export default function StatsOrganismGrowthCard() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(organismQuery), 250);
@@ -202,7 +205,7 @@ export default function StatsOrganismGrowthCard() {
         },
         foreColor: theme.foreColor,
         zoom: { enabled: true },
-        animations: { enabled: false },
+        animations: { enabled: !reduced },
         events: chartFooterEvents,
       },
       title: {
@@ -298,6 +301,7 @@ export default function StatsOrganismGrowthCard() {
       xaxisTicks,
       selectedOrganism,
       selectedCommonName,
+      reduced,
     ],
   );
 
@@ -339,9 +343,9 @@ export default function StatsOrganismGrowthCard() {
     >
       <Flex direction="column" mb="4" gap="3">
         <Flex align="center" gap="2">
-          <Text size="5" weight="bold" ml="1">
+          <Heading as="h2" size="5" weight="bold" ml="1">
             Organism growth
-          </Text>
+          </Heading>
           <SectionAnchor id="organisms" />
         </Flex>
         <Flex justify="between" align="center" gap="3" wrap="wrap">
