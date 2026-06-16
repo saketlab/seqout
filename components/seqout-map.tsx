@@ -155,7 +155,9 @@ export default function MapGraph() {
     clusterColors: string[];
   } | null>(null);
   const themeRef = useRef(resolvedTheme);
-  themeRef.current = resolvedTheme;
+  useEffect(() => {
+    themeRef.current = resolvedTheme;
+  }, [resolvedTheme]);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -188,7 +190,9 @@ export default function MapGraph() {
 
   const isDrawingRef = useRef(false);
   const hasSelectionRef = useRef(false);
-  hasSelectionRef.current = hasSelection;
+  useEffect(() => {
+    hasSelectionRef.current = hasSelection;
+  }, [hasSelection]);
   const accessionsRef = useRef<string[]>([]);
 
   // ---- mount: build the scatterplot ---------------------------------------
@@ -793,7 +797,8 @@ export default function MapGraph() {
             cursor: "crosshair",
             touchAction: "none",
             userSelect: "none",
-            pointerEvents: shiftHeld || isDrawingRef.current ? "auto" : "none",
+            pointerEvents:
+              shiftHeld || drawPoints.length > 0 ? "auto" : "none",
           }}
         />
 

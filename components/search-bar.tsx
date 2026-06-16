@@ -21,7 +21,7 @@ import {
 } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 
 interface SearchBarProps {
   initialQuery?: string | null;
@@ -43,10 +43,12 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
     useState(resolvedQuery);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const [prevResolvedQuery, setPrevResolvedQuery] = useState(resolvedQuery);
+  if (prevResolvedQuery !== resolvedQuery) {
+    setPrevResolvedQuery(resolvedQuery);
     setSearchQuery(resolvedQuery);
     setSuggestionFilterQuery(resolvedQuery);
-  }, [resolvedQuery]);
+  }
   const [isFocused, setIsFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const { history, saveHistory, performSearch } = useSearchHistory();
@@ -96,13 +98,13 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         .slice(0, 5)
     : [];
 
-  useEffect(() => {
-    if (!isFocused) {
-      setActiveIndex(-1);
-      return;
-    }
+  const activeIndexResetKey = `${isFocused} ${filteredHistory.length} ${trimmedQuery}`;
+  const [prevActiveIndexKey, setPrevActiveIndexKey] =
+    useState(activeIndexResetKey);
+  if (prevActiveIndexKey !== activeIndexResetKey) {
+    setPrevActiveIndexKey(activeIndexResetKey);
     setActiveIndex(-1);
-  }, [isFocused, filteredHistory.length, trimmedQuery]);
+  }
 
   return (
     <Flex

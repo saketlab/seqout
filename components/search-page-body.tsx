@@ -857,9 +857,7 @@ export default function SearchPageBody() {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState<PageSize>(20);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
+  const pageResetKey = JSON.stringify([
     query,
     db,
     sortBy,
@@ -872,6 +870,11 @@ export default function SearchPageBody() {
     selectedInstrumentModelFilters,
     perPage,
   ]);
+  const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
+  if (prevPageResetKey !== pageResetKey) {
+    setPrevPageResetKey(pageResetKey);
+    setCurrentPage(1);
+  }
 
   const {
     data,
@@ -920,36 +923,38 @@ export default function SearchPageBody() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Snapshot sidebar results on first batch and on final load to prevent
-  // facet counts from flickering as intermediate pages stream in.
-  const sidebarResultsRef = useRef<SearchResult[]>([]);
-  const allLoadedRef = useRef(false);
+  // facet counts from flickering as pages stream in. Reset on query change.
+  const sidebarKey = `${query} ${db} ${sortBy}`;
+  const [sidebarSnapshot, setSidebarSnapshot] = useState<{
+    key: string;
+    results: SearchResult[];
+    frozen: boolean;
+  }>({ key: sidebarKey, results: [], frozen: false });
 
-  const sidebarResults = useMemo(() => {
-    const allLoaded =
-      !hasNextPage && !isFetchingNextPage && allResults.length > 0;
+  const sidebarAllLoaded =
+    !hasNextPage && !isFetchingNextPage && allResults.length > 0;
 
-    if (allLoaded && !allLoadedRef.current) {
-      allLoadedRef.current = true;
-      sidebarResultsRef.current = allResults;
-      return allResults;
+  let sidebarResults = sidebarSnapshot.results;
+  if (sidebarSnapshot.key !== sidebarKey) {
+    const next =
+      sidebarAllLoaded || allResults.length > 0
+        ? { key: sidebarKey, results: allResults, frozen: sidebarAllLoaded }
+        : { key: sidebarKey, results: [], frozen: false };
+    setSidebarSnapshot(next);
+    sidebarResults = next.results;
+  } else if (!sidebarSnapshot.frozen) {
+    if (sidebarAllLoaded) {
+      setSidebarSnapshot({ key: sidebarKey, results: allResults, frozen: true });
+      sidebarResults = allResults;
+    } else if (sidebarSnapshot.results.length === 0 && allResults.length > 0) {
+      setSidebarSnapshot({
+        key: sidebarKey,
+        results: allResults,
+        frozen: false,
+      });
+      sidebarResults = allResults;
     }
-
-    if (allLoadedRef.current) {
-      return sidebarResultsRef.current;
-    }
-
-    if (sidebarResultsRef.current.length === 0 && allResults.length > 0) {
-      sidebarResultsRef.current = allResults;
-      return allResults;
-    }
-
-    return sidebarResultsRef.current;
-  }, [allResults, hasNextPage, isFetchingNextPage]);
-
-  useEffect(() => {
-    sidebarResultsRef.current = [];
-    allLoadedRef.current = false;
-  }, [query, db, sortBy]);
+  }
 
   const filteredResults = useMemo(() => {
     let results = allResults;
@@ -1149,13 +1154,13 @@ export default function SearchPageBody() {
 
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const resultsListRef = useRef<HTMLDivElement>(null);
-  const handlePageChange = useCallback((page: number) => {
+  const handlePageChange = (page: number) => {
     setCurrentPage(page);
     resultsTopRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
-  }, []);
+  };
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {

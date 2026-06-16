@@ -597,6 +597,25 @@ export default function StatsGlobalContributionsCard() {
 
   const sizeFactor = 0.2 + (pointSize / 100) * 1.6;
 
+  const deckContainerRef = useRef<HTMLDivElement>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    point: LocationPoint;
+    x: number;
+    y: number;
+    containerWidth: number;
+  } | null>(null);
+
+  const handlePointClick = useCallback((info: PickingInfo<LocationPoint>) => {
+    if (info.object) {
+      setSelectedLocation({
+        point: info.object,
+        x: info.x,
+        y: info.y,
+        containerWidth: info.viewport?.width ?? 600,
+      });
+    }
+  }, []);
+
   const scatterLayer = useMemo(() => {
     if (!data?.locations) return null;
 
@@ -629,16 +648,7 @@ export default function StatsGlobalContributionsCard() {
       radiusMaxPixels: 40,
       stroked: false,
       antialiasing: true,
-      onClick: (info: PickingInfo<LocationPoint>) => {
-        if (info.object) {
-          setSelectedLocation({
-            point: info.object,
-            x: info.x,
-            y: info.y,
-            containerWidth: deckContainerRef.current?.offsetWidth ?? 600,
-          });
-        }
-      },
+      onClick: handlePointClick,
       updateTriggers: {
         getRadius: [scaleBy, sizeFactor],
         getFillColor: [scaleBy, isDark],
@@ -648,7 +658,7 @@ export default function StatsGlobalContributionsCard() {
         getFillColor: reduced ? 0 : 300,
       },
     });
-  }, [data, scaleBy, isDark, sizeFactor, reduced]);
+  }, [data, scaleBy, isDark, sizeFactor, reduced, handlePointClick]);
 
   const indiaBorderLayer = useMemo(
     () =>
@@ -704,14 +714,6 @@ export default function StatsGlobalContributionsCard() {
       [tileLayer, indiaBorderLayer, scatterLayer, labelLayer].filter(Boolean),
     [tileLayer, indiaBorderLayer, scatterLayer, labelLayer],
   );
-
-  const deckContainerRef = useRef<HTMLDivElement>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{
-    point: LocationPoint;
-    x: number;
-    y: number;
-    containerWidth: number;
-  } | null>(null);
 
   const chartTitle = useMemo(() => {
     const parts = ["Where is sequencing data generated?"];
