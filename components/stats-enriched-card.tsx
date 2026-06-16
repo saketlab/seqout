@@ -11,7 +11,6 @@ import {
   Flex,
   Heading,
   Select,
-  Skeleton,
   Text,
 } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
@@ -202,7 +201,11 @@ export default function StatsEnrichedCard() {
       </Flex>
 
       {isLoading ? (
-        <Skeleton height="420px" width="100%" />
+        <Flex align="center" justify="center" height="420px" width="100%">
+          <Text color="gray" size="2">
+            Crunching numbers…
+          </Text>
+        </Flex>
       ) : series.length === 0 ? (
         <Text color="gray" size="2" ml="1">
           No standardised data for this combination yet.

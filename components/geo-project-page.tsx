@@ -916,7 +916,7 @@ export default function GeoProjectPage() {
       {
         headerName: "Sample",
         field: "sample",
-        width: 130,
+        width: 160,
         pinned: "left",
         cellClass: "seqout-accession",
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
