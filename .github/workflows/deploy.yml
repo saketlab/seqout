@@ -6,22 +6,35 @@ on:
       - main
       - master
 
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
 jobs:
   build_and_deploy:
     runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
 
       - name: Build standalone frontend
         run: npm run build
@@ -37,29 +50,31 @@ jobs:
 
           cp -r public deploy/public
 
-      - name: Prepare deployment directory on server
-        uses: appleboy/ssh-action@v1.0.3
+          cp ecosystem.config.js deploy/ecosystem.config.js
+
+      - name: Create release directory on server
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: 22
           script: |
-            mkdir -p /var/www/sramap/frontend
+            mkdir -p /var/www/sramap/releases/${{ github.sha }}
 
       - name: Upload standalone frontend
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: 22
           source: "deploy/*"
-          target: /var/www/sramap/frontend
+          target: /var/www/sramap/releases/${{ github.sha }}
           strip_components: 1
 
-      - name: Restart frontend service
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Activate release
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
@@ -67,11 +82,29 @@ jobs:
           port: 22
           script: |
             set -e
+            BASE=/var/www/sramap
+            RELEASE="$BASE/releases/${{ github.sha }}"
 
-            sudo systemctl restart sramap-frontend
+            test -f "$RELEASE/server.js" || { echo "server.js missing in release"; exit 1; }
 
-            sleep 5
+            ln -sfn "$RELEASE" "$BASE/current"
+            cp "$RELEASE/ecosystem.config.js" "$BASE/ecosystem.config.js"
 
+            pm2 startOrReload "$BASE/ecosystem.config.js" --update-env
+            pm2 save
+
+            ls -1dt "$BASE"/releases/*/ | tail -n +4 | xargs -r rm -rf
+
+            sleep 3
             curl -f http://127.0.0.1:3002
-
             echo "Frontend deployment successful"
+
+      - name: Purge Cloudflare cache
+        if: contains(github.event.head_commit.message, '[purge cache]')
+        run: |
+          curl -fsS -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
+          echo "Cloudflare cache purged"
