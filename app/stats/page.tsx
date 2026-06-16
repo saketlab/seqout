@@ -1,6 +1,5 @@
 import SearchBar from "@/components/search-bar";
 import StatsEnrichedCard from "@/components/stats-enriched-card";
-import StatsIntro from "@/components/stats-intro";
 import StatsGlobalContributionsCard from "@/components/stats-global-contributions-card";
 import StatsGrowthChartCard from "@/components/stats-growth-chart-card";
 import StatsOrganismGrowthCard from "@/components/stats-organism-growth-card";
@@ -34,7 +33,6 @@ export default function StatsPage() {
         <Text size={{ initial: "6", md: "8" }} weight={"bold"}>
           Key statistics
         </Text>
-        <StatsIntro />
         {/* Chart list — hairline dividers replace the former Card wrappers.
             Each chart component provides its own vertical padding + width. */}
         <Flex direction="column" gap="0" className="seqout-divided-list">
