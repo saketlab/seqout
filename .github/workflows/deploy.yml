@@ -43,7 +43,7 @@ jobs:
         run: |
           mkdir -p deploy
 
-          cp -r .next/standalone/* deploy/
+          cp -r .next/standalone/. deploy/
 
           mkdir -p deploy/.next
           cp -r .next/static deploy/.next/static
