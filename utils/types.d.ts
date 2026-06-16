@@ -4,7 +4,21 @@ export type SourceTotals = Record<
   DbSource,
   { projects: number; samples: number }
 >;
-export type LastUpdated = { last_updated: string | null };
+export type LastUpdated = {
+  last_updated: string | null;
+  by_source?: Record<DbSource, string | null>;
+};
+
+export type EnrichedCrosstab = {
+  group: string;
+  breakdown: string;
+  groups: {
+    value: string;
+    total: number;
+    distinct: number;
+    breakdowns: { value: string; count: number }[];
+  }[];
+};
 
 export type SearchResult = {
   accession: string;

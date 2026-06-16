@@ -63,10 +63,7 @@ export default function HomeSearchBar() {
         weight="medium"
         align="center"
         color="gray"
-        style={{
-          letterSpacing: "-0.02em",
-          maxWidth: "40rem",
-        }}
+        style={{ letterSpacing: "-0.02em" }}
       >
         Search{" "}
         {totalProjects ? (

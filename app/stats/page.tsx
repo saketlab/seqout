@@ -1,4 +1,5 @@
 import SearchBar from "@/components/search-bar";
+import StatsEnrichedCard from "@/components/stats-enriched-card";
 import StatsGlobalContributionsCard from "@/components/stats-global-contributions-card";
 import StatsGrowthChartCard from "@/components/stats-growth-chart-card";
 import StatsOrganismGrowthCard from "@/components/stats-organism-growth-card";
@@ -54,6 +55,9 @@ export default function StatsPage() {
           </div>
           <div id="comparison">
             <StatsPlatformComparisonCard />
+          </div>
+          <div id="enriched">
+            <StatsEnrichedCard />
           </div>
           <div id="map">
             <StatsGlobalContributionsCard />

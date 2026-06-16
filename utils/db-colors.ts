@@ -2,6 +2,8 @@ import type { ExternalArchive } from "./accessionLinks";
 
 export type DbSource = "geo" | "sra" | "ena" | "arrayexpress";
 
+export const DB_ORDER: DbSource[] = ["geo", "sra", "ena", "arrayexpress"];
+
 type RadixColor = "blue" | "violet" | "jade" | "amber";
 
 type DbColor = {
