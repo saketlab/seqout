@@ -2,11 +2,25 @@ import { SITE_URL } from "@/utils/constants";
 
 export { SITE_URL };
 
-export const API_BASE =
-  process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
+export { SERVER_API_BASE as API_BASE } from "@/utils/constants";
 export const LIMIT = 50_000;
-export const SOURCES = ["geo", "sra", "arrayexpress", "ena"] as const;
-export const VALID_SOURCES = new Set<string>(SOURCES);
+
+export const SITEMAP_SOURCES: { key: string; path: string }[] = [
+  { key: "geo", path: "/p" },
+  { key: "sra", path: "/p" },
+  { key: "arrayexpress", path: "/p" },
+  { key: "ena", path: "/p" },
+  { key: "sra_exp", path: "/e" },
+  { key: "ena_exp", path: "/e" },
+  { key: "run", path: "/r" },
+  { key: "geo_sample", path: "/s" },
+  { key: "sra_sample", path: "/s" },
+  { key: "ena_sample", path: "/s" },
+];
+
+export const SOURCE_PATHS = new Map(
+  SITEMAP_SOURCES.map((s) => [s.key, s.path]),
+);
 
 export function xmlResponse(body: string) {
   return new Response(body, {

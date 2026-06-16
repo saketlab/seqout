@@ -1,9 +1,8 @@
+import { SERVER_API_BASE } from "@/utils/constants";
+import { DB_COLOR_MAP, type DbSource } from "@/utils/db-colors";
 import { ImageResponse } from "next/og";
 
-const API_BASE_URL =
-  process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
-
-type ProjectKind = "geo" | "sra" | "ena" | "arrayexpress";
+type ProjectKind = DbSource;
 
 type ProjectPayload = {
   title?: string | null;
@@ -21,32 +20,6 @@ const labelByKind: Record<ProjectKind, string> = {
   sra: "SRA",
   ena: "ENA",
   arrayexpress: "ArrayExpress",
-};
-
-const colorSchemes: Record<
-  ProjectKind,
-  { primary: string; secondary: string; accent: string }
-> = {
-  geo: {
-    primary: "#0ea5e9",
-    secondary: "#0284c7",
-    accent: "#7dd3fc",
-  },
-  sra: {
-    primary: "#8b5cf6",
-    secondary: "#6d28d9",
-    accent: "#c4b5fd",
-  },
-  ena: {
-    primary: "#10b981",
-    secondary: "#059669",
-    accent: "#6ee7b7",
-  },
-  arrayexpress: {
-    primary: "#f59e0b",
-    secondary: "#d97706",
-    accent: "#fcd34d",
-  },
 };
 
 function decodeHtmlEntities(input: string): string {
@@ -75,7 +48,7 @@ function truncateOgTitle(title: string, maxChars = 88): string {
 async function fetchProjectTitle(accession: string): Promise<string> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/project/${encodeURIComponent(accession)}`,
+      `${SERVER_API_BASE}/project/${encodeURIComponent(accession)}`,
       {
         next: { revalidate: 3600 },
       },
@@ -103,7 +76,7 @@ export async function generateProjectOgImage(
 ) {
   const title = truncateOgTitle(await fetchProjectTitle(accession));
   const sourceLabel = labelByKind[kind];
-  const colors = colorSchemes[kind];
+  const colors = DB_COLOR_MAP[kind].og;
 
   return new ImageResponse(
     (

@@ -11,3 +11,15 @@ export function getProjectUrl(accession: string): string {
 export function getProjectShortUrl(accession: string): string {
   return getProjectUrl(accession);
 }
+
+export function getExperimentUrl(accession: string): string {
+  return `/e/${accession}`;
+}
+
+export function getRunUrl(accession: string): string {
+  return `/r/${accession}`;
+}
+
+export function getSampleUrl(accession: string): string {
+  return `/s/${accession}`;
+}

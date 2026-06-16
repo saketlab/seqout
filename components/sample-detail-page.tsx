@@ -1,5 +1,7 @@
 "use client";
+import LinkedSraFastq from "@/components/linked-sra-fastq";
 import ProjectSummary from "@/components/project-summary";
+import ProjectSupplementary from "@/components/project-supplementary";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
@@ -11,9 +13,11 @@ import SectionAnchor from "@/components/section-anchor";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { useToast } from "@/components/toast-provider";
+import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
+import { dbColorForArchive } from "@/utils/db-colors";
 import { formatBytes } from "@/utils/format";
 import {
   CheckIcon,
@@ -101,7 +105,7 @@ type GeoChannel = {
   "@position"?: string;
 };
 
-type RunRow = {
+export type RunRow = {
   run_accession: string;
   run_alias: string | null;
   experiment_accession: string | null;
@@ -413,7 +417,7 @@ function SraSampleDetail({
   );
 }
 
-function RunsSection({
+export function RunsSection({
   runs,
   agGridThemeClassName,
 }: {
@@ -690,30 +694,9 @@ function RunsSection({
   );
 }
 
-function getExternalSampleUrl(accession: string): {
-  url: string;
-  label: string;
-} {
-  const upper = accession.toUpperCase();
-  if (upper.startsWith("GSM")) {
-    return {
-      url: `https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${accession}`,
-      label: "Visit GEO page",
-    };
-  }
-  return {
-    url: `https://www.ncbi.nlm.nih.gov/sra/${accession}[accn]`,
-    label: "Visit SRA page",
-  };
-}
-
-function getDbBadgeColor(
-  accession: string,
-): "blue" | "brown" | "green" | undefined {
-  const upper = accession.toUpperCase();
-  if (upper.startsWith("GSM")) return "blue";
-  if (upper.startsWith("SRX") || upper.startsWith("SRS")) return "brown";
-  return undefined;
+function getDbBadgeColor(accession: string) {
+  const external = getExternalArchiveUrl(accession);
+  return external ? dbColorForArchive(external.archive) : undefined;
 }
 
 export default function SampleDetailPage() {
@@ -756,7 +739,7 @@ export default function SampleDetailPage() {
   const sampleType = detail?.sample_type;
 
   const externalLink = accession
-    ? getExternalSampleUrl(accession)
+    ? getExternalArchiveUrl(accession)
     : null;
   const badgeColor = accession ? getDbBadgeColor(accession) : undefined;
 
@@ -946,6 +929,7 @@ export default function SampleDetailPage() {
               >
                 <Badge
                   size={{ initial: "2", md: "3" }}
+                  color={badgeColor}
                   variant="outline"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
@@ -991,6 +975,15 @@ export default function SampleDetailPage() {
               agGridThemeClassName={agGridThemeClassName}
             />
           )}
+
+          {sampleType === "geo_sample" && (
+            <LinkedSraFastq
+              aliasField={project?.alias}
+              agGridThemeClassName={agGridThemeClassName}
+            />
+          )}
+
+          <ProjectSupplementary accession={projectAccession} />
 
           {/* Project context */}
           {project && (

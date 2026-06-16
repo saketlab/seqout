@@ -1,3 +1,11 @@
+import type { DbSource } from "./db-colors";
+
+export type SourceTotals = Record<
+  DbSource,
+  { projects: number; samples: number }
+>;
+export type LastUpdated = { last_updated: string | null };
+
 export type SearchResult = {
   accession: string;
   title: string;

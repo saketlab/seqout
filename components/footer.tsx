@@ -1,4 +1,4 @@
-import { LAST_INDEX_REFRESH } from "@/utils/constants";
+import IndexRefreshed from "@/components/index-refreshed";
 import { Flex, Kbd, Link, Separator, Text } from "@radix-ui/themes";
 
 export default function Footer() {
@@ -55,9 +55,7 @@ export default function Footer() {
           </Text>
         </Flex>
 
-        <Text size="1" style={{ color: "var(--gray-11)" }}>
-          Index refreshed {LAST_INDEX_REFRESH}
-        </Text>
+        <IndexRefreshed />
       </Flex>
     </footer>
   );

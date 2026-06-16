@@ -19,3 +19,6 @@ export const SEARCH_PLACEHOLDER = "GSE196830, BRCA1, breast cancer, scRNA-seq…
 const SERVER_URL = `${SITE_URL}/api`;
 
 export { SERVER_URL };
+
+export const SERVER_API_BASE =
+  process.env.PYSRAWEB_API_BASE ?? `${SITE_URL}/api`;

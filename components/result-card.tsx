@@ -1,4 +1,5 @@
 import CountryFlagIcon from "@/components/country-flag-icon";
+import { DB_COLOR_MAP, dbForAccession } from "@/utils/db-colors";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
@@ -57,6 +58,7 @@ function ResultCard({
   const accessionUpper = accession.toUpperCase();
   const isArrayExpressAccession = accessionUpper.startsWith("E-");
   const isPrjAccession = accessionUpper.startsWith("PRJ");
+  const db = dbForAccession(accession);
   const authorList = parseAuthors(authors);
   const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
 
@@ -264,15 +266,7 @@ function ResultCard({
         <Flex gap={"2"} align={"center"} wrap={"wrap"}>
           <Badge
             size={"2"}
-            color={
-              isPrjAccession
-                ? "jade"
-                : isArrayExpressAccession
-                  ? "gold"
-                  : accessionUpper.startsWith("G")
-                    ? undefined
-                    : "brown"
-            }
+            color={db ? DB_COLOR_MAP[db].radix : undefined}
             variant={
               isArrayExpressAccession || isPrjAccession ? "solid" : undefined
             }

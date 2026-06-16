@@ -1,4 +1,10 @@
-import { API_BASE, LIMIT, SITE_URL, SOURCES, xmlResponse } from "../sitemap/_utils";
+import {
+  API_BASE,
+  LIMIT,
+  SITE_URL,
+  SITEMAP_SOURCES,
+  xmlResponse,
+} from "../sitemap/_utils";
 
 export const revalidate = 2592000;
 
@@ -17,10 +23,10 @@ export async function GET() {
 
   xml += `  <sitemap><loc>${SITE_URL}/sitemap/static.xml</loc></sitemap>\n`;
 
-  for (const source of SOURCES) {
-    const chunks = Math.ceil((counts[source] ?? 0) / LIMIT);
+  for (const { key } of SITEMAP_SOURCES) {
+    const chunks = Math.ceil((counts[key] ?? 0) / LIMIT);
     for (let i = 0; i < chunks; i++) {
-      xml += `  <sitemap><loc>${SITE_URL}/sitemap/${source}-${i}.xml</loc></sitemap>\n`;
+      xml += `  <sitemap><loc>${SITE_URL}/sitemap/${key}-${i}.xml</loc></sitemap>\n`;
     }
   }
 
