@@ -1,10 +1,4 @@
-import {
-  API_BASE,
-  LIMIT,
-  SITE_URL,
-  VALID_SOURCES,
-  xmlResponse,
-} from "../_utils";
+import { API_BASE, LIMIT, SITE_URL, SOURCE_PATHS, xmlResponse } from "../_utils";
 
 export const revalidate = 2592000;
 
@@ -21,19 +15,13 @@ export async function GET(
     return buildStaticSitemap();
   }
 
-  const dashIdx = slug.lastIndexOf("-");
-  if (dashIdx === -1) {
+  const match = slug.match(/^(.+)-(\d+)$/);
+  const prefix = match ? SOURCE_PATHS.get(match[1]) : undefined;
+  if (!match || !prefix) {
     return new Response("Not found", { status: 404 });
   }
 
-  const source = slug.slice(0, dashIdx);
-  const page = parseInt(slug.slice(dashIdx + 1), 10);
-
-  if (!VALID_SOURCES.has(source) || isNaN(page) || page < 0) {
-    return new Response("Not found", { status: 404 });
-  }
-
-  return buildAccessionSitemap(source, page);
+  return buildAccessionSitemap(match[1], parseInt(match[2], 10), prefix);
 }
 
 function buildStaticSitemap() {
@@ -49,7 +37,11 @@ function buildStaticSitemap() {
   return xmlResponse(xml);
 }
 
-async function buildAccessionSitemap(source: string, page: number) {
+async function buildAccessionSitemap(
+  source: string,
+  page: number,
+  prefix: string,
+) {
   const res = await fetch(
     `${API_BASE}/sitemap/accessions?source=${source}&page=${page}&limit=${LIMIT}`,
     { next: { revalidate: 2592000 } },
@@ -68,7 +60,7 @@ async function buildAccessionSitemap(source: string, page: number) {
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
   for (const acc of accessions) {
-    xml += `  <url><loc>${SITE_URL}/p/${encodeURIComponent(acc)}</loc></url>\n`;
+    xml += `  <url><loc>${SITE_URL}${prefix}/${encodeURIComponent(acc)}</loc></url>\n`;
   }
 
   xml += `</urlset>\n`;

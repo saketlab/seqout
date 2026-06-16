@@ -11,7 +11,8 @@ import {
 import type { Metadata } from "next";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { LAST_INDEX_REFRESH } from "@/utils/constants";
+import { LAST_INDEX_REFRESH, SERVER_API_BASE } from "@/utils/constants";
+import type { LastUpdated } from "@/utils/types";
 
 export const metadata: Metadata = {
   title: "About and FAQ",
@@ -21,6 +22,9 @@ export const metadata: Metadata = {
     canonical: "https://seqout.org/faq",
   },
 };
+
+const updateFrequencyAnswer = (date: string) =>
+  `We refresh the metadata index on a regular schedule to stay in sync with NCBI and EBI. The last full refresh was on ${date}. New datasets appear within a few days of their public release.`;
 
 const faqItems = [
   {
@@ -56,8 +60,7 @@ const faqItems = [
   {
     id: "update-frequency",
     question: "How often is seqout updated?",
-    answer:
-      `We refresh the metadata index on a regular schedule to stay in sync with NCBI and EBI. The last full refresh was on ${LAST_INDEX_REFRESH}. New datasets appear within a few days of their public release.`,
+    answer: updateFrequencyAnswer(LAST_INDEX_REFRESH),
   },
   {
     id: "api",
@@ -109,10 +112,10 @@ const faqItems = [
   },
 ];
 
-const faqJsonLd = {
+const buildFaqJsonLd = (items: typeof faqItems) => ({
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: faqItems.map((item) => ({
+  mainEntity: items.map((item) => ({
     "@type": "Question",
     name: item.question,
     acceptedAnswer: {
@@ -120,7 +123,7 @@ const faqJsonLd = {
       text: item.answer,
     },
   })),
-};
+});
 
 const FAQ_LINK_MAP: Record<string, { text: string; href: string }[]> = {
   api: [{ text: "API Reference", href: "/api-docs" }],
@@ -248,12 +251,39 @@ function FaqItem({
   );
 }
 
-export default function FAQ() {
+export const revalidate = 604800;
+
+async function getLastRefresh(): Promise<string> {
+  try {
+    const res = await fetch(`${SERVER_API_BASE}/stats/last-updated`, {
+      next: { revalidate },
+    });
+    if (!res.ok) return LAST_INDEX_REFRESH;
+    const { last_updated } = (await res.json()) as LastUpdated;
+    if (!last_updated) return LAST_INDEX_REFRESH;
+    return new Date(last_updated).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  } catch {
+    return LAST_INDEX_REFRESH;
+  }
+}
+
+export default async function FAQ() {
+  const lastRefresh = await getLastRefresh();
+  const items = faqItems.map((item) =>
+    item.id === "update-frequency"
+      ? { ...item, answer: updateFrequencyAnswer(lastRefresh) }
+      : item,
+  );
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqJsonLd(items)) }}
       />
       <SearchBar />
       <Flex
@@ -345,7 +375,7 @@ export default function FAQ() {
         </Flex>
 
         <Flex direction="column" gap="5" pt="2">
-          {faqItems.map((item) => (
+          {items.map((item) => (
             <FaqItem
               key={item.id}
               id={item.id}

@@ -3,8 +3,9 @@
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
 import { getApexChartTheme } from "@/utils/chart-theme";
-import { DB_COLORS } from "@/utils/db-colors";
+import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
+import { useSourceTotals } from "@/utils/useStats";
 import {
   Flex,
   Heading,
@@ -20,15 +21,11 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Metric = "Projects" | "Samples";
 
-const SOURCES = ["SRA", "GEO", "ArrayExpress", "ENA"];
-
-const COUNTS: Record<Metric, number[]> = {
-  Projects: [679861, 272122, 80005, 1007427],
-  Samples: [39381658, 8183901, 4144991, 35585152],
-};
+const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena"] as const;
 
 export default function StatsSourceHistogramCard() {
   const [metric, setMetric] = useState<Metric>("Projects");
+  const { data: totals } = useSourceTotals();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const reduced = useReducedMotion();
@@ -66,7 +63,7 @@ export default function StatsSourceHistogramCard() {
         },
       },
       xaxis: {
-        categories: SOURCES,
+        categories: SOURCE_KEYS.map((k) => DB_LABELS[k]),
         title: { text: "Source" },
       },
       yaxis: {
@@ -94,7 +91,7 @@ export default function StatsSourceHistogramCard() {
         },
       },
       legend: { show: false },
-      colors: [DB_COLORS.sra, DB_COLORS.geo, DB_COLORS.arrayexpress, DB_COLORS.ena],
+      colors: SOURCE_KEYS.map((k) => DB_COLORS[k]),
       grid: {
         strokeDashArray: 4,
         borderColor: theme.gridBorderColor,
@@ -115,10 +112,14 @@ export default function StatsSourceHistogramCard() {
     () => [
       {
         name: metric,
-        data: COUNTS[metric],
+        data: totals
+          ? SOURCE_KEYS.map((k) =>
+              metric === "Projects" ? totals[k].projects : totals[k].samples,
+            )
+          : [],
       },
     ],
-    [metric],
+    [metric, totals],
   );
 
   return (

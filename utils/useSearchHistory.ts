@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SERVER_URL } from "./constants";
+import { getInternalUrl } from "./accessionLinks";
 import { getProjectShortUrl } from "./shortUrl";
 
 const HISTORY_KEY = "searchHistory";
@@ -52,62 +53,42 @@ export function useSearchHistory() {
     saveHistory(newHistory);
 
     const isSingleTerm = normalized.split(/\s+/).length === 1;
-    const fetchPrefixes = [
-      "SRS",
-      "SRX",
-      "DRS",
-      "DRX",
-      "ERX",
-      "ERS",
-      "GSM",
-      "PRJ",
-    ];
 
-    if (
-      isSingleTerm &&
-      (normalized.startsWith("GSE") || normalized.startsWith("E-"))
-    ) {
-      navigate(getProjectShortUrl(normalized));
-    } else if (
-      isSingleTerm &&
-      (normalized.startsWith("SRP") ||
-        normalized.startsWith("ERP") ||
-        normalized.startsWith("DRP"))
-    ) {
-      navigate(getProjectShortUrl(normalized));
-    } else if (
-      isSingleTerm &&
-      fetchPrefixes.some((p) => normalized.startsWith(p))
-    ) {
-      try {
-        let url;
-        if (normalized.startsWith("PRJ")) {
-          url = `${SERVER_URL}/prj/${encodeURIComponent(normalized)}`;
-        } else {
-          url = `${SERVER_URL}/accession/${encodeURIComponent(normalized)}/project`;
-        }
-        const res = await fetch(url);
-        if (res.status === 500) {
-          alert("project not found");
-          return;
-        }
-        if (!res.ok) {
-          navigate(buildSearchUrl(trimmed, db));
-          return;
-        }
-        const data = await res.json();
-        const projectAccession =
-          typeof data.project_accession === "string" && data.project_accession
-            ? data.project_accession
-            : normalized;
-        navigate(getProjectShortUrl(projectAccession));
-      } catch (error) {
-        console.error("Error fetching project:", error);
-        navigate(buildSearchUrl(trimmed, db));
+    if (isSingleTerm) {
+      const internalUrl = getInternalUrl(normalized);
+      if (internalUrl) {
+        navigate(internalUrl);
+        return;
       }
-    } else {
-      navigate(buildSearchUrl(trimmed, db));
+
+      if (normalized.startsWith("PRJ")) {
+        try {
+          const res = await fetch(
+            `${SERVER_URL}/prj/${encodeURIComponent(normalized)}`,
+          );
+          if (res.status === 500) {
+            alert("project not found");
+            return;
+          }
+          if (!res.ok) {
+            navigate(buildSearchUrl(trimmed, db));
+            return;
+          }
+          const data = await res.json();
+          const projectAccession =
+            typeof data.project_accession === "string" && data.project_accession
+              ? data.project_accession
+              : normalized;
+          navigate(getProjectShortUrl(projectAccession));
+        } catch (error) {
+          console.error("Error fetching project:", error);
+          navigate(buildSearchUrl(trimmed, db));
+        }
+        return;
+      }
     }
+
+    navigate(buildSearchUrl(trimmed, db));
   };
 
   return { history, saveHistory, performSearch };

@@ -84,3 +84,41 @@ export const parsePostgresTextArray = (value: string): string[] => {
 
   return items;
 };
+
+export const normalizeAliases = (
+  value: string | string[] | null | undefined,
+): string[] => {
+  if (!value) return [];
+
+  const candidates = Array.isArray(value)
+    ? value
+    : (() => {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+
+        try {
+          const parsed = JSON.parse(trimmed) as unknown;
+          if (Array.isArray(parsed)) {
+            return parsed
+              .filter((item): item is string => typeof item === "string")
+              .map((item) => item.trim());
+          }
+        } catch {
+          // fall through to postgres/text parsing
+        }
+
+        const postgresArrayItems = parsePostgresTextArray(trimmed);
+        if (postgresArrayItems.length > 0) {
+          return postgresArrayItems;
+        }
+
+        return [trimmed];
+      })();
+
+  const deduped = new Set<string>();
+  candidates
+    .map((alias) => alias.trim())
+    .filter((alias) => alias.length > 0)
+    .forEach((alias) => deduped.add(alias));
+  return Array.from(deduped);
+};

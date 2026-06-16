@@ -1,4 +1,5 @@
 "use client";
+import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
@@ -19,6 +20,7 @@ import { ensureAgGridModules } from "@/lib/ag-grid";
 import { getJson, getJsonOrNull, parseProjectStringFields } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
+import { DB_COLOR_MAP } from "@/utils/db-colors";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
   getOrganismBannerStyle,
@@ -1682,6 +1684,9 @@ export default function ProjectPage() {
   const externalStudyLabel = isPrjAccession
     ? "Visit ENA page"
     : "Visit SRA page";
+  const externalStudyColor = isPrjAccession
+    ? DB_COLOR_MAP.ena.radix
+    : DB_COLOR_MAP.sra.radix;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
   const agGridThemeClassName = isDark
@@ -1928,15 +1933,7 @@ export default function ProjectPage() {
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const experimentAccession = toDisplayText(params.value);
           if (experimentAccession === "-") return "-";
-          return (
-            <Link
-              href={`https://www.ncbi.nlm.nih.gov/sra/${experimentAccession}[accn]`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {experimentAccession}
-            </Link>
-          );
+          return <AccessionLink accession={experimentAccession} />;
         },
       },
       {
@@ -1977,22 +1974,7 @@ export default function ProjectPage() {
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
           if (sampleAccession === "-") return "-";
-          if (
-            sampleAccession.startsWith("SRS") ||
-            sampleAccession.startsWith("ERS") ||
-            sampleAccession.startsWith("DRS")
-          ) {
-            return (
-              <Link
-                href={`https://www.ncbi.nlm.nih.gov/sra/${sampleAccession}[accn]`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {sampleAccession}
-              </Link>
-            );
-          }
-          return <span>{sampleAccession}</span>;
+          return <AccessionLink accession={sampleAccession} />;
         },
       },
       {
@@ -2002,29 +1984,7 @@ export default function ProjectPage() {
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const sampleAlias = toDisplayText(params.value);
           if (sampleAlias === "-") return "-";
-          if (sampleAlias.startsWith("GSM")) {
-            return (
-              <Link
-                href={`https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${sampleAlias}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {sampleAlias}
-              </Link>
-            );
-          }
-          if (sampleAlias.startsWith("SAM")) {
-            return (
-              <Link
-                href={`https://www.ncbi.nlm.nih.gov/biosample/${sampleAlias}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {sampleAlias}
-              </Link>
-            );
-          }
-          return <span>{sampleAlias}</span>;
+          return <AccessionLink accession={sampleAlias} />;
         },
       },
       {
@@ -2340,7 +2300,7 @@ export default function ProjectPage() {
               >
                 <Badge
                   size={{ initial: "2", md: "3" }}
-                  color="sky"
+                  color={externalStudyColor}
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {externalStudyLabel} <ExternalLinkIcon />

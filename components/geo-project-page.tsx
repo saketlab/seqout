@@ -1,4 +1,5 @@
 "use client";
+import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
@@ -10,17 +11,19 @@ import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
-import { DownloadFastqSection } from "@/components/sra-project-page";
+import LinkedSraFastq from "@/components/linked-sra-fastq";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
-import { getJson, getJsonOrNull } from "@/utils/api";
+import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
+import { DB_COLOR_MAP } from "@/utils/db-colors";
 import { buildCurlCommand, buildSupplementaryDownloadScript } from "@/utils/downloadScript";
 import { titleCaseCenter } from "@/utils/format";
 import {
+  normalizeAliases,
   normalizeAuthors,
   parsePostgresTextArray,
   toDisplayText,
@@ -171,46 +174,6 @@ type SampleSupplementaryGroupRow = {
   items: SupplementaryDataItem[];
   fileCount: number;
   totalSizeBytes: number | null;
-};
-
-type LinkedRunsData = React.ComponentProps<
-  typeof DownloadFastqSection
->["runsData"];
-
-const normalizeAliases = (value: Project["alias"]): string[] => {
-  if (!value) return [];
-
-  const candidates = Array.isArray(value)
-    ? value
-    : (() => {
-        const trimmed = value.trim();
-        if (!trimmed) return [];
-
-        try {
-          const parsed = JSON.parse(trimmed) as unknown;
-          if (Array.isArray(parsed)) {
-            return parsed
-              .filter((item): item is string => typeof item === "string")
-              .map((item) => item.trim());
-          }
-        } catch {
-          // fall through to postgres/text parsing
-        }
-
-        const postgresArrayItems = parsePostgresTextArray(trimmed);
-        if (postgresArrayItems.length > 0) {
-          return postgresArrayItems;
-        }
-
-        return [trimmed];
-      })();
-
-  const deduped = new Set<string>();
-  candidates
-    .map((alias) => alias.trim())
-    .filter((alias) => alias.length > 0)
-    .forEach((alias) => deduped.add(alias));
-  return Array.from(deduped);
 };
 
 const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
@@ -475,13 +438,6 @@ const fetchProject = async (
   return data as Project;
 };
 
-const fetchLinkedRuns = async (
-  accession: string | null,
-): Promise<LinkedRunsData | null> => {
-  if (!accession) return null;
-  return getJsonOrNull<LinkedRunsData>(`/project/${accession}/runs`);
-};
-
 const SUMMARY_CHAR_LIMIT = 350;
 const OVERALL_DESIGN_CHAR_LIMIT = 350;
 
@@ -626,27 +582,6 @@ export default function GeoProjectPage() {
       }),
     [projectAliases],
   );
-  const { data: linkedSraRuns } = useQuery({
-    queryKey: ["linked-sra-runs", linkedSraAliases],
-    queryFn: async () => {
-      const runs = await Promise.all(
-        linkedSraAliases.map(async (sraAccession) => ({
-          accession: sraAccession,
-          runsData: await fetchLinkedRuns(sraAccession),
-        })),
-      );
-      return runs.filter(
-        (entry): entry is { accession: string; runsData: LinkedRunsData } =>
-          !!entry.runsData && entry.runsData.total_runs > 0,
-      );
-    },
-    enabled: linkedSraAliases.length > 0,
-  });
-  const linkedSraExpTitleMap = React.useMemo(
-    () => new Map<string, string>(),
-    [],
-  );
-
   const { data: samples, isLoading: isSamplesLoading } = useQuery({
     queryKey: ["samples", accession],
     queryFn: () => fetchSamples(accession!),
@@ -987,14 +922,18 @@ export default function GeoProjectPage() {
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
           if (sampleAccession === "-") return "-";
-          const href = isArrayExpress
-            ? `https://www.ebi.ac.uk/biostudies/ArrayExpress/studies/${accession}/sdrf`
-            : `https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${sampleAccession}`;
-          return (
-            <Link href={href} target="_blank" rel="noopener noreferrer">
-              {sampleAccession}
-            </Link>
-          );
+          if (isArrayExpress) {
+            return (
+              <Link
+                href={`https://www.ebi.ac.uk/biostudies/ArrayExpress/studies/${accession}/sdrf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {sampleAccession}
+              </Link>
+            );
+          }
+          return <AccessionLink accession={sampleAccession} />;
         },
       },
       {
@@ -1492,7 +1431,7 @@ export default function GeoProjectPage() {
                 <a key={`sra-${alias}`} href={`/p/${alias}`}>
                   <Badge
                     size={{ initial: "2", md: "3" }}
-                    color="brown"
+                    color={DB_COLOR_MAP.sra.radix}
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                     className="seqout-accession"
                   >
@@ -1510,7 +1449,7 @@ export default function GeoProjectPage() {
                   <a key={`ae-${alias}`} href={`/p/${alias}`}>
                     <Badge
                       size={{ initial: "2", md: "3" }}
-                      color="gold"
+                      color={DB_COLOR_MAP.arrayexpress.radix}
                       variant="solid"
                       style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                       className="seqout-accession"
@@ -1572,7 +1511,11 @@ export default function GeoProjectPage() {
               >
                 <Badge
                   size={{ initial: "2", md: "3" }}
-                  color="sky"
+                  color={
+                    isArrayExpress
+                      ? DB_COLOR_MAP.arrayexpress.radix
+                      : DB_COLOR_MAP.geo.radix
+                  }
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {isArrayExpress
@@ -1905,15 +1848,10 @@ export default function GeoProjectPage() {
               </Text>
             )}
 
-            {linkedSraRuns?.map(({ accession: sraAccession, runsData }) => (
-              <DownloadFastqSection
-                key={`linked-sra-fastq-${sraAccession}`}
-                accession={sraAccession}
-                runsData={runsData}
-                agGridThemeClassName={agGridThemeClassName}
-                expTitleMap={linkedSraExpTitleMap}
-              />
-            ))}
+            <LinkedSraFastq
+              aliasField={project?.alias}
+              agGridThemeClassName={agGridThemeClassName}
+            />
             <Flex id="supplementary" align="center" gap="2">
               <Heading as="h2" weight="medium" size="6">
                 Supplementary Data
