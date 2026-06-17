@@ -1,10 +1,11 @@
 [project]
 name = "seqoutdb"
-version = "0.1.0"
-description = "Python API to interact with seqout.org"
-readme = "../README.md"
+version = "0.1.2"
+description = "Python API and CLI client to interact with seqout.org"
+readme = "README.md"
 authors = [
-    { name = "Mukesh", email = "mukeshreddy.work@gmail.com" }
+    { name = "Mukesh", email = "mukeshreddy.work@gmail.com" },
+    { name = "Aniruddha Mukherjee", email = "amkhrjee@iitb.ac.in" }
 ]
 requires-python = ">=3.13"
 dependencies = [
