@@ -116,12 +116,10 @@ def cmd_show(accession: str) -> None:
     console = Console()
     acc = accession.strip()
     up = acc.upper()
-    if up.startswith(("GSM", "SRS", "SRX", "SRR", "ERS", "ERX", "ERR", "DRS", "DRX", "DRR", "SAM")):
-        console.print(
-            f"[yellow]{acc} is a sample, not a project.[/] `show` lists a project's "
-            "samples — pass a project accession (GSE…, SRP…, E-…, PRJ…)."
-        )
-        raise SystemExit(1)
+    sample_prefixes = ("GSM", "SRS", "SRX", "SRR", "ERS", "ERX", "ERR", "DRS", "DRX", "DRR", "SAM")
+    if up.startswith(sample_prefixes):
+        cmd_show_sample(acc, console)
+        return
     is_geo = up.startswith(("GSE", "E-"))
 
     try:
@@ -175,6 +173,66 @@ def cmd_show(accession: str) -> None:
                 e.instrument_model,
                 str(len(e.samples)),
             )
+    console.print(table)
+
+
+def cmd_show_sample(acc: str, console) -> None:
+    from rich.panel import Panel
+    from rich.table import Table
+
+    is_geo = acc.upper().startswith("GSM")
+    try:
+        with Seqout() as sq, console.status(f"[bold]Fetching {acc}…[/]"):
+            detail = (
+                sq.fetch_geo_sample_detailed_metadata(acc)
+                if is_geo
+                else sq.fetch_sample_detailed_metadata(acc)
+            )
+    except Exception as e:
+        console.print(f"[red]Failed to fetch {acc}:[/] {e}")
+        raise SystemExit(1)
+
+    s = detail.sample
+    proj = detail.project
+    console.print(
+        Panel(
+            f"[dim]part of[/] [bold]{proj.accession}[/]: {proj.title}",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+
+    table = Table(title=acc, title_style="bold", header_style="bold green", show_lines=False)
+    table.add_column("field", style="cyan", no_wrap=True)
+    table.add_column("value", overflow="fold")
+
+    def row(field, value):
+        if value not in (None, "", []):
+            table.add_row(field, str(value))
+
+    if is_geo:  # ExperimentSample
+        org = s.channels[0].organism.text if s.channels and s.channels[0].organism else None
+        row("title", s.title)
+        row("description", s.description)
+        row("sample_type", s.sample_type)
+        row("organism", org)
+        row("platform", s.platform_ref)
+        row("published", s.published_at)
+        attrs = s.channels[0].characteristics if s.channels else {}
+    else:  # SampleMetadataResult
+        row("title", s.title)
+        row("alias", s.alias)
+        row("description", s.description)
+        row("scientific_name", s.scientific_name)
+        row("taxon_id", s.taxon_id)
+        row("submission", s.submission)
+        attrs = s.attributes or {}
+
+    if attrs:
+        table.add_section()
+        for k, v in attrs.items():
+            row(k, v)
+
     console.print(table)
 
 
