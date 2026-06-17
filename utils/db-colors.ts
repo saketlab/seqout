@@ -20,7 +20,8 @@ export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   },
   sra: {
     hex: "#8b5cf6",
-    radix: "violet",
+    // @ts-expect-error This is a type problem from radix
+    radix: "brown",
     og: { primary: "#8b5cf6", secondary: "#6d28d9", accent: "#c4b5fd" },
   },
   ena: {

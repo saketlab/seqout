@@ -597,7 +597,8 @@ export default function GeoProjectPage() {
   // linked GSE, else a linked SRA study. Samples stay on a GEO-compatible
   // accession (the GEO series endpoint can't serve an SRA study).
   const borrowedAccession =
-    similarGseAccession ?? (isArrayExpress ? (linkedSraAliases[0] ?? null) : null);
+    similarGseAccession ??
+    (isArrayExpress ? (linkedSraAliases[0] ?? null) : null);
   const { data: borrowedProject } = useQuery({
     queryKey: ["project", borrowedAccession],
     queryFn: () => fetchProject(borrowedAccession),
