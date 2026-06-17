@@ -683,7 +683,7 @@ export default function SimilarProjectsGraph({
           )}
         </Flex>
         <Flex align="center" gap="2" wrap="wrap">
-          {viewMode === "graph" && maxNeighbors > 10 && (
+          {maxNeighbors > 10 && (
             <Flex align="center" gap="2">
               <Text size="1" color="gray" style={{ whiteSpace: "nowrap" }}>
                 {shownNeighborCount} neighbors
