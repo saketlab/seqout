@@ -915,6 +915,13 @@ export default function GeoProjectPage() {
     });
   }, [samples]);
 
+  const sampleGridHeight = React.useMemo(() => {
+    const headerHeight = 48;
+    const rowHeight = 42;
+    const maxHeight = 500;
+    return Math.min(maxHeight, headerHeight + sampleRows.length * rowHeight);
+  }, [sampleRows.length]);
+
   const sampleGridDefaultColDef = React.useMemo<ColDef<GeoSampleGridRow>>(
     () => ({
       filter: true,
@@ -1833,7 +1840,7 @@ export default function GeoProjectPage() {
                       <div
                         className={agGridThemeClassName}
                         style={{
-                          height: "500px",
+                          height: `${sampleGridHeight}px`,
                           width: "100%",
                         }}
                       >
