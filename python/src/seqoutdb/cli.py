@@ -426,6 +426,12 @@ def _select_run_files(console, run, mode: str):
     urls, sizes, md5s = _extract_download_info_for_study_run(run, mode)  # ty: ignore
     files = list(zip(urls, sizes, md5s))
 
+    if run.library_layout == "PAIRED" and len(urls) == 1:
+        console.print(
+            "[yellow]⚠ Interleaved PE:[/] paired-end reads are in a single interleaved "
+            "file. Use [bold]fasterq-dump --split-3[/] to extract R1/R2."
+        )
+
     if len(files) > 1 and sys.stdin.isatty():
         choices = [
             questionary.Choice(
