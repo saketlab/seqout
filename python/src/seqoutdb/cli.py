@@ -88,8 +88,23 @@ def main() -> None:
     p_dl.add_argument(
         "-o",
         "--out",
-        help="output file or directory (default: ./<accession>.json)",
+        help="output file/dir for metadata (default ./<accession>.json), "
+        "or output dir for data files (default ./<accession>/)",
     )
+    g = p_dl.add_mutually_exclusive_group()
+    g.add_argument(
+        "--supplementary",
+        action="store_true",
+        help="download the project's supplementary files instead of metadata",
+    )
+    for flag, mode in [("--fastq", "fastq"), ("--sra", "sra"), ("--sra-lite", "sra_lite"), ("--s3", "s3"), ("--gcs", "gcs")]:
+        g.add_argument(
+            flag,
+            dest="runs_mode",
+            action="store_const",
+            const=mode,
+            help=f"download study run files in {mode} format (study accession, e.g. SRP/PRJ)",
+        )
 
     args = parser.parse_args()
 
@@ -98,7 +113,12 @@ def main() -> None:
         return
 
     if args.command == "download":
-        cmd_download(args.accession, args.out)
+        if args.supplementary:
+            cmd_download_supplementary(args.accession, args.out)
+        elif args.runs_mode:
+            cmd_download_runs(args.accession, args.out, args.runs_mode)
+        else:
+            cmd_download(args.accession, args.out)
         return
 
     if args.enriched is None and args.norm is None:
@@ -255,6 +275,28 @@ def cmd_show_sample(acc: str, console) -> None:
 SAMPLE_PREFIXES = ("GSM", "SRS", "SRX", "SRR", "ERS", "ERX", "ERR", "DRS", "DRX", "DRR", "SAM")
 
 
+def _resolve_accession(sq, acc: str, want: str) -> str | None:
+    """Resolve a project to its sibling of the kind needed via cross-references.
+
+    want="runs" -> an SRA/ENA study (SRP/ERP/DRP, or PRJ) for run downloads;
+    want="geo"  -> a GEO series / ArrayExpress (GSE/E-) for supplementary files.
+    Returns acc unchanged if it's already the right kind, else the linked
+    accession, else None.
+    """
+    targets = ("SRP", "ERP", "DRP", "PRJ") if want == "runs" else ("GSE", "E-")
+    if acc.upper().startswith(targets):
+        return acc
+    try:
+        cands = [r.accession for r in sq.fetch_cross_references(acc) if r.accession.upper().startswith(targets)]
+    except Exception:
+        return None
+    if want == "runs":  # prefer a real study accession over a BioProject
+        for c in cands:
+            if c.upper().startswith(("SRP", "ERP", "DRP")):
+                return c
+    return cands[0] if cands else None
+
+
 def cmd_download(accession: str, out: str | None) -> None:
     import json
     from pathlib import Path
@@ -293,6 +335,183 @@ def cmd_download(accession: str, out: str | None) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(data, indent=2, default=str, ensure_ascii=False))
     console.print(f"[green]✓[/] wrote [bold]{dest}[/]  [dim]({dest.stat().st_size:,} bytes)[/]")
+
+
+def cmd_download_supplementary(accession: str, out: str | None) -> None:
+    from pathlib import Path
+
+    from rich.console import Console
+
+    console = Console()
+    acc = accession.strip()
+    out_dir = Path(out) if out else Path(acc)
+    try:
+        with Seqout() as sq:
+            with console.status(f"[bold]Looking up {acc}…[/]"):
+                geo = _resolve_accession(sq, acc, "geo") or acc
+                if geo != acc:
+                    console.print(f"[dim]{acc} → {geo} (linked GEO series)[/]")
+                meta = sq.fetch_project_metadata(geo)
+            n = len(meta.supplementary_data)
+            if not n:
+                console.print(f"[yellow]No supplementary files listed for {geo}.[/]")
+                return
+            console.print(f"Downloading [bold]{n}[/] supplementary file(s) → [bold]{out_dir}/[/]")
+            sq.download_project_supplementary_data(meta, out_dir, verbose=True)
+    except RuntimeError as e:  # partial-failure summary from the client
+        console.print(f"[red]{e}[/]")
+        raise SystemExit(1)
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1)
+    console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
+
+
+RUN_PREFIXES = ("SRR", "ERR", "DRR")
+
+# per-mode (url, bytes, md5) field names on StudyRunsResult; non-fastq modes all
+# carry size/md5 in the sra_* fields (mirrors _extract_download_info_for_study_run).
+_MODE_FIELDS = {
+    "fastq": ("fastq_ftp", "fastq_bytes", "fastq_md5"),
+    "sra": ("sra_ftp", "sra_bytes", "sra_md5"),
+    "sra_lite": ("ncbi_sra_lite_url", "sra_bytes", "sra_md5"),
+    "s3": ("ncbi_sra_lite_s3_url", "sra_bytes", "sra_md5"),
+    "gcs": ("ncbi_sra_lite_gs_url", "sra_bytes", "sra_md5"),
+}
+
+
+def _fmt_bytes(b: str) -> str:
+    try:
+        n = float(b)
+    except (TypeError, ValueError):
+        return b or "?"
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} TB"
+
+
+def _resolve_run_study(sq, run_acc: str) -> str | None:
+    from seqoutdb import SearchParams
+
+    try:
+        res = sq.search(SearchParams(q=run_acc))
+    except Exception:
+        return None
+    for r in res:
+        if r.accession.upper().startswith(("SRP", "ERP", "DRP", "PRJ")):
+            return r.accession
+    return None
+
+
+def _select_run_files(console, run, mode: str):
+    """Return a StudyRunsResults holding `run` with only the chosen files, or None."""
+    import sys
+
+    import questionary
+
+    from seqoutdb import StudyRunsResults
+    from seqoutdb.utils import (
+        _extract_download_info_for_study_run,
+        _validate_study_runs_data,
+    )
+
+    try:
+        _validate_study_runs_data(StudyRunsResults([run]), mode)  # ty: ignore
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        return None
+
+    urls, sizes, md5s = _extract_download_info_for_study_run(run, mode)  # ty: ignore
+    files = list(zip(urls, sizes, md5s))
+
+    if len(files) > 1 and sys.stdin.isatty():
+        choices = [
+            questionary.Choice(
+                title=f"{u.split('/')[-1]}  ({_fmt_bytes(b)})", value=f, checked=False
+            )
+            for f in files
+            for u, b, _ in [f]
+        ]
+        plain = questionary.Style([("highlighted", "noreverse"), ("selected", "noreverse")])
+        picks = questionary.checkbox(
+            f"{run.run_accession}: select {mode} files (space to toggle, enter to confirm)",
+            choices=choices,
+            style=plain,
+        ).ask()
+        if picks is None:  # cancelled (ctrl-c / esc)
+            console.print("[yellow]Cancelled.[/]")
+            return None
+        if not picks:
+            console.print("[yellow]Nothing selected.[/]")
+            return None
+        files = picks
+
+    url_f, bytes_f, md5_f = _MODE_FIELDS[mode]
+    sel = run.model_copy(
+        update={
+            url_f: ";".join(u for u, _, _ in files),
+            bytes_f: ";".join(b for _, b, _ in files),
+            md5_f: ";".join(m for _, _, m in files),
+        }
+    )
+    console.print(f"Selected [bold]{len(files)}[/] file(s).")
+    return StudyRunsResults([sel])  # ty: ignore
+
+
+def cmd_download_runs(accession: str, out: str | None, mode: str) -> None:
+    from pathlib import Path
+
+    from rich.console import Console
+
+    console = Console()
+    acc = accession.strip()
+    up = acc.upper()
+    out_dir = Path(out) if out else Path(acc)
+    try:
+        with Seqout() as sq:
+            if up.startswith(RUN_PREFIXES):
+                # a single run: resolve to its study, grab that run, pick files
+                with console.status(f"[bold]Resolving {acc}…[/]"):
+                    study = _resolve_run_study(sq, acc)
+                    if study is None:
+                        console.print(f"[yellow]Couldn't find the study for run {acc}.[/]")
+                        raise SystemExit(1)
+                    runs = sq.fetch_study_runs(study)
+                run = next((r for r in runs if r.run_accession.upper() == up), None)
+                if run is None:
+                    console.print(f"[yellow]Run {acc} not found in {study}.[/]")
+                    raise SystemExit(1)
+                console.print(f"[dim]{acc} → {study}[/]")
+                runs = _select_run_files(console, run, mode)
+                if runs is None:
+                    return
+            else:
+                with console.status(f"[bold]Fetching runs for {acc}…[/]"):
+                    study = _resolve_accession(sq, acc, "runs")
+                    if study is None:
+                        console.print(f"[yellow]No SRA/ENA study linked to {acc}; can't fetch runs.[/]")
+                        raise SystemExit(1)
+                    if study != acc:
+                        console.print(f"[dim]{acc} → {study} (linked SRA study)[/]")
+                    runs = sq.fetch_study_runs(study)
+                if not runs:
+                    console.print(f"[yellow]No runs found for {study}.[/]")
+                    return
+
+            console.print(f"Downloading [bold]{len(runs)}[/] run(s) as [bold]{mode}[/] → [bold]{out_dir}/[/]")
+            sq.download_study_runs_data(runs, out_dir, mode=mode, verbose=True)  # ty: ignore
+    except ValueError as e:  # e.g. mode unavailable for these runs
+        console.print(f"[red]{e}[/]")
+        raise SystemExit(1)
+    except RuntimeError as e:  # partial-failure / verification summary
+        console.print(f"[red]{e}[/]")
+        raise SystemExit(1)
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1)
+    console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
 
 
 def run_norm(
