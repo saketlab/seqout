@@ -9,6 +9,7 @@ import {
   Button,
   Flex,
   Select,
+  Slider,
   Spinner,
   Table,
   Tabs,
@@ -234,6 +235,8 @@ export default function SimilarProjectsGraph({
   const [organismFilter, setOrganismFilter] = useState<string>(ALL_ORGANISMS);
   const [viewMode, setViewMode] = useState<"graph" | "tab">("graph");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // null = show all; only applied in fullscreen
+  const [neighborLimit, setNeighborLimit] = useState<number | null>(null);
   const reduced = useReducedMotion();
   // Camera-fit animation duration: 0 when reduced motion is requested.
   const zoomMs = reduced ? 0 : 450;
@@ -416,36 +419,6 @@ export default function SimilarProjectsGraph({
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [graphData]);
 
-  const filteredGraphData = useMemo(() => {
-    if (organismFilter === ALL_ORGANISMS) return graphData;
-    const centerNode = graphData.nodes.find((node) => node.isCenter);
-    if (!centerNode) return graphData;
-
-    const allowedNeighbors = graphData.nodes.filter(
-      (node) =>
-        !node.isCenter &&
-        node.organisms.some((item) => item === organismFilter),
-    );
-
-    const allowedIds = new Set([
-      centerNode.id,
-      ...allowedNeighbors.map((n) => n.id),
-    ]);
-    return {
-      nodes: [centerNode, ...allowedNeighbors],
-      links: graphData.links.filter((link) => {
-        const sourceId = linkEndpointId(link.source);
-        const targetId = linkEndpointId(link.target);
-        return (
-          sourceId !== null &&
-          targetId !== null &&
-          allowedIds.has(sourceId) &&
-          allowedIds.has(targetId)
-        );
-      }),
-    };
-  }, [graphData, organismFilter]);
-
   const neighborDistanceByAccession = useMemo(() => {
     const centerX2d = safeNum(coords2d?.[0], 0);
     const centerY2d = safeNum(coords2d?.[1], 0);
@@ -467,6 +440,44 @@ export default function SimilarProjectsGraph({
 
     return distances;
   }, [coords2d, normalizedNeighbors]);
+
+  const maxNeighbors = Math.max(0, graphData.nodes.length - 1);
+  const shownNeighborCount = neighborLimit ?? maxNeighbors;
+
+  const filteredGraphData = useMemo(() => {
+    const centerNode = graphData.nodes.find((node) => node.isCenter);
+    if (!centerNode) return graphData;
+
+    let neighbors = graphData.nodes.filter((node) => !node.isCenter);
+    if (organismFilter !== ALL_ORGANISMS) {
+      neighbors = neighbors.filter((node) =>
+        node.organisms.some((item) => item === organismFilter),
+      );
+    }
+
+    // furthest-first removal: keep the N closest by rendered distance from center
+    if (neighborLimit !== null) {
+      const dist = (n: GraphNode) => Math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+      neighbors = [...neighbors]
+        .sort((a, b) => dist(a) - dist(b))
+        .slice(0, neighborLimit);
+    }
+
+    const allowedIds = new Set([centerNode.id, ...neighbors.map((n) => n.id)]);
+    return {
+      nodes: [centerNode, ...neighbors],
+      links: graphData.links.filter((link) => {
+        const sourceId = linkEndpointId(link.source);
+        const targetId = linkEndpointId(link.target);
+        return (
+          sourceId !== null &&
+          targetId !== null &&
+          allowedIds.has(sourceId) &&
+          allowedIds.has(targetId)
+        );
+      }),
+    };
+  }, [graphData, organismFilter, neighborLimit]);
 
   const tabViewRows = useMemo(() => {
     const seen = new Set<string>();
@@ -671,6 +682,20 @@ export default function SimilarProjectsGraph({
           )}
         </Flex>
         <Flex align="center" gap="2" wrap="wrap">
+          {viewMode === "graph" && maxNeighbors > 10 && (
+            <Flex align="center" gap="2">
+              <Text size="1" color="gray" style={{ whiteSpace: "nowrap" }}>
+                {shownNeighborCount} neighbors
+              </Text>
+              <Slider
+                min={10}
+                max={maxNeighbors}
+                value={[shownNeighborCount]}
+                onValueChange={(value) => setNeighborLimit(value[0])}
+                style={{ width: 120 }}
+              />
+            </Flex>
+          )}
           {viewMode === "graph" && (
             <Button variant="soft" color="gray" onClick={toggleFullscreen}>
               {isFullscreen ? "Exit full screen" : "View full screen"}
@@ -696,6 +721,7 @@ export default function SimilarProjectsGraph({
       <div
         ref={graphContainerRef}
         style={{
+          position: "relative",
           width: "100%",
           background: "var(--gray-1)",
           padding: isFullscreen ? "12px" : "0",
