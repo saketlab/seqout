@@ -520,9 +520,9 @@ export function DownloadFastqSection({
 
   // Fall back to the first available source if the selected one disappears (adjust during render).
   if (!availableSources.has(selectedSource)) {
-    const first = (Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]).find(
-      (s) => availableSources.has(s),
-    );
+    const first = (
+      Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]
+    ).find((s) => availableSources.has(s));
     if (first) setSelectedSource(first);
   }
 
@@ -2136,7 +2136,7 @@ export default function ProjectPage() {
             gap="4"
           >
             <Flex justify="between" style={{ width: "100%" }} align="center">
-              <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
+              <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
                 {project.title}
               </Heading>
             </Flex>

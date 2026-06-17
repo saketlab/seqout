@@ -1,6 +1,7 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
+import LinkedSraFastq from "@/components/linked-sra-fastq";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
@@ -11,7 +12,6 @@ import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
 } from "@/components/similar-projects-graph";
-import LinkedSraFastq from "@/components/linked-sra-fastq";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
@@ -20,19 +20,22 @@ import { ensureAgGridModules } from "@/lib/ag-grid";
 import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { DB_COLOR_MAP } from "@/utils/db-colors";
-import { buildCurlCommand, buildSupplementaryDownloadScript } from "@/utils/downloadScript";
+import {
+  buildCurlCommand,
+  buildSupplementaryDownloadScript,
+} from "@/utils/downloadScript";
 import { titleCaseCenter } from "@/utils/format";
+import {
+  getOrganismBannerStyle,
+  makeOrganismPostSort,
+  makeOrganismRowStyle,
+} from "@/utils/organism-highlight";
 import {
   normalizeAliases,
   normalizeAuthors,
   parsePostgresTextArray,
   toDisplayText,
 } from "@/utils/project";
-import {
-  getOrganismBannerStyle,
-  makeOrganismPostSort,
-  makeOrganismRowStyle,
-} from "@/utils/organism-highlight";
 import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
@@ -546,32 +549,30 @@ export default function GeoProjectPage() {
     () => normalizeAliases(project?.alias ?? null),
     [project?.alias],
   );
-  const linkedGeoSeriesAliases = React.useMemo(
-    () =>
-      projectAliases.filter((alias) => {
-        const normalized = alias.toUpperCase();
-        return (
-          normalized.startsWith("GSE") &&
-          normalized !== (accession ?? "").toUpperCase()
-        );
-      }),
-    [projectAliases, accession],
-  );
+  const linkedGeoSeriesAliases = React.useMemo(() => {
+    const fromAlias = projectAliases.filter((alias) => {
+      const normalized = alias.toUpperCase();
+      return (
+        normalized.startsWith("GSE") &&
+        normalized !== (accession ?? "").toUpperCase()
+      );
+    });
+    // E-GEOD-NNNNN is the ArrayExpress mirror of GSE-NNNNN; derive it directly.
+    const geod = accession?.toUpperCase().match(/^E-GEOD-(\d+)$/);
+    const derived = geod ? `GSE${geod[1]}` : null;
+    if (derived && !fromAlias.some((a) => a.toUpperCase() === derived)) {
+      return [derived, ...fromAlias];
+    }
+    return fromAlias;
+  }, [projectAliases, accession]);
   const linkedArrayExpressAliases = React.useMemo(
     () =>
       projectAliases.filter((alias) => alias.toUpperCase().startsWith("E-")),
     [projectAliases],
   );
-  // ArrayExpress pages: if a GSE alias exists, show that GSE's similarity graph
-  // instead of the ArrayExpress project's own coords/neighbors.
   const similarGseAccession = isArrayExpress
     ? (linkedGeoSeriesAliases[0] ?? null)
     : null;
-  const { data: similarGseProject } = useQuery({
-    queryKey: ["project", similarGseAccession],
-    queryFn: () => fetchProject(similarGseAccession),
-    enabled: !!similarGseAccession,
-  });
   const linkedSraAliases = React.useMemo(
     () =>
       projectAliases.filter((alias) => {
@@ -592,10 +593,23 @@ export default function GeoProjectPage() {
       }),
     [projectAliases],
   );
+  // ArrayExpress pages: borrow similarity graph / supplementary / fastq from a
+  // linked GSE, else a linked SRA study. Samples stay on a GEO-compatible
+  // accession (the GEO series endpoint can't serve an SRA study).
+  const borrowedAccession =
+    similarGseAccession ?? (isArrayExpress ? (linkedSraAliases[0] ?? null) : null);
+  const { data: borrowedProject } = useQuery({
+    queryKey: ["project", borrowedAccession],
+    queryFn: () => fetchProject(borrowedAccession),
+    enabled: !!borrowedAccession,
+  });
+  const dataAccession = borrowedAccession ?? accession;
+  const dataProject = borrowedProject ?? project;
+  const samplesAccession = similarGseAccession ?? accession;
   const { data: samples, isLoading: isSamplesLoading } = useQuery({
-    queryKey: ["samples", accession],
-    queryFn: () => fetchSamples(accession!),
-    enabled: !!accession,
+    queryKey: ["samples", samplesAccession],
+    queryFn: () => fetchSamples(samplesAccession!),
+    enabled: !!samplesAccession,
   });
 
   const projectOrganisms = React.useMemo<string[]>(() => {
@@ -1065,7 +1079,7 @@ export default function GeoProjectPage() {
   }, [sampleColumnDefs, sampleRows]);
 
   const supplementaryDataItems = buildSupplementaryItems({
-    rawValue: project?.supplementary_data,
+    rawValue: dataProject?.supplementary_data,
     idPrefix: "supplementary",
   });
 
@@ -1113,10 +1127,13 @@ export default function GeoProjectPage() {
       });
   })();
 
-  const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${accession}/supplementary/download" | bash`;
+  const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${dataAccession}/supplementary/download" | bash`;
 
   const sizeLabel = (items: SupplementaryDataItem[]) => {
-    if (items.length === 0 || items.some((item) => item.fileSizeBytes === null)) {
+    if (
+      items.length === 0 ||
+      items.some((item) => item.fileSizeBytes === null)
+    ) {
       return null;
     }
     return formatFileSize(
@@ -1124,7 +1141,9 @@ export default function GeoProjectPage() {
     );
   };
   const allSupplementarySizeLabel = sizeLabel(supplementaryDataItems);
-  const allSampleSupplementarySizeLabel = sizeLabel(sampleSupplementaryDataItems);
+  const allSampleSupplementarySizeLabel = sizeLabel(
+    sampleSupplementaryDataItems,
+  );
 
   const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [
@@ -1375,7 +1394,7 @@ export default function GeoProjectPage() {
             gap="4"
           >
             <Flex justify="between" style={{ width: "100%" }} align="center">
-              <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
+              <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
                 {project.title}
               </Heading>
             </Flex>
@@ -1859,7 +1878,7 @@ export default function GeoProjectPage() {
             )}
 
             <LinkedSraFastq
-              aliasField={project?.alias}
+              aliasField={dataProject?.alias}
               agGridThemeClassName={agGridThemeClassName}
             />
             <Flex id="supplementary" align="center" gap="2">
@@ -2196,21 +2215,16 @@ export default function GeoProjectPage() {
               </Badge>
               <SectionAnchor id="similar" />
             </Flex>
-            {(() => {
-              const g = similarGseProject ?? project;
-              return (
-                <SimilarProjectsGraph
-                  accession={g.accession}
-                  source="geo"
-                  title={g.title}
-                  description={g.summary}
-                  organisms={g.organisms}
-                  coords2d={g.coords_2d}
-                  coords3d={g.coords_3d}
-                  neighbors={g.neighbors}
-                />
-              );
-            })()}
+            <SimilarProjectsGraph
+              accession={(dataProject ?? project).accession}
+              source="geo"
+              title={(dataProject ?? project).title}
+              description={(dataProject ?? project).summary}
+              organisms={(dataProject ?? project).organisms}
+              coords2d={(dataProject ?? project).coords_2d}
+              coords3d={(dataProject ?? project).coords_3d}
+              neighbors={(dataProject ?? project).neighbors}
+            />
             <SubmittingOrgPanel center={project.center} />
           </Flex>
         </>
