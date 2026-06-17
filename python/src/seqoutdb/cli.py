@@ -67,13 +67,29 @@ def main() -> None:
         ),
     )
 
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+
+    p_show = sub.add_parser(
+        "show",
+        help="show a project's samples/experiments as a table",
+        description="Show the samples (GEO/ArrayExpress) or experiments (SRA/ENA) of a project.",
+    )
+    p_show.add_argument(
+        "accession",
+        help="project accession, e.g. GSE12345, SRP123456, E-MTAB-1234",
+    )
+
     args = parser.parse_args()
+
+    if args.command == "show":
+        cmd_show(args.accession)
+        return
 
     if args.enriched is None and args.norm is None:
         print(
-            "Nothing to do. Use --enriched ACCESSION to fetch enriched sample "
-            "metadata, or --norm ACCESSION [--model ENGINE/MODEL] to normalize it "
-            "with a local model.\nRun `seqoutdb --help` for more details.",
+            "Nothing to do. Try a command (e.g. `seqoutdb show GSE12345`), or use "
+            "--enriched ACCESSION / --norm ACCESSION.\n"
+            "Run `seqoutdb --help` for more details.",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -86,12 +102,80 @@ def main() -> None:
             result = sq.fetch_project_enriched_metadata(args.enriched)
 
         if not result:
-            print(
-                f"No enriched metadata found for '{args.enriched}'.", file=sys.stderr
-            )
+            print(f"No enriched metadata found for '{args.enriched}'.", file=sys.stderr)
             raise SystemExit(1)
 
         print(result.to_df().to_string(index=False))
+
+
+def cmd_show(accession: str) -> None:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    console = Console()
+    acc = accession.strip()
+    up = acc.upper()
+    if up.startswith(("GSM", "SRS", "SRX", "SRR", "ERS", "ERX", "ERR", "DRS", "DRX", "DRR", "SAM")):
+        console.print(
+            f"[yellow]{acc} is a sample, not a project.[/] `show` lists a project's "
+            "samples — pass a project accession (GSE…, SRP…, E-…, PRJ…)."
+        )
+        raise SystemExit(1)
+    is_geo = up.startswith(("GSE", "E-"))
+
+    try:
+        with Seqout() as sq, console.status(f"[bold]Fetching {acc}…[/]"):
+            try:
+                meta = sq.fetch_project_metadata(acc)
+            except Exception:
+                meta = None  # header is best-effort; the table is the point
+            rows = sq.fetch_samples(acc) if is_geo else sq.fetch_study_experiments(acc)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch {acc}:[/] {e}")
+        raise SystemExit(1)
+
+    if meta is not None:
+        organisms = ", ".join(meta.organisms or []) or "[dim]—[/]"
+        body = f"[bold]{meta.title}[/]\n[dim]{meta.accession}[/]  •  organisms: {organisms}  •  {len(rows)} {'samples' if is_geo else 'experiments'}"
+        console.print(Panel(body, border_style="cyan", expand=False))
+
+    if not rows:
+        console.print(
+            f"[yellow]No {'samples' if is_geo else 'experiments'} found for {acc}.[/]"
+        )
+        return
+
+    table = Table(show_lines=False, header_style="bold green", row_styles=["", "dim"])
+    if is_geo:
+        table.add_column("accession", style="bold cyan", no_wrap=True)
+        table.add_column("title", overflow="fold")
+        table.add_column("type", no_wrap=True)
+        table.add_column("organism", overflow="fold")
+        for s in rows:
+            org = (
+                s.channels[0].organism.text
+                if s.channels and s.channels[0].organism
+                else "—"
+            )
+            table.add_row(s.accession, s.title or "—", s.sample_type or "—", org)
+    else:
+        table.add_column("accession", style="bold cyan", no_wrap=True)
+        table.add_column("title", overflow="fold")
+        table.add_column("strategy", no_wrap=True)
+        table.add_column("platform", no_wrap=True)
+        table.add_column("instrument", overflow="fold")
+        table.add_column("#", justify="right")
+        for e in rows:
+            table.add_row(
+                e.accession,
+                e.title or "—",
+                e.library_strategy,
+                e.platform,
+                e.instrument_model,
+                str(len(e.samples)),
+            )
+    console.print(table)
 
 
 def run_norm(
@@ -257,7 +341,9 @@ def run_norm(
     invalid: list[tuple[str, str]] = []
     live_table = build_table()
     n = len(records)
-    with Live(live_table, console=console, transient=True, refresh_per_second=12) as live:
+    with Live(
+        live_table, console=console, transient=True, refresh_per_second=12
+    ) as live:
         for i, r in enumerate(records, 1):
             labels, raw = normalize(r)
             if labels is None:

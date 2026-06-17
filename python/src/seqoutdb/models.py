@@ -468,8 +468,8 @@ class ExperimentSampleOrganism(BaseModel):
 
 class ExperimentSampleChannel(BaseModel):
     source: str = Field(alias="Source")
-    molecule: str = Field(alias="Molecule")
-    organism: ExperimentSampleOrganism | None = None
+    molecule: str | None = Field(alias="Molecule", default=None)
+    organism: ExperimentSampleOrganism | None = Field(alias="Organism", default=None)
     position: int = Field(alias="@position")
     characteristics: dict[str, str] = Field(alias="Characteristics")
     growth_protocol: str | None = None
@@ -489,19 +489,21 @@ class ExperimentSample(BaseModel):
     accession: str
     title: str
     description: str | None = None
-    sample_type: str
+    sample_type: str | None = None
     channel_count: int
     channels: list[ExperimentSampleChannel]
-    platform_ref: str
-    supplementary_data: list[str]
+    platform_ref: str | None = None
+    supplementary_data: list[str] = []
     hybridization_protocol: str | None = None
     scan_protocol: str | None = None
-    published_at: str
-    updated_at: str
+    published_at: str | None = None
+    updated_at: str | None = None
 
     @field_validator("supplementary_data", mode="before")
     @classmethod
     def _flatten_supplementary_data(cls, v):
+        if not v:
+            return []
         links: list[str] = []
         for item in v:
             links.append(item["#text"])
