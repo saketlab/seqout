@@ -279,7 +279,7 @@ class ProjectMetadataNeighbor(BaseModel):
 
 class ProjectMetadataResult(BaseModel):
     accession: str
-    alias: list[str] | str
+    alias: list[str] | str | None = None
     title: str
     summary: str | None = None
     overall_design: str | None = None
