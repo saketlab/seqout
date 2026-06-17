@@ -268,16 +268,25 @@ export default function SimilarProjectsGraph({
   } = useQuery({
     queryKey: ["bulk-project-metadata", uniqueNeighborAccessions.join(",")],
     queryFn: async () => {
-      const res = await fetch(`${SERVER_URL}/bulk/project-metadata`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessions: uniqueNeighborAccessions }),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to fetch project metadata in bulk");
+      // server caps each request at 100 accessions; fetch in chunks
+      const chunks: string[][] = [];
+      for (let i = 0; i < uniqueNeighborAccessions.length; i += 100) {
+        chunks.push(uniqueNeighborAccessions.slice(i, i + 100));
       }
-      const payload = (await res.json()) as unknown;
-      return parseBulkProjectMetadataPayload(payload);
+      const payloads = await Promise.all(
+        chunks.map(async (accessions) => {
+          const res = await fetch(`${SERVER_URL}/bulk/project-metadata`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accessions }),
+          });
+          if (!res.ok) {
+            throw new Error("Failed to fetch project metadata in bulk");
+          }
+          return (await res.json()) as unknown[];
+        }),
+      );
+      return parseBulkProjectMetadataPayload(payloads.flat());
     },
     enabled: uniqueNeighborAccessions.length > 0,
     staleTime: 5 * 60 * 1000,

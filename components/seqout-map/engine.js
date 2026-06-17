@@ -350,13 +350,18 @@ export async function collectLassoData(sp) {
 }
 
 export async function fetchOrganismCounts(accessions, apiBase) {
-  const res = await fetch(`${apiBase}/bulk/project-metadata`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessions }),
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  const data = await res.json();
+  // server caps each request at 100 accessions; fetch in chunks
+  const chunks = [];
+  for (let i = 0; i < accessions.length; i += 100) chunks.push(accessions.slice(i, i + 100));
+  const data = (await Promise.all(chunks.map(async (batch) => {
+    const res = await fetch(`${apiBase}/bulk/project-metadata`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessions: batch }),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  }))).flat();
 
   const counts = {};
   let unknownCount = 0;

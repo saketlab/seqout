@@ -46,7 +46,7 @@ export default function HomeSearchBar() {
         />
         <Image
           className="logo-dark"
-          src="/logo-dark.png"
+          src="/logo-dark.svg"
           alt="seqout"
           fill
           sizes="(max-width: 640px) 18rem, (max-width: 768px) 22rem, (max-width: 1024px) 24rem, 28rem"
