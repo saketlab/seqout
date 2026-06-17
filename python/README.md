@@ -136,21 +136,113 @@ A few conveniences worth knowing:
 
 Downloaded files default to `./<accession>/`; override with `-o <dir>`.
 
-### Metadata enrichment & normalization
+### Enriched metadata (`--enriched`)
 
-Two additional flags work with LLM-derived sample metadata:
+Fetch precomputed, LLM-enriched sample metadata that seqout.org has already prepared for a project:
 
 ```bash
-# Fetch precomputed, LLM-enriched sample metadata from seqout.org
 seqoutdb --enriched GSE12345
-
-# Normalize a project's samples locally with a model (Ollama / llama.cpp / LM Studio)
-seqoutdb --norm GSE12345 --model ollama/hf.co/saketlab/seqoutlm-1B-GGUF
 ```
 
-`--norm` streams normalized labels into a live table. It auto-detects a running local model server,
-or starts one for you; use `--port` or `--base-url` to point at a specific server. See
-`seqoutdb --help` for the full set of options.
+This is a simple online lookup — no local model required.
+
+### Normalizing sample metadata locally (`--norm`)
+
+`--norm` takes the messy, free-text metadata of a project's samples and turns it into clean,
+structured labels using a language model that runs **entirely on your own machine**. Nothing about
+your query leaves your computer except the original metadata fetch from seqout.org.
+
+```bash
+seqoutdb --norm GSE149312
+```
+
+For every sample it extracts these 16 fields:
+
+```
+organism             tissue                tissue_primary_site   tissue_site_type
+cell_type            cell_line             disease               phenotype
+strain               ethnicity             development_stage     treatment
+genetic_modification assay                 assay_category        sample_type
+```
+
+Results stream into a live table as each sample finishes (a single sample is shown as a vertical
+field/value view instead). Works with project accessions (`GSE…`, `SRP…`, `E-…`) and individual
+samples (`GSM…`, `SRS…`, `SRX…`).
+
+#### Prerequisites
+
+You need **one** local inference engine installed and able to serve GGUF models:
+
+- **[Ollama](https://ollama.com)** — default port `11434`
+- **[llama.cpp](https://github.com/ggerganov/llama.cpp)** (`llama-server`) — default port `8080`
+- **[LM Studio](https://lmstudio.ai)** — default port `1234`
+
+If none are installed, `seqoutdb` tells you what's missing rather than failing cryptically.
+
+#### How the model is chosen
+
+`seqoutdb` resolves the model in this order:
+
+1. **`--base-url`** — if given, it talks to that already-running OpenAI-compatible server and never
+   starts anything itself.
+2. **A running server** — otherwise it auto-detects a local engine already listening (on `--port`
+   if you gave one, else the engines' default ports) and uses the model it is already serving.
+3. **`--model`** — if nothing is running, it starts an engine using your `--model` spec.
+4. **The default model** — if you didn't pass `--model`, it falls back to the bundled
+   `saketlab/seqoutlm-1B-GGUF`, a model fine-tuned for exactly this task.
+
+When it has to start a server and download a model, that happens automatically on first use.
+
+#### Choosing a model with `--model`
+
+`--model` is written as `engine/model`:
+
+```bash
+# Ollama with the default seqoutlm model (pulled from Hugging Face on first run)
+seqoutdb --norm GSE149312 --model ollama/hf.co/saketlab/seqoutlm-1B-GGUF
+
+# Ollama with any model you already have
+seqoutdb --norm GSE149312 --model ollama/llama3
+
+# llama.cpp or LM Studio — here the model is a Hugging Face GGUF repo
+seqoutdb --norm GSE149312 --model llamacpp/saketlab/seqoutlm-1B-GGUF
+seqoutdb --norm GSE149312 --model lmstudio/saketlab/seqoutlm-1B-GGUF
+```
+
+A bare engine name (`--model ollama`) uses that engine with the default model. If you omit the
+engine prefix entirely, Ollama is assumed.
+
+#### Pointing at a specific server
+
+```bash
+# Use whatever model is already loaded on a given port
+seqoutdb --norm GSE149312 --port 8080
+
+# Talk to an already-running OpenAI-compatible server directly (never starts one)
+seqoutdb --norm GSE149312 --base-url http://localhost:8080/v1
+```
+
+This is the simplest path if you already run your own server, e.g.:
+
+```bash
+llama-server -hf saketlab/seqoutlm-1B-GGUF --port 8080 --jinja
+seqoutdb --norm GSE149312 --base-url http://localhost:8080/v1
+```
+
+#### Gated or private models
+
+The default `saketlab/seqoutlm-1B-GGUF` repo may be gated on Hugging Face. If a download is needed
+and the repo is private, `seqoutdb` prompts you for an access token
+([create one here](https://huggingface.co/settings/tokens)). You can also set it in the environment
+to skip the prompt:
+
+```bash
+export HF_TOKEN=hf_xxxxxxxx   # or HUGGING_FACE_HUB_TOKEN / HUGGINGFACE_TOKEN
+```
+
+No token is needed when the model is public, already downloaded, or already being served.
+
+Run `seqoutdb --help` for the complete list of options.
 
 ---
 
