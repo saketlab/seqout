@@ -117,12 +117,12 @@ class Seqout:
             if not response.next_cursor:
                 break
 
-            params = params.model_copy(
-                update={
-                    "cursor_rank": response.next_cursor.rank,
-                    "cursor_acc": response.next_cursor.accession,
-                }
-            )
+            update = {"cursor_acc": response.next_cursor.accession}
+            if response.next_cursor.sort_value is not None:
+                update["cursor_sort"] = response.next_cursor.sort_value
+            else:
+                update["cursor_rank"] = response.next_cursor.rank
+            params = params.model_copy(update=update)
 
     def search(
         self,

@@ -106,7 +106,36 @@ def main() -> None:
             help=f"download study run files in {mode} format (study accession, e.g. SRP/PRJ)",
         )
 
+    p_search = sub.add_parser(
+        "search",
+        help="full-text search for projects",
+        description="Full-text search across GEO, SRA, ArrayExpress and ENA.",
+    )
+    p_search.add_argument("query", help="search text, e.g. \"lung cancer single cell\"")
+    p_search.add_argument(
+        "--db",
+        choices=["geo", "sra", "arrayexpress", "ena"],
+        help="restrict to one source (default: all)",
+    )
+    p_search.add_argument(
+        "--sort",
+        dest="sortby",
+        choices=["citations", "journal", "year"],
+        help="sort results by this field",
+    )
+    p_search.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=20,
+        help="max results to show (default: 20)",
+    )
+
     args = parser.parse_args()
+
+    if args.command == "search":
+        cmd_search(args.query, args.db, args.limit, args.sortby)
+        return
 
     if args.command == "show":
         cmd_show(args.accession)
@@ -270,6 +299,53 @@ def cmd_show_sample(acc: str, console) -> None:
             row(k, v)
 
     console.print(table)
+
+
+def cmd_search(query: str, db: str | None, limit: int, sortby: str | None) -> None:
+    from rich.console import Console
+    from rich.table import Table
+
+    from seqoutdb import SearchParams
+
+    console = Console()
+    try:
+        params = SearchParams(q=query, db=db, sortby=sortby)
+    except Exception as e:
+        console.print(f"[red]Invalid query:[/] {e}")
+        raise SystemExit(1)
+
+    try:
+        with Seqout() as sq, console.status("[bold]Searching…[/]"):
+            results = list(sq.iter_search(params, limit=limit))
+    except Exception as e:
+        console.print(f"[red]Search failed:[/] {e}")
+        raise SystemExit(1)
+
+    if not results:
+        console.print(f"[yellow]No results for[/] {query!r}.")
+        return
+
+    table = Table(
+        title=f"{query!r} — {len(results)} result(s)",
+        title_style="bold",
+        header_style="bold green",
+        row_styles=["", "dim"],
+    )
+    table.add_column("accession", style="bold cyan", no_wrap=True)
+    table.add_column("src", no_wrap=True)
+    table.add_column("title", overflow="fold")
+    table.add_column("organisms", overflow="fold")
+    table.add_column("cited", justify="right")
+    for r in results:
+        table.add_row(
+            r.accession,
+            r.source,
+            r.title,
+            ", ".join(r.organisms) or "—",
+            str(r.citation_count) if r.citation_count else "—",
+        )
+    console.print(table)
+    console.print("[dim]Tip: `seqoutdb show <accession>` to inspect a result.[/]")
 
 
 SAMPLE_PREFIXES = ("GSM", "SRS", "SRX", "SRR", "ERS", "ERX", "ERR", "DRS", "DRX", "DRR", "SAM")

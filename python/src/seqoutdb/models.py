@@ -167,8 +167,9 @@ class SearchResult(BaseModel):
 
 
 class NextCursor(BaseModel):
-    rank: float
+    rank: float | None = None  # rank-based paging; absent when sorting
     accession: str
+    sort_value: float | None = None  # present when paging a sorted search
 
 
 class SearchResponse(BaseModel):
