@@ -34,7 +34,7 @@ export type SimilarNeighbor = {
 
 type SimilarProjectsGraphProps = {
   accession: string;
-  source: "geo" | "sra";
+  source: "geo" | "sra" | "arrayexpress";
   title: string;
   description: string | null | undefined;
   organisms?: unknown;
@@ -45,7 +45,7 @@ type SimilarProjectsGraphProps = {
 
 type GraphNode = {
   id: string;
-  source: "geo" | "sra";
+  source: "geo" | "sra" | "arrayexpress";
   x: number;
   y: number;
   z: number;
@@ -83,10 +83,13 @@ const escHtml = (value: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
-const toSource = (value: string | null | undefined, fallback: "geo" | "sra") =>
-  value?.toLowerCase() === "geo" || value?.toLowerCase() === "sra"
-    ? (value.toLowerCase() as "geo" | "sra")
-    : fallback;
+const toSource = (
+  value: string | null | undefined,
+  fallback: "geo" | "sra" | "arrayexpress",
+) => {
+  const v = value?.toLowerCase();
+  return v === "geo" || v === "sra" || v === "arrayexpress" ? v : fallback;
+};
 
 const MIN_RADIUS = 45;
 const TARGET_MEDIAN_RADIUS = 170;
@@ -547,9 +550,7 @@ export default function SimilarProjectsGraph({
         .nodeColor((node) => {
           const graphNode = node as GraphNode;
           if (graphNode.isCenter) return SIMILARITY_GRAPH_COLORS.center;
-          return graphNode.source === "geo"
-            ? SIMILARITY_GRAPH_COLORS.geo
-            : SIMILARITY_GRAPH_COLORS.sra;
+          return SIMILARITY_GRAPH_COLORS[graphNode.source];
         })
         .onNodeClick((node) => {
           const graphNode = node as GraphNode;
