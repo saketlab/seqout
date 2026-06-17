@@ -52,6 +52,9 @@ const ORGANISM_DEPENDENT_FIELDS = [
   "sample_type",
   "cell_line",
   "taxid",
+  "ethnicity",
+  "age",
+  "sex",
 ];
 
 /** Whether `field` is flagged low-confidence for the given sample row. */
