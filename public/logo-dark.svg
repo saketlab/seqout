@@ -5,7 +5,7 @@
    height="78.230675"
    version="1.1"
    id="svg16"
-   sodipodi:docname="seqout-logo-v2-dark.svg"
+   sodipodi:docname="logo-dark.svg"
    inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
    inkscape:export-filename="seqout-logo.png"
    inkscape:export-xdpi="300"
@@ -26,14 +26,14 @@
      inkscape:deskcolor="#d1d1d1"
      showgrid="false"
      inkscape:zoom="1.8534065"
-     inkscape:cx="158.35705"
-     inkscape:cy="86.597299"
+     inkscape:cx="158.08728"
+     inkscape:cy="86.597301"
      inkscape:window-width="1710"
      inkscape:window-height="958"
      inkscape:window-x="0"
-     inkscape:window-y="34"
+     inkscape:window-y="25"
      inkscape:window-maximized="0"
-     inkscape:current-layer="g9"
+     inkscape:current-layer="svg16"
      showguides="false" />
   <defs
      id="defs2">
@@ -64,16 +64,6 @@
        gradientTransform="translate(5.6966142,0.71207678)" />
   </defs>
   <!-- Background -->
-  <rect
-     width="367.91168"
-     height="78.230675"
-     fill="#0d1117"
-     rx="11.999999"
-     id="rect2"
-     ry="12"
-     x="0"
-     y="0"
-     style="stroke-width:0.447074" />
   <!-- === ICON: Magnifying glass with DNA inside === -->
   <!-- === WORDMARK === -->
   <!-- DNA connecting element between words -->

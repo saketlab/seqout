@@ -178,7 +178,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
           >
             <Image
               className="logo-light"
-              src="/short-logo-light.png"
+              src="/short-logo-light.svg"
               alt="seqout"
               fill
               loading="eager"
