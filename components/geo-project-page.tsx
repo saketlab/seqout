@@ -562,6 +562,16 @@ export default function GeoProjectPage() {
       projectAliases.filter((alias) => alias.toUpperCase().startsWith("E-")),
     [projectAliases],
   );
+  // ArrayExpress pages: if a GSE alias exists, show that GSE's similarity graph
+  // instead of the ArrayExpress project's own coords/neighbors.
+  const similarGseAccession = isArrayExpress
+    ? (linkedGeoSeriesAliases[0] ?? null)
+    : null;
+  const { data: similarGseProject } = useQuery({
+    queryKey: ["project", similarGseAccession],
+    queryFn: () => fetchProject(similarGseAccession),
+    enabled: !!similarGseAccession,
+  });
   const linkedSraAliases = React.useMemo(
     () =>
       projectAliases.filter((alias) => {
@@ -2186,16 +2196,21 @@ export default function GeoProjectPage() {
               </Badge>
               <SectionAnchor id="similar" />
             </Flex>
-            <SimilarProjectsGraph
-              accession={project.accession}
-              source="geo"
-              title={project.title}
-              description={project.summary}
-              organisms={project.organisms}
-              coords2d={project.coords_2d}
-              coords3d={project.coords_3d}
-              neighbors={project.neighbors}
-            />
+            {(() => {
+              const g = similarGseProject ?? project;
+              return (
+                <SimilarProjectsGraph
+                  accession={g.accession}
+                  source="geo"
+                  title={g.title}
+                  description={g.summary}
+                  organisms={g.organisms}
+                  coords2d={g.coords_2d}
+                  coords3d={g.coords_3d}
+                  neighbors={g.neighbors}
+                />
+              );
+            })()}
             <SubmittingOrgPanel center={project.center} />
           </Flex>
         </>
