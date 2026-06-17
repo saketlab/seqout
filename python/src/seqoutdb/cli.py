@@ -79,10 +79,26 @@ def main() -> None:
         help="project accession, e.g. GSE12345, SRP123456, E-MTAB-1234",
     )
 
+    p_dl = sub.add_parser(
+        "download",
+        help="download a project's or sample's metadata to a local JSON file",
+        description="Save metadata for a project or sample as JSON.",
+    )
+    p_dl.add_argument("accession", help="project or sample accession")
+    p_dl.add_argument(
+        "-o",
+        "--out",
+        help="output file or directory (default: ./<accession>.json)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "show":
         cmd_show(args.accession)
+        return
+
+    if args.command == "download":
+        cmd_download(args.accession, args.out)
         return
 
     if args.enriched is None and args.norm is None:
@@ -234,6 +250,49 @@ def cmd_show_sample(acc: str, console) -> None:
             row(k, v)
 
     console.print(table)
+
+
+SAMPLE_PREFIXES = ("GSM", "SRS", "SRX", "SRR", "ERS", "ERX", "ERR", "DRS", "DRX", "DRR", "SAM")
+
+
+def cmd_download(accession: str, out: str | None) -> None:
+    import json
+    from pathlib import Path
+
+    from rich.console import Console
+
+    console = Console()
+    acc = accession.strip()
+    up = acc.upper()
+
+    try:
+        with Seqout() as sq, console.status(f"[bold]Fetching {acc}…[/]"):
+            if up.startswith(SAMPLE_PREFIXES):
+                detail = (
+                    sq.fetch_geo_sample_detailed_metadata(acc)
+                    if up.startswith("GSM")
+                    else sq.fetch_sample_detailed_metadata(acc)
+                )
+                data = detail.model_dump()
+            else:
+                is_geo = up.startswith(("GSE", "E-"))
+                try:
+                    meta = sq.fetch_project_metadata(acc)
+                    project = meta.model_dump()
+                except Exception:
+                    project = None  # best-effort header, samples are the point
+                rows = sq.fetch_samples(acc) if is_geo else sq.fetch_study_experiments(acc)
+                data = {"accession": acc, "project": project, "samples": rows.to_dict()}
+    except Exception as e:
+        console.print(f"[red]Failed to fetch {acc}:[/] {e}")
+        raise SystemExit(1)
+
+    dest = Path(out) if out else Path(f"{acc}.json")
+    if dest.is_dir():
+        dest = dest / f"{acc}.json"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(data, indent=2, default=str, ensure_ascii=False))
+    console.print(f"[green]✓[/] wrote [bold]{dest}[/]  [dim]({dest.stat().st_size:,} bytes)[/]")
 
 
 def run_norm(
