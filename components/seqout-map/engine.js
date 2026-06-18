@@ -50,11 +50,16 @@ function buildColorEncoding(name, colors, selectedLength) {
 // fetching/caching of `geojson` and `countries` and passes the tiles URL
 // (deepscatter source_url); this keeps all networking/caching out of the engine.
 // The caller is responsible for the `onPick` callback wiring.
-// deepscatter draws cluster labels onto a canvas and hardcodes both a 12px
-// shadowBlur and a grey strokeText outline every frame. No option exposes
-// either, so wrap the label renderer's ctx: clamp shadowBlur to 0 and drop the
-// stroke (its canvas is label-only, so a no-op strokeText is safe). The white
-// fillText stays. ponytail: instance proxy beats forking the library.
+// Current label text color, kept in sync with the theme (white on dark bg,
+// near-black on light). The proxy below remaps deepscatter's hardcoded white.
+let labelColor = "#ffffff";
+const labelColorFor = (bg) => (bg === "#ffffff" ? "#1a1a1a" : "#ffffff");
+
+// deepscatter draws cluster labels onto a canvas and hardcodes a 12px shadowBlur,
+// a grey strokeText outline, and white fill text every frame. No option exposes
+// any of these, so wrap the label renderer's ctx: clamp shadowBlur to 0, drop
+// the stroke (its canvas is label-only, so a no-op strokeText is safe), and remap
+// the white fill to the themed color. ponytail: instance proxy beats forking.
 function killLabelShadow(sp, name) {
   const lm = sp.secondary_renderers?.[name];
   if (!lm) return;
@@ -64,7 +69,12 @@ function killLabelShadow(sp, name) {
       const v = t[p];
       return typeof v === "function" ? v.bind(t) : v;
     },
-    set(t, p, v) { t[p] = p === "shadowBlur" ? 0 : v; return true; },
+    set(t, p, v) {
+      if (p === "shadowBlur") v = 0;
+      else if (p === "fillStyle" && v === "white") v = labelColor;
+      t[p] = v;
+      return true;
+    },
   });
 }
 
@@ -96,6 +106,7 @@ export async function createMap({ mapSelector, width, height, tilesUrl, geojson,
     },
   });
 
+  labelColor = labelColorFor(backgroundColor);
   sp.add_labels(geojson, "clusters", "title", undefined, labelFont ? { font: labelFont } : {});
   killLabelShadow(sp, "clusters");
   sp.tooltip_html = (datum) => `<strong>${datum.accession ?? "unknown"}</strong>`;
@@ -127,6 +138,17 @@ export async function createMap({ mapSelector, width, height, tilesUrl, geojson,
 
 export function setBackgroundColor(sp, backgroundColor) {
   sp.plotAPI({ duration: 0, background_color: backgroundColor });
+  // deepscatter only paints its 2d background canvas at setup, so plotAPI alone
+  // won't show until reload. Repaint it directly so theme switches are live.
+  const bg = document.querySelector("#container-for-canvas-2d-background canvas");
+  if (bg) {
+    const ctx = bg.getContext("2d");
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, bg.width, bg.height);
+  }
+  // Re-theme the labels and force a redraw (they only repaint on zoom ticks).
+  labelColor = labelColorFor(backgroundColor);
+  try { sp.secondary_renderers?.clusters?.render(); } catch { /* not ready yet */ }
 }
 
 /** Resolve the accession for a clicked datum (may require a tile transform). */
