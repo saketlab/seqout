@@ -542,6 +542,16 @@ export default function MapGraph() {
       width="100%"
       style={{ overflow: "hidden", position: "relative" }}
     >
+      {/* deepscatter hardcodes the hover tooltip to inline background:ivory + black
+          text; retheme it with Radix vars so it follows light/dark. */}
+      <style>{`
+        #${DEEPSCATTER_ID} .tooltip {
+          background: var(--color-panel-solid) !important;
+          color: var(--gray-12);
+          border: 1px solid var(--gray-a5);
+        }
+      `}</style>
+
       {/* Sidebar */}
       <Box
         style={{
