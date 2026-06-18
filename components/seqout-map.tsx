@@ -648,7 +648,15 @@ export default function MapGraph() {
         <Separator size="4" />
 
         {/* Country filter */}
-        <Box p="3">
+        <Box
+          p="3"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <Flex align="center" justify="between" mb="2">
             <Flex align={"center"} gap={"2"}>
               <GlobeIcon />
@@ -679,7 +687,7 @@ export default function MapGraph() {
           <ScrollArea
             type="auto"
             scrollbars="vertical"
-            style={{ maxHeight: 180 }}
+            style={{ flex: 1, minHeight: 0 }}
           >
             <Flex direction="column" gap="1" pr="2">
               {visibleCountries.map((country) => (
@@ -716,7 +724,7 @@ export default function MapGraph() {
         </Box>
 
         {/* Lasso */}
-        <Box p="3" style={{ marginTop: "auto" }}>
+        <Box p="3">
           <Flex align="center" justify="between">
             <Flex align="center" gap="2">
               <GroupIcon />
