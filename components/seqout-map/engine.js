@@ -50,7 +50,25 @@ function buildColorEncoding(name, colors, selectedLength) {
 // fetching/caching of `geojson` and `countries` and passes the tiles URL
 // (deepscatter source_url); this keeps all networking/caching out of the engine.
 // The caller is responsible for the `onPick` callback wiring.
-export async function createMap({ mapSelector, width, height, tilesUrl, geojson, countries, backgroundColor, onPick }) {
+// deepscatter draws cluster labels onto a canvas and hardcodes both a 12px
+// shadowBlur and a grey strokeText outline every frame. No option exposes
+// either, so wrap the label renderer's ctx: clamp shadowBlur to 0 and drop the
+// stroke (its canvas is label-only, so a no-op strokeText is safe). The white
+// fillText stays. ponytail: instance proxy beats forking the library.
+function killLabelShadow(sp, name) {
+  const lm = sp.secondary_renderers?.[name];
+  if (!lm) return;
+  lm.ctx = new Proxy(lm.ctx, {
+    get(t, p) {
+      if (p === "strokeText") return () => {};
+      const v = t[p];
+      return typeof v === "function" ? v.bind(t) : v;
+    },
+    set(t, p, v) { t[p] = p === "shadowBlur" ? 0 : v; return true; },
+  });
+}
+
+export async function createMap({ mapSelector, width, height, tilesUrl, geojson, countries, backgroundColor, labelFont, onPick }) {
   resetState();
 
   const clusters = geojson.features;
@@ -78,7 +96,8 @@ export async function createMap({ mapSelector, width, height, tilesUrl, geojson,
     },
   });
 
-  sp.add_labels(geojson, "clusters", "title");
+  sp.add_labels(geojson, "clusters", "title", undefined, labelFont ? { font: labelFont } : {});
+  killLabelShadow(sp, "clusters");
   sp.tooltip_html = (datum) => `<strong>${datum.accession ?? "unknown"}</strong>`;
 
   // Point click -> resolve accession, hand off to the React layer (which fetches

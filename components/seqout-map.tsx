@@ -34,6 +34,7 @@ import {
   TextField,
   Tooltip,
 } from "@radix-ui/themes";
+import { GeistSans } from "geist/font/sans";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -267,6 +268,7 @@ export default function MapGraph() {
           geojson,
           countries,
           backgroundColor: backgroundForTheme(themeRef.current),
+          labelFont: GeistSans.style.fontFamily,
           onPick: handlePick,
         });
         if (destroyed) return;
