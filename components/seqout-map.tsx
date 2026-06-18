@@ -565,7 +565,7 @@ export default function MapGraph() {
         }}
       >
         {/* Search */}
-        <Box p="3">
+        <Flex p="3" direction={"column"} gap={"2"}>
           <TextField.Root
             value={searchValue}
             placeholder="Search using accession ID"
@@ -583,7 +583,7 @@ export default function MapGraph() {
               {statusText}
             </Text>
           )}
-        </Box>
+        </Flex>
 
         <Separator size="4" />
 
