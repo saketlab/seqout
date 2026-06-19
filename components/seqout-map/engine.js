@@ -198,6 +198,12 @@ export async function createMap({
     svgEl()?.addEventListener("mousemove", (e) => {
       lastMove = { clientX: e.clientX, clientY: e.clientY };
     });
+    // deepscatter drops label hit-box <rect>s into #labelrects (inside the
+    // interaction SVG); they steal pointer events so points under a label become
+    // unhoverable. We don't use label clicks, so make the whole group transparent
+    // to the pointer — hovers fall through the text to the points beneath.
+    const labelrects = svgEl()?.querySelector("#labelrects");
+    if (labelrects) labelrects.style.pointerEvents = "none";
   });
   const refreshTooltip = () => {
     const el = svgEl();

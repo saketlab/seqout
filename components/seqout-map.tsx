@@ -941,9 +941,11 @@ export default function MapGraph() {
                             <Text size="2" weight="bold">
                               {f.label}
                             </Text>
-                            <Tooltip content="Generated with an LLM-powered pipeline — may not be fully accurate.">
-                              <InfoCircledIcon color="var(--gray-9)" />
-                            </Tooltip>
+                            {f.key !== "organism" && (
+                              <Tooltip content="Generated with an LLM-powered pipeline — may not be fully accurate.">
+                                <InfoCircledIcon color="var(--gray-9)" />
+                              </Tooltip>
+                            )}
                           </Flex>
                           <Box mt="2">
                             {entries.length > 0 ? (
