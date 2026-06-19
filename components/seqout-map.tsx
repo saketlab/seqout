@@ -9,6 +9,7 @@ import {
   DownloadIcon,
   GlobeIcon,
   GroupIcon,
+  HamburgerMenuIcon,
   InfoCircledIcon,
   MagnifyingGlassIcon,
   TrashIcon,
@@ -36,7 +37,19 @@ import {
 } from "@radix-ui/themes";
 import { GeistSans } from "geist/font/sans";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+
+// Layout effect on the client, plain effect on the server (avoids the SSR
+// useLayoutEffect warning). Used so the mobile/desktop layout is committed
+// before the map measures its container.
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const DEEPSCATTER_ID = "seqout-deepscatter";
 const SIDEBAR_WIDTH = 272;
@@ -165,6 +178,21 @@ export default function MapGraph() {
     themeRef.current = resolvedTheme;
   }, [resolvedTheme]);
 
+  // Mobile: the sidebar collapses into a left drawer so the map gets full width.
+  const [isMobile, setIsMobile] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useIsoLayoutEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => {
+      setIsMobile(mq.matches);
+      setLayoutReady(true);
+    };
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,13 +234,33 @@ export default function MapGraph() {
 
   // ---- mount: build the scatterplot ---------------------------------------
   useEffect(() => {
+    if (!layoutReady) return;
+
     const areaEl = mapAreaRef.current;
     let destroyed = false;
     const controller = new AbortController();
 
     (async () => {
       if (!areaEl) return;
-      const rect = areaEl.getBoundingClientRect();
+
+      // On mobile the container can measure 0×0 on first paint (dynamic browser
+      // toolbars / 100dvh settling); deepscatter throws if built at zero size.
+      // Wait for a real box before initializing.
+      let rect = areaEl.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        await new Promise<void>((resolve) => {
+          const ro = new ResizeObserver(() => {
+            const r = areaEl.getBoundingClientRect();
+            if (destroyed || (r.width && r.height)) {
+              ro.disconnect();
+              resolve();
+            }
+          });
+          ro.observe(areaEl);
+        });
+        if (destroyed) return;
+        rect = areaEl.getBoundingClientRect();
+      }
 
       try {
         const engine = await import("./seqout-map/engine.js");
@@ -296,7 +344,7 @@ export default function MapGraph() {
       if (areaEl) areaEl.querySelectorAll("canvas").forEach((c) => c.remove());
       spRef.current = null;
     };
-  }, []);
+  }, [layoutReady, isMobile]);
 
   // ---- theme background sync ----------------------------------------------
   useEffect(() => {
@@ -308,6 +356,8 @@ export default function MapGraph() {
 
   // ---- lasso keyboard (Shift to draw, Escape to cancel) -------------------
   useEffect(() => {
+    if (isMobile) return;
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Shift" && !isDrawingRef.current) {
         setShiftHeld(true);
@@ -332,7 +382,7 @@ export default function MapGraph() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, []);
+  }, [isMobile]);
 
   // ---- handlers ------------------------------------------------------------
   const doSearch = useCallback(async () => {
@@ -461,6 +511,7 @@ export default function MapGraph() {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (isMobile) return;
     if (e.button !== 0 || !e.shiftKey) return;
     setDrawing(true);
     setDrawPoints([coordsOf(e)]);
@@ -468,12 +519,14 @@ export default function MapGraph() {
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (isMobile) return;
     if (!isDrawingRef.current) return;
     const c = coordsOf(e);
     setDrawPoints((prev) => [...prev, c]);
   };
 
   const onPointerUp = async (e: React.PointerEvent) => {
+    if (isMobile) return;
     if (!isDrawingRef.current) return;
     setDrawing(false);
     overlayRef.current?.releasePointerCapture(e.pointerId);
@@ -542,7 +595,39 @@ export default function MapGraph() {
         }
       `}</style>
 
-      {/* Sidebar */}
+      {/* Mobile drawer backdrop */}
+      {isMobile && drawerOpen && (
+        <Box
+          onClick={() => setDrawerOpen(false)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 29,
+            background: "var(--black-a6)",
+          }}
+        />
+      )}
+
+      {/* Mobile drawer toggle */}
+      {isMobile && !drawerOpen && (
+        <IconButton
+          variant="soft"
+          highContrast
+          aria-label="Open map controls"
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            zIndex: 25,
+            boxShadow: "0 2px 8px var(--black-a6)",
+          }}
+        >
+          <HamburgerMenuIcon />
+        </IconButton>
+      )}
+
+      {/* Sidebar (drawer on mobile) */}
       <Box
         style={{
           width: SIDEBAR_WIDTH,
@@ -552,8 +637,34 @@ export default function MapGraph() {
           background: "var(--color-panel-solid)",
           borderRight: "1px solid var(--gray-a5)",
           overflowY: "auto",
+          ...(isMobile
+            ? {
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                maxWidth: "85vw",
+                zIndex: 30,
+                transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
+                transition: "transform 0.25s ease",
+                boxShadow: drawerOpen ? "0 0 40px var(--black-a8)" : "none",
+              }
+            : {}),
         }}
       >
+        {isMobile && (
+          <Flex justify="end" px="3" pt="3">
+            <IconButton
+              variant="ghost"
+              color="gray"
+              aria-label="Close controls"
+              onClick={() => setDrawerOpen(false)}
+            >
+              <Cross1Icon />
+            </IconButton>
+          </Flex>
+        )}
+
         {/* Search */}
         <Flex p="3" direction={"column"} gap={"2"}>
           <TextField.Root
@@ -703,42 +814,47 @@ export default function MapGraph() {
           </ScrollArea>
         </Box>
 
-        {/* Lasso */}
-        <Box p="3">
-          <Flex align="center" justify="between">
-            <Flex align="center" gap="2">
-              <GroupIcon />
-              <Text size="2">Lasso select</Text>
-            </Flex>
-            <Tooltip content="Select a subset of the map">
-              <InfoCircledIcon color="var(--gray-9)" />
-            </Tooltip>
-          </Flex>
-          {!hasSelection && (
-            <Callout.Root mt="4">
-              <Callout.Text>
-                Hold <Kbd>Shift</Kbd> and drag on the map to draw a selection.
-              </Callout.Text>
-            </Callout.Root>
-          )}
-          {hasSelection && (
-            <Flex direction="column" gap="2" mt="2">
-              <Button
-                size="2"
-                variant="soft"
-                color="red"
-                onClick={onClearLasso}
-              >
-                <TrashIcon />
-                Clear selection
-              </Button>
-              <Button size="2" variant="soft" onClick={onToggleStats}>
-                {statsOpen ? <Cross2Icon /> : <BarChartIcon />}
-                {statsOpen ? "Close lasso stats" : "Show lasso stats"}
-              </Button>
-            </Flex>
-          )}
-        </Box>
+        {!isMobile && (
+          <>
+            {/* Lasso */}
+            <Box p="3">
+              <Flex align="center" justify="between">
+                <Flex align="center" gap="2">
+                  <GroupIcon />
+                  <Text size="2">Lasso select</Text>
+                </Flex>
+                <Tooltip content="Select a subset of the map">
+                  <InfoCircledIcon color="var(--gray-9)" />
+                </Tooltip>
+              </Flex>
+              {!hasSelection && (
+                <Callout.Root mt="4">
+                  <Callout.Text>
+                    Hold <Kbd>Shift</Kbd> and drag on the map to draw a
+                    selection.
+                  </Callout.Text>
+                </Callout.Root>
+              )}
+              {hasSelection && (
+                <Flex direction="column" gap="2" mt="2">
+                  <Button
+                    size="2"
+                    variant="soft"
+                    color="red"
+                    onClick={onClearLasso}
+                  >
+                    <TrashIcon />
+                    Clear selection
+                  </Button>
+                  <Button size="2" variant="soft" onClick={onToggleStats}>
+                    {statsOpen ? <Cross2Icon /> : <BarChartIcon />}
+                    {statsOpen ? "Close lasso stats" : "Show lasso stats"}
+                  </Button>
+                </Flex>
+              )}
+            </Box>
+          </>
+        )}
 
         {/* Data cache */}
         <Box p="3">
@@ -765,7 +881,7 @@ export default function MapGraph() {
         <div id={DEEPSCATTER_ID} style={{ position: "absolute", inset: 0 }} />
 
         {/* lasso polygon (drawn while selecting) */}
-        {drawPoints.length > 0 && (
+        {!isMobile && drawPoints.length > 0 && (
           <svg
             style={{
               position: "absolute",
@@ -791,21 +907,23 @@ export default function MapGraph() {
         )}
 
         {/* lasso capture overlay */}
-        <div
-          ref={overlayRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 10,
-            cursor: "crosshair",
-            touchAction: "none",
-            userSelect: "none",
-            pointerEvents: shiftHeld || isDrawing ? "auto" : "none",
-          }}
-        />
+        {!isMobile && (
+          <div
+            ref={overlayRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 10,
+              cursor: "crosshair",
+              touchAction: "none",
+              userSelect: "none",
+              pointerEvents: shiftHeld || isDrawing ? "auto" : "none",
+            }}
+          />
+        )}
 
         {(loading || error) && (
           <Flex
@@ -830,7 +948,7 @@ export default function MapGraph() {
         )}
 
         {/* lasso stats panel */}
-        {statsOpen && (
+        {!isMobile && statsOpen && (
           <Box
             style={{
               position: "absolute",

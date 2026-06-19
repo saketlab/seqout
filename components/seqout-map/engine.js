@@ -153,7 +153,13 @@ export async function createMap({
     return map[cid] ?? "";
   };
 
-  const sp = new Scatterplot(mapSelector, width, height);
+  // deepscatter writes these straight onto the canvas width/height attributes and
+  // sizes its regl framebuffers from them; fractional values (sub-pixel
+  // getBoundingClientRect) make regl round the FBO and its texture differently →
+  // "inconsistent width/height for supplied texture". Round to whole pixels.
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  const sp = new Scatterplot(mapSelector, w, h);
 
   // Center the initial view on the data and start zoomed in past full-fit. Without
   // an explicit zoom, deepscatter leaves the transform at identity (origin top-left
