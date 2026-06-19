@@ -50,6 +50,17 @@ function buildCountryColorMap(sorted) {
 const DEFAULT_CENTER = { x: 1.1495, y: -1.5695 };
 const DEFAULT_VIEW_FRACTION = 0.5;
 
+// Cap the description shown in the hover tooltip (words).
+const TOOLTIP_DESC_WORDS = 100;
+const capWords = (s) => {
+  const words = s.trim().split(/\s+/);
+  return words.length > TOOLTIP_DESC_WORDS
+    ? words.slice(0, TOOLTIP_DESC_WORDS).join(" ") + "…"
+    : s;
+};
+const HTML_ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => HTML_ESC[c]);
+
 // Create the scatterplot. The React layer passes the tiles URL (deepscatter
 // source_url), the country list, and the label config (layers/extent/color
 // layer). Labels are the one thing fetched from inside the engine — the dynamic
@@ -114,7 +125,7 @@ export async function createMap({
   countries,
   backgroundColor,
   labelFont,
-  onPick,
+  serverUrl,
 }) {
   resetState();
 
@@ -134,24 +145,6 @@ export async function createMap({
   state.clusterColors = clusterColors;
   const sortedCountries = [...countries].sort();
   const countryColorMap = buildCountryColorMap(sortedCountries);
-
-  // Click badge: resolve the clicked point's cluster name at the current color
-  // layer. Per-layer id→name maps are fetched once on demand and cached. (Only
-  // works when "color by cluster" is on, since that's when the layer column is
-  // loaded for the point.)
-  const clusterLabelMaps = {};
-  const resolveClusterName = async (datum) => {
-    const field = state.colorField;
-    if (!field) return "";
-    const cid = datum[field];
-    if (cid == null || cid < 0) return "";
-    let map = clusterLabelMaps[field];
-    if (!map) {
-      map = await fetchClusterLabelMap(labelsBase, field);
-      clusterLabelMaps[field] = map;
-    }
-    return map[cid] ?? "";
-  };
 
   // deepscatter writes these straight onto the canvas width/height attributes and
   // sizes its regl framebuffers from them; fractional values (sub-pixel
@@ -187,26 +180,59 @@ export async function createMap({
   });
 
   labelColor = labelColorFor(backgroundColor);
-  sp.tooltip_html = (datum) =>
-    `<strong>${datum.accession ?? "unknown"}</strong>`;
 
-  // Point click -> resolve accession, hand off to the React layer (which fetches
-  // metadata and renders the sidebar). Set here because deepscatter's
-  // click_function signature is library-owned; assigning it in TS would fight
-  // the types for no benefit.
-  if (onPick) {
-    sp.click_function = async (datum) => {
-      const accession = await resolveAccession(sp, datum);
-      if (!accession) return;
-      let clusterName = "";
-      try {
-        clusterName = await resolveClusterName(datum);
-      } catch {
-        /* badge is best-effort */
-      }
-      onPick({ accession, clusterName });
-    };
-  }
+  // Hover/click tooltip: deepscatter positions this box at the point and shows it
+  // on hover (you must hover to click, so click gets the same box). Title +
+  // description are fetched lazily per accession and cached (one fetch per point,
+  // ever). The moment a fetch resolves we re-fire deepscatter's hover at the last
+  // cursor position so the box updates immediately instead of waiting for the next
+  // mouse move. ponytail: no debounce — fetches fire per hovered point; if a fast
+  // sweep ever hammers the API, gate fetchMeta on a short hover dwell.
+  const metaCache = new Map(); // accession -> meta | "loading"
+  let lastMove = null;
+  const svgEl = () => document.querySelector(`${mapSelector} #deepscatter-svg`);
+  sp.ready.then(() => {
+    svgEl()?.addEventListener("mousemove", (e) => {
+      lastMove = { clientX: e.clientX, clientY: e.clientY };
+    });
+  });
+  const refreshTooltip = () => {
+    const el = svgEl();
+    if (el && lastMove)
+      el.dispatchEvent(new MouseEvent("mousemove", { ...lastMove, bubbles: true }));
+  };
+  const fetchMeta = async (accession) => {
+    if (metaCache.has(accession)) return;
+    metaCache.set(accession, "loading");
+    try {
+      const res = await fetch(`${serverUrl}/project/${accession}/metadata`);
+      metaCache.set(accession, res.ok ? await res.json() : null);
+    } catch {
+      metaCache.set(accession, null);
+    }
+    refreshTooltip();
+  };
+  sp.tooltip_html = (datum) => {
+    const accession = datum.accession ?? "unknown";
+    const meta = metaCache.get(accession);
+    if (meta === undefined) fetchMeta(accession);
+    const ready = meta && meta !== "loading";
+    const title = ready ? meta.title : "";
+    const description = ready ? meta.description : "";
+    const descShort = description ? capWords(description) : "";
+    return (
+      `<div>` +
+      `<strong style="font-size:12px">${esc(accession)}</strong>` +
+      (title ? `<div style="margin-top:4px;font-weight:500;font-size:12px">${esc(title)}</div>` : "") +
+      (descShort
+        ? `<div style="margin-top:4px;font-size:11px;opacity:.8">${esc(descShort)}</div>`
+        : "") +
+      (ready
+        ? ""
+        : `<div style="margin-top:4px;font-size:11px;opacity:.6">Loading…</div>`) +
+      `</div>`
+    );
+  };
 
   // Dynamic labels + zoom-driven point coloring: only the layer matching the
   // current zoom is used, for both labels and (when enabled) cluster colors.
@@ -305,24 +331,6 @@ async function fetchLabelFC(labelsBase, q, signal) {
   const res = await fetch(u, { signal });
   if (!res.ok) throw new Error(`labels ${res.status}`);
   return res.json();
-}
-
-async function fetchClusterLabelMap(labelsBase, level) {
-  const map = {};
-  if (!level) return map;
-  try {
-    const u = new URL(labelsBase);
-    u.searchParams.set("level", level);
-    u.searchParams.set("limit", "5000");
-    const fc = await (await fetch(u)).json();
-    for (const f of fc.features ?? []) {
-      const p = f.properties ?? {};
-      if (p.cluster_id != null) map[p.cluster_id] = p.label;
-    }
-  } catch {
-    /* badge is best-effort */
-  }
-  return map;
 }
 
 // Tear down the current label set (stop its render timer, drop its SVG group).

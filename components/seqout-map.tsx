@@ -16,17 +16,13 @@ import {
   UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
-  Badge,
   Box,
   Button,
   Callout,
   Checkbox,
-  Code,
   Flex,
-  Heading,
   IconButton,
   Kbd,
-  Link,
   ScrollArea,
   Separator,
   Spinner,
@@ -53,7 +49,6 @@ const useIsoLayoutEffect =
 
 const DEEPSCATTER_ID = "seqout-deepscatter";
 const SIDEBAR_WIDTH = 272;
-const DESC_LIMIT = 500;
 
 type MapMeta = {
   version: string;
@@ -65,13 +60,6 @@ type MapMeta = {
 
 type EngineModule = typeof import("./seqout-map/engine.js");
 type Scatterplot = Awaited<ReturnType<EngineModule["createMap"]>>["sp"];
-
-type SelectedPoint = {
-  accession: string;
-  clusterName: string;
-  title?: string;
-  description?: string;
-};
 
 type SearchStatus =
   | { kind: "idle" }
@@ -198,11 +186,6 @@ export default function MapGraph() {
   const [error, setError] = useState<string | null>(null);
   const [countries, setCountries] = useState<string[]>([]);
 
-  const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(
-    null,
-  );
-  const [descExpanded, setDescExpanded] = useState(false);
-
   const [searchValue, setSearchValue] = useState("");
   const [searchStatus, setSearchStatus] = useState<SearchStatus>({
     kind: "idle",
@@ -267,31 +250,6 @@ export default function MapGraph() {
         if (destroyed) return;
         engineRef.current = engine;
 
-        const handlePick = async ({
-          accession,
-          clusterName,
-        }: {
-          accession: string;
-          clusterName?: string;
-        }) => {
-          try {
-            const res = await fetch(
-              `${SERVER_URL}/project/${accession}/metadata`,
-            );
-            if (!res.ok) return;
-            const data = await res.json();
-            setSelectedPoint({
-              accession,
-              clusterName: clusterName ?? "",
-              title: data.title,
-              description: data.description,
-            });
-            setDescExpanded(false);
-          } catch {
-            /* ignore metadata fetch errors */
-          }
-        };
-
         // Resolve the current asset version from the backend (this request lazily
         // triggers tile generation the very first time), then load the versioned,
         // purge-revisioned assets — JSON via the browser cache, tiles via the URL
@@ -317,7 +275,7 @@ export default function MapGraph() {
           countries,
           backgroundColor: backgroundForTheme(themeRef.current),
           labelFont: GeistSans.style.fontFamily,
-          onPick: handlePick,
+          serverUrl: SERVER_URL,
         });
         if (destroyed) return;
 
@@ -541,7 +499,6 @@ export default function MapGraph() {
     const dataVerts = points.map((p) => engine.screenToData(sp, p.x, p.y));
     await engine.performLasso(sp, dataVerts);
     setHasSelection(true);
-    setSelectedPoint(null);
     setDrawPoints([]);
     openStats();
   };
@@ -576,9 +533,6 @@ export default function MapGraph() {
     c.toLowerCase().includes(countryFilter.toLowerCase()),
   );
 
-  const desc = selectedPoint?.description ?? "";
-  const descTruncated = desc.length > DESC_LIMIT && !descExpanded;
-
   return (
     <Flex
       height="100%"
@@ -592,6 +546,14 @@ export default function MapGraph() {
           background: var(--color-panel-solid) !important;
           color: var(--gray-12);
           border: 1px solid var(--gray-a5);
+          /* deepscatter anchors the box below the point; nudge it right so it
+             sits at the point's bottom-right. */
+          margin-left: 14px;
+          width: 27rem;
+          font-size: 12px;
+          text-align: left;
+          white-space: normal;
+          box-shadow: 0 4px 16px var(--black-a6);
         }
       `}</style>
 
@@ -685,66 +647,6 @@ export default function MapGraph() {
             </Text>
           )}
         </Flex>
-
-        <Separator size="4" />
-
-        {/* Selected point */}
-        <Box p="3">
-          <Flex align="center" justify="between" mb="2">
-            <Text
-              size="1"
-              weight="bold"
-              color="gray"
-              style={{ letterSpacing: "0.06em" }}
-            >
-              SELECTED POINT
-            </Text>
-            {selectedPoint?.accession && (
-              <Link href={`/p/${selectedPoint.accession}`} size="1">
-                <Code variant="soft" size="1">
-                  {selectedPoint.accession}
-                </Code>
-              </Link>
-            )}
-          </Flex>
-          {!selectedPoint ? (
-            <Text size="1" color="gray">
-              Click a point to see details
-            </Text>
-          ) : (
-            <Flex direction="column" gap="2">
-              {selectedPoint.clusterName && (
-                <Box>
-                  <Badge color="indigo" variant="soft" radius="full">
-                    {selectedPoint.clusterName}
-                  </Badge>
-                </Box>
-              )}
-              {selectedPoint.title && (
-                <Heading size="3" weight="medium">
-                  {selectedPoint.title}
-                </Heading>
-              )}
-              {desc && (
-                <Text size="1" color="gray">
-                  {descTruncated ? `${desc.slice(0, DESC_LIMIT)}…` : desc}
-                  {descTruncated && (
-                    <>
-                      {" "}
-                      <Link
-                        size="1"
-                        onClick={() => setDescExpanded(true)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        Read more
-                      </Link>
-                    </>
-                  )}
-                </Text>
-              )}
-            </Flex>
-          )}
-        </Box>
 
         <Separator size="4" />
 
