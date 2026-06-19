@@ -42,7 +42,13 @@ const DEEPSCATTER_ID = "seqout-deepscatter";
 const SIDEBAR_WIDTH = 272;
 const DESC_LIMIT = 500;
 
-type GeoJson = { features: { properties?: { title?: string } }[] };
+type MapMeta = {
+  version: string;
+  levels: string[];
+  cluster_max: Record<string, number>;
+  cluster_count: Record<string, number>;
+  extent: { minx: number; maxx: number; miny: number; maxy: number };
+};
 
 type EngineModule = typeof import("./seqout-map/engine.js");
 type Scatterplot = Awaited<ReturnType<EngineModule["createMap"]>>["sp"];
@@ -150,10 +156,9 @@ export default function MapGraph() {
   const spRef = useRef<Scatterplot | null>(null);
   const engineRef = useRef<EngineModule | null>(null);
   const ctxRef = useRef<{
-    clusters: { properties?: { title?: string } }[];
     countries: string[];
-    countryColorMap: Record<string, string>;
     clusterColors: string[];
+    destroy?: () => void;
   } | null>(null);
   const themeRef = useRef(resolvedTheme);
   useEffect(() => {
@@ -164,9 +169,6 @@ export default function MapGraph() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countries, setCountries] = useState<string[]>([]);
-  const [countryColorMap, setCountryColorMap] = useState<
-    Record<string, string>
-  >({});
 
   const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(
     null,
@@ -180,7 +182,7 @@ export default function MapGraph() {
 
   const [colorByClusters, setColorByClusters] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
   const [shiftHeld, setShiftHeld] = useState(false);
   const [drawPoints, setDrawPoints] = useState<ScreenPoint[]>([]);
@@ -219,10 +221,10 @@ export default function MapGraph() {
 
         const handlePick = async ({
           accession,
-          clusterId,
+          clusterName,
         }: {
           accession: string;
-          clusterId?: number;
+          clusterName?: string;
         }) => {
           try {
             const res = await fetch(
@@ -230,12 +232,9 @@ export default function MapGraph() {
             );
             if (!res.ok) return;
             const data = await res.json();
-            const clusterName =
-              ctxRef.current?.clusters[clusterId ?? -1]?.properties?.title ??
-              "";
             setSelectedPoint({
               accession,
-              clusterName,
+              clusterName: clusterName ?? "",
               title: data.title,
               description: data.description,
             });
@@ -249,15 +248,12 @@ export default function MapGraph() {
         // triggers tile generation the very first time), then load the versioned,
         // purge-revisioned assets — JSON via the browser cache, tiles via the URL
         // we hand to deepscatter.
-        const meta = await fetch(`${SERVER_URL}/map/meta`).then((r) =>
+        const meta: MapMeta = await fetch(`${SERVER_URL}/map/meta`).then((r) =>
           r.json(),
         );
         if (destroyed) return;
         const base = `${SERVER_URL}/map/${meta.version}/${getMapRev()}`;
-        const [geojson, countries] = await Promise.all([
-          cachedJson<GeoJson>(`${base}/geojson.json`),
-          cachedJson<string[]>(`${base}/countries.json`),
-        ]);
+        const countries = await cachedJson<string[]>(`${base}/countries.json`);
         if (destroyed) return;
 
         const ctx = await engine.createMap({
@@ -265,7 +261,11 @@ export default function MapGraph() {
           width: rect.width,
           height: rect.height,
           tilesUrl: `${base}/tiles`,
-          geojson,
+          labelsBase: `${SERVER_URL}/map/labels`,
+          clusterMax: meta.cluster_max,
+          clusterCount: meta.cluster_count,
+          levels: meta.levels,
+          extent: meta.extent,
           countries,
           backgroundColor: backgroundForTheme(themeRef.current),
           labelFont: GeistSans.style.fontFamily,
@@ -275,13 +275,11 @@ export default function MapGraph() {
 
         spRef.current = ctx.sp;
         ctxRef.current = {
-          clusters: ctx.clusters,
           countries: ctx.countries,
-          countryColorMap: ctx.countryColorMap,
           clusterColors: ctx.clusterColors,
+          destroy: ctx.destroy,
         };
         setCountries(ctx.countries);
-        setCountryColorMap(ctx.countryColorMap);
         setLoading(false);
       } catch (err) {
         if (destroyed) return;
@@ -294,6 +292,7 @@ export default function MapGraph() {
     return () => {
       destroyed = true;
       controller.abort();
+      ctxRef.current?.destroy?.();
       if (areaEl) areaEl.querySelectorAll("canvas").forEach((c) => c.remove());
       spRef.current = null;
     };
@@ -366,28 +365,19 @@ export default function MapGraph() {
     const sp = spRef.current;
     const ctx = ctxRef.current;
     if (sp && ctx) {
-      engineRef.current?.setColorByClusters(
-        sp,
-        value,
-        ctx.clusterColors,
-        ctx.clusters,
-      );
+      engineRef.current?.setColorByClusters(sp, value, ctx.clusterColors);
     }
   }, []);
 
-  const onSelectCountry = useCallback((country: string | null) => {
-    setSelectedCountry(country);
-    const sp = spRef.current;
-    const ctx = ctxRef.current;
-    if (sp && ctx) {
-      engineRef.current?.applyCountryFilter(
-        sp,
-        country,
-        ctx.countryColorMap,
-        ctx.clusterColors,
-        ctx.clusters,
-      );
-    }
+  const onToggleCountry = useCallback((country: string, checked: boolean) => {
+    setSelectedCountries((prev) => {
+      const next = checked
+        ? [...prev, country]
+        : prev.filter((c) => c !== country);
+      const sp = spRef.current;
+      if (sp) engineRef.current?.applyCountryFilter(sp, next);
+      return next;
+    });
   }, []);
 
   const onClearLasso = useCallback(() => {
@@ -700,20 +690,10 @@ export default function MapGraph() {
                   <Flex align="center" gap="2">
                     <Checkbox
                       size="1"
-                      checked={selectedCountry === country}
+                      checked={selectedCountries.includes(country)}
                       onCheckedChange={(checked) =>
-                        onSelectCountry(checked ? country : null)
+                        onToggleCountry(country, checked === true)
                       }
-                    />
-                    <Box
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        flexShrink: 0,
-                        background: countryColorMap[country],
-                        border: "1px solid var(--gray-a4)",
-                      }}
                     />
                     <Text size="1">{country}</Text>
                   </Flex>

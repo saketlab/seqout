@@ -2,21 +2,26 @@
 // original saketlab modules (index/search/country-filter/lasso) lives here;
 // it only ever touches the Scatterplot instance and the shared `state` object.
 // The React component (seqout-map.tsx) owns all UI and calls into these.
-import { Scatterplot } from "deepscatter";
 import { hsl } from "d3-color";
+import { Scatterplot } from "deepscatter";
 
-import { state, resetState } from "./state.js";
-import { applyTransformation, applyColorEncoding, restoreForeground, pointInPolygon } from "./utils.js";
 import {
   COLOR_PALETTE_SIZE,
-  HUE_GOLDEN_ANGLE,
+  DEFAULT_BG_COLOR,
   DEFAULT_BG_OPACITY,
   DEFAULT_BG_SIZE,
-  DEFAULT_BG_COLOR,
+  HUE_GOLDEN_ANGLE,
+  LASSO_BG_COLOR,
   LASSO_DIM_OPACITY,
   LASSO_DIM_SIZE,
-  LASSO_BG_COLOR,
 } from "./constants.js";
+import { resetState, state } from "./state.js";
+import {
+  applyColorEncoding,
+  applyTransformation,
+  pointInPolygon,
+  restoreForeground,
+} from "./utils.js";
 
 export { restoreForeground };
 
@@ -39,21 +44,26 @@ function buildCountryColorMap(sorted) {
   return map;
 }
 
-function buildColorEncoding(name, colors, selectedLength) {
-  if (state.colorByClusters) {
-    return { field: "cluster_id", range: state.clusterColors, domain: [1, state.numClusters] };
-  }
-  return { field: name, range: colors, domain: [0, selectedLength] };
-}
+// Initial view: data-space point the map is centered on, and the fraction of the
+// data extent shown around it on load. fraction < 1 zooms in past full-fit;
+// smaller = more zoomed in.
+const DEFAULT_CENTER = { x: 1.1495, y: -1.5695 };
+const DEFAULT_VIEW_FRACTION = 0.5;
 
-// Create the scatterplot from already-fetched map assets. The React layer owns
-// fetching/caching of `geojson` and `countries` and passes the tiles URL
-// (deepscatter source_url); this keeps all networking/caching out of the engine.
+// Create the scatterplot. The React layer passes the tiles URL (deepscatter
+// source_url), the country list, and the label config (layers/extent/color
+// layer). Labels are the one thing fetched from inside the engine — the dynamic
+// system below needs the live zoom/viewport, so it owns those requests.
 // The caller is responsible for the `onPick` callback wiring.
 // Current label text color, kept in sync with the theme (white on dark bg,
 // near-black on light). The proxy below remaps deepscatter's hardcoded white.
 let labelColor = "#ffffff";
 const labelColorFor = (bg) => (bg === "#ffffff" ? "#1a1a1a" : "#ffffff");
+
+// Color for noise points (cluster -1) when coloring by cluster. deepscatter
+// forces palette colors fully opaque, so instead of real transparency we use a
+// faint near-background grey — noise fades out and the colored clusters pop.
+const noiseColorFor = (bg) => (bg === "#ffffff" ? "#f0f0f0" : "#141414");
 
 // deepscatter draws cluster labels onto a canvas and hardcodes a 12px shadowBlur,
 // a grey strokeText outline, and white fill text every frame. No option exposes
@@ -76,20 +86,83 @@ function killLabelShadow(sp, name) {
       return true;
     },
   });
+  // deepscatter bumps the font (+ shadow/stroke) by `emphasize` while a label is
+  // hovered, driven by lm.hovered. Pin it undefined so hover never resizes labels.
+  try {
+    Object.defineProperty(lm, "hovered", {
+      get() {
+        return undefined;
+      },
+      set() {},
+      configurable: true,
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
-export async function createMap({ mapSelector, width, height, tilesUrl, geojson, countries, backgroundColor, labelFont, onPick }) {
+export async function createMap({
+  mapSelector,
+  width,
+  height,
+  tilesUrl,
+  labelsBase,
+  clusterMax,
+  clusterCount,
+  levels,
+  extent,
+  countries,
+  backgroundColor,
+  labelFont,
+  onPick,
+}) {
   resetState();
 
-  const clusters = geojson.features;
+  // Points are colored by their cluster at the layer matching the current zoom
+  // (a per-layer sidecar column in the tiles, kept in state.colorField). Seed it
+  // with the coarsest labeled layer for the default view; the zoom listener keeps
+  // it in sync. cluster ids run [0, max] and -1 = noise (grey, first palette slot).
+  state.colorField = levels[Math.min(LABEL_LAYER_MAX, levels.length - 1)] ?? null;
+  state.maxClusterId = (state.colorField && clusterMax[state.colorField]) || 0;
 
-  const clusterColors = generateGoldenAnglePalette(COLOR_PALETTE_SIZE);
+  // Index 0 of the range maps to cluster_id -1 (noise) → faint background grey so
+  // noise fades out; real clusters interpolate across the golden-angle palette.
+  const clusterColors = [
+    noiseColorFor(backgroundColor),
+    ...generateGoldenAnglePalette(COLOR_PALETTE_SIZE),
+  ];
   state.clusterColors = clusterColors;
-  state.numClusters = clusters.length;
   const sortedCountries = [...countries].sort();
   const countryColorMap = buildCountryColorMap(sortedCountries);
 
+  // Click badge: resolve the clicked point's cluster name at the current color
+  // layer. Per-layer id→name maps are fetched once on demand and cached. (Only
+  // works when "color by cluster" is on, since that's when the layer column is
+  // loaded for the point.)
+  const clusterLabelMaps = {};
+  const resolveClusterName = async (datum) => {
+    const field = state.colorField;
+    if (!field) return "";
+    const cid = datum[field];
+    if (cid == null || cid < 0) return "";
+    let map = clusterLabelMaps[field];
+    if (!map) {
+      map = await fetchClusterLabelMap(labelsBase, field);
+      clusterLabelMaps[field] = map;
+    }
+    return map[cid] ?? "";
+  };
+
   const sp = new Scatterplot(mapSelector, width, height);
+
+  // Center the initial view on the data and start zoomed in past full-fit. Without
+  // an explicit zoom, deepscatter leaves the transform at identity (origin top-left
+  // → off-center). DEFAULT_VIEW_FRACTION < 1 fits a centered sub-box, so smaller =
+  // more zoomed in.
+  const cx = DEFAULT_CENTER.x;
+  const cy = DEFAULT_CENTER.y;
+  const hw = ((extent.maxx - extent.minx) / 2) * DEFAULT_VIEW_FRACTION || 1;
+  const hh = ((extent.maxy - extent.miny) / 2) * DEFAULT_VIEW_FRACTION || 1;
 
   await sp.plotAPI({
     source_url: tilesUrl,
@@ -97,8 +170,9 @@ export async function createMap({ mapSelector, width, height, tilesUrl, geojson,
     alpha: 25,
     zoom_balance: 0.7,
     duration: 500,
-    point_size: 0.7,
+    point_size: 0.1,
     background_color: backgroundColor,
+    zoom: { bbox: { x: [cx - hw, cx + hw], y: [cy - hh, cy + hh] } },
     encoding: {
       x: { field: "x", transform: "literal" },
       y: { field: "y", transform: "literal" },
@@ -107,9 +181,8 @@ export async function createMap({ mapSelector, width, height, tilesUrl, geojson,
   });
 
   labelColor = labelColorFor(backgroundColor);
-  sp.add_labels(geojson, "clusters", "title", undefined, labelFont ? { font: labelFont } : {});
-  killLabelShadow(sp, "clusters");
-  sp.tooltip_html = (datum) => `<strong>${datum.accession ?? "unknown"}</strong>`;
+  sp.tooltip_html = (datum) =>
+    `<strong>${datum.accession ?? "unknown"}</strong>`;
 
   // Point click -> resolve accession, hand off to the React layer (which fetches
   // metadata and renders the sidebar). Set here because deepscatter's
@@ -119,28 +192,351 @@ export async function createMap({ mapSelector, width, height, tilesUrl, geojson,
     sp.click_function = async (datum) => {
       const accession = await resolveAccession(sp, datum);
       if (!accession) return;
-      onPick({ accession, clusterId: datum.cluster_id });
+      let clusterName = "";
+      try {
+        clusterName = await resolveClusterName(datum);
+      } catch {
+        /* badge is best-effort */
+      }
+      onPick({ accession, clusterName });
     };
   }
+
+  // Dynamic labels + zoom-driven point coloring: only the layer matching the
+  // current zoom is used, for both labels and (when enabled) cluster colors.
+  const labels = setupDynamicLabels({
+    sp,
+    labelsBase,
+    levels,
+    extent,
+    labelFont,
+    clusterMax,
+    clusterCount,
+  });
 
   sp.ready.then(() => {
     const dt = sp.deeptable;
     const origSpawn = dt.spawnDownloads.bind(dt);
     dt.spawnDownloads = (bbox, maxIx, qLen, fields, priority) => {
-      const extra = ["accession", "cluster_id", "countries"].filter((f) => !fields.includes(f));
+      const extra = ["accession", "countries"].filter((f) => !fields.includes(f));
       return origSpawn(bbox, maxIx, qLen, [...fields, ...extra], priority);
     };
     sp.plotAPI({ background_options: { opacity: [0.6, 1], size: [0.7, 1] } });
+    labels.start(); // initial fetch + attach the zoom/pan listener
   });
 
-  return { sp, clusters, countries: sortedCountries, countryColorMap, clusterColors };
+  return {
+    sp,
+    countries: sortedCountries,
+    countryColorMap,
+    clusterColors,
+    destroy: labels.destroy,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic labels — fetch per viewport + zoom layer
+// ---------------------------------------------------------------------------
+const LABEL_DEBOUNCE_MS = 220;
+const LABEL_LIMIT = 400;
+const LABEL_BBOX_MARGIN = 0.25; // prefetch slightly past the screen for smooth pans
+
+// Only these cluster layers ever get labels (cluster_l0…l3, by array index =
+// cluster_lN suffix). When the zoom is coarser than l3, no labels are shown at
+// all — labels appear only once the user is zoomed into the l0…l3 range.
+const LABEL_LAYER_MIN = 0; // finest labeled layer (cluster_l0)
+const LABEL_LAYER_MAX = 3; // coarsest labeled layer (cluster_l3)
+// deepscatter packs categorical colors into a 4096-tall texture indexed by the
+// column's dictionary, so a layer with more clusters than this can't be colored
+// (its points would overflow the texture → black). Coloring won't go finer than
+// the finest layer under this limit.
+const COLOR_CATEGORY_LIMIT = 4096;
+
+// Map the current zoom to a labeled layer (one layer per 2x zoom). Returns
+// level: null when zoomed out past l3, so nothing is shown unless the user is
+// actually within the l0…l3 zoom range.
+function computeLevelAndBbox(sp, levels, extent) {
+  const corners = sp.zoom.current_corners();
+  const vminx = corners.x[0];
+  const vmaxx = corners.x[1];
+  const vminy = corners.y[0];
+  const vmaxy = corners.y[1];
+  const vw = Math.abs(vmaxx - vminx) || 1e-9;
+  const tw = Math.abs(extent.maxx - extent.minx) || vw;
+  const depth = Math.max(0, Math.log2(tw / vw));
+  const mx = (vmaxx - vminx) * LABEL_BBOX_MARGIN;
+  const my = (vmaxy - vminy) * LABEL_BBOX_MARGIN;
+  const bbox = {
+    minx: vminx - mx,
+    maxx: vmaxx + mx,
+    miny: vminy - my,
+    maxy: vmaxy + my,
+  };
+
+  const L = levels.length;
+  if (L === 0) return { level: null, colorIdx: null, ...bbox };
+  const showMax = Math.min(LABEL_LAYER_MAX, L - 1);
+  const showMin = Math.min(LABEL_LAYER_MIN, showMax);
+  // Anchored so depth 0 (fully zoomed out) lands one layer above the window → no
+  // labels; each zoom-in step moves one layer finer.
+  const idx = showMax + 1 - Math.round(depth);
+  // colorIdx: same mapping but clamped into the window (never null), so colored
+  // points keep a sensible layer even when labels are hidden (zoomed out). The
+  // caller may clamp it further to a layer small enough for the color texture.
+  const colorIdx = Math.max(showMin, Math.min(idx, showMax));
+  const level = idx > showMax ? null : levels[colorIdx]; // coarser than l3 → no labels
+  return { level, colorIdx, ...bbox };
+}
+
+async function fetchLabelFC(labelsBase, q, signal) {
+  const u = new URL(labelsBase);
+  u.searchParams.set("level", q.level);
+  u.searchParams.set("minx", q.minx);
+  u.searchParams.set("miny", q.miny);
+  u.searchParams.set("maxx", q.maxx);
+  u.searchParams.set("maxy", q.maxy);
+  u.searchParams.set("limit", String(LABEL_LIMIT));
+  const res = await fetch(u, { signal });
+  if (!res.ok) throw new Error(`labels ${res.status}`);
+  return res.json();
+}
+
+async function fetchClusterLabelMap(labelsBase, level) {
+  const map = {};
+  if (!level) return map;
+  try {
+    const u = new URL(labelsBase);
+    u.searchParams.set("level", level);
+    u.searchParams.set("limit", "5000");
+    const fc = await (await fetch(u)).json();
+    for (const f of fc.features ?? []) {
+      const p = f.properties ?? {};
+      if (p.cluster_id != null) map[p.cluster_id] = p.label;
+    }
+  } catch {
+    /* badge is best-effort */
+  }
+  return map;
+}
+
+// Tear down the current label set (stop its render timer, drop its SVG group).
+// add_labels overwrites the renderer without doing this, so the old timer/group
+// would otherwise leak and keep painting stale labels.
+function clearLabels(sp) {
+  const old = sp.secondary_renderers?.clusters;
+  if (old) {
+    try {
+      old.stop();
+      old.delete();
+      delete sp.secondary_renderers.clusters;
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// Replace the label set with a fresh one.
+function applyLabels(sp, fc, labelFont) {
+  clearLabels(sp);
+  sp.add_labels(fc, "clusters", "label", "size", labelFont ? { font: labelFont } : {});
+  killLabelShadow(sp, "clusters");
+}
+
+// Cluster ids (at `levelField`) that have at least one loaded point from a wanted
+// country. Both columns live in the main tile, so this just scans loaded points.
+function clustersWithCountry(sp, levelField, wanted) {
+  const present = new Set();
+  const dt = sp.deeptable;
+  for (const tile of dt.map((t) => t)) {
+    const rb = tile.record_batch;
+    if (!rb) continue;
+    const cc = rb.getChild("countries");
+    const lc = rb.getChild(levelField);
+    if (!cc || !lc) continue;
+    const n = cc.length;
+    for (let i = 0; i < n; i++) {
+      const cv = cc.get(i);
+      if (!cv) continue;
+      const parts = cv.split(";");
+      for (let j = 0; j < parts.length; j++) {
+        if (wanted.has(parts[j])) {
+          present.add(String(lc.get(i)));
+          break;
+        }
+      }
+    }
+  }
+  return present;
+}
+
+// The active dynamic-label controller, so the country filter can ask labels to
+// re-filter when the selection changes.
+let activeLabels = null;
+
+function setupDynamicLabels({
+  sp,
+  labelsBase,
+  levels,
+  extent,
+  labelFont,
+  clusterMax,
+  clusterCount,
+}) {
+  // Dedupe refetches against the data scale: skip if the layer and a coarsely
+  // quantized bbox are unchanged, so tiny jitters don't spam the server.
+  const bucket = Math.max(1e-9, Math.abs(extent.maxx - extent.minx) / 1024);
+  const qkey = (q) =>
+    `${q.level}|${Math.round(q.minx / bucket)}|${Math.round(q.miny / bucket)}|` +
+    `${Math.round(q.maxx / bucket)}|${Math.round(q.maxy / bucket)}`;
+
+  // Finest layer index whose cluster count fits deepscatter's categorical color
+  // texture (COLOR_CATEGORY_LIMIT). Finer layers have more clusters and would
+  // overflow it → black points, so coloring stops getting finer here (labels
+  // still do). +1 leaves room for the noise (-1) category.
+  const colorFloor = (() => {
+    const top = Math.min(LABEL_LAYER_MAX, levels.length - 1);
+    for (let i = 0; i <= top; i++) {
+      if ((clusterCount[levels[i]] ?? Infinity) + 1 <= COLOR_CATEGORY_LIMIT) return i;
+    }
+    return top;
+  })();
+
+  // Point coloring follows the zoom layer just like labels, but never finer than
+  // colorFloor. When the color layer changes, switch the encoding field + domain
+  // (only repaints if coloring is on).
+  const syncColor = (colorIdx) => {
+    if (colorIdx == null) return;
+    const colorLevel = levels[Math.max(colorFloor, colorIdx)];
+    if (!colorLevel || colorLevel === state.colorField) return;
+    state.colorField = colorLevel;
+    state.maxClusterId = clusterMax[colorLevel] ?? 0;
+    if (state.colorByClusters) applyColorEncoding(sp, state.clusterColors);
+  };
+
+  let timer = null;
+  let ctrl = null;
+  let lastKey = "";
+  let appliedLevel = null;
+  let destroyed = false;
+
+  const run = async () => {
+    if (destroyed || !sp.zoom) return;
+    let q;
+    try {
+      q = computeLevelAndBbox(sp, levels, extent);
+    } catch {
+      return;
+    }
+    syncColor(q.colorIdx);
+    if (!q.level) {
+      // Zoomed out past the label window — show nothing.
+      clearLabels(sp);
+      appliedLevel = null;
+      return;
+    }
+    const key = qkey(q);
+    if (key === lastKey) return;
+    lastKey = key;
+    // On a layer change, drop the previous layer's labels immediately so they
+    // don't linger while the new fetch is in flight. Same-layer pans keep their
+    // labels until the refetch resolves, to avoid flicker.
+    if (q.level !== appliedLevel) {
+      clearLabels(sp);
+      appliedLevel = null;
+    }
+    if (ctrl) ctrl.abort();
+    ctrl = new AbortController();
+    try {
+      const fc = await fetchLabelFC(labelsBase, q, ctrl.signal);
+      if (destroyed) return;
+      let features = fc.features ?? [];
+      // Respect the country filter: only label clusters that still have a visible
+      // (country-matching) point at this layer.
+      if (state.selectedCountries.length) {
+        const present = clustersWithCountry(
+          sp,
+          q.level,
+          new Set(state.selectedCountries),
+        );
+        features = features.filter((f) =>
+          present.has(String(f.properties?.cluster_id)),
+        );
+      }
+      applyLabels(sp, { ...fc, features }, labelFont);
+      appliedLevel = q.level;
+    } catch (e) {
+      if (e.name !== "AbortError") console.warn("label fetch failed", e);
+    }
+  };
+
+  const schedule = () => {
+    if (destroyed) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(run, LABEL_DEBOUNCE_MS);
+  };
+
+  // Fires on every raw zoom/pan frame. The moment the layer changes, drop the old
+  // layer's labels right away — don't wait for the debounced fetch — so a coarser
+  // layer's labels never linger at a finer zoom (or vice-versa). The actual
+  // fetch+apply for the new layer is still debounced via schedule().
+  const onZoom = () => {
+    if (destroyed) return;
+    let q = null;
+    try {
+      q = computeLevelAndBbox(sp, levels, extent);
+    } catch {
+      /* scales not ready yet */
+    }
+    if (q) syncColor(q.colorIdx); // recolor immediately on a layer change
+    const lvl = q ? q.level : null;
+    // Clear on any layer change — including crossing out of the l0…l3 window
+    // (lvl null), so coarse-zoom views show no stale labels.
+    if (lvl !== appliedLevel) {
+      clearLabels(sp);
+      appliedLevel = null;
+      lastKey = ""; // force the debounced run to refetch
+    }
+    schedule();
+  };
+
+  const api = {
+    start() {
+      try {
+        sp.zoom?.zoomer?.on("zoom.seqoutlabels", onZoom);
+      } catch {
+        /* ignore */
+      }
+      activeLabels = api;
+      run();
+    },
+    // Re-run the current fetch+filter (e.g. after the country filter changes).
+    refresh() {
+      if (destroyed) return;
+      lastKey = "";
+      run();
+    },
+    destroy() {
+      destroyed = true;
+      if (activeLabels === api) activeLabels = null;
+      if (timer) clearTimeout(timer);
+      if (ctrl) ctrl.abort();
+      try {
+        sp.zoom?.zoomer?.on("zoom.seqoutlabels", null);
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+  return api;
 }
 
 export function setBackgroundColor(sp, backgroundColor) {
   sp.plotAPI({ duration: 0, background_color: backgroundColor });
   // deepscatter only paints its 2d background canvas at setup, so plotAPI alone
   // won't show until reload. Repaint it directly so theme switches are live.
-  const bg = document.querySelector("#container-for-canvas-2d-background canvas");
+  const bg = document.querySelector(
+    "#container-for-canvas-2d-background canvas",
+  );
   if (bg) {
     const ctx = bg.getContext("2d");
     ctx.fillStyle = backgroundColor;
@@ -148,14 +544,26 @@ export function setBackgroundColor(sp, backgroundColor) {
   }
   // Re-theme the labels and force a redraw (they only repaint on zoom ticks).
   labelColor = labelColorFor(backgroundColor);
-  try { sp.secondary_renderers?.clusters?.render(); } catch { /* not ready yet */ }
+  try {
+    sp.secondary_renderers?.clusters?.render();
+  } catch {
+    /* not ready yet */
+  }
+  // Keep noise points faded into the new background; repaint if coloring is on.
+  if (state.clusterColors.length) {
+    state.clusterColors[0] = noiseColorFor(backgroundColor);
+    if (state.colorByClusters) applyColorEncoding(sp, state.clusterColors);
+  }
 }
 
 /** Resolve the accession for a clicked datum (may require a tile transform). */
 export async function resolveAccession(sp, datum) {
   let accession = datum.accession;
   if (!accession) {
-    const r = await sp.deeptable.applyTransformationToPoint("accession", datum.ix);
+    const r = await sp.deeptable.applyTransformationToPoint(
+      "accession",
+      datum.ix,
+    );
     accession = r.accession;
   }
   return accession;
@@ -175,7 +583,11 @@ export async function runSearch(sp, accessionId) {
   const name = "sr_" + Date.now();
   state.currentSearchName = name;
 
-  const selection = await dt.select_data({ name, ids: [accessionId], idField: "accession" });
+  const selection = await dt.select_data({
+    name,
+    ids: [accessionId],
+    idField: "accession",
+  });
   await selection.applyToAllTiles();
 
   let found = null;
@@ -188,7 +600,11 @@ export async function runSearch(sp, accessionId) {
     await sp.plotAPI({
       duration: 300,
       encoding: { foreground: { field: name, op: "eq", a: 1 } },
-      background_options: { color: DEFAULT_BG_COLOR, opacity: DEFAULT_BG_OPACITY, size: DEFAULT_BG_SIZE },
+      background_options: {
+        color: DEFAULT_BG_COLOR,
+        opacity: DEFAULT_BG_OPACITY,
+        size: DEFAULT_BG_SIZE,
+      },
     });
     sp.zoom.zoom_to(30, found.x, found.y, 500);
   }
@@ -206,80 +622,54 @@ export function clearSearch(sp) {
 }
 
 // ---------------------------------------------------------------------------
-// Country filter (single selection)
+// Country filter (multi-select): HIDE points not from a selected country, using
+// deepscatter's `filter` slot. Independent of color (clusters) and foreground
+// (lasso/search), so cluster coloring still applies to the visible points.
 // ---------------------------------------------------------------------------
-export async function applyCountryFilter(sp, selectedCountry, countryColorMap, clusterColors, clusters) {
+export async function applyCountryFilter(sp, selectedCountries) {
   const dt = sp.deeptable;
-  const oldFilterName = state.currentFilterName;
+  const old = state.countryFilterName;
+  const selected = selectedCountries ?? [];
+  state.selectedCountries = selected;
 
-  if (!selectedCountry) {
-    state.currentFilterName = null;
-    state.countryFilterData = { selectedCountries: [], countryToIndex: {}, colors: [] };
-    if (state.currentLassoName) {
-      await reapplyLasso(sp);
-    }
-    applyColorEncoding(sp, clusterColors, clusters);
-    if (oldFilterName) delete dt.transformations[oldFilterName];
-    return;
-  }
-
-  const selected = [selectedCountry];
-  const name = "cf_" + Date.now();
-  state.currentFilterName = name;
-
-  const countryToIndex = {};
-  selected.forEach((c, i) => { countryToIndex[c] = i + 1; });
-
-  state.countryFilterData = {
-    selectedCountries: selected,
-    countryToIndex,
-    colors: selected.map((c) => countryColorMap[c]),
-  };
-
-  const colors = selected.map((c) => countryColorMap[c]);
-  const colorEnc = buildColorEncoding(name, colors, selected.length);
-  const splitMemo = new Map();
-  const lassoActive = state.currentLassoName && state.lassoDataVerts.length > 0;
-
-  const matchIndex = (row, requirePolygon, dataVerts) => {
-    if (requirePolygon && !pointInPolygon(row.x, row.y, dataVerts)) return 0;
-    const v = row.countries;
-    if (!v) return 0;
-    let parts = splitMemo.get(v);
-    if (!parts) {
-      parts = v.split(";");
-      splitMemo.set(v, parts);
-    }
-    for (let i = 0; i < parts.length; i++) {
-      const idx = countryToIndex[parts[i]];
-      if (idx !== undefined) return idx;
-    }
-    return 0;
-  };
-
-  if (lassoActive) {
-    const dataVerts = state.lassoDataVerts;
-    await applyTransformation(sp, name, (row) => matchIndex(row, true, dataVerts));
-    sp.plotAPI({
-      duration: 0,
-      encoding: { foreground: { field: name, op: "gt", a: 0 }, color: colorEnc },
-      background_options: { color: LASSO_BG_COLOR, opacity: LASSO_DIM_OPACITY, size: LASSO_DIM_SIZE },
-    });
+  if (selected.length === 0) {
+    state.countryFilterName = null;
+    sp.plotAPI({ duration: 0, encoding: { filter: null } });
+    if (old) delete dt.transformations[old];
   } else {
-    await applyTransformation(sp, name, (row) => matchIndex(row, false, null));
+    const wanted = new Set(selected);
+    const splitMemo = new Map();
+    const name = "cf_" + Date.now();
+    state.countryFilterName = name;
+
+    await applyTransformation(sp, name, (row) => {
+      const v = row.countries;
+      if (!v) return 0;
+      let parts = splitMemo.get(v);
+      if (!parts) {
+        parts = v.split(";");
+        splitMemo.set(v, parts);
+      }
+      for (let i = 0; i < parts.length; i++) if (wanted.has(parts[i])) return 1;
+      return 0;
+    });
+
     sp.plotAPI({
       duration: 0,
-      encoding: { foreground: { field: name, op: "gt", a: 0 }, color: colorEnc },
-      background_options: { color: DEFAULT_BG_COLOR, opacity: DEFAULT_BG_OPACITY, size: DEFAULT_BG_SIZE },
+      encoding: { filter: { field: name, op: "gt", a: 0 } },
     });
+    if (old) delete dt.transformations[old];
   }
 
-  if (oldFilterName) delete dt.transformations[oldFilterName];
+  // Keep an active lasso selection (highlight + stats) in sync with the filter.
+  await reapplyLassoForCountry(sp);
+  // Re-filter labels so only clusters with visible (country-matching) points show.
+  activeLabels?.refresh?.();
 }
 
-export function setColorByClusters(sp, value, clusterColors, clusters) {
+export function setColorByClusters(sp, value, clusterColors) {
   state.colorByClusters = value;
-  applyColorEncoding(sp, clusterColors, clusters);
+  applyColorEncoding(sp, clusterColors);
 }
 
 // ---------------------------------------------------------------------------
@@ -288,11 +678,34 @@ export function setColorByClusters(sp, value, clusterColors, clusters) {
 export function screenToData(sp, screenX, screenY) {
   try {
     const scales = sp.zoom.scales();
-    if (scales) return { x: scales.x_.invert(screenX), y: scales.y_.invert(screenY) };
+    if (scales)
+      return { x: scales.x_.invert(screenX), y: scales.y_.invert(screenY) };
   } catch (err) {
     console.warn("screenToData failed:", err);
   }
   return { x: screenX, y: screenY };
+}
+
+// Lasso membership: inside the polygon AND (if a country filter is active) from a
+// selected country — so the selection/stats respect the country filter.
+function lassoSelector(dataVerts) {
+  const wanted = state.selectedCountries.length
+    ? new Set(state.selectedCountries)
+    : null;
+  const splitMemo = new Map();
+  return (row) => {
+    if (!pointInPolygon(row.x, row.y, dataVerts)) return 0;
+    if (!wanted) return 1;
+    const v = row.countries;
+    if (!v) return 0;
+    let parts = splitMemo.get(v);
+    if (!parts) {
+      parts = v.split(";");
+      splitMemo.set(v, parts);
+    }
+    for (let i = 0; i < parts.length; i++) if (wanted.has(parts[i])) return 1;
+    return 0;
+  };
 }
 
 export async function performLasso(sp, dataVerts) {
@@ -304,33 +717,27 @@ export async function performLasso(sp, dataVerts) {
   const name = "ls_" + Date.now();
   state.currentLassoName = name;
 
-  if (state.currentFilterName) {
-    const cfData = state.countryFilterData;
-    await applyTransformation(sp, name, (row) => {
-      if (!pointInPolygon(row.x, row.y, dataVerts)) return 0;
-      const parts = row.countries?.split(";") ?? [];
-      for (const part of parts) {
-        const idx = cfData.countryToIndex[part];
-        if (idx !== undefined) return idx;
-      }
-      return 0;
-    });
-    sp.plotAPI({
-      duration: 0,
-      encoding: {
-        foreground: { field: name, op: "gt", a: 0 },
-        color: buildColorEncoding(name, cfData.colors, cfData.selectedCountries.length),
-      },
-      background_options: { color: LASSO_BG_COLOR, opacity: LASSO_DIM_OPACITY, size: LASSO_DIM_SIZE },
-    });
-  } else {
-    await applyTransformation(sp, name, (row) => (pointInPolygon(row.x, row.y, dataVerts) ? 1 : 0));
-    sp.plotAPI({
-      duration: 0,
-      encoding: { foreground: { field: name, op: "eq", a: 1 } },
-      background_options: { color: LASSO_BG_COLOR, opacity: LASSO_DIM_OPACITY, size: LASSO_DIM_SIZE },
-    });
-  }
+  await applyTransformation(sp, name, lassoSelector(dataVerts));
+  sp.plotAPI({
+    duration: 0,
+    encoding: { foreground: { field: name, op: "eq", a: 1 } },
+    background_options: {
+      color: LASSO_BG_COLOR,
+      opacity: LASSO_DIM_OPACITY,
+      size: LASSO_DIM_SIZE,
+    },
+  });
+}
+
+// Recompute the active lasso selection against the current country filter (called
+// when the country filter changes while a lasso is active).
+async function reapplyLassoForCountry(sp) {
+  if (!state.currentLassoName || !state.lassoDataVerts.length) return;
+  await applyTransformation(
+    sp,
+    state.currentLassoName,
+    lassoSelector(state.lassoDataVerts),
+  );
 }
 
 export function clearLasso(sp) {
@@ -341,16 +748,6 @@ export function clearLasso(sp) {
   }
   state.lassoDataVerts = [];
   restoreForeground(sp);
-}
-
-export async function reapplyLasso(sp) {
-  if (!state.lassoDataVerts.length) return;
-  const dt = sp.deeptable;
-  if (state.currentLassoName) delete dt.transformations[state.currentLassoName];
-  const name = "ls_" + Date.now();
-  state.currentLassoName = name;
-  const dataVerts = state.lassoDataVerts;
-  await applyTransformation(sp, name, (row) => (pointInPolygon(row.x, row.y, dataVerts) ? 1 : 0));
 }
 
 export function hasLassoSelection() {
@@ -377,39 +774,57 @@ export async function collectLassoData(sp) {
       if (acc) accessions.push(acc);
       if (countriesCol) {
         const v = countriesCol.get(i);
-        if (v) v.split(";").filter(Boolean).forEach((c) => { countryCounts[c] = (countryCounts[c] || 0) + 1; });
+        if (v)
+          v.split(";")
+            .filter(Boolean)
+            .forEach((c) => {
+              countryCounts[c] = (countryCounts[c] || 0) + 1;
+            });
       }
     }
   }
 
-  const sortedCountries = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
+  const sortedCountries = Object.entries(countryCounts).sort(
+    (a, b) => b[1] - a[1],
+  );
   const topCountries = sortedCountries.slice(0, 5);
   const otherCount = sortedCountries.slice(5).reduce((s, [, c]) => s + c, 0);
   if (otherCount > 0) topCountries.push(["Other", otherCount]);
 
-  return { accessions, countryCount: Object.keys(countryCounts).length, topCountries };
+  return {
+    accessions,
+    countryCount: Object.keys(countryCounts).length,
+    topCountries,
+  };
 }
 
 export async function fetchOrganismCounts(accessions, apiBase) {
   // server caps each request at 100 accessions; fetch in chunks
   const chunks = [];
-  for (let i = 0; i < accessions.length; i += 100) chunks.push(accessions.slice(i, i + 100));
-  const data = (await Promise.all(chunks.map(async (batch) => {
-    const res = await fetch(`${apiBase}/bulk/project-metadata`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accessions: batch }),
-    });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
-  }))).flat();
+  for (let i = 0; i < accessions.length; i += 100)
+    chunks.push(accessions.slice(i, i + 100));
+  const data = (
+    await Promise.all(
+      chunks.map(async (batch) => {
+        const res = await fetch(`${apiBase}/bulk/project-metadata`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessions: batch }),
+        });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      }),
+    )
+  ).flat();
 
   const counts = {};
   let unknownCount = 0;
   for (const item of data) {
     const orgs = item.organisms;
     if (orgs && orgs.length > 0) {
-      for (const org of orgs) { if (org) counts[org] = (counts[org] || 0) + 1; }
+      for (const org of orgs) {
+        if (org) counts[org] = (counts[org] || 0) + 1;
+      }
     } else {
       unknownCount++;
     }
