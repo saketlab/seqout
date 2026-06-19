@@ -123,11 +123,14 @@ export async function createMap({
   levels,
   extent,
   countries,
+  filterColumns,
   backgroundColor,
   labelFont,
   serverUrl,
 }) {
+  const facetColumns = filterColumns ?? [];
   resetState();
+  state.facetColumns = facetColumns; // after resetState (which clears it)
 
   // Points are colored by their cluster at the layer matching the current zoom
   // (a per-layer sidecar column in the tiles, kept in state.colorField). Seed it
@@ -181,14 +184,14 @@ export async function createMap({
 
   labelColor = labelColorFor(backgroundColor);
 
-  // Hover/click tooltip: deepscatter positions this box at the point and shows it
-  // on hover (you must hover to click, so click gets the same box). Title +
-  // description are fetched lazily per accession and cached (one fetch per point,
-  // ever). The moment a fetch resolves we re-fire deepscatter's hover at the last
-  // cursor position so the box updates immediately instead of waiting for the next
-  // mouse move. ponytail: no debounce — fetches fire per hovered point; if a fast
-  // sweep ever hammers the API, gate fetchMeta on a short hover dwell.
+  // Hover/click tooltip (deepscatter positions this box at the point):
+  //   hover -> just the accession + a "Click to show details" hint
+  //   click -> pin that accession and show its title + description (fetched once,
+  //            cached). Only the clicked accession shows details; everything else
+  //            stays on the hint. When the fetch resolves we re-fire deepscatter's
+  //            hover at the last cursor position so the box updates immediately.
   const metaCache = new Map(); // accession -> meta | "loading"
+  let clickedAccession = null;
   let lastMove = null;
   const svgEl = () => document.querySelector(`${mapSelector} #deepscatter-svg`);
   sp.ready.then(() => {
@@ -212,10 +215,22 @@ export async function createMap({
     }
     refreshTooltip();
   };
+  sp.click_function = async (datum) => {
+    const accession = await resolveAccession(sp, datum);
+    if (!accession) return;
+    clickedAccession = accession;
+    refreshTooltip(); // switch to details/loading right away
+    fetchMeta(accession); // fetch if needed; refreshes again on resolve
+  };
   sp.tooltip_html = (datum) => {
     const accession = datum.accession ?? "unknown";
+    if (accession !== clickedAccession) {
+      return (
+        `<div><strong style="font-size:12px">${esc(accession)}</strong>` +
+        `<div style="margin-top:4px;font-size:11px;opacity:.6">Click to show details</div></div>`
+      );
+    }
     const meta = metaCache.get(accession);
-    if (meta === undefined) fetchMeta(accession);
     const ready = meta && meta !== "loading";
     const title = ready ? meta.title : "";
     const description = ready ? meta.description : "";
@@ -250,7 +265,9 @@ export async function createMap({
     const dt = sp.deeptable;
     const origSpawn = dt.spawnDownloads.bind(dt);
     dt.spawnDownloads = (bbox, maxIx, qLen, fields, priority) => {
-      const extra = ["accession", "countries"].filter((f) => !fields.includes(f));
+      const extra = ["accession", "countries", ...facetColumns].filter(
+        (f) => !fields.includes(f),
+      );
       return origSpawn(bbox, maxIx, qLen, [...fields, ...extra], priority);
     };
     sp.plotAPI({ background_options: { opacity: [0.6, 1], size: [0.7, 1] } });
@@ -356,28 +373,61 @@ function applyLabels(sp, fc, labelFont) {
   killLabelShadow(sp, "clusters");
 }
 
-// Cluster ids (at `levelField`) that have at least one loaded point from a wanted
-// country. Both columns live in the main tile, so this just scans loaded points.
-function clustersWithCountry(sp, levelField, wanted) {
-  const present = new Set();
-  const dt = sp.deeptable;
-  for (const tile of dt.map((t) => t)) {
-    const rb = tile.record_batch;
-    if (!rb) continue;
-    const cc = rb.getChild("countries");
-    const lc = rb.getChild(levelField);
-    if (!cc || !lc) continue;
-    const n = cc.length;
-    for (let i = 0; i < n; i++) {
-      const cv = cc.get(i);
-      if (!cv) continue;
-      const parts = cv.split(";");
-      for (let j = 0; j < parts.length; j++) {
-        if (wanted.has(parts[j])) {
-          present.add(String(lc.get(i)));
+// Predicate over a loaded point row from the active facet selections
+// (state.filters: column -> Set of values). Each facet column is a ;-joined string
+// (countries + the enriched facets); a point passes a facet if it carries any
+// selected value (OR within a facet) and passes overall only if every active facet
+// matches (AND across facets). No active facets -> everything passes.
+function makeFilterPredicate() {
+  const cols = Object.entries(state.filters);
+  const splitMemo = new Map();
+  return (row) => {
+    for (const [col, wanted] of cols) {
+      const v = row[col];
+      if (!v) return false;
+      const key = col + " " + v;
+      let parts = splitMemo.get(key);
+      if (!parts) {
+        parts = v.split(";");
+        splitMemo.set(key, parts);
+      }
+      let hit = false;
+      for (let i = 0; i < parts.length; i++) {
+        if (wanted.has(parts[i])) {
+          hit = true;
           break;
         }
       }
+      if (!hit) return false;
+    }
+    return true;
+  };
+}
+
+// Cluster ids (at `levelField`) with at least one loaded point passing all active
+// facets, so labels for fully-filtered-out clusters can be hidden. Returns null
+// when no facet is active (caller skips label filtering). All facet columns live
+// in the main tile, so this just scans loaded points.
+function clustersPassingFilters(sp, levelField) {
+  const cols = Object.keys(state.filters);
+  if (cols.length === 0) return null;
+  const present = new Set();
+  const pred = makeFilterPredicate();
+  const dt = sp.deeptable;
+  const row = {};
+  for (const tile of dt.map((t) => t)) {
+    const rb = tile.record_batch;
+    if (!rb) continue;
+    const lc = rb.getChild(levelField);
+    if (!lc) continue;
+    const children = cols.map((c) => rb.getChild(c));
+    const n = lc.length;
+    for (let i = 0; i < n; i++) {
+      for (let c = 0; c < cols.length; c++) {
+        const child = children[c];
+        row[cols[c]] = child ? child.get(i) : null;
+      }
+      if (pred(row)) present.add(String(lc.get(i)));
     }
   }
   return present;
@@ -464,14 +514,10 @@ function setupDynamicLabels({
       const fc = await fetchLabelFC(labelsBase, q, ctrl.signal);
       if (destroyed) return;
       let features = fc.features ?? [];
-      // Respect the country filter: only label clusters that still have a visible
-      // (country-matching) point at this layer.
-      if (state.selectedCountries.length) {
-        const present = clustersWithCountry(
-          sp,
-          q.level,
-          new Set(state.selectedCountries),
-        );
+      // Respect the active facet filters: only label clusters that still have a
+      // visible (matching) point at this layer.
+      const present = clustersPassingFilters(sp, q.level);
+      if (present) {
         features = features.filter((f) =>
           present.has(String(f.properties?.cluster_id)),
         );
@@ -636,38 +682,32 @@ export function clearSearch(sp) {
 }
 
 // ---------------------------------------------------------------------------
-// Country filter (multi-select): HIDE points not from a selected country, using
-// deepscatter's `filter` slot. Independent of color (clusters) and foreground
-// (lasso/search), so cluster coloring still applies to the visible points.
+// Facet filters (multi-select, multi-column): HIDE points that don't match every
+// active facet (countries + enriched), via deepscatter's single `filter` slot.
+// Independent of color (clusters) and foreground (lasso/search), so cluster
+// coloring still applies to the visible points.
+//
+// `selections` is { column: string[] }; only columns with a non-empty list are
+// active. Replaces the previous country-only filter — countries is now just one
+// of the facet columns.
 // ---------------------------------------------------------------------------
-export async function applyCountryFilter(sp, selectedCountries) {
+export async function applyFilters(sp, selections) {
   const dt = sp.deeptable;
-  const old = state.countryFilterName;
-  const selected = selectedCountries ?? [];
-  state.selectedCountries = selected;
+  const old = state.filterName;
+  const active = Object.entries(selections ?? {}).filter(
+    ([, vals]) => vals && vals.length,
+  );
+  state.filters = Object.fromEntries(active.map(([k, v]) => [k, new Set(v)]));
 
-  if (selected.length === 0) {
-    state.countryFilterName = null;
+  if (active.length === 0) {
+    state.filterName = null;
     sp.plotAPI({ duration: 0, encoding: { filter: null } });
     if (old) delete dt.transformations[old];
   } else {
-    const wanted = new Set(selected);
-    const splitMemo = new Map();
-    const name = "cf_" + Date.now();
-    state.countryFilterName = name;
-
-    await applyTransformation(sp, name, (row) => {
-      const v = row.countries;
-      if (!v) return 0;
-      let parts = splitMemo.get(v);
-      if (!parts) {
-        parts = v.split(";");
-        splitMemo.set(v, parts);
-      }
-      for (let i = 0; i < parts.length; i++) if (wanted.has(parts[i])) return 1;
-      return 0;
-    });
-
+    const name = "ff_" + Date.now();
+    state.filterName = name;
+    const pred = makeFilterPredicate();
+    await applyTransformation(sp, name, (row) => (pred(row) ? 1 : 0));
     sp.plotAPI({
       duration: 0,
       encoding: { filter: { field: name, op: "gt", a: 0 } },
@@ -676,8 +716,8 @@ export async function applyCountryFilter(sp, selectedCountries) {
   }
 
   // Keep an active lasso selection (highlight + stats) in sync with the filter.
-  await reapplyLassoForCountry(sp);
-  // Re-filter labels so only clusters with visible (country-matching) points show.
+  await reapplyLassoForFilters(sp);
+  // Re-filter labels so only clusters with visible (matching) points show.
   activeLabels?.refresh?.();
 }
 
@@ -700,26 +740,11 @@ export function screenToData(sp, screenX, screenY) {
   return { x: screenX, y: screenY };
 }
 
-// Lasso membership: inside the polygon AND (if a country filter is active) from a
-// selected country — so the selection/stats respect the country filter.
+// Lasso membership: inside the polygon AND passing every active facet filter — so
+// the selection/stats respect the sidebar filters.
 function lassoSelector(dataVerts) {
-  const wanted = state.selectedCountries.length
-    ? new Set(state.selectedCountries)
-    : null;
-  const splitMemo = new Map();
-  return (row) => {
-    if (!pointInPolygon(row.x, row.y, dataVerts)) return 0;
-    if (!wanted) return 1;
-    const v = row.countries;
-    if (!v) return 0;
-    let parts = splitMemo.get(v);
-    if (!parts) {
-      parts = v.split(";");
-      splitMemo.set(v, parts);
-    }
-    for (let i = 0; i < parts.length; i++) if (wanted.has(parts[i])) return 1;
-    return 0;
-  };
+  const pred = makeFilterPredicate();
+  return (row) => (pointInPolygon(row.x, row.y, dataVerts) && pred(row) ? 1 : 0);
 }
 
 export async function performLasso(sp, dataVerts) {
@@ -743,9 +768,9 @@ export async function performLasso(sp, dataVerts) {
   });
 }
 
-// Recompute the active lasso selection against the current country filter (called
-// when the country filter changes while a lasso is active).
-async function reapplyLassoForCountry(sp) {
+// Recompute the active lasso selection against the current facet filters (called
+// when a filter changes while a lasso is active).
+async function reapplyLassoForFilters(sp) {
   if (!state.currentLassoName || !state.lassoDataVerts.length) return;
   await applyTransformation(
     sp,
@@ -768,85 +793,64 @@ export function hasLassoSelection() {
   return state.currentLassoName !== null;
 }
 
+// Top-N [value, count] entries from a counts object, collapsing the tail into
+// one "Other" bucket so the bar charts stay short.
+function topEntries(counts, n = 5) {
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const top = sorted.slice(0, n);
+  const other = sorted.slice(n).reduce((s, [, c]) => s + c, 0);
+  if (other > 0) top.push(["Other", other]);
+  return top;
+}
+
+// Tally the lasso selection straight from the loaded tile columns: accessions
+// (for download), country distribution, and one distribution per enriched facet
+// (organism/tissue/disease/…). All columns are force-loaded with every tile, so
+// no network round-trip is needed — the stats render instantly.
 export async function collectLassoData(sp) {
   const selectionName = state.currentLassoName;
+  const facetColumns = state.facetColumns ?? [];
   const dt = sp.deeptable;
   const accessions = [];
   const countryCounts = {};
+  const facetCounts = Object.fromEntries(facetColumns.map((c) => [c, {}]));
+
+  const tally = (counts, value) => {
+    if (!value) return;
+    for (const part of value.split(";")) {
+      if (part) counts[part] = (counts[part] || 0) + 1;
+    }
+  };
 
   for (const tile of dt.map((t) => t)) {
     if (!tile.record_batch || !tile.hasLoadedColumn(selectionName)) continue;
 
-    const col = tile.record_batch.getChild(selectionName);
-    const accCol = tile.record_batch.getChild("accession");
-    const countriesCol = tile.record_batch.getChild("countries");
+    const rb = tile.record_batch;
+    const col = rb.getChild(selectionName);
+    const accCol = rb.getChild("accession");
+    const countriesCol = rb.getChild("countries");
+    const facetCols = facetColumns.map((c) => rb.getChild(c));
     if (!col || !accCol) continue;
 
     for (let i = 0; i < col.length; i++) {
       if (col.get(i) < 0.5) continue;
       const acc = accCol.get(i);
       if (acc) accessions.push(acc);
-      if (countriesCol) {
-        const v = countriesCol.get(i);
-        if (v)
-          v.split(";")
-            .filter(Boolean)
-            .forEach((c) => {
-              countryCounts[c] = (countryCounts[c] || 0) + 1;
-            });
+      if (countriesCol) tally(countryCounts, countriesCol.get(i));
+      for (let k = 0; k < facetCols.length; k++) {
+        if (facetCols[k]) tally(facetCounts[facetColumns[k]], facetCols[k].get(i));
       }
     }
   }
 
-  const sortedCountries = Object.entries(countryCounts).sort(
-    (a, b) => b[1] - a[1],
+  const facets = Object.fromEntries(
+    facetColumns.map((c) => [c, topEntries(facetCounts[c])]),
   );
-  const topCountries = sortedCountries.slice(0, 5);
-  const otherCount = sortedCountries.slice(5).reduce((s, [, c]) => s + c, 0);
-  if (otherCount > 0) topCountries.push(["Other", otherCount]);
 
   return {
     accessions,
     countryCount: Object.keys(countryCounts).length,
-    topCountries,
+    topCountries: topEntries(countryCounts),
+    facets,
   };
-}
-
-export async function fetchOrganismCounts(accessions, apiBase) {
-  // server caps each request at 100 accessions; fetch in chunks
-  const chunks = [];
-  for (let i = 0; i < accessions.length; i += 100)
-    chunks.push(accessions.slice(i, i + 100));
-  const data = (
-    await Promise.all(
-      chunks.map(async (batch) => {
-        const res = await fetch(`${apiBase}/bulk/project-metadata`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessions: batch }),
-        });
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-        return res.json();
-      }),
-    )
-  ).flat();
-
-  const counts = {};
-  let unknownCount = 0;
-  for (const item of data) {
-    const orgs = item.organisms;
-    if (orgs && orgs.length > 0) {
-      for (const org of orgs) {
-        if (org) counts[org] = (counts[org] || 0) + 1;
-      }
-    } else {
-      unknownCount++;
-    }
-  }
-
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const top = sorted.slice(0, 5);
-  unknownCount += sorted.slice(5).reduce((s, [, c]) => s + c, 0);
-  if (unknownCount > 0) top.push(["Unknown", unknownCount]);
-  return top;
 }

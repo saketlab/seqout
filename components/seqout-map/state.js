@@ -1,8 +1,9 @@
 // Ported from saketlab-experiments/js/state.js
 export const state = {
   colorByClusters: false,
-  countryFilterName: null, // transform name for the country hide-filter
-  selectedCountries: [], // currently selected countries (multi)
+  filterName: null, // transform name for the country hide-filter
+  filters: {}, // active facets: column -> Set of selected values (AND across cols)
+  facetColumns: [], // enriched facet tile columns to tally for the lasso stats
   currentSearchName: null,
   currentLassoName: null,
   lassoDataVerts: [],
@@ -14,8 +15,9 @@ export const state = {
 // Reset the singleton state between mounts (React client navigation / StrictMode).
 export function resetState() {
   state.colorByClusters = false;
-  state.countryFilterName = null;
-  state.selectedCountries = [];
+  state.filterName = null;
+  state.filters = {};
+  state.facetColumns = [];
   state.currentSearchName = null;
   state.currentLassoName = null;
   state.lassoDataVerts = [];

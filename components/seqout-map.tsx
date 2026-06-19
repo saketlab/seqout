@@ -56,7 +56,12 @@ type MapMeta = {
   cluster_max: Record<string, number>;
   cluster_count: Record<string, number>;
   extent: { minx: number; maxx: number; miny: number; maxy: number };
+  filters?: { key: string; label: string; file: string }[];
 };
+
+// An enriched facet baked into the tiles: its column key + display label. Tallied
+// per lasso selection into a bar chart (no separate value list / filter UI).
+type Facet = { key: string; label: string };
 
 type EngineModule = typeof import("./seqout-map/engine.js");
 type Scatterplot = Awaited<ReturnType<EngineModule["createMap"]>>["sp"];
@@ -73,8 +78,8 @@ type StatsData = {
   total: number;
   countryCount: number;
   topCountries: [string, number][];
-  organisms: [string, number][] | null;
-  organismsError?: boolean;
+  // Per enriched facet (organism/tissue/disease/…): top values + counts.
+  facets: Record<string, [string, number][]>;
 };
 
 type ScreenPoint = { x: number; y: number };
@@ -195,6 +200,9 @@ export default function MapGraph() {
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
+  // Enriched facets (organism/tissue/…), shown as bar charts in the lasso stats.
+  const [facets, setFacets] = useState<Facet[]>([]);
+
   const [shiftHeld, setShiftHeld] = useState(false);
   const [drawPoints, setDrawPoints] = useState<ScreenPoint[]>([]);
   const [hasSelection, setHasSelection] = useState(false);
@@ -262,6 +270,14 @@ export default function MapGraph() {
         const countries = await cachedJson<string[]>(`${base}/countries.json`);
         if (destroyed) return;
 
+        // Enriched facets baked into the tiles — used to label the lasso-stats bar
+        // charts and to force-load those columns. No value lists needed (counts
+        // come straight from the tiles when a lasso is drawn).
+        const facetList: Facet[] = (meta.filters ?? []).map((f) => ({
+          key: f.key,
+          label: f.label,
+        }));
+
         const ctx = await engine.createMap({
           mapSelector: `#${DEEPSCATTER_ID}`,
           width: rect.width,
@@ -273,6 +289,7 @@ export default function MapGraph() {
           levels: meta.levels,
           extent: meta.extent,
           countries,
+          filterColumns: facetList.map((f) => f.key),
           backgroundColor: backgroundForTheme(themeRef.current),
           labelFont: GeistSans.style.fontFamily,
           serverUrl: SERVER_URL,
@@ -286,6 +303,7 @@ export default function MapGraph() {
           destroy: ctx.destroy,
         };
         setCountries(ctx.countries);
+        setFacets(facetList);
         setLoading(false);
       } catch (err) {
         if (destroyed) return;
@@ -383,7 +401,7 @@ export default function MapGraph() {
         ? [...prev, country]
         : prev.filter((c) => c !== country);
       const sp = spRef.current;
-      if (sp) engineRef.current?.applyCountryFilter(sp, next);
+      if (sp) engineRef.current?.applyFilters(sp, { countries: next });
       return next;
     });
   }, []);
@@ -402,7 +420,7 @@ export default function MapGraph() {
     if (!sp || !engine) return;
     setStatsOpen(true);
     setStatsLoading(true);
-    const { accessions, countryCount, topCountries } =
+    const { accessions, countryCount, topCountries, facets } =
       await engine.collectLassoData(sp);
     accessionsRef.current = accessions;
     setStatsLoading(false);
@@ -412,7 +430,7 @@ export default function MapGraph() {
         total: 0,
         countryCount: 0,
         topCountries: [],
-        organisms: [],
+        facets: {},
       });
       return;
     }
@@ -420,19 +438,8 @@ export default function MapGraph() {
       total: accessions.length,
       countryCount,
       topCountries,
-      organisms: null,
+      facets,
     });
-    try {
-      const organisms = await engine.fetchOrganismCounts(
-        accessions,
-        SERVER_URL,
-      );
-      setStatsData((d) => (d ? { ...d, organisms } : d));
-    } catch {
-      setStatsData((d) =>
-        d ? { ...d, organisms: [], organismsError: true } : d,
-      );
-    }
   }, []);
 
   const onToggleStats = useCallback(() => {
@@ -651,15 +658,7 @@ export default function MapGraph() {
         <Separator size="4" />
 
         {/* Country filter */}
-        <Box
-          p="3"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+        <Box p="3" style={{ display: "flex", flexDirection: "column" }}>
           <Flex align="center" justify="between" mb="2">
             <Flex align={"center"} gap={"2"}>
               <GlobeIcon />
@@ -690,7 +689,7 @@ export default function MapGraph() {
           <ScrollArea
             type="auto"
             scrollbars="vertical"
-            style={{ flex: 1, minHeight: 0 }}
+            style={{ maxHeight: 240 }}
           >
             <Flex direction="column" gap="1" pr="2">
               {visibleCountries.map((country) => (
@@ -715,6 +714,7 @@ export default function MapGraph() {
             </Flex>
           </ScrollArea>
         </Box>
+
 
         {!isMobile && (
           <>
@@ -918,8 +918,8 @@ export default function MapGraph() {
                     </Text>
                   </Flex>
                   <Separator size="4" />
-                  <Flex gap="5" align="start">
-                    <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Flex gap="5" align="start" wrap="wrap">
+                    <Box style={{ flex: "1 1 220px", minWidth: 200 }}>
                       <Text size="2" weight="bold">
                         Countries
                       </Text>
@@ -930,31 +930,32 @@ export default function MapGraph() {
                         />
                       </Box>
                     </Box>
-                    <Box style={{ flex: 1, minWidth: 0 }}>
-                      <Text size="2" weight="bold">
-                        Organisms
-                      </Text>
-                      <Box mt="2">
-                        {statsData.organisms === null ? (
-                          <Flex align="center" gap="2">
-                            <Spinner size="1" />
-                            <Text size="1" color="gray">
-                              Fetching organism data…
-                            </Text>
-                          </Flex>
-                        ) : statsData.organismsError ? (
-                          <Text size="1" color="gray">
-                            Failed to load organism data.
+                    {facets.map((f) => {
+                      const entries = statsData!.facets[f.key] ?? [];
+                      return (
+                        <Box
+                          key={f.key}
+                          style={{ flex: "1 1 220px", minWidth: 200 }}
+                        >
+                          <Text size="2" weight="bold">
+                            {f.label}
                           </Text>
-                        ) : (
-                          <BarChart
-                            entries={statsData.organisms}
-                            total={statsData.total}
-                            fullLabels
-                          />
-                        )}
-                      </Box>
-                    </Box>
+                          <Box mt="2">
+                            {entries.length > 0 ? (
+                              <BarChart
+                                entries={entries}
+                                total={statsData!.total}
+                                fullLabels
+                              />
+                            ) : (
+                              <Text size="1" color="gray">
+                                No data
+                              </Text>
+                            )}
+                          </Box>
+                        </Box>
+                      );
+                    })}
                   </Flex>
                 </Flex>
               ) : null}
