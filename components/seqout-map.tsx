@@ -937,9 +937,14 @@ export default function MapGraph() {
                           key={f.key}
                           style={{ flex: "1 1 220px", minWidth: 200 }}
                         >
-                          <Text size="2" weight="bold">
-                            {f.label}
-                          </Text>
+                          <Flex align="center" gap="1">
+                            <Text size="2" weight="bold">
+                              {f.label}
+                            </Text>
+                            <Tooltip content="Generated with an LLM-powered pipeline — may not be fully accurate.">
+                              <InfoCircledIcon color="var(--gray-9)" />
+                            </Tooltip>
+                          </Flex>
                           <Box mt="2">
                             {entries.length > 0 ? (
                               <BarChart
