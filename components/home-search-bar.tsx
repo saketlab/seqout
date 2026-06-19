@@ -1,8 +1,6 @@
 "use client";
 
-import { humanize } from "@/utils/format";
-import { useSourceTotals } from "@/utils/useStats";
-import { Badge, Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Badge, Box, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import Link from "next/link";
 import HeroSearchBar from "./hero-search-bar";
@@ -13,11 +11,6 @@ const EXAMPLE_ACCESSIONS: readonly { accession: string; href: string }[] = [
 ] as const;
 
 export default function HomeSearchBar() {
-  const { data: totals } = useSourceTotals();
-  const totalProjects = totals
-    ? Object.values(totals).reduce((sum, v) => sum + v.projects, 0)
-    : null;
-
   return (
     <Flex
       justify="center"
@@ -65,15 +58,8 @@ export default function HomeSearchBar() {
         color="gray"
         style={{ letterSpacing: "-0.02em" }}
       >
-        Search{" "}
-        {totalProjects ? (
-          <Tooltip content={`${totalProjects.toLocaleString()} datasets`}>
-            <span style={{ cursor: "help" }}>{humanize(totalProjects)}+</span>
-          </Tooltip>
-        ) : (
-          "1M+"
-        )}{" "}
-        public sequencing datasets across GEO, SRA, ENA &amp; ArrayExpress
+        Search 2M+ public sequencing datasets across GEO, SRA, ENA &amp;
+        ArrayExpress
       </Text>
 
       <HeroSearchBar />
