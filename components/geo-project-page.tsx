@@ -2215,9 +2215,6 @@ export default function GeoProjectPage() {
               <Heading as="h2" weight="medium" size="6">
                 Similar projects
               </Heading>
-              <Badge color="teal" size={"2"}>
-                Beta
-              </Badge>
               <SectionAnchor id="similar" />
             </Flex>
             <SimilarProjectsGraph
