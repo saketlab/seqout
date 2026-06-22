@@ -19,6 +19,7 @@ import {
   Badge,
   Button,
   Flex,
+  Separator,
   Select,
   Skeleton,
   Spinner,
@@ -221,7 +222,30 @@ const getGeoSearchResults = async (
   return res.json();
 };
 
+function SearchOrganismRailSkeleton() {
+  return (
+    <Flex
+      aria-hidden="true"
+      display={{ initial: "none", md: "flex" }}
+      direction="column"
+      gap="4"
+      width={{ md: "220px", lg: "280px" }}
+      position="sticky"
+      style={{ top: "6rem", height: "fit-content" }}
+    >
+      <Flex direction="column" gap="3">
+        <Flex align="center" justify="between">
+          <Skeleton height="1rem" width="9.5rem" />
+          <Skeleton height="1.25rem" width="2.25rem" />
+        </Flex>
+        <Separator orientation="horizontal" size="4" />
+        <Skeleton height="2rem" width="100%" />
+      </Flex>
 
+      <Skeleton height="2rem" width="8.5rem" />
+    </Flex>
+  );
+}
 
 
 function getPageRange(current: number, total: number): (number | "ellipsis")[] {
@@ -1707,7 +1731,9 @@ export default function SearchPageBody() {
           )}
         </Flex>
 
-        {shouldReserveRailSpace ? (
+        {isLoading ? (
+          <SearchOrganismRailSkeleton />
+        ) : shouldReserveRailSpace ? (
           <Flex
             display={{ initial: "none", md: "flex" }}
             direction="column"
