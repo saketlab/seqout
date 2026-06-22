@@ -212,6 +212,9 @@ const getBestCloudUrl = (run: RunRow): string =>
   run.ncbi_sra_url_aws ||
   "";
 
+const formatExperimentCount = (count: number): string =>
+  `${count} Experiment${count === 1 ? "" : "s"}`;
+
 const fetchProject = async (
   accession: string | null,
 ): Promise<Project | null> => {
@@ -2189,8 +2192,8 @@ export default function ProjectPage() {
                 {isExperimentsLoading
                   ? "Loading..."
                   : experiments
-                    ? `${experiments.length} Experiments`
-                    : "0 Experiments"}
+                    ? formatExperimentCount(experiments.length)
+                    : formatExperimentCount(0)}
               </Badge>
               {project.alias?.startsWith("P") && (
                 <a
