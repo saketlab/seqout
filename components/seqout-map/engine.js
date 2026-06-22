@@ -49,6 +49,7 @@ function buildCountryColorMap(sorted) {
 // smaller = more zoomed in.
 const DEFAULT_CENTER = { x: 1.1495, y: -1.5695 };
 const DEFAULT_VIEW_FRACTION = 0.5;
+const SEARCH_VIEW_FRACTION = 0.02;
 
 // Cap the description shown in the hover tooltip (words).
 const TOOLTIP_DESC_WORDS = 100;
@@ -131,6 +132,7 @@ export async function createMap({
   const facetColumns = filterColumns ?? [];
   resetState();
   state.facetColumns = facetColumns; // after resetState (which clears it)
+  state.mapExtent = extent;
 
   // Points are colored by their cluster at the layer matching the current zoom
   // (a per-layer sidecar column in the tiles, kept in state.colorField). Seed it
@@ -672,7 +674,23 @@ export async function runSearch(sp, accessionId) {
         size: DEFAULT_BG_SIZE,
       },
     });
-    sp.zoom.zoom_to(30, found.x, found.y, 500);
+    const extent = state.mapExtent;
+    const extentWidth = extent
+      ? Math.abs(extent.maxx - extent.minx)
+      : Math.abs(sp.zoom.current_corners().x[1] - sp.zoom.current_corners().x[0]);
+    const extentHeight = extent
+      ? Math.abs(extent.maxy - extent.miny)
+      : Math.abs(sp.zoom.current_corners().y[1] - sp.zoom.current_corners().y[0]);
+    const halfWidth = Math.max(extentWidth * SEARCH_VIEW_FRACTION * 0.5, 1e-6);
+    const halfHeight = Math.max(extentHeight * SEARCH_VIEW_FRACTION * 0.5, 1e-6);
+    sp.zoom.zoom_to_bbox(
+      {
+        x: [found.x - halfWidth, found.x + halfWidth],
+        y: [found.y - halfHeight, found.y + halfHeight],
+      },
+      500,
+      1,
+    );
   }
 
   return found;
