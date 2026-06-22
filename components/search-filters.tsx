@@ -468,7 +468,12 @@ export function SearchOrganismRail({
   return (
     <>
       {showMobile ? (
-        <Flex display={{ initial: "flex", md: "none" }} direction="column" gap="2" align="end">
+        <Flex
+          display={{ initial: "flex", md: "none" }}
+          direction="column"
+          gap="2"
+          align="end"
+        >
           <Dialog.Root open={organismsOpen} onOpenChange={setOrganismsOpen}>
             <Dialog.Trigger>
               <Button>
@@ -589,14 +594,21 @@ export function SearchOrganismRail({
                   <Tabs.Trigger value="platform">
                     <Flex align="center" gap="1">
                       <span>Platform</span>
-                      {selectedPlatformFilters.length > 0 || multiPlatformOnly ? (
-                        <Badge>{selectedPlatformFilters.length + (multiPlatformOnly ? 1 : 0)}</Badge>
+                      {selectedPlatformFilters.length > 0 ||
+                      multiPlatformOnly ? (
+                        <Badge>
+                          {selectedPlatformFilters.length +
+                            (multiPlatformOnly ? 1 : 0)}
+                        </Badge>
                       ) : null}
                     </Flex>
                   </Tabs.Trigger>
                 </Tabs.List>
 
-                <Tabs.Content value="journals" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="journals"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={journalQuery}
@@ -644,7 +656,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="countries" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="countries"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={countryQuery}
@@ -692,7 +707,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="library-strategy" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="library-strategy"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={libraryStrategyQuery}
@@ -750,7 +768,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="instrument-models" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="instrument-models"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={instrumentModelQuery}
@@ -808,7 +829,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="platform" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="platform"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <Text as="label" size="2">
                       <Flex align="center" gap="2">
@@ -831,9 +855,7 @@ export function SearchOrganismRail({
                     <Separator size="4" />
                     <TextField.Root
                       value={platformQuery}
-                      onChange={(event) =>
-                        setPlatformQuery(event.target.value)
-                      }
+                      onChange={(event) => setPlatformQuery(event.target.value)}
                       placeholder="Search platforms"
                       aria-label="Search platforms"
                       size="2"
@@ -849,11 +871,7 @@ export function SearchOrganismRail({
                         style={{ maxHeight: "16rem", overflowY: "auto" }}
                       >
                         {visiblePlatformOptions.map((platformOption) => (
-                          <Text
-                            as="label"
-                            size="2"
-                            key={platformOption.name}
-                          >
+                          <Text as="label" size="2" key={platformOption.name}>
                             <Flex align="center" justify="between" gap="2">
                               <Flex align="center" gap="2">
                                 <Checkbox
@@ -907,7 +925,7 @@ export function SearchOrganismRail({
           />
           <Dialog.Root open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen}>
             <Dialog.Trigger>
-              <Button variant="surface">
+              <Button variant="classic">
                 <MixerHorizontalIcon />
                 More filters
                 {selectedFilterCount > 0 ? (
@@ -992,14 +1010,21 @@ export function SearchOrganismRail({
                   <Tabs.Trigger value="platform">
                     <Flex align="center" gap="1">
                       <span>Platform</span>
-                      {selectedPlatformFilters.length > 0 || multiPlatformOnly ? (
-                        <Badge>{selectedPlatformFilters.length + (multiPlatformOnly ? 1 : 0)}</Badge>
+                      {selectedPlatformFilters.length > 0 ||
+                      multiPlatformOnly ? (
+                        <Badge>
+                          {selectedPlatformFilters.length +
+                            (multiPlatformOnly ? 1 : 0)}
+                        </Badge>
                       ) : null}
                     </Flex>
                   </Tabs.Trigger>
                 </Tabs.List>
 
-                <Tabs.Content value="journals" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="journals"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={journalQuery}
@@ -1047,7 +1072,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="countries" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="countries"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={countryQuery}
@@ -1095,7 +1123,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="library-strategy" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="library-strategy"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={libraryStrategyQuery}
@@ -1153,7 +1184,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="instrument-models" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="instrument-models"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
                       value={instrumentModelQuery}
@@ -1211,7 +1245,10 @@ export function SearchOrganismRail({
                   </Flex>
                 </Tabs.Content>
 
-                <Tabs.Content value="platform" style={{ height: "17rem", overflow: "auto" }}>
+                <Tabs.Content
+                  value="platform"
+                  style={{ height: "17rem", overflow: "auto" }}
+                >
                   <Flex direction="column" gap="3" pt="3">
                     <Text as="label" size="2">
                       <Flex align="center" gap="2">
@@ -1234,9 +1271,7 @@ export function SearchOrganismRail({
                     <Separator size="4" />
                     <TextField.Root
                       value={platformQuery}
-                      onChange={(event) =>
-                        setPlatformQuery(event.target.value)
-                      }
+                      onChange={(event) => setPlatformQuery(event.target.value)}
                       placeholder="Search platforms"
                       aria-label="Search platforms"
                       size="2"
@@ -1252,11 +1287,7 @@ export function SearchOrganismRail({
                         style={{ maxHeight: "16rem", overflowY: "auto" }}
                       >
                         {visiblePlatformOptions.map((platformOption) => (
-                          <Text
-                            as="label"
-                            size="2"
-                            key={platformOption.name}
-                          >
+                          <Text as="label" size="2" key={platformOption.name}>
                             <Flex align="center" justify="between" gap="2">
                               <Flex align="center" gap="2">
                                 <Checkbox
