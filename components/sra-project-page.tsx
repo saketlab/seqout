@@ -23,7 +23,6 @@ import { SERVER_URL } from "@/utils/constants";
 import { DB_COLOR_MAP } from "@/utils/db-colors";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
-  getOrganismBannerStyle,
   makeOrganismPostSort,
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
@@ -46,6 +45,7 @@ import {
 import {
   Badge,
   Button,
+  Callout,
   Dialog,
   Flex,
   Heading,
@@ -2459,14 +2459,11 @@ export default function ProjectPage() {
                     experiments.length > 0 && (
                       <>
                         {highlightOrganism && (
-                          <Flex
-                            align="center"
-                            gap="2"
-                            py="1"
-                            px="3"
-                            style={getOrganismBannerStyle(isDark)}
-                          >
-                            <Text size="2" color="gray">
+                          <Callout.Root size={"1"}>
+                            <Callout.Icon>
+                              <InfoCircledIcon />
+                            </Callout.Icon>
+                            <Callout.Text>
                               Showing{" "}
                               <Text
                                 weight="medium"
@@ -2475,8 +2472,8 @@ export default function ProjectPage() {
                                 {highlightOrganism}
                               </Text>{" "}
                               samples first
-                            </Text>
-                          </Flex>
+                            </Callout.Text>
+                          </Callout.Root>
                         )}
                         <div
                           className={agGridThemeClassName}
