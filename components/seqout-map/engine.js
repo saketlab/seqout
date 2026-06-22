@@ -664,6 +664,12 @@ export async function runSearch(sp, accessionId) {
     break;
   }
 
+  if (!found) {
+    delete dt.transformations[name];
+    if (state.currentSearchName === name) state.currentSearchName = null;
+    return null;
+  }
+
   if (found) {
     await sp.plotAPI({
       duration: 300,

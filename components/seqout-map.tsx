@@ -2,6 +2,7 @@
 
 import { cachedJson, getMapRev, purgeMapCache } from "@/lib/map-cache";
 import { SERVER_URL } from "@/utils/constants";
+import { normalizeAliases } from "@/utils/project";
 import {
   BarChartIcon,
   Cross1Icon,
@@ -86,6 +87,91 @@ type ScreenPoint = { x: number; y: number };
 
 function backgroundForTheme(theme: string | undefined): string {
   return theme === "light" ? "#ffffff" : "#000000";
+}
+
+const ACCESSION_LIKE =
+  /^(GSE\d+|[SED]RP\d+|PRJ[A-Z]*\d+|E-[A-Z0-9-]+)$/i;
+
+function addAliasCandidate(
+  aliases: Set<string>,
+  candidate: unknown,
+  searchedAccession: string,
+) {
+  if (typeof candidate !== "string") return;
+  const trimmed = candidate.trim();
+  if (!trimmed) return;
+  if (trimmed.toUpperCase() === searchedAccession.toUpperCase()) return;
+  if (!ACCESSION_LIKE.test(trimmed)) return;
+  aliases.add(trimmed);
+}
+
+function collectAccessionStrings(
+  value: unknown,
+  aliases: Set<string>,
+  searchedAccession: string,
+) {
+  if (typeof value === "string") {
+    addAliasCandidate(aliases, value, searchedAccession);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) =>
+      collectAccessionStrings(item, aliases, searchedAccession),
+    );
+    return;
+  }
+  if (value && typeof value === "object") {
+    Object.values(value).forEach((item) =>
+      collectAccessionStrings(item, aliases, searchedAccession),
+    );
+  }
+}
+
+function addDerivedGeoArrayExpressAlias(
+  aliases: Set<string>,
+  searchedAccession: string,
+) {
+  const normalized = searchedAccession.toUpperCase();
+  const geod = normalized.match(/^E-GEOD-(\d+)$/);
+  if (geod) {
+    aliases.add(`GSE${geod[1]}`);
+    return;
+  }
+  const gse = normalized.match(/^GSE(\d+)$/);
+  if (gse) aliases.add(`E-GEOD-${gse[1]}`);
+}
+
+async function fetchAliasCandidates(accession: string): Promise<string[]> {
+  const aliases = new Set<string>();
+  addDerivedGeoArrayExpressAlias(aliases, accession);
+
+  const fetchJson = async (path: string) => {
+    try {
+      const res = await fetch(`${SERVER_URL}${path}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<unknown>;
+    } catch {
+      return null;
+    }
+  };
+
+  const project = await fetchJson(`/project/${encodeURIComponent(accession)}`);
+  if (project && typeof project === "object") {
+    const data = project as { accession?: unknown; alias?: unknown };
+    addAliasCandidate(aliases, data.accession, accession);
+    normalizeAliases(
+      typeof data.alias === "string" || Array.isArray(data.alias)
+        ? data.alias
+        : null,
+    ).forEach((alias) => addAliasCandidate(aliases, alias, accession));
+  }
+
+  const xref = await fetchJson(
+    `/project/${encodeURIComponent(accession)}/xref`,
+  );
+  collectAccessionStrings(xref, aliases, accession);
+
+  return Array.from(aliases);
 }
 
 /** Horizontal bar chart used for the lasso stats (top countries / organisms). */
@@ -370,8 +456,24 @@ export default function MapGraph() {
     setSearchStatus({ kind: "searching" });
     try {
       const found = await engine.runSearch(sp, id);
-      if (found) setSearchStatus({ kind: "found", text: found.accession });
-      else setSearchStatus({ kind: "not-found", text: id });
+      if (found) {
+        setSearchStatus({ kind: "found", text: found.accession });
+        return;
+      }
+
+      const aliases = await fetchAliasCandidates(id);
+      for (const alias of aliases) {
+        const aliasFound = await engine.runSearch(sp, alias);
+        if (aliasFound) {
+          setSearchStatus({
+            kind: "found",
+            text: `${aliasFound.accession} (alias for ${id})`,
+          });
+          return;
+        }
+      }
+
+      setSearchStatus({ kind: "not-found", text: id });
     } catch (err) {
       setSearchStatus({ kind: "error", text: (err as Error).message });
     }
