@@ -204,6 +204,8 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
           <form onSubmit={handleSubmit}>
             <TextField.Root
               size={"3"}
+              type="search"
+              enterKeyHint="search"
               data-global-search-target="true"
               placeholder={SEARCH_PLACEHOLDER}
               ref={inputRef}

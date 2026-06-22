@@ -56,6 +56,8 @@ export default function HeroSearchBar() {
           <TextField.Root
             aria-label="main search bar"
             data-global-search-target="true"
+            type="search"
+            enterKeyHint="search"
             placeholder={SEARCH_PLACEHOLDER}
             size="3"
             value={query}
