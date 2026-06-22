@@ -1,14 +1,24 @@
 import { SERVER_URL } from "@/utils/constants";
 import { parseMaybeJson } from "@/utils/json";
 
-export async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${SERVER_URL}${path}`);
+// Combine an optional caller signal (React Query passes one) with a 30s timeout
+// so superseded/hung requests get aborted instead of clobbering fresh results.
+export function withTimeout(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(30000);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${SERVER_URL}${path}`, { signal: withTimeout(signal) });
   if (!res.ok) throw new Error("Network error");
   return (await res.json()) as T;
 }
 
-export async function getJsonOrNull<T>(path: string): Promise<T | null> {
-  const res = await fetch(`${SERVER_URL}${path}`);
+export async function getJsonOrNull<T>(
+  path: string,
+  signal?: AbortSignal,
+): Promise<T | null> {
+  const res = await fetch(`${SERVER_URL}${path}`, { signal: withTimeout(signal) });
   if (!res.ok) return null;
   return (await res.json()) as T;
 }

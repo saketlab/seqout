@@ -3,9 +3,6 @@ import SearchPageSkeleton from "@/components/search-page-skeleton";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 
-const API_BASE_URL =
-  process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
-
 type SearchParams = Promise<{ q?: string; db?: string }>;
 
 export async function generateMetadata({
@@ -36,25 +33,9 @@ export async function generateMetadata({
     };
   }
 
-  let total: number | null = null;
-  try {
-    let url = `${API_BASE_URL}/search?q=${encodeURIComponent(q)}`;
-    if (db === "sra" || db === "geo" || db === "arrayexpress") {
-      url += `&db=${encodeURIComponent(db)}`;
-    }
-    const res = await fetch(url, { next: { revalidate: 60 } });
-    if (res.ok) {
-      const data = await res.json();
-      total = data.total ?? null;
-    }
-  } catch {
-    // Fall back to description without count
-  }
-
-  const description =
-    total !== null
-      ? `${total.toLocaleString()} result${total === 1 ? "" : "s"} found for "${q}" across GEO, SRA, ENA & ArrayExpress sequencing datasets.`
-      : `Search results for "${q}" across GEO, SRA, ENA & ArrayExpress sequencing datasets.`;
+  // ponytail: no count fetch here — it duplicated the client's search query and
+  // blocked the URL update on every navigation. The body shows the real total.
+  const description = `Search results for "${q}" across GEO, SRA, ENA & ArrayExpress sequencing datasets.`;
 
   const title = `seqout: ${q} - Search results`;
 

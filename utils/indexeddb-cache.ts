@@ -111,7 +111,7 @@ export async function fetchJsonWithIndexedDbCache<T>(url: string): Promise<T> {
     // Ignore cache read errors and continue with network fetch.
   }
 
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
   if (!res.ok) {
     throw new Error(`Failed request: ${res.status}`);
   }

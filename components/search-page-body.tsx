@@ -4,6 +4,7 @@ import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
 import { SearchFilters, SearchOrganismRail } from "@/components/search-filters";
 import { useSearchQuery } from "@/context/search_query";
+import { withTimeout } from "@/utils/api";
 import { SERVER_URL } from "@/utils/constants";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { SearchResult } from "@/utils/types";
@@ -180,10 +181,11 @@ const getSearchResults = async (
   db: string | null,
   cursor: Cursor,
   sortBy: SortBy,
+  signal?: AbortSignal,
 ): Promise<SearchResponse | null> => {
   if (!query) return null;
   const url = buildSearchUrl(query, db, sortBy, cursor);
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: withTimeout(signal) });
   if (!res.ok) {
     throw new Error("Network Error");
   }
@@ -198,6 +200,7 @@ const getGeoSearchResults = async (
   organism: string | null,
   assayL2: string | null,
   source: string | null,
+  signal?: AbortSignal,
 ): Promise<SearchResponse | null> => {
   let url = `${SERVER_URL}/search/structured?geo_lat=${encodeURIComponent(lat)}&geo_lng=${encodeURIComponent(lng)}`;
   if (radiusKm) {
@@ -215,7 +218,7 @@ const getGeoSearchResults = async (
   if (cursor && "rank" in cursor) {
     url += `&cursor_rank=${cursor.rank}&cursor_acc=${encodeURIComponent(cursor.accession)}`;
   }
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: withTimeout(signal) });
   if (!res.ok) {
     throw new Error("Network Error");
   }
@@ -913,10 +916,10 @@ export default function SearchPageBody() {
     queryKey: isGeoSearch
       ? ["geo-search", geoLat, geoLng, geoRadiusKm, geoOrganism, geoAssayL2, geoSource]
       : ["search", query, db, sortBy],
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam, signal }) =>
       isGeoSearch
-        ? getGeoSearchResults(geoLat!, geoLng!, geoRadiusKm, pageParam as Cursor, geoOrganism, geoAssayL2, geoSource)
-        : getSearchResults(query, db, pageParam as Cursor, sortBy),
+        ? getGeoSearchResults(geoLat!, geoLng!, geoRadiusKm, pageParam as Cursor, geoOrganism, geoAssayL2, geoSource, signal)
+        : getSearchResults(query, db, pageParam as Cursor, sortBy, signal),
     initialPageParam: null as Cursor,
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
     enabled: isGeoSearch || !!query,
