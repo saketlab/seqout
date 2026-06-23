@@ -80,206 +80,193 @@ function ResultCard({
         scrollMarginBottom: "1rem",
       }}
     >
-        <Flex
-          direction={{ initial: "column", md: "row" }}
-          gap="2"
-          justify={{ initial: "start", md: "between" }}
-          align="start"
-          wrap="wrap"
+      <Flex
+        direction={{ initial: "column", md: "row" }}
+        gap="2"
+        justify={{ initial: "start", md: "between" }}
+        align="start"
+        wrap="wrap"
+      >
+        <Box
+          flexGrow={{ initial: "0", md: "1" }}
+          flexShrink={{ initial: "1", md: "1" }}
+          flexBasis={{ initial: "auto", md: "16rem" }}
+          style={{ minWidth: 0 }}
         >
-          <Box
-            flexGrow={{ initial: "0", md: "1" }}
-            flexShrink={{ initial: "1", md: "1" }}
-            flexBasis={{ initial: "auto", md: "16rem" }}
-            style={{ minWidth: 0 }}
-          >
-            <Text
-              size={{ initial: "2", md: "3" }}
-              weight="bold"
-              asChild
+          <Text size={"3"} weight="bold" asChild>
+            <Link
+              href={href ?? getProjectShortUrl(accession)}
+              data-result-link="true"
+              style={{
+                cursor: "pointer",
+                userSelect: "none",
+                color: "inherit",
+                textDecoration: "none",
+              }}
             >
-              <Link
-                href={href ?? getProjectShortUrl(accession)}
-                data-result-link="true"
-                style={{
-                  cursor: "pointer",
-                  userSelect: "none",
-                  color: "inherit",
-                  textDecoration: "none",
-                }}
-              >
-                {title}
-              </Link>
-            </Text>
-          </Box>
-          {(hasCitations || cleanedJournal || formattedDate) && (
-            <Flex
-              gap="2"
-              align="center"
-              wrap="wrap"
-              style={{ flexShrink: 0 }}
-            >
-              {hasCitations && (
-                <Badge size="2" color="iris" variant="soft">
-                  {citation_count!.toLocaleString()} citations
-                </Badge>
-              )}
-              {cleanedJournal && (
-                doi ? (
-                  <Badge size="2" color="blue" variant="soft" asChild>
-                    <a
-                      href={`https://doi.org/${doi}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ textDecoration: "none", color: "inherit" }}
-                    >
-                      {cleanedJournal} <ExternalLinkIcon />
-                    </a>
-                  </Badge>
-                ) : (
-                  <Badge size="2" color="blue" variant="soft">
+              {title}
+            </Link>
+          </Text>
+        </Box>
+        {(hasCitations || cleanedJournal || formattedDate) && (
+          <Flex gap="2" align="center" wrap="wrap" style={{ flexShrink: 0 }}>
+            {hasCitations && (
+              <Badge size="2" color="iris" variant="soft">
+                {citation_count!.toLocaleString()} citations
+              </Badge>
+            )}
+            {cleanedJournal &&
+              (doi ? (
+                <Badge size="2" color="blue" variant="soft" asChild>
+                  <a
+                    href={`https://doi.org/${doi}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
                     {cleanedJournal} <ExternalLinkIcon />
-                  </Badge>
-                )
-              )}
-              {formattedDate && (
-                <Badge size="2" color="gray" variant="soft">
-                  {formattedDate}
+                  </a>
                 </Badge>
-              )}
-            </Flex>
-          )}
-        </Flex>
-        <Text size={"2"} truncate>
-          {summary}
-        </Text>
-        {(authors || center_name) &&
-          (() => {
-            const formattedCenter =
-              center_name && center_name !== authors
-                ? titleCaseCenter(center_name)
-                : null;
-            return (
-              <Flex
-                direction="column"
-                gap="1"
-                style={{ color: "var(--gray-11)" }}
-              >
-                {authorList.length > 0 && (
-                  <Flex gap="1" align="center" wrap="wrap">
-                    {authorList.length === 1 && (
-                      <Text size="2">{authorList[0]}</Text>
-                    )}
-                    {authorList.length >= 2 && (
-                      <>
-                        <Text size="2">{authorList.slice(0, 2).join(", ")}</Text>
-                        {authorList.length > 2 && (
-                          <Popover.Root
-                            open={authorsPopoverOpen}
-                            onOpenChange={setAuthorsPopoverOpen}
-                          >
-                            <Popover.Trigger>
-                              <button
-                                type="button"
-                                aria-label={`${authorList.length - 2} more authors: ${authorList.join(", ")}`}
-                                onMouseEnter={() => setAuthorsPopoverOpen(true)}
-                                onMouseLeave={() => setAuthorsPopoverOpen(false)}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  padding: 0,
-                                  border: "none",
-                                  background: "transparent",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <Badge size="1" variant="soft" color="gray">
-                                  +{authorList.length - 2}
-                                </Badge>
-                              </button>
-                            </Popover.Trigger>
-                            <Popover.Content
-                              side="top"
-                              align="start"
-                              sideOffset={6}
+              ) : (
+                <Badge size="2" color="blue" variant="soft">
+                  {cleanedJournal} <ExternalLinkIcon />
+                </Badge>
+              ))}
+            {formattedDate && (
+              <Badge size="2" color="gray" variant="soft">
+                {formattedDate}
+              </Badge>
+            )}
+          </Flex>
+        )}
+      </Flex>
+      <Text size={"2"} truncate>
+        {summary}
+      </Text>
+      {(authors || center_name) &&
+        (() => {
+          const formattedCenter =
+            center_name && center_name !== authors
+              ? titleCaseCenter(center_name)
+              : null;
+          return (
+            <Flex
+              direction="column"
+              gap="1"
+              style={{ color: "var(--gray-11)" }}
+            >
+              {authorList.length > 0 && (
+                <Flex gap="1" align="center" wrap="wrap">
+                  {authorList.length === 1 && (
+                    <Text size="2">{authorList[0]}</Text>
+                  )}
+                  {authorList.length >= 2 && (
+                    <>
+                      <Text size="2">{authorList.slice(0, 2).join(", ")}</Text>
+                      {authorList.length > 2 && (
+                        <Popover.Root
+                          open={authorsPopoverOpen}
+                          onOpenChange={setAuthorsPopoverOpen}
+                        >
+                          <Popover.Trigger>
+                            <button
+                              type="button"
+                              aria-label={`${authorList.length - 2} more authors: ${authorList.join(", ")}`}
                               onMouseEnter={() => setAuthorsPopoverOpen(true)}
                               onMouseLeave={() => setAuthorsPopoverOpen(false)}
                               style={{
-                                maxWidth: "min(320px, 85vw)",
-                                maxHeight: "14rem",
-                                overflowY: "auto",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                padding: 0,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
                               }}
                             >
-                              <Flex direction="column" gap="1">
-                                {authorList.map((author, i) => (
-                                  <Text
-                                    key={`${author}-${i}`}
-                                    size="1"
-                                  >
-                                    {author}
-                                  </Text>
-                                ))}
-                              </Flex>
-                            </Popover.Content>
-                          </Popover.Root>
+                              <Badge size="1" variant="soft" color="gray">
+                                +{authorList.length - 2}
+                              </Badge>
+                            </button>
+                          </Popover.Trigger>
+                          <Popover.Content
+                            side="top"
+                            align="start"
+                            sideOffset={6}
+                            onMouseEnter={() => setAuthorsPopoverOpen(true)}
+                            onMouseLeave={() => setAuthorsPopoverOpen(false)}
+                            style={{
+                              maxWidth: "min(320px, 85vw)",
+                              maxHeight: "14rem",
+                              overflowY: "auto",
+                            }}
+                          >
+                            <Flex direction="column" gap="1">
+                              {authorList.map((author, i) => (
+                                <Text key={`${author}-${i}`} size="1">
+                                  {author}
+                                </Text>
+                              ))}
+                            </Flex>
+                          </Popover.Content>
+                        </Popover.Root>
+                      )}
+                    </>
+                  )}
+                  {(formattedCenter || country_code) && (
+                    <Box display={{ initial: "none", sm: "block" }}>
+                      <Flex align="center" gap="1">
+                        <Text size="2">
+                          {formattedCenter
+                            ? authors
+                              ? `· ${formattedCenter}`
+                              : formattedCenter
+                            : ""}
+                        </Text>
+                        {country_code && (
+                          <CountryFlagIcon
+                            code={country_code}
+                            label={formattedCenter ?? country_code}
+                          />
                         )}
-                      </>
-                    )}
-                    {(formattedCenter || country_code) && (
-                      <Box display={{ initial: "none", sm: "block" }}>
-                        <Flex align="center" gap="1">
-                          <Text size="2">
-                            {formattedCenter
-                              ? authors
-                                ? `· ${formattedCenter}`
-                                : formattedCenter
-                              : ""}
-                          </Text>
-                          {country_code && (
-                            <CountryFlagIcon
-                              code={country_code}
-                              label={formattedCenter ?? country_code}
-                            />
-                          )}
-                        </Flex>
-                      </Box>
+                      </Flex>
+                    </Box>
+                  )}
+                </Flex>
+              )}
+              {(formattedCenter || country_code) && (
+                <Box display={{ initial: "block", sm: "none" }}>
+                  <Flex align="center" gap="1">
+                    <Text size="2">{formattedCenter ?? ""}</Text>
+                    {country_code && (
+                      <CountryFlagIcon
+                        code={country_code}
+                        label={formattedCenter ?? country_code}
+                      />
                     )}
                   </Flex>
-                )}
-                {(formattedCenter || country_code) && (
-                  <Box display={{ initial: "block", sm: "none" }}>
-                    <Flex align="center" gap="1">
-                      <Text size="2">{formattedCenter ?? ""}</Text>
-                      {country_code && (
-                        <CountryFlagIcon
-                          code={country_code}
-                          label={formattedCenter ?? country_code}
-                        />
-                      )}
-                    </Flex>
-                  </Box>
-                )}
-              </Flex>
-            );
-          })()}
-        <Flex gap={"2"} align={"center"} wrap={"wrap"}>
-          <Badge
-            size={"2"}
-            color={db ? DB_COLOR_MAP[db].radix : undefined}
-            variant={
-              isArrayExpressAccession || isPrjAccession ? "solid" : undefined
-            }
-            className="seqout-accession"
-          >
-            {accession}
+                </Box>
+              )}
+            </Flex>
+          );
+        })()}
+      <Flex gap={"2"} align={"center"} wrap={"wrap"}>
+        <Badge
+          size={"2"}
+          color={db ? DB_COLOR_MAP[db].radix : undefined}
+          variant={
+            isArrayExpressAccession || isPrjAccession ? "solid" : undefined
+          }
+          className="seqout-accession"
+        >
+          {accession}
+        </Badge>
+        {single_cell_modality && (
+          <Badge size={"2"} color="cyan">
+            {single_cell_modality}
           </Badge>
-          {single_cell_modality && (
-            <Badge size={"2"} color="cyan">
-              {single_cell_modality}
-            </Badge>
-          )}
-        </Flex>
+        )}
+      </Flex>
     </Flex>
   );
 }
