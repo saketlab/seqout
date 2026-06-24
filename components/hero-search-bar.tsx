@@ -1,6 +1,6 @@
 "use client";
-import { useSearchQuery } from "@/context/search_query";
 import SearchHistoryDropdown from "@/components/search-history-dropdown";
+import { useSearchQuery } from "@/context/search_query";
 import { SEARCH_PLACEHOLDER } from "@/utils/constants";
 import { useSearchHistory } from "@/utils/useSearchHistory";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
@@ -50,7 +50,7 @@ export default function HeroSearchBar() {
     : [];
 
   return (
-    <Box width={{ initial: "92%", md: "50%" }} style={{ position: "relative" }}>
+    <Box width={{ initial: "95%", md: "50%" }} style={{ position: "relative" }}>
       <Flex direction={"column"} gap={"4"}>
         <form onSubmit={handleSubmit}>
           <TextField.Root
@@ -124,7 +124,6 @@ export default function HeroSearchBar() {
               }
             }}
             autoFocus
-            style={{ fontFamily: "var(--default-font-family)" }}
           >
             <TextField.Slot>
               <MagnifyingGlassIcon height="16" width="16" />
