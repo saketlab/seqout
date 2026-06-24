@@ -58,7 +58,7 @@ export default function HomeSearchBar() {
         color="gray"
         style={{ letterSpacing: "-0.02em" }}
       >
-        Search 2M+ public sequencing datasets across GEO, SRA, ENA &amp;
+        Search public sequencing datasets across GEO, SRA, ENA &amp;
         ArrayExpress
       </Text>
 
