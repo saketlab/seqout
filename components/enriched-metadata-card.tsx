@@ -1,13 +1,17 @@
 "use client";
-import { ensureAgGridModules } from "@/lib/ag-grid";
+import {
+  ensureAgGridModules,
+  infiniteScrollOnBodyScroll,
+  TABLE_PAGE_SIZE,
+} from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
 import {
   ExclamationTriangleIcon,
   InfoCircledIcon,
   MagicWandIcon,
 } from "@radix-ui/react-icons";
-import { Badge, Flex, Text, Tooltip } from "@radix-ui/themes";
-import { useQuery } from "@tanstack/react-query";
+import { Badge, Flex, Spinner, Text, Tooltip } from "@radix-ui/themes";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
@@ -217,27 +221,60 @@ const ALL_FIELDS: FieldDef[] = [
 const V3_FIELDS = ALL_FIELDS;
 const V1_FIELDS = ALL_FIELDS.filter((f) => !f.v3Only);
 
+/**
+ * Fetch enriched metadata. `offset == null` fetches the full set (used by CSV
+ * export); a number fetches one TABLE_PAGE_SIZE page for infinite scroll.
+ */
 async function fetchEnrichedMetadata(
   accession: string,
+  offset: number | null,
 ): Promise<EnrichedResponse | null> {
-  const res = await fetch(`${SERVER_URL}/project/${accession}/enriched`);
+  const url =
+    offset == null
+      ? `${SERVER_URL}/project/${accession}/enriched`
+      : `${SERVER_URL}/project/${accession}/enriched?limit=${TABLE_PAGE_SIZE}&offset=${offset}`;
+  const res = await fetch(url);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Failed to fetch enriched metadata");
   return res.json();
 }
 
+export type UseEnrichedMetadata = {
+  data: EnrichedResponse | null;
+  isLoading: boolean;
+  fetchNextPage: () => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+};
+
 /**
- * Shared query for enriched metadata. Deduped by react-query across consumers.
- * Returns `data: null` when enriched metadata is unavailable (404) or empty.
+ * Shared infinite query for enriched metadata (20 samples/page). Deduped by
+ * react-query across consumers. `data` accumulates the loaded pages and is
+ * `null` when enriched metadata is unavailable (404) or empty.
  */
-export function useEnrichedMetadata(accession: string) {
-  const { data, isLoading } = useQuery({
+export function useEnrichedMetadata(accession: string): UseEnrichedMetadata {
+  const query = useInfiniteQuery({
     queryKey: ["enriched-metadata", accession],
-    queryFn: () => fetchEnrichedMetadata(accession),
+    queryFn: ({ pageParam }) => fetchEnrichedMetadata(accession, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage) return undefined;
+      return lastPage.samples.length === TABLE_PAGE_SIZE
+        ? allPages.length * TABLE_PAGE_SIZE
+        : undefined;
+    },
     enabled: !!accession,
   });
-  const hasData = !!data && data.samples.length > 0;
-  return { data: hasData ? data : null, isLoading };
+  const first = query.data?.pages[0] ?? null;
+  const samples = query.data?.pages.flatMap((p) => p?.samples ?? []) ?? [];
+  const data = first && samples.length > 0 ? { ...first, samples } : null;
+  return {
+    data,
+    isLoading: query.isLoading,
+    fetchNextPage: query.fetchNextPage,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+  };
 }
 
 function getVisibleFields(data: EnrichedResponse): FieldDef[] {
@@ -290,7 +327,13 @@ export function EnrichedMetadataBadges({ data }: { data: EnrichedResponse }) {
   );
 }
 
-export function exportEnrichedCsv(data: EnrichedResponse, accession: string) {
+/**
+ * Export the FULL enriched dataset (re-fetched without pagination) to CSV, so
+ * the download is complete even when the grid has only scrolled a few pages.
+ */
+export async function exportEnrichedCsv(accession: string) {
+  const data = await fetchEnrichedMetadata(accession, null);
+  if (!data || data.samples.length === 0) return;
   const isV3 = data.version === "v3";
   const visibleFields = getVisibleFields(data);
   const exportFields: { key: string; header: string }[] = [];
@@ -331,7 +374,17 @@ export function exportEnrichedCsv(data: EnrichedResponse, accession: string) {
  * Renders the enriched-metadata ag-grid (plus footnote) for the given data.
  * The section header / CSV button are owned by the parent tab container.
  */
-export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
+export function EnrichedMetadataGrid({
+  data,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+}: {
+  data: EnrichedResponse;
+  fetchNextPage: () => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+}) {
   const { resolvedTheme } = useTheme();
   const agGridThemeClassName =
     resolvedTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz";
@@ -407,8 +460,22 @@ export function EnrichedMetadataGrid({ data }: { data: EnrichedResponse }) {
           getRowId={(params) => params.data.sample}
           rowData={data.samples}
           theme="legacy"
+          onBodyScroll={infiniteScrollOnBodyScroll({
+            loadedCount: data.samples.length,
+            hasNextPage,
+            isFetchingNextPage,
+            fetchNextPage,
+          })}
         />
       </div>
+      {isFetchingNextPage && (
+        <Flex align="center" gap="2">
+          <Spinner size="1" />
+          <Text size="1" color="gray">
+            Loading more samples...
+          </Text>
+        </Flex>
+      )}
       {data.samples.some((s) => s["cell_count_estimated"]) && (
         <Text size="1" color="gray">
           ~ Cell counts marked with ~ are series-level estimates distributed

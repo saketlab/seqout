@@ -16,7 +16,11 @@ import SubmittingOrgPanel, {
 } from "@/components/submitting-org-panel";
 import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import { useToast } from "@/components/toast-provider";
-import { ensureAgGridModules } from "@/lib/ag-grid";
+import {
+  ensureAgGridModules,
+  infiniteScrollOnBodyScroll,
+  TABLE_PAGE_SIZE,
+} from "@/lib/ag-grid";
 import { getJson, getJsonOrNull, parseProjectStringFields } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
@@ -55,7 +59,7 @@ import {
   Text,
   Tooltip,
 } from "@radix-ui/themes";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type {
   ColDef,
   GridApi,
@@ -299,10 +303,16 @@ const normalizeExternalIds = (
 
 const fetchExperiments = async (
   accession: string | null,
+  offset: number,
 ): Promise<Experiment[]> => {
   if (!accession) return [];
-  return getJson<Experiment[]>(`/project/${accession}/experiments`);
+  return getJson<Experiment[]>(
+    `/project/${accession}/experiments?limit=${TABLE_PAGE_SIZE}&offset=${offset}`,
+  );
 };
+
+// Stable empty-map identity so the derived samplesMap doesn't churn effects.
+const EMPTY_SAMPLES_MAP: Map<string, Sample> = new Map();
 
 const fetchSample = async (accession: string): Promise<Sample | null> => {
   const s = await getJsonOrNull<Sample | { attributes_json: unknown }>(
@@ -317,22 +327,6 @@ const fetchSample = async (accession: string): Promise<Sample | null> => {
     }
   }
   return s as Sample;
-};
-
-const fetchSamplesForExperiments = async (
-  experiments: Experiment[],
-): Promise<Map<string, Sample>> => {
-  const sampleAccessions = experiments
-    .map((exp) => exp.samples[0])
-    .filter(Boolean);
-  const samples = await Promise.all(
-    sampleAccessions.map((acc) => fetchSample(acc)),
-  );
-  const sampleMap = new Map<string, Sample>();
-  samples.forEach((s) => {
-    if (s) sampleMap.set(s.accession, s);
-  });
-  return sampleMap;
 };
 
 const fetchRuns = async (
@@ -1740,21 +1734,57 @@ export default function ProjectPage() {
     window.dispatchEvent(new Event("seqout:project-ready"));
   }, [project, isLoading, isError]);
 
-  const {
-    data: experiments,
-    isLoading: isExperimentsLoading,
-    isError: isExperimentsError,
-  } = useQuery({
+  // Paginated: 20 experiments/page, fetch more as the grid scrolls (loaded-only).
+  const experimentsQuery = useInfiniteQuery({
     queryKey: ["project-experiments", accession],
-    queryFn: () => fetchExperiments(accession ?? null),
+    queryFn: ({ pageParam }) => fetchExperiments(accession ?? null, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === TABLE_PAGE_SIZE
+        ? allPages.length * TABLE_PAGE_SIZE
+        : undefined,
     enabled: !!accession,
   });
+  const experiments = React.useMemo(
+    () => experimentsQuery.data?.pages.flat(),
+    [experimentsQuery.data],
+  );
+  const isExperimentsLoading = experimentsQuery.isLoading;
+  const isExperimentsError = experimentsQuery.isError;
 
-  const { data: samplesMap } = useQuery({
-    queryKey: ["project-samples", accession],
-    queryFn: () => fetchSamplesForExperiments(experiments!),
-    enabled: !!experiments && experiments.length > 0,
-  });
+  // Per-sample details accumulate as experiment pages load (one /sample/{acc}
+  // request per not-yet-fetched sample). Derived header/attribute summaries
+  // therefore reflect the loaded rows and grow on scroll. The accession is
+  // stored alongside so a project change auto-resets the map (no stale leak).
+  const [samplesState, setSamplesState] = React.useState<{
+    accession: string | null;
+    map: Map<string, Sample>;
+  }>({ accession: null, map: EMPTY_SAMPLES_MAP });
+  const samplesMap =
+    samplesState.accession === accession ? samplesState.map : EMPTY_SAMPLES_MAP;
+  React.useEffect(() => {
+    if (!experiments || experiments.length === 0) return;
+    const missing = experiments
+      .map((exp) => exp.samples[0])
+      .filter((acc): acc is string => !!acc && !samplesMap.has(acc));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    Promise.all(missing.map((acc) => fetchSample(acc))).then((results) => {
+      if (cancelled) return;
+      const found = results.filter((s): s is Sample => !!s);
+      if (found.length === 0) return; // nothing new — avoid state churn / re-run loop
+      setSamplesState((prev) => {
+        const base =
+          prev.accession === accession ? prev.map : new Map<string, Sample>();
+        const next = new Map(base);
+        found.forEach((s) => next.set(s.accession, s));
+        return { accession: accession ?? null, map: next };
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [experiments, samplesMap, accession]);
 
   const { data: runsData } = useQuery({
     queryKey: ["project-runs", accession],
@@ -2503,8 +2533,23 @@ export default function ProjectPage() {
                             theme="legacy"
                             getRowStyle={organismRowStyle}
                             postSortRows={organismPostSort}
+                            onBodyScroll={infiniteScrollOnBodyScroll({
+                              loadedCount: experimentRows.length,
+                              hasNextPage: experimentsQuery.hasNextPage,
+                              isFetchingNextPage:
+                                experimentsQuery.isFetchingNextPage,
+                              fetchNextPage: experimentsQuery.fetchNextPage,
+                            })}
                           />
                         </div>
+                        {experimentsQuery.isFetchingNextPage && (
+                          <Flex gap="2" align="center">
+                            <Spinner size="1" />
+                            <Text size="2" color="gray">
+                              Loading more experiments...
+                            </Text>
+                          </Flex>
+                        )}
                       </>
                     )}
                 </Flex>

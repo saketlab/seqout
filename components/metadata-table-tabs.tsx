@@ -124,7 +124,12 @@ export default function MetadataTableTabs({
     const { id, tab: hashTab } = parseSectionHash(window.location.hash);
     return id === sectionId && hashTab === "enriched" ? "enriched" : "original";
   });
-  const { data: enriched } = useEnrichedMetadata(accession);
+  const {
+    data: enriched,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useEnrichedMetadata(accession);
 
   // Native anchor scrolling doesn't fire for tab-suffixed hashes
   // (`#samples=enriched`), so bring the section into view ourselves.
@@ -191,7 +196,7 @@ export default function MetadataTableTabs({
           <Button
             onClick={() => {
               if (showEnriched && enriched) {
-                exportEnrichedCsv(enriched, accession);
+                void exportEnrichedCsv(accession);
               } else {
                 onExportOriginalCsv();
               }
@@ -202,7 +207,12 @@ export default function MetadataTableTabs({
         </Flex>
       </Flex>
       {showEnriched && enriched ? (
-        <EnrichedMetadataGrid data={enriched} />
+        <EnrichedMetadataGrid
+          data={enriched}
+          fetchNextPage={fetchNextPage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+        />
       ) : (
         originalContent
       )}

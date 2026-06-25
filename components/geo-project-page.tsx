@@ -16,7 +16,11 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import { useToast } from "@/components/toast-provider";
-import { ensureAgGridModules } from "@/lib/ag-grid";
+import {
+  ensureAgGridModules,
+  infiniteScrollOnBodyScroll,
+  TABLE_PAGE_SIZE,
+} from "@/lib/ag-grid";
 import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { DB_COLOR_MAP } from "@/utils/db-colors";
@@ -62,7 +66,7 @@ import {
   Text,
   Tooltip,
 } from "@radix-ui/themes";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type {
   ColDef,
   GridApi,
@@ -405,8 +409,13 @@ const buildSupplementaryItems = ({
     })
     .filter((entry): entry is SupplementaryDataItem => entry !== null);
 
-const fetchSamples = async (accession: string): Promise<GeoSample[]> =>
-  getJson<GeoSample[]>(`/geo/series/${accession}/samples`);
+const fetchSamples = async (
+  accession: string,
+  offset: number,
+): Promise<GeoSample[]> =>
+  getJson<GeoSample[]>(
+    `/geo/series/${accession}/samples?limit=${TABLE_PAGE_SIZE}&offset=${offset}`,
+  );
 
 const fetchProject = async (
   accession: string | null,
@@ -607,11 +616,22 @@ export default function GeoProjectPage() {
   const dataAccession = borrowedAccession ?? accession;
   const dataProject = borrowedProject ?? project;
   const samplesAccession = similarGseAccession ?? accession;
-  const { data: samples, isLoading: isSamplesLoading } = useQuery({
+  // Paginated: 20 samples/page, fetch more as the grid scrolls (loaded-only).
+  const samplesQuery = useInfiniteQuery({
     queryKey: ["samples", samplesAccession],
-    queryFn: () => fetchSamples(samplesAccession!),
+    queryFn: ({ pageParam }) => fetchSamples(samplesAccession!, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === TABLE_PAGE_SIZE
+        ? allPages.length * TABLE_PAGE_SIZE
+        : undefined,
     enabled: !!samplesAccession,
   });
+  const samples = React.useMemo(
+    () => samplesQuery.data?.pages.flat(),
+    [samplesQuery.data],
+  );
+  const isSamplesLoading = samplesQuery.isLoading;
 
   const projectOrganisms = React.useMemo<string[]>(() => {
     if (!samples) return [];
@@ -1851,8 +1871,22 @@ export default function GeoProjectPage() {
                           theme="legacy"
                           getRowStyle={organismRowStyle}
                           postSortRows={organismPostSort}
+                          onBodyScroll={infiniteScrollOnBodyScroll({
+                            loadedCount: sampleRows.length,
+                            hasNextPage: samplesQuery.hasNextPage,
+                            isFetchingNextPage: samplesQuery.isFetchingNextPage,
+                            fetchNextPage: samplesQuery.fetchNextPage,
+                          })}
                         />
                       </div>
+                      {samplesQuery.isFetchingNextPage && (
+                        <Flex align="center" gap="2">
+                          <Spinner size="1" />
+                          <Text size="1" color="gray">
+                            Loading more samples...
+                          </Text>
+                        </Flex>
+                      )}
                     </>
                   )}
                 </Flex>
