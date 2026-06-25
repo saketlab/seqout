@@ -144,6 +144,7 @@ type Sample = {
 type ExperimentGridRow = {
   rowKey: string;
   accession: string;
+  designDescription: string | null;
   title: string | null;
   library: string | null;
   layout: string | null;
@@ -1878,6 +1879,7 @@ export default function ProjectPage() {
       return {
         rowKey: experiment.accession,
         accession: experiment.accession,
+        designDescription: experiment.design_description,
         title: experiment.title,
         library: experiment.library_name ?? experiment.library_strategy,
         layout: experiment.library_layout,
@@ -1938,6 +1940,12 @@ export default function ProjectPage() {
           if (experimentAccession === "-") return "-";
           return <AccessionLink accession={experimentAccession} />;
         },
+      },
+      {
+        headerName: "Design",
+        field: "designDescription",
+        width: 200,
+        valueFormatter: (params) => toDisplayText(params.value),
       },
       {
         headerName: "Title",
