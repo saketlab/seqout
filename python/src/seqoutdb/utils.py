@@ -1,10 +1,9 @@
 import os
-from multiprocessing import cpu_count
 from typing import Literal
 from urllib.parse import urlparse
 
-from seqoutdb import StudyRunsResult, StudyRunsResults
 from seqoutdb.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
+from seqoutdb.models.api_models import StudyRunsResult, StudyRunsResults
 
 StudyRunDownloadMode = Literal["fastq", "sra", "sra_lite", "s3", "gcs"]
 

@@ -8,6 +8,7 @@ output_dir.mkdir(exist_ok=True, parents=True)
 with connect_to_seqout("parquet") as sq:
     sq.download_parquet_files(output_dir=output_dir, with_pbar=True)
     sq.set_source(output_dir)
-    result = sq.fetch_study("GSE151088")
-    samples = sq.fetch_samples(result.accession)
-    print(samples)
+    study_accession = "PRJDB13493"
+    study = sq.fetch_study(study_accession)
+    experiments = sq.fetch_experiments(study_accession)
+    print(experiments)

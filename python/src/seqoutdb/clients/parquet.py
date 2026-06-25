@@ -1,14 +1,13 @@
 import datetime
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Literal, get_args
+from typing import Literal, get_args, overload
 
 import duckdb
 from duckdb import DuckDBPyConnection
 
-from seqoutdb.clients.parquet_models import Study
 from seqoutdb.constants import (
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
     DEFAULT_MAX_WAIT,
@@ -18,6 +17,8 @@ from seqoutdb.constants import (
 )
 from seqoutdb.exception import SeqoutError
 from seqoutdb.helpers import _download_file
+from seqoutdb.models.models import BaseContainer
+from seqoutdb.models.parquet_models import ENAExperiment, SRAExperiment, Study
 from seqoutdb.utils import _normalize_num_workers
 
 ParquetFile = Literal[
@@ -44,12 +45,12 @@ ParquetFile = Literal[
 _ALL_PARQUET_FILES: list[ParquetFile] = list(get_args(ParquetFile))
 
 
-class _Datasource(Enum):
-    Sra = 0
-    Geo = 1
-    Ena = 2
-    Ae = 3
-    Unknown = 4
+class _Datasource(StrEnum):
+    Sra = "sra"
+    Geo = "geo"
+    Ena = "ena"
+    Ae = "ae"
+    Unknown = "unknown"
 
 
 class SeqoutParquetClient:
@@ -112,6 +113,22 @@ class SeqoutParquetClient:
             for f in as_completed(futures):
                 f.result()
 
+    def _datasource_from_study_accession(self, study_accession: str) -> _Datasource:
+        if (
+            study_accession.startswith("SRP")
+            or study_accession.startswith("ERP")
+            or study_accession.startswith("DRP")
+        ):
+            return _Datasource.Sra
+        elif study_accession.startswith("GSE"):
+            return _Datasource.Geo
+        elif study_accession.startswith("PRJ"):
+            return _Datasource.Ena
+        elif study_accession.startswith("E-"):
+            return _Datasource.Ae
+        else:
+            return _Datasource.Unknown
+
     def execute_query(
         self, query: str, params: list | None = None
     ) -> DuckDBPyConnection:
@@ -123,39 +140,22 @@ class SeqoutParquetClient:
 
         return self._conn.execute(query, params or [])
 
-    def _find_datasource_via_study_accession(self, study_accession: str) -> _Datasource:
-        if (
-            study_accession.startswith("SRP")
-            or study_accession.startswith("ERP")
-            or study_accession.startswith("DRP")
-        ):
-            return _Datasource.Sra
-        elif study_accession.startswith("GSE"):
-            return _Datasource.Geo
-        elif (
-            study_accession.startswith("PRJNA")
-            or study_accession.startswith("PRJEB")
-            or study_accession.startswith("PRJDB")
-        ):
-            return _Datasource.Ena
-        elif study_accession.startswith("E-"):
-            return _Datasource.Ae
-        else:
-            return _Datasource.Unknown
-
     def fetch_study(self, accession: str) -> Study:
         result = self.execute_query(
-            "SELECT canonical_accession, title, description, aliases, organism_counts, library_strategy_counts, assay_l1_counts, assay_l2_counts, n_experiments, n_samples, center_names, pmid, journal, citation_count, first_published, is_single_cell, single_cell_modality FROM unified_metadata WHERE canonical_accession = ?",
+            "SELECT canonical_accession, source, title, description, aliases, organism_counts, library_strategy_counts, assay_l1_counts, assay_l2_counts, n_experiments, n_samples, center_names, pmid, journal, citation_count, first_published, is_single_cell, single_cell_modality FROM unified_metadata WHERE canonical_accession = ?",
             [accession],
         ).fetchone()
         if not result:
             raise SeqoutError(f"failed to fetch {accession} study")
 
-        def _flatten_json_str_keys(json_str: str) -> list:
+        def _flatten_json_str_keys(json_str: str | None) -> list:
+            if not json_str:
+                return []
             return list(dict(json.loads(json_str)).keys())
 
         (
             accession,
+            source,
             title,
             description,
             aliases,
@@ -174,17 +174,27 @@ class SeqoutParquetClient:
             single_cell_modality,
         ) = result
 
+        overall_design: str | None = None
+
+        if source == "geo":
+            result = self.execute_query(
+                "SELECT overall_design FROM geo_series WHERE accession = ?", [accession]
+            ).fetchone()
+            if result:
+                (overall_design,) = result
+
         return Study(
             accession=accession,
             title=title,
             description=description,
+            overall_design=overall_design,
             aliases=list(dict(json.loads(aliases)).values()),
             organisms=_flatten_json_str_keys(organisms),
             library_strategies=_flatten_json_str_keys(library_strategies),
             assay_l1=_flatten_json_str_keys(assay_l1),
             assay_l2=_flatten_json_str_keys(assay_l2),
-            num_experiments=int(num_experiments),
-            num_samples=int(num_samples),
+            num_experiments=int(num_experiments or 0),
+            num_samples=int(num_samples or 0),
             center_names=json.loads(center_names),
             pubmed_id=pubmed_id,
             journal=journal,
@@ -194,59 +204,57 @@ class SeqoutParquetClient:
             single_cell_modality=single_cell_modality,
         )
 
-    def fetch_samples(self, study_accession: str) -> list[str]:
-        samples = []
+    @overload
+    def _fetch_experiments_helper(
+        self, study_accession: str, datasource: Literal["sra"]
+    ) -> BaseContainer[SRAExperiment]: ...
+    @overload
+    def _fetch_experiments_helper(
+        self, study_accession: str, datasource: Literal["ena"]
+    ) -> BaseContainer[ENAExperiment]: ...
 
-        if (
-            study_accession.startswith("SRP")
-            or study_accession.startswith("ERP")
-            or study_accession.startswith("DRP")
-        ):
-            result = self.execute_query(
-                "SELECT submission FROM sra_studies WHERE accession = ?",
+    def _fetch_experiments_helper(
+        self, study_accession: str, datasource: Literal["sra", "ena"]
+    ) -> BaseContainer[SRAExperiment] | BaseContainer[ENAExperiment]:
+        if datasource == "sra":
+            rel = self.execute_query(
+                "SELECT accession, design_description, library_layout, library_name, library_selection, library_source, library_strategy, samples, platform, instrument_model, title, submission FROM sra_experiments WHERE study = ?",
                 [study_accession],
-            ).fetchone()
-            if not result:
-                raise SeqoutError(
-                    f"failed to fetch samples for {study_accession} study"
-                )
+            )
 
-            (submission,) = result
-            samples = [
-                str(r[0])
-                for r in self.execute_query(
-                    "SELECT accession FROM sra_samples WHERE submission = ?", submission
-                ).fetchmany()
-            ]
-        elif study_accession.startswith("GSE"):
-            result = self.execute_query(
-                "SELECT samples_ref FROM geo_series WHERE accession = ?",
+            cols = [desc[0] for desc in rel.description]
+            experiments: list[SRAExperiment] = []
+
+            for r in rel.fetchmany():
+                d = dict(zip(cols, r))
+                d["samples"] = json.loads(d["samples"])
+                experiments.append(SRAExperiment.model_validate(d))
+            return BaseContainer(experiments)
+        else:
+            rel = self.execute_query(
+                "SELECT experiment_accession AS accession, experiment_title AS title, instrument_platform AS platform, instrument_model, library_layout, library_name, library_selection, library_source, library_strategy, sample_accession AS sample, scientific_name AS organism, tax_id AS taxonomy_id, host, tissue_type, cell_type, disease, dev_stage, base_count, read_count FROM ena_experiments WHERE study_accession = ?",
                 [study_accession],
-            ).fetchone()
-            if not result:
-                raise SeqoutError(
-                    f"failed to fetch samples for {study_accession} study"
-                )
+            )
 
-            (samples_ref_json,) = result
-            samples_ref: list[dict] = json.loads(samples_ref_json)
-            samples = [str(v["@ref"]) for v in samples_ref]
-        elif (
-            study_accession.startswith("PRJNA")
-            or study_accession.startswith("PRJEB")
-            or study_accession.startswith("PRJDB")
-        ):
-            result = self.execute_query(
-                "SELECT sample_accession FROM ena_samples WHERE study_accession = ?",
-                [study_accession],
-            ).fetchmany()
+            cols = [desc[0] for desc in rel.description if desc[0]]
+            experiments: list[ENAExperiment] = []
 
-            samples = [str(v[0]) for v in result]
+            for r in rel.fetchmany():
+                d = dict(zip(cols, r))
+                experiments.append(ENAExperiment.model_validate(d))
+            return BaseContainer(experiments)
 
-        return samples
+    def fetch_experiments(
+        self, study_accession: str
+    ) -> BaseContainer[SRAExperiment] | BaseContainer[ENAExperiment]:
+        datasource = self._datasource_from_study_accession(study_accession)
+        if datasource != datasource.Sra and datasource != datasource.Ena:
+            raise SeqoutError(
+                f"experiments can be only fetched for accessions related to SRA or ENA. {study_accession} is from {datasource}"
+            )
 
-    def fetch_sample(self, accession: str):
-        pass
+        datasource_str = "sra" if datasource == datasource.Sra else "ena"
+        return self._fetch_experiments_helper(study_accession, datasource_str)
 
     def close(self) -> None:
         pass

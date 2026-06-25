@@ -1,55 +1,17 @@
 from __future__ import annotations
 
-import csv
 import json
 from collections import Counter
-from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Iterator, Literal, TypeVar
+from typing import Literal
 
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field,
-    RootModel,
     field_validator,
     model_validator,
 )
 
-if TYPE_CHECKING:
-    from pandas import DataFrame
-
-
-T = TypeVar("T", bound=BaseModel)
-
-
-class BaseContainer(RootModel[list[T]], Generic[T]):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def to_dict(self) -> list[dict]:
-        return [r.model_dump() for r in self.root]
-
-    def to_csv(self, path: Path | str) -> None:
-        with open(path, "w", newline="") as f:
-            if not self.root:
-                return
-
-            writer = csv.DictWriter(f, fieldnames=self.root[0].model_fields.keys())
-            writer.writeheader()
-            writer.writerows(self.to_dict())
-
-    def to_df(self) -> DataFrame:
-        import pandas
-
-        return pandas.DataFrame(self.to_dict())
-
-    def __len__(self) -> int:
-        return len(self.root)
-
-    def __iter__(self) -> Iterator[T]:  # ty: ignore[invalid-method-override]
-        return iter(self.root)
-
-    def __getitem__(self, index: int) -> T:
-        return self.root[index]
+from seqoutdb.models.models import BaseContainer
 
 
 # full-text search

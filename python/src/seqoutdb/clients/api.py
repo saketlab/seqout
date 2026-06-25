@@ -10,8 +10,18 @@ from typing import Iterator, Literal
 
 import requests
 
-from seqoutdb import StudyExperimentsResults, StudyRunsResults
-from seqoutdb.clients.api_models import (
+from seqoutdb.constants import (
+    API_BASE_URL,
+    DEFAULT_DOWNLOAD_CHUNK_SIZE,
+    DEFAULT_MAX_WAIT,
+    DEFAULT_NUM_RETRIES,
+    DEFAULT_REQ_TIMEOUT,
+)
+from seqoutdb.helpers import (
+    _download_file,
+    _send_req,
+)
+from seqoutdb.models.api_models import (
     ExperimentSampleList,
     ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
@@ -27,18 +37,9 @@ from seqoutdb.clients.api_models import (
     SearchResult,
     SearchResults,
     StructuredSearchParams,
+    StudyExperimentsResults,
     StudyRunsResponse,
-)
-from seqoutdb.constants import (
-    API_BASE_URL,
-    DEFAULT_DOWNLOAD_CHUNK_SIZE,
-    DEFAULT_MAX_WAIT,
-    DEFAULT_NUM_RETRIES,
-    DEFAULT_REQ_TIMEOUT,
-)
-from seqoutdb.helpers import (
-    _download_file,
-    _send_req,
+    StudyRunsResults,
 )
 from seqoutdb.utils import (
     _extract_download_info_for_study_run,
