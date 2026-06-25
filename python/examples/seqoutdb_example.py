@@ -3,13 +3,13 @@ import shutil
 import sys
 from pathlib import Path
 
-from seqoutdb import SearchParams, Seqout, country_code_to_name
+from seqoutdb import SearchParams, connect_to_seqout, country_code_to_name
 
 output_dir = Path("./output")
 shutil.rmtree(output_dir, ignore_errors=True)
 output_dir.mkdir(exist_ok=True)
 
-with Seqout() as sq:
+with connect_to_seqout(backend="api") as sq:
     # find top 50 cited papers related to 16S rRNA amplicon sequencing
     response = sq.search(
         params=SearchParams(q="16S rRNA amplicon sequencing")
@@ -48,8 +48,8 @@ with Seqout() as sq:
     sq.download_project_supplementary_data(
         metadata=metadata,
         out_dir=output_dir / "supplementary_data",
-        n_workers=10,
-        verbose=True,
+        num_workers=10,
+        with_pbar=True,
     )
 
     # export llm enriched sample metadata to a csv file
@@ -86,7 +86,7 @@ with Seqout() as sq:
             runs=runs,
             out_dir=output_dir / "runs",
             mode="fastq",
-            n_workers=10,
+            num_workers=10,
         )
     else:
         print("no sra study id was found")

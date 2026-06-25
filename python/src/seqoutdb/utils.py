@@ -1,4 +1,5 @@
 import os
+from multiprocessing import cpu_count
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -59,20 +60,12 @@ def _extract_download_info_for_study_run(
     return (url_text.split(";"), bytes_text.split(";"), md5_checksum_text.split(";"))
 
 
-def _normalize_num_workers(n_workers: int | None) -> int:
-    cpu_count = os.cpu_count()
-    if cpu_count is None:
-        cpu_count = 1
+def _normalize_num_workers(num_workers: int | None) -> int:
+    if num_workers is None:
+        cpu_count = os.cpu_count() or 1
+        num_workers = max(1, cpu_count - 2)
 
-    if n_workers is None:
-        n_workers = max(1, cpu_count - 2)
-    else:
-        if n_workers >= cpu_count:
-            raise ValueError(
-                "num of workers must be less than total number of CPUs in the system"
-            )
-
-    return n_workers
+    return num_workers
 
 
 def _normalize_url(url: str) -> str:

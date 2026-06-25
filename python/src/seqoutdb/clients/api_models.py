@@ -258,7 +258,7 @@ class ProjectSummaryResult(BaseModel):
     organisms: list[str] | None = None
 
 
-class ProjectSummarResultList(BaseContainer[ProjectSummaryResult]):
+class ProjectSummaryResultList(BaseContainer[ProjectSummaryResult]):
     pass
 
 
@@ -269,11 +269,11 @@ class ProjectMetadataRelation(BaseModel):
 
 
 class ProjectMetadataNeighbor(BaseModel):
-    x_2d: float
-    x_3d: float
-    y_2d: float
-    y_3d: float
-    z_3d: float
+    x_2d: float | None = None
+    x_3d: float | None = None
+    y_2d: float | None = None
+    y_3d: float | None = None
+    z_3d: float | None = None
     source: str
     accession: str
 
@@ -541,10 +541,3 @@ class SampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
     sample: SampleMetadataResult
-
-
-# GEO sample detailed metadata (sample is channel-shaped, like an experiment sample)
-class GeoSampleDetailedMetadata(BaseModel):
-    sample_type: str
-    project: ProjectMetadataResult
-    sample: ExperimentSample

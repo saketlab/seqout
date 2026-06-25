@@ -330,7 +330,7 @@ with Seqout() as sq:
     sq.download_study_runs_data(runs, Path("SRP324458"), mode="fastq")
 ```
 
-Both download methods run in parallel and accept `n_workers`, `chunk_size`, and `verbose`. Read
+Both download methods run in parallel and accept `num_workers`, `chunk_size`, and `verbose`. Read
 downloads are verified against their reported size and MD5 checksum.
 
 ---

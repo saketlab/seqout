@@ -1,4 +1,11 @@
-BASE_URL = "https://seqout.org/api"
+API_BASE_URL = "https://seqout.org/api"
+PARQUET_S3_DUMP_BASE_URL = "https://seqout-dump.t3.tigrisfiles.io"
+
+DEFAULT_REQ_TIMEOUT = 30
+DEFAULT_NUM_RETRIES = 3
+DEFAULT_MAX_WAIT = 60
+DEFAULT_DOWNLOAD_CHUNK_SIZE = 1024 * 2
+
 COUNTRY_CODE_MAP: dict[str, str] = {
     "AFG": "Afghanistan",
     "ALB": "Albania",
