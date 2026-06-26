@@ -106,12 +106,14 @@ export default function MetadataTableTabs({
   accession,
   sectionId,
   sectionTitle,
+  titleBadge,
   originalContent,
   onExportOriginalCsv,
 }: {
   accession: string;
   sectionId: string;
   sectionTitle: string;
+  titleBadge?: ReactNode;
   originalContent: ReactNode;
   onExportOriginalCsv: () => void;
 }) {
@@ -152,6 +154,7 @@ export default function MetadataTableTabs({
           <Heading as="h2" weight="medium" size="6">
             {sectionTitle}
           </Heading>
+          {titleBadge}
           {showEnriched && enriched && (
             <EnrichedMetadataBadges data={enriched} />
           )}

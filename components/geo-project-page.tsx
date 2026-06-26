@@ -1461,15 +1461,6 @@ export default function GeoProjectPage() {
                   </Tooltip>
                 </Flex>
               </Badge>
-              {samplesTotal > 0 && (
-                <Badge
-                  size={{ initial: "2", md: "3" }}
-                  color="gray"
-                  style={{ whiteSpace: "nowrap" }}
-                >
-                  {samplesTotal} {samplesTotal === 1 ? "Sample" : "Samples"}
-                </Badge>
-              )}
               {linkedBioProjectAliases.map((alias) => (
                 <a
                   key={`bioproject-${alias}`}
@@ -1718,6 +1709,13 @@ export default function GeoProjectPage() {
               accession={accession}
               sectionId="samples"
               sectionTitle="Samples"
+              titleBadge={
+                samplesTotal > 0 ? (
+                  <Badge color="gray" style={{ whiteSpace: "nowrap" }}>
+                    {samplesTotal} {samplesTotal === 1 ? "Sample" : "Samples"}
+                  </Badge>
+                ) : undefined
+              }
               onExportOriginalCsv={() => {
                 if (!samples || samples.length === 0) return;
                 // Build CSV headers

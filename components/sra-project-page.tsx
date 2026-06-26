@@ -2231,15 +2231,6 @@ export default function ProjectPage() {
                   </Tooltip>
                 </Flex>
               </Badge>
-              <Badge
-                size={{ initial: "2", md: "3" }}
-                color="gray"
-                style={{ whiteSpace: "nowrap" }}
-              >
-                {isExperimentsLoading
-                  ? "Loading..."
-                  : formatExperimentCount(experimentsTotal)}
-              </Badge>
               {project.alias?.startsWith("P") && (
                 <a
                   href={`https://www.ncbi.nlm.nih.gov/bioproject/${project.alias}`}
@@ -2421,6 +2412,13 @@ export default function ProjectPage() {
               accession={accession}
               sectionId="experiments"
               sectionTitle="Experiments"
+              titleBadge={
+                <Badge color="gray" style={{ whiteSpace: "nowrap" }}>
+                  {isExperimentsLoading
+                    ? "Loading..."
+                    : formatExperimentCount(experimentsTotal)}
+                </Badge>
+              }
               onExportOriginalCsv={() => {
                 if (!experiments || !samplesMap) return;
                 const baseHeaders = [
