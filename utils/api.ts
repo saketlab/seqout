@@ -14,6 +14,19 @@ export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T>
   return (await res.json()) as T;
 }
 
+// Like getJson but also returns the X-Total-Count header (full row count before
+// pagination), so callers can show the real total while only loading one page.
+export async function getJsonWithTotal<T>(
+  path: string,
+  signal?: AbortSignal,
+): Promise<{ items: T; total: number | null }> {
+  const res = await fetch(`${SERVER_URL}${path}`, { signal: withTimeout(signal) });
+  if (!res.ok) throw new Error("Network error");
+  const items = (await res.json()) as T;
+  const header = res.headers.get("X-Total-Count");
+  return { items, total: header != null ? Number(header) : null };
+}
+
 export async function getJsonOrNull<T>(
   path: string,
   signal?: AbortSignal,

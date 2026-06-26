@@ -21,7 +21,12 @@ import {
   infiniteScrollOnBodyScroll,
   TABLE_PAGE_SIZE,
 } from "@/lib/ag-grid";
-import { getJson, getJsonOrNull, parseProjectStringFields } from "@/utils/api";
+import {
+  getJson,
+  getJsonOrNull,
+  getJsonWithTotal,
+  parseProjectStringFields,
+} from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLOR_MAP } from "@/utils/db-colors";
@@ -304,9 +309,9 @@ const normalizeExternalIds = (
 const fetchExperiments = async (
   accession: string | null,
   offset: number,
-): Promise<Experiment[]> => {
-  if (!accession) return [];
-  return getJson<Experiment[]>(
+): Promise<{ items: Experiment[]; total: number | null }> => {
+  if (!accession) return { items: [], total: 0 };
+  return getJsonWithTotal<Experiment[]>(
     `/project/${accession}/experiments?limit=${TABLE_PAGE_SIZE}&offset=${offset}`,
   );
 };
@@ -1740,15 +1745,19 @@ export default function ProjectPage() {
     queryFn: ({ pageParam }) => fetchExperiments(accession ?? null, pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === TABLE_PAGE_SIZE
+      lastPage.items.length === TABLE_PAGE_SIZE
         ? allPages.length * TABLE_PAGE_SIZE
         : undefined,
     enabled: !!accession,
   });
   const experiments = React.useMemo(
-    () => experimentsQuery.data?.pages.flat(),
+    () => experimentsQuery.data?.pages.flatMap((p) => p.items),
     [experimentsQuery.data],
   );
+  // Full count from the X-Total-Count header so the badge shows the real total,
+  // not just the rows loaded so far.
+  const experimentsTotal =
+    experimentsQuery.data?.pages[0]?.total ?? experiments?.length ?? 0;
   const isExperimentsLoading = experimentsQuery.isLoading;
   const isExperimentsError = experimentsQuery.isError;
 
@@ -2229,9 +2238,7 @@ export default function ProjectPage() {
               >
                 {isExperimentsLoading
                   ? "Loading..."
-                  : experiments
-                    ? formatExperimentCount(experiments.length)
-                    : formatExperimentCount(0)}
+                  : formatExperimentCount(experimentsTotal)}
               </Badge>
               {project.alias?.startsWith("P") && (
                 <a

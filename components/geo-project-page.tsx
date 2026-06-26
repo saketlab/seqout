@@ -21,7 +21,7 @@ import {
   infiniteScrollOnBodyScroll,
   TABLE_PAGE_SIZE,
 } from "@/lib/ag-grid";
-import { getJson } from "@/utils/api";
+import { getJson, getJsonWithTotal } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { DB_COLOR_MAP } from "@/utils/db-colors";
 import {
@@ -412,8 +412,8 @@ const buildSupplementaryItems = ({
 const fetchSamples = async (
   accession: string,
   offset: number,
-): Promise<GeoSample[]> =>
-  getJson<GeoSample[]>(
+): Promise<{ items: GeoSample[]; total: number | null }> =>
+  getJsonWithTotal<GeoSample[]>(
     `/geo/series/${accession}/samples?limit=${TABLE_PAGE_SIZE}&offset=${offset}`,
   );
 
@@ -622,15 +622,19 @@ export default function GeoProjectPage() {
     queryFn: ({ pageParam }) => fetchSamples(samplesAccession!, pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === TABLE_PAGE_SIZE
+      lastPage.items.length === TABLE_PAGE_SIZE
         ? allPages.length * TABLE_PAGE_SIZE
         : undefined,
     enabled: !!samplesAccession,
   });
   const samples = React.useMemo(
-    () => samplesQuery.data?.pages.flat(),
+    () => samplesQuery.data?.pages.flatMap((p) => p.items),
     [samplesQuery.data],
   );
+  // Full count from the X-Total-Count header so the badge shows the real total,
+  // not just the rows loaded so far.
+  const samplesTotal =
+    samplesQuery.data?.pages[0]?.total ?? samples?.length ?? 0;
   const isSamplesLoading = samplesQuery.isLoading;
 
   const projectOrganisms = React.useMemo<string[]>(() => {
@@ -1457,13 +1461,13 @@ export default function GeoProjectPage() {
                   </Tooltip>
                 </Flex>
               </Badge>
-              {samples && samples.length > 0 && (
+              {samplesTotal > 0 && (
                 <Badge
                   size={{ initial: "2", md: "3" }}
                   color="gray"
                   style={{ whiteSpace: "nowrap" }}
                 >
-                  {samples.length} {samples.length === 1 ? "Sample" : "Samples"}
+                  {samplesTotal} {samplesTotal === 1 ? "Sample" : "Samples"}
                 </Badge>
               )}
               {linkedBioProjectAliases.map((alias) => (
