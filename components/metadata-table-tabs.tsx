@@ -19,7 +19,9 @@ import {
   Button,
   Flex,
   Heading,
+  Spinner,
   Tabs,
+  Text,
 } from "@radix-ui/themes";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -107,6 +109,7 @@ export default function MetadataTableTabs({
   sectionId,
   sectionTitle,
   titleBadge,
+  hasEnriched,
   originalContent,
   onExportOriginalCsv,
 }: {
@@ -114,6 +117,9 @@ export default function MetadataTableTabs({
   sectionId: string;
   sectionTitle: string;
   titleBadge?: ReactNode;
+  // Whether the study has enriched metadata, from the cheap `has_enriched` flag
+  // on the project response — lets us show the tab without fetching the payload.
+  hasEnriched?: boolean;
   originalContent: ReactNode;
   onExportOriginalCsv: () => void;
 }) {
@@ -126,12 +132,18 @@ export default function MetadataTableTabs({
     const { id, tab: hashTab } = parseSectionHash(window.location.hash);
     return id === sectionId && hashTab === "enriched" ? "enriched" : "original";
   });
+  // Lazy: only fetch enriched metadata once its tab is active (clicked or
+  // deep-linked via `#samples=enriched`), so the heavy per-sample payload isn't
+  // loaded on every project page / crawler hit. react-query keeps the result
+  // cached, so switching back and forth doesn't refetch.
+  const showEnriched = !!hasEnriched && tab === "enriched";
   const {
     data: enriched,
+    isLoading: isEnrichedLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useEnrichedMetadata(accession);
+  } = useEnrichedMetadata(accession, showEnriched);
 
   // Native anchor scrolling doesn't fire for tab-suffixed hashes
   // (`#samples=enriched`), so bring the section into view ourselves.
@@ -142,10 +154,8 @@ export default function MetadataTableTabs({
     }
   }, [sectionId]);
 
-  // Without enriched data there is nothing to switch to.
-  const hasEnriched = !!enriched;
+  // No enriched data → there's nothing to switch to, so pin to the original tab.
   const activeTab: TabValue = hasEnriched ? tab : "original";
-  const showEnriched = hasEnriched && activeTab === "enriched";
 
   return (
     <>
@@ -209,15 +219,25 @@ export default function MetadataTableTabs({
           </Button>
         </Flex>
       </Flex>
-      {showEnriched && enriched ? (
+      {!showEnriched && originalContent}
+      {showEnriched && enriched && (
         <EnrichedMetadataGrid
           data={enriched}
           fetchNextPage={fetchNextPage}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
         />
-      ) : (
-        originalContent
+      )}
+      {showEnriched && !enriched && isEnrichedLoading && (
+        <Flex align="center" gap="2">
+          <Spinner size="2" />
+          <Text size="2">Loading enriched metadata...</Text>
+        </Flex>
+      )}
+      {showEnriched && !enriched && !isEnrichedLoading && (
+        <Text size="2" color="gray">
+          No enriched metadata available for this study.
+        </Text>
       )}
     </>
   );

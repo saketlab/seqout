@@ -102,6 +102,7 @@ type Project = {
   center_name?: string | null;
   country_code?: string | null;
   publications?: StudyPublication[] | null;
+  has_enriched?: boolean;
 };
 
 type Characteristic = {
@@ -1709,6 +1710,7 @@ export default function GeoProjectPage() {
               accession={accession}
               sectionId="samples"
               sectionTitle="Samples"
+              hasEnriched={project?.has_enriched}
               titleBadge={
                 samplesTotal > 0 ? (
                   <Badge style={{ whiteSpace: "nowrap" }}>

@@ -252,7 +252,10 @@ export type UseEnrichedMetadata = {
  * react-query across consumers. `data` accumulates the loaded pages and is
  * `null` when enriched metadata is unavailable (404) or empty.
  */
-export function useEnrichedMetadata(accession: string): UseEnrichedMetadata {
+export function useEnrichedMetadata(
+  accession: string,
+  enabled = true,
+): UseEnrichedMetadata {
   const query = useInfiniteQuery({
     queryKey: ["enriched-metadata", accession],
     queryFn: ({ pageParam }) => fetchEnrichedMetadata(accession, pageParam),
@@ -263,7 +266,7 @@ export function useEnrichedMetadata(accession: string): UseEnrichedMetadata {
         ? allPages.length * TABLE_PAGE_SIZE
         : undefined;
     },
-    enabled: !!accession,
+    enabled: !!accession && enabled,
   });
   const first = query.data?.pages[0] ?? null;
   const samples = query.data?.pages.flatMap((p) => p?.samples ?? []) ?? [];

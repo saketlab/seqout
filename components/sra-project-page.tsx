@@ -104,6 +104,7 @@ type Project = {
   center_name?: string | null;
   country_code?: string | null;
   publications?: StudyPublication[] | null;
+  has_enriched?: boolean;
 };
 
 type GeoNeighborsPayload = {
@@ -2412,6 +2413,7 @@ export default function ProjectPage() {
               accession={accession}
               sectionId="experiments"
               sectionTitle="Experiments"
+              hasEnriched={project?.has_enriched}
               titleBadge={
                 <Badge style={{ whiteSpace: "nowrap" }}>
                   {isExperimentsLoading
