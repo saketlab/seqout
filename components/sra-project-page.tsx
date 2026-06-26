@@ -2413,10 +2413,12 @@ export default function ProjectPage() {
               sectionId="experiments"
               sectionTitle="Experiments"
               titleBadge={
-                <Badge color="gray" style={{ whiteSpace: "nowrap" }}>
+                <Badge style={{ whiteSpace: "nowrap" }}>
                   {isExperimentsLoading
                     ? "Loading..."
-                    : formatExperimentCount(experimentsTotal)}
+                    : experiments && experiments.length < experimentsTotal
+                      ? `Showing first ${experiments.length.toLocaleString()} of ${experimentsTotal.toLocaleString()} experiments`
+                      : formatExperimentCount(experimentsTotal)}
                 </Badge>
               }
               onExportOriginalCsv={() => {

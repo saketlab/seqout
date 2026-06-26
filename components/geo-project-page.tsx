@@ -1711,8 +1711,10 @@ export default function GeoProjectPage() {
               sectionTitle="Samples"
               titleBadge={
                 samplesTotal > 0 ? (
-                  <Badge color="gray" style={{ whiteSpace: "nowrap" }}>
-                    {samplesTotal} {samplesTotal === 1 ? "Sample" : "Samples"}
+                  <Badge style={{ whiteSpace: "nowrap" }}>
+                    {samples && samples.length < samplesTotal
+                      ? `Showing first ${samples.length.toLocaleString()} of ${samplesTotal.toLocaleString()} samples`
+                      : `${samplesTotal.toLocaleString()} ${samplesTotal === 1 ? "Sample" : "Samples"}`}
                   </Badge>
                 ) : undefined
               }
@@ -1922,11 +1924,132 @@ export default function GeoProjectPage() {
               aliasField={dataProject?.alias}
               agGridThemeClassName={agGridThemeClassName}
             />
-            <Flex id="supplementary" align="center" gap="2">
-              <Heading as="h2" weight="medium" size="6">
-                Supplementary Data
-              </Heading>
-              <SectionAnchor id="supplementary" />
+            <Flex
+              id="supplementary"
+              justify="between"
+              align="center"
+              gap="3"
+              wrap="wrap"
+            >
+              <Flex align="center" gap="2" wrap="wrap">
+                <Heading as="h2" weight="medium" size="6">
+                  Supplementary Data
+                </Heading>
+                {supplementaryDataItems.length > 0 && (
+                  <>
+                    <Badge>
+                      {supplementaryDataItems.length.toLocaleString()} file
+                      {supplementaryDataItems.length !== 1 ? "s" : ""}
+                    </Badge>
+                    {allSupplementarySizeLabel && (
+                      <Badge>{allSupplementarySizeLabel} total</Badge>
+                    )}
+                  </>
+                )}
+                <SectionAnchor id="supplementary" />
+              </Flex>
+              {supplementaryDataItems.length > 0 && (
+                <Flex gap="2" wrap="wrap">
+                  <Button
+                    variant="surface"
+                    disabled={isDownloadingAllSupplementary}
+                    onClick={() => {
+                      const items = getSupplementaryDownloadItems(
+                        supplementaryDataItems,
+                      );
+                      if (items.length === 0) return;
+                      void handleDownloadAllSupplementaryFiles(items);
+                    }}
+                  >
+                    {isDownloadingAllSupplementary ? (
+                      <Flex align="center" gap="1">
+                        <Spinner size="1" />
+                        <Text size="1">
+                          {downloadAllProgressPercent !== null
+                            ? `${downloadAllProgressPercent}%`
+                            : "..."}
+                        </Text>
+                      </Flex>
+                    ) : (
+                      <>
+                        <DownloadIcon /> {supplementaryDownloadLabel}
+                      </>
+                    )}
+                  </Button>
+                  <Dialog.Root
+                    open={supplementaryScriptDialogOpen}
+                    onOpenChange={(open) => {
+                      setSupplementaryScriptDialogOpen(open);
+                      if (open) {
+                        const items = getSupplementaryDownloadItems(
+                          supplementaryDataItems,
+                        );
+                        setSupplementaryScriptPreview(
+                          computeSupplementaryScriptText(items),
+                        );
+                        setSupplementaryScriptCopied(false);
+                      }
+                    }}
+                  >
+                    <Dialog.Trigger>
+                      <Button size="2" variant="surface">
+                        <FileTextIcon /> {supplementaryScriptLabel}
+                      </Button>
+                    </Dialog.Trigger>
+                    <Dialog.Content size="3">
+                      <Flex justify="between" align="center" gap="3" mb="3">
+                        <Dialog.Title mb="0">Copy download script</Dialog.Title>
+                        <Button
+                          size="2"
+                          variant="soft"
+                          onClick={() => {
+                            void handleCopySupplementaryScript();
+                          }}
+                          disabled={!supplementaryScriptPreview}
+                        >
+                          {supplementaryScriptCopied ? (
+                            <CheckIcon />
+                          ) : (
+                            <CopyIcon />
+                          )}
+                          {supplementaryScriptCopied ? "Copied!" : "Copy"}
+                        </Button>
+                      </Flex>
+                      <div
+                        style={{
+                          width: "100%",
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                          background: "var(--gray-3)",
+                          border: "1px solid var(--gray-6)",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <pre
+                          style={{
+                            margin: 0,
+                            width: "100%",
+                            boxSizing: "border-box",
+                            padding: "0.875rem",
+                            overflowY: "auto",
+                            maxHeight: "24rem",
+                            fontSize: "12px",
+                            lineHeight: "1.5",
+                            fontFamily: "var(--default-mono-font-family)",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          <code>
+                            {supplementaryScriptPreview ||
+                              "# No supplementary files available"}
+                          </code>
+                        </pre>
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Root>
+                </Flex>
+              )}
             </Flex>
             {supplementaryDataItems.length === 0 && (
               <Text size="2" color="gray">
@@ -1935,122 +2058,6 @@ export default function GeoProjectPage() {
             )}
             {supplementaryDataItems.length > 0 && (
               <Flex direction="column" gap="2" style={{ width: "100%" }}>
-                <Flex gap="3" justify="between" wrap="wrap">
-                  <Flex gap="2" align="center" wrap="wrap">
-                    <Badge size="2" color="blue">
-                      {supplementaryDataItems.length.toLocaleString()} file
-                      {supplementaryDataItems.length !== 1 ? "s" : ""}
-                    </Badge>
-                    {allSupplementarySizeLabel && (
-                      <Badge size="2" variant="soft">
-                        {allSupplementarySizeLabel} total
-                      </Badge>
-                    )}
-                  </Flex>
-                  <Flex gap="2" wrap="wrap">
-                    <Button
-                      size="2"
-                      variant="surface"
-                      disabled={isDownloadingAllSupplementary}
-                      onClick={() => {
-                        const items = getSupplementaryDownloadItems(
-                          supplementaryDataItems,
-                        );
-                        if (items.length === 0) return;
-                        void handleDownloadAllSupplementaryFiles(items);
-                      }}
-                    >
-                      {isDownloadingAllSupplementary ? (
-                        <Flex align="center" gap="1">
-                          <Spinner size="1" />
-                          <Text size="1">
-                            {downloadAllProgressPercent !== null
-                              ? `${downloadAllProgressPercent}%`
-                              : "..."}
-                          </Text>
-                        </Flex>
-                      ) : (
-                        <>
-                          <DownloadIcon /> {supplementaryDownloadLabel}
-                        </>
-                      )}
-                    </Button>
-                    <Dialog.Root
-                      open={supplementaryScriptDialogOpen}
-                      onOpenChange={(open) => {
-                        setSupplementaryScriptDialogOpen(open);
-                        if (open) {
-                          const items = getSupplementaryDownloadItems(
-                            supplementaryDataItems,
-                          );
-                          setSupplementaryScriptPreview(
-                            computeSupplementaryScriptText(items),
-                          );
-                          setSupplementaryScriptCopied(false);
-                        }
-                      }}
-                    >
-                      <Dialog.Trigger>
-                        <Button size="2" variant="surface">
-                          <FileTextIcon /> {supplementaryScriptLabel}
-                        </Button>
-                      </Dialog.Trigger>
-                      <Dialog.Content size="3">
-                        <Flex justify="between" align="center" gap="3" mb="3">
-                          <Dialog.Title mb="0">
-                            Copy download script
-                          </Dialog.Title>
-                          <Button
-                            size="2"
-                            variant="soft"
-                            onClick={() => {
-                              void handleCopySupplementaryScript();
-                            }}
-                            disabled={!supplementaryScriptPreview}
-                          >
-                            {supplementaryScriptCopied ? (
-                              <CheckIcon />
-                            ) : (
-                              <CopyIcon />
-                            )}
-                            {supplementaryScriptCopied ? "Copied!" : "Copy"}
-                          </Button>
-                        </Flex>
-                        <div
-                          style={{
-                            width: "100%",
-                            maxWidth: "100%",
-                            overflow: "hidden",
-                            background: "var(--gray-3)",
-                            border: "1px solid var(--gray-6)",
-                            borderRadius: "8px",
-                          }}
-                        >
-                          <pre
-                            style={{
-                              margin: 0,
-                              width: "100%",
-                              boxSizing: "border-box",
-                              padding: "0.875rem",
-                              overflowY: "auto",
-                              maxHeight: "24rem",
-                              fontSize: "12px",
-                              lineHeight: "1.5",
-                              fontFamily: "var(--default-mono-font-family)",
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            <code>
-                              {supplementaryScriptPreview ||
-                                "# No supplementary files available"}
-                            </code>
-                          </pre>
-                        </div>
-                      </Dialog.Content>
-                    </Dialog.Root>
-                  </Flex>
-                </Flex>
                 <div
                   className={agGridThemeClassName}
                   style={{
@@ -2080,26 +2087,19 @@ export default function GeoProjectPage() {
                 </div>
               </Flex>
             )}
-            <Flex align="center" gap="2" mt="4">
-              <Text weight="medium" size="4">
-                Sample supplementary files
-              </Text>
-            </Flex>
-            {sampleSupplementaryDataItems.length === 0 && (
-              <Text size="2" color="gray">
-                No sample supplementary files found
-              </Text>
-            )}
-            {sampleSupplementaryDataItems.length > 0 && (
-              <Flex direction="column" gap="2" style={{ width: "100%" }}>
-                <Flex gap="3" justify="between" wrap="wrap">
-                  <Flex gap="2" align="center" wrap="wrap">
-                    <Badge size="2" color="blue">
+            <Flex justify="between" align="center" gap="3" wrap="wrap" mt="4">
+              <Flex align="center" gap="2" wrap="wrap">
+                <Text weight="medium" size="4">
+                  Sample supplementary files
+                </Text>
+                {sampleSupplementaryDataItems.length > 0 && (
+                  <>
+                    <Badge>
                       {sampleSupplementaryDataItems.length.toLocaleString()}{" "}
                       file
                       {sampleSupplementaryDataItems.length !== 1 ? "s" : ""}
                     </Badge>
-                    <Badge size="2" variant="soft">
+                    <Badge>
                       {sampleSupplementaryGroupedRows.length.toLocaleString()}{" "}
                       sample
                       {sampleSupplementaryGroupedRows.length !== 1 ? "s" : ""}
@@ -2109,109 +2109,118 @@ export default function GeoProjectPage() {
                         {allSampleSupplementarySizeLabel} total
                       </Badge>
                     )}
-                  </Flex>
-                  <Flex gap="2" wrap="wrap">
-                    <Button
-                      size="2"
-                      variant="surface"
-                      disabled={isDownloadingAllSampleSupplementary}
-                      onClick={() => {
+                  </>
+                )}
+              </Flex>
+              {sampleSupplementaryDataItems.length > 0 && (
+                <Flex gap="2" wrap="wrap">
+                  <Button
+                    size="2"
+                    variant="surface"
+                    disabled={isDownloadingAllSampleSupplementary}
+                    onClick={() => {
+                      const items = getSampleSupplementaryDownloadItems();
+                      if (items.length === 0) return;
+                      void handleDownloadAllSampleSupplementaryFiles(items);
+                    }}
+                  >
+                    {isDownloadingAllSampleSupplementary ? (
+                      <Flex align="center" gap="1">
+                        <Spinner size="1" />
+                        <Text size="1">
+                          {sampleDownloadAllProgressPercent !== null
+                            ? `${sampleDownloadAllProgressPercent}%`
+                            : "..."}
+                        </Text>
+                      </Flex>
+                    ) : (
+                      <>
+                        <DownloadIcon /> {sampleSupplementaryDownloadLabel}
+                      </>
+                    )}
+                  </Button>
+                  <Dialog.Root
+                    open={sampleSupplementaryScriptDialogOpen}
+                    onOpenChange={(open) => {
+                      setSampleSupplementaryScriptDialogOpen(open);
+                      if (open) {
                         const items = getSampleSupplementaryDownloadItems();
-                        if (items.length === 0) return;
-                        void handleDownloadAllSampleSupplementaryFiles(items);
-                      }}
-                    >
-                      {isDownloadingAllSampleSupplementary ? (
-                        <Flex align="center" gap="1">
-                          <Spinner size="1" />
-                          <Text size="1">
-                            {sampleDownloadAllProgressPercent !== null
-                              ? `${sampleDownloadAllProgressPercent}%`
-                              : "..."}
-                          </Text>
-                        </Flex>
-                      ) : (
-                        <>
-                          <DownloadIcon /> {sampleSupplementaryDownloadLabel}
-                        </>
-                      )}
-                    </Button>
-                    <Dialog.Root
-                      open={sampleSupplementaryScriptDialogOpen}
-                      onOpenChange={(open) => {
-                        setSampleSupplementaryScriptDialogOpen(open);
-                        if (open) {
-                          const items = getSampleSupplementaryDownloadItems();
-                          setSampleSupplementaryScriptPreview(
-                            buildSupplementaryDownloadScript(items),
-                          );
-                          setSampleSupplementaryScriptCopied(false);
-                        }
-                      }}
-                    >
-                      <Dialog.Trigger>
-                        <Button size="2" variant="surface">
-                          <FileTextIcon /> {sampleSupplementaryScriptLabel}
+                        setSampleSupplementaryScriptPreview(
+                          buildSupplementaryDownloadScript(items),
+                        );
+                        setSampleSupplementaryScriptCopied(false);
+                      }
+                    }}
+                  >
+                    <Dialog.Trigger>
+                      <Button size="2" variant="surface">
+                        <FileTextIcon /> {sampleSupplementaryScriptLabel}
+                      </Button>
+                    </Dialog.Trigger>
+                    <Dialog.Content size="3">
+                      <Flex justify="between" align="center" gap="3" mb="3">
+                        <Dialog.Title mb="0">
+                          Copy sample download script
+                        </Dialog.Title>
+                        <Button
+                          size="2"
+                          variant="soft"
+                          onClick={() => {
+                            void handleCopySampleSupplementaryScript();
+                          }}
+                          disabled={!sampleSupplementaryScriptPreview}
+                        >
+                          {sampleSupplementaryScriptCopied ? (
+                            <CheckIcon />
+                          ) : (
+                            <CopyIcon />
+                          )}
+                          {sampleSupplementaryScriptCopied ? "Copied!" : "Copy"}
                         </Button>
-                      </Dialog.Trigger>
-                      <Dialog.Content size="3">
-                        <Flex justify="between" align="center" gap="3" mb="3">
-                          <Dialog.Title mb="0">
-                            Copy sample download script
-                          </Dialog.Title>
-                          <Button
-                            size="2"
-                            variant="soft"
-                            onClick={() => {
-                              void handleCopySampleSupplementaryScript();
-                            }}
-                            disabled={!sampleSupplementaryScriptPreview}
-                          >
-                            {sampleSupplementaryScriptCopied ? (
-                              <CheckIcon />
-                            ) : (
-                              <CopyIcon />
-                            )}
-                            {sampleSupplementaryScriptCopied
-                              ? "Copied!"
-                              : "Copy"}
-                          </Button>
-                        </Flex>
-                        <div
+                      </Flex>
+                      <div
+                        style={{
+                          width: "100%",
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                          background: "var(--gray-3)",
+                          border: "1px solid var(--gray-6)",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <pre
                           style={{
+                            margin: 0,
                             width: "100%",
-                            maxWidth: "100%",
-                            overflow: "hidden",
-                            background: "var(--gray-3)",
-                            border: "1px solid var(--gray-6)",
-                            borderRadius: "8px",
+                            boxSizing: "border-box",
+                            padding: "0.875rem",
+                            overflowY: "auto",
+                            maxHeight: "24rem",
+                            fontSize: "12px",
+                            lineHeight: "1.5",
+                            fontFamily: "var(--default-mono-font-family)",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-all",
                           }}
                         >
-                          <pre
-                            style={{
-                              margin: 0,
-                              width: "100%",
-                              boxSizing: "border-box",
-                              padding: "0.875rem",
-                              overflowY: "auto",
-                              maxHeight: "24rem",
-                              fontSize: "12px",
-                              lineHeight: "1.5",
-                              fontFamily: "var(--default-mono-font-family)",
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            <code>
-                              {sampleSupplementaryScriptPreview ||
-                                "# No sample supplementary files available"}
-                            </code>
-                          </pre>
-                        </div>
-                      </Dialog.Content>
-                    </Dialog.Root>
-                  </Flex>
+                          <code>
+                            {sampleSupplementaryScriptPreview ||
+                              "# No sample supplementary files available"}
+                          </code>
+                        </pre>
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Root>
                 </Flex>
+              )}
+            </Flex>
+            {sampleSupplementaryDataItems.length === 0 && (
+              <Text size="2" color="gray">
+                No sample supplementary files found
+              </Text>
+            )}
+            {sampleSupplementaryDataItems.length > 0 && (
+              <Flex direction="column" gap="2" style={{ width: "100%" }}>
                 <div
                   className={agGridThemeClassName}
                   style={{
