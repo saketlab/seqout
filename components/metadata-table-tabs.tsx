@@ -164,7 +164,7 @@ export default function MetadataTableTabs({
           <Heading as="h2" weight="medium" size="6">
             {sectionTitle}
           </Heading>
-          {titleBadge}
+          {!showEnriched && titleBadge}
           {showEnriched && enriched && (
             <EnrichedMetadataBadges data={enriched} />
           )}

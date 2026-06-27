@@ -305,8 +305,14 @@ function getVisibleFields(data: EnrichedResponse): FieldDef[] {
  */
 export function EnrichedMetadataBadges({ data }: { data: EnrichedResponse }) {
   const isV3 = data.version === "v3";
+  const loaded = data.samples.length;
   return (
     <>
+      <Badge style={{ whiteSpace: "nowrap" }}>
+        {loaded < data.n_samples
+          ? `Showing first ${loaded.toLocaleString()} of ${data.n_samples.toLocaleString()} samples`
+          : `${data.n_samples.toLocaleString()} samples`}
+      </Badge>
       <Tooltip content="Attributes are generated with an AI-assisted pipeline. Their correctness is not guaranteed.">
         <Badge size="2" style={{ cursor: "help" }} variant="soft">
           <MagicWandIcon /> AI Generated
