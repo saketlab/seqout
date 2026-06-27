@@ -157,6 +157,7 @@ type ExperimentGridRow = {
   designDescription: string | null;
   title: string | null;
   library: string | null;
+  strategy: string | null;
   layout: string | null;
   platform: string | null;
   instrument: string | null;
@@ -1921,7 +1922,8 @@ export default function ProjectPage() {
         accession: experiment.accession,
         designDescription: experiment.design_description,
         title: experiment.title,
-        library: experiment.library_name ?? experiment.library_strategy,
+        library: experiment.library_name,
+        strategy: experiment.library_strategy,
         layout: experiment.library_layout,
         platform: experiment.platform,
         instrument: experiment.instrument_model,
@@ -1994,7 +1996,13 @@ export default function ProjectPage() {
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
-        headerName: "Library",
+        headerName: "Strategy",
+        field: "strategy",
+        width: 120,
+        valueFormatter: (params) => toDisplayText(params.value),
+      },
+      {
+        headerName: "Library Name",
         field: "library",
         width: 130,
         valueFormatter: (params) => toDisplayText(params.value),
@@ -2428,7 +2436,8 @@ export default function ProjectPage() {
                 const baseHeaders = [
                   "Accession",
                   "Title",
-                  "Library",
+                  "Strategy",
+                  "Library Name",
                   "Layout",
                   "Platform",
                   "Instrument",
@@ -2447,7 +2456,8 @@ export default function ProjectPage() {
                   const baseRow = [
                     e.accession,
                     e.title ?? "-",
-                    e.library_name ?? e.library_strategy ?? "-",
+                    e.library_strategy ?? "-",
+                    e.library_name ?? "-",
                     e.library_layout ?? "-",
                     e.platform ?? "-",
                     e.instrument_model ?? "-",
