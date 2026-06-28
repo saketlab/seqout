@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from seqoutdb.models import ProjectMetadataResult
+from seqoutdb.models.api_models import ProjectMetadataResult
 from seqoutdb.seqout import Seqout
 
 # System prompt verbatim from for-ref.md.

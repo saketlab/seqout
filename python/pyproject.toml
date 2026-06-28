@@ -32,6 +32,9 @@ packages = ["src/seqoutdb"]
 [tool.setuptools.package-data]
 seqoutdb = ["py.typed"]
 
+[tool.pytest.ini_options]
+markers = ["network: hits the live seqout.org API; skips when unreachable"]
+
 [dependency-groups]
 dev = [
     "ipykernel>=7.2.0",

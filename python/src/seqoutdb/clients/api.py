@@ -23,6 +23,7 @@ from seqoutdb.helpers import (
 )
 from seqoutdb.models.api_models import (
     ExperimentSampleList,
+    GeoSampleDetailedMetadata,
     ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
     ProjectLLMEnrichedSampleMetadataResponse,
@@ -262,6 +263,16 @@ class SeqoutAPIClient:
         response = self._sender(
             url=f"{self._base_url}/sample-detail/{sample_id}",
             response_model=SampleDetailedMetadata,
+        )
+
+        return response
+
+    def fetch_geo_sample_detailed_metadata(
+        self, sample_id: str
+    ) -> GeoSampleDetailedMetadata:
+        response = self._sender(
+            url=f"{self._base_url}/sample-detail/{sample_id}",
+            response_model=GeoSampleDetailedMetadata,
         )
 
         return response

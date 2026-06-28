@@ -442,8 +442,10 @@ class ExperimentSampleChannel(BaseModel):
     @field_validator("characteristics", mode="before")
     @classmethod
     def _flatten_characteristics(cls, v):
+        if isinstance(v, dict):  # single characteristic isn't wrapped in a list
+            v = [v]
         map: dict[str, str] = {}
-        for item in v:
+        for item in v or []:
             map[item["@tag"]] = item["#text"]
         return map
 
@@ -467,6 +469,8 @@ class ExperimentSample(BaseModel):
     def _flatten_supplementary_data(cls, v):
         if not v:
             return []
+        if isinstance(v, dict):  # single file isn't wrapped in a list
+            v = [v]
         links: list[str] = []
         for item in v:
             links.append(item["#text"])
@@ -503,3 +507,11 @@ class SampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
     sample: SampleMetadataResult
+
+
+# GEO sample detail: same /sample-detail/{acc} endpoint, but a GSM's `sample` is a
+# channels-based ExperimentSample rather than an SRA SampleMetadataResult.
+class GeoSampleDetailedMetadata(BaseModel):
+    sample_type: str
+    project: ProjectMetadataResult
+    sample: ExperimentSample
