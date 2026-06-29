@@ -1,6 +1,10 @@
 "use client";
 
-import { OrganismFilter, OrganismNameMode } from "@/components/organism_filter";
+import {
+  OrganismFilter,
+  OrganismNameMode,
+  type ScientificFacet,
+} from "@/components/organism_filter";
 import type { SortBy } from "@/components/search-page-body";
 import { SearchResult } from "@/utils/types";
 import {
@@ -50,6 +54,43 @@ const PLATFORM_DISPLAY: Record<string, string> = {
 };
 
 type TimeFilter = "any" | "1" | "5" | "10" | "20" | "custom";
+
+/** Exact facet counts from /search/facets, keyed by facet name. */
+export type SearchFacetList = { value: string; count: number }[];
+export type SearchFacets = {
+  organism?: SearchFacetList;
+  country?: SearchFacetList;
+  journal?: SearchFacetList;
+  library_strategy?: SearchFacetList;
+  instrument_model?: SearchFacetList;
+};
+
+/**
+ * Counts for one sidebar facet. Client-derived from the loaded results, then
+ * overridden by exact server totals where available — server is authoritative
+ * for its (capped) top values, while the client base still supplies the long
+ * tail so search-within-filter keeps finding rare values as pages stream in.
+ */
+function buildFacetCounts(
+  serverList: SearchFacetList | undefined,
+  results: SearchResult[],
+  extract: (r: SearchResult) => (string | null | undefined)[],
+  normalize: (v: string) => string = (v) => v,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const result of results) {
+    for (const raw of extract(result)) {
+      const value = raw?.trim();
+      if (!value) continue;
+      const key = normalize(value);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  if (serverList) {
+    for (const { value, count } of serverList) counts.set(normalize(value), count);
+  }
+  return counts;
+}
 
 type SearchFiltersProps = {
   db: string | null;
@@ -226,6 +267,7 @@ function normalizeYearRange(
 
 export function SearchOrganismRail({
   results,
+  serverFacets,
   journalResults,
   countryResults,
   libraryStrategyResults,
@@ -252,6 +294,7 @@ export function SearchOrganismRail({
   showDesktop = true,
 }: {
   results: SearchResult[];
+  serverFacets?: SearchFacets;
   journalResults: SearchResult[];
   countryResults: SearchResult[];
   libraryStrategyResults: SearchResult[];
@@ -284,12 +327,11 @@ export function SearchOrganismRail({
   const [libraryStrategyQuery, setLibraryStrategyQuery] = useState("");
   const [instrumentModelQuery, setInstrumentModelQuery] = useState("");
 
-  const journalCounts = new Map<string, number>();
-  for (const result of journalResults) {
-    const journal = result.journal?.trim();
-    if (!journal) continue;
-    journalCounts.set(journal, (journalCounts.get(journal) ?? 0) + 1);
-  }
+  const journalCounts = buildFacetCounts(
+    serverFacets?.journal,
+    journalResults,
+    (r) => [r.journal],
+  );
 
   const journalOptions = Array.from(journalCounts.entries())
     .map(([name, count]) => ({ name, count }))
@@ -312,14 +354,12 @@ export function SearchOrganismRail({
     setSelectedJournalFilters([...selectedJournalFilters, journal]);
   };
 
-  const countryCounts = new Map<string, number>();
-  for (const result of countryResults) {
-    for (const countryCode of result.countries ?? []) {
-      const country = countryCode.trim().toUpperCase();
-      if (!country) continue;
-      countryCounts.set(country, (countryCounts.get(country) ?? 0) + 1);
-    }
-  }
+  const countryCounts = buildFacetCounts(
+    serverFacets?.country,
+    countryResults,
+    (r) => r.countries ?? [],
+    (v) => v.toUpperCase(),
+  );
 
   const countryOptions = Array.from(countryCounts.entries())
     .map(([code, count]) => ({
@@ -348,17 +388,11 @@ export function SearchOrganismRail({
     setSelectedCountryFilters([...selectedCountryFilters, countryCode]);
   };
 
-  const libraryStrategyCounts = new Map<string, number>();
-  for (const result of libraryStrategyResults) {
-    for (const strategyValue of result.library_strategies ?? []) {
-      const strategy = strategyValue.trim();
-      if (!strategy) continue;
-      libraryStrategyCounts.set(
-        strategy,
-        (libraryStrategyCounts.get(strategy) ?? 0) + 1,
-      );
-    }
-  }
+  const libraryStrategyCounts = buildFacetCounts(
+    serverFacets?.library_strategy,
+    libraryStrategyResults,
+    (r) => r.library_strategies ?? [],
+  );
 
   const libraryStrategyOptions = Array.from(libraryStrategyCounts.entries())
     .map(([name, count]) => ({ name, count }))
@@ -386,17 +420,15 @@ export function SearchOrganismRail({
     ]);
   };
 
-  const instrumentModelCounts = new Map<string, number>();
-  for (const result of instrumentModelResults) {
-    for (const modelValue of result.instrument_models ?? []) {
-      const model = modelValue.trim();
-      if (!model) continue;
-      instrumentModelCounts.set(
-        model,
-        (instrumentModelCounts.get(model) ?? 0) + 1,
-      );
-    }
-  }
+  const instrumentModelCounts = buildFacetCounts(
+    serverFacets?.instrument_model,
+    instrumentModelResults,
+    (r) => r.instrument_models ?? [],
+  );
+
+  // Server organism facets use {value} → OrganismFilter wants {name}.
+  const organismServerFacets: ScientificFacet[] | undefined =
+    serverFacets?.organism?.map((f) => ({ name: f.value, count: f.count }));
 
   const instrumentModelOptions = Array.from(instrumentModelCounts.entries())
     .map(([name, count]) => ({ name, count }))
@@ -500,6 +532,7 @@ export function SearchOrganismRail({
                 <div style={{ width: "100%" }}>
                   <OrganismFilter
                     results={results}
+                    serverFacets={organismServerFacets}
                     mode={organismNameMode}
                     onChangeMode={setOrganismNameMode}
                     selectedKey={selectedOrganismKey}
@@ -918,6 +951,7 @@ export function SearchOrganismRail({
         >
           <OrganismFilter
             results={results}
+            serverFacets={organismServerFacets}
             mode={organismNameMode}
             onChangeMode={setOrganismNameMode}
             selectedKey={selectedOrganismKey}

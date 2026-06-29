@@ -2,7 +2,11 @@
 import { OrganismNameMode } from "@/components/organism_filter";
 import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
-import { SearchFilters, SearchOrganismRail } from "@/components/search-filters";
+import {
+  SearchFilters,
+  SearchOrganismRail,
+  type SearchFacets,
+} from "@/components/search-filters";
 import { useSearchQuery } from "@/context/search_query";
 import { withTimeout } from "@/utils/api";
 import { SERVER_URL } from "@/utils/constants";
@@ -27,7 +31,7 @@ import {
   Text,
   Tooltip,
 } from "@radix-ui/themes";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -902,6 +906,24 @@ export default function SearchPageBody() {
     enabled: isGeoSearch || !!query,
   });
 
+  // Exact sidebar facet counts, fetched in parallel with the results so the
+  // organism/journal/etc. counts are correct outright instead of climbing as
+  // result pages stream in. Best-effort: if it's absent (geo search, timeout,
+  // error) the rail falls back to client-derived counts. Not used for geo search.
+  const { data: facetsResponse } = useQuery({
+    queryKey: ["search-facets", query, db],
+    queryFn: async ({ signal }) => {
+      const url = `${SERVER_URL}/search/facets?q=${encodeURIComponent(
+        query ?? "",
+      )}${db ? `&db=${db}` : ""}`;
+      const res = await fetch(url, { signal: withTimeout(signal) });
+      if (!res.ok) throw new Error("Failed to fetch facets");
+      return res.json() as Promise<{ facets: SearchFacets }>;
+    },
+    enabled: !isGeoSearch && !!query,
+  });
+  const serverFacets = facetsResponse?.facets;
+
   const total = data?.pages?.[0]?.total ?? 0;
   const tookMs = data?.pages?.[0]?.took_ms ?? 0;
   const suggestions = data?.pages?.[0]?.suggestions;
@@ -1366,6 +1388,7 @@ export default function SearchPageBody() {
 
   const railProps = {
     results: sidebarResults,
+    serverFacets,
     journalResults: journalFilterResults,
     countryResults: countryFilterResults,
     libraryStrategyResults: libraryStrategyFilterResults,

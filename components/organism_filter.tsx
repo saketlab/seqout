@@ -11,7 +11,7 @@ import {
 } from "@radix-ui/themes";
 import * as React from "react";
 
-type ScientificFacet = { name: string; count: number };
+export type ScientificFacet = { name: string; count: number };
 
 type OrganismDisplayFacet = {
   key: string;
@@ -283,21 +283,31 @@ function FilterList({
 
 export function OrganismFilter({
   results,
+  serverFacets,
   mode,
   onChangeMode,
   selectedKey,
   onChangeSelection,
 }: {
   results: Array<{ organisms: string[] | null }>;
+  // Exact organism counts from /search/facets. When present, they override the
+  // client-derived counts (which only reflect loaded pages); the client base
+  // still fills the long tail beyond the server's capped top-N.
+  serverFacets?: ScientificFacet[];
   mode: OrganismNameMode;
   onChangeMode: (mode: OrganismNameMode) => void;
   selectedKey: string | null;
   onChangeSelection: (next: string | null) => void;
 }) {
-  const scientificFacets = React.useMemo(
-    () => buildScientificFacets(results),
-    [results],
-  );
+  const scientificFacets = React.useMemo(() => {
+    const base = buildScientificFacets(results);
+    if (!serverFacets || serverFacets.length === 0) return base;
+    const counts = new Map(base.map((f) => [f.name, f.count]));
+    for (const f of serverFacets) counts.set(f.name, f.count);
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [results, serverFacets]);
   const scientificNames = React.useMemo(
     () => scientificFacets.map((facet) => facet.name),
     [scientificFacets],
