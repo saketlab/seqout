@@ -272,8 +272,7 @@ function Paginator({
   perPage,
   onPerPageChange,
   totalResults,
-  loadedResults,
-  isFetching,
+  displayResultsCount,
 }: {
   currentPage: number;
   totalPages: number;
@@ -281,19 +280,19 @@ function Paginator({
   perPage: PageSize;
   onPerPageChange: (size: PageSize) => void;
   totalResults: number;
-  loadedResults: number;
-  isFetching: boolean;
+  displayResultsCount: number;
 }) {
   if (totalResults === 0) return null;
   const start = (currentPage - 1) * perPage + 1;
-  const end = Math.min(currentPage * perPage, totalResults);
+  const end = Math.min(currentPage * perPage, displayResultsCount);
   const pages = getPageRange(currentPage, totalPages);
 
   return (
     <Flex direction="column" gap="3" align="center" py="2">
       <Flex gap="3" align="center" wrap="wrap" justify="center">
         <Text size="2" color="gray">
-          {start}&ndash;{end} of {totalResults.toLocaleString()} results
+          {start.toLocaleString()}&ndash;{end.toLocaleString()} of{" "}
+          {displayResultsCount.toLocaleString()} results
         </Text>
         <Flex gap="1" align="center">
           <Select.Root
@@ -312,28 +311,6 @@ function Paginator({
           </Select.Root>
         </Flex>
       </Flex>
-
-      {isFetching && loadedResults < totalResults && (
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 260,
-            height: 3,
-            background: "var(--gray-4)",
-            borderRadius: 2,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: `${Math.min(100, (loadedResults / totalResults) * 100)}%`,
-              height: "100%",
-              background: "var(--accent-9)",
-              transition: "width 0.3s ease",
-            }}
-          />
-        </div>
-      )}
 
       {totalPages > 1 && (
         <nav aria-label="Pagination">
@@ -1696,8 +1673,7 @@ export default function SearchPageBody() {
                 perPage={perPage}
                 onPerPageChange={setPerPage}
                 totalResults={filteredTotal}
-                loadedResults={allResults.length}
-                isFetching={isFetchingNextPage}
+                displayResultsCount={total}
               />
             </>
           ) : (
