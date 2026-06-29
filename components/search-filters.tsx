@@ -88,7 +88,8 @@ function buildFacetCounts(
     }
   }
   if (serverList) {
-    for (const { value, count } of serverList) counts.set(normalize(value), count);
+    for (const { value, count } of serverList)
+      counts.set(normalize(value), count);
   }
   return counts;
 }
@@ -578,7 +579,6 @@ export function SearchOrganismRail({
                 <Flex align={"center"} justify={"between"}>
                   <Flex align={"center"} gap={"2"}>
                     <Text>More filters</Text>
-                    <Badge color="teal">Beta</Badge>
                   </Flex>
                   <Flex align={"center"} gap={"2"}>
                     {selectedFilterCount > 0 ? (
@@ -1006,7 +1006,7 @@ export function SearchOrganismRail({
                 <MixerHorizontalIcon />
                 More filters
                 {selectedFilterCount > 0 ? (
-                  <Badge color="blue">{selectedFilterCount}</Badge>
+                  <Badge variant="surface">{selectedFilterCount}</Badge>
                 ) : null}
               </Button>
             </Dialog.Trigger>
@@ -1021,7 +1021,6 @@ export function SearchOrganismRail({
                 <Flex align={"center"} justify={"between"}>
                   <Flex align={"center"} gap={"2"}>
                     <Text>More filters</Text>
-                    <Badge color="teal">Beta</Badge>
                   </Flex>
                   <Flex align={"center"} gap={"2"}>
                     {selectedFilterCount > 0 ? (
