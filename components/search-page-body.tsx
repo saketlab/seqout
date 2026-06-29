@@ -158,17 +158,64 @@ function normalizeMultiValueFilter(values: string[]): string[] {
   return values.map((item) => item.trim()).filter(Boolean);
 }
 
+// Active sidebar filters sent to the server so /search returns an already-
+// filtered, paginated list (no client-side filtering of a fully-prefetched set).
+type SearchFilterParams = {
+  organism: string | null;
+  country: string[];
+  library_strategy: string[];
+  instrument_model: string[];
+  platform: string[];
+  journal: string[];
+  multi_platform: boolean;
+  year_from?: number;
+  year_to?: number;
+};
+
+function hasActiveFilters(f: SearchFilterParams): boolean {
+  return (
+    !!f.organism ||
+    f.country.length > 0 ||
+    f.library_strategy.length > 0 ||
+    f.instrument_model.length > 0 ||
+    f.platform.length > 0 ||
+    f.journal.length > 0 ||
+    f.multi_platform ||
+    f.year_from != null ||
+    f.year_to != null
+  );
+}
+
+function appendFilterParams(url: string, f: SearchFilterParams): string {
+  const add = (k: string, v: string) =>
+    (url += `&${k}=${encodeURIComponent(v)}`);
+  if (f.organism) add("organism", f.organism);
+  for (const v of f.country) add("country", v);
+  for (const v of f.library_strategy) add("library_strategy", v);
+  for (const v of f.instrument_model) add("instrument_model", v);
+  for (const v of f.platform) add("platform", v);
+  for (const v of f.journal) add("journal", v);
+  if (f.multi_platform) add("multi_platform", "true");
+  if (f.year_from != null) add("year_from", String(f.year_from));
+  if (f.year_to != null) add("year_to", String(f.year_to));
+  return url;
+}
+
 function buildSearchUrl(
   query: string,
   db: string | null,
   sortBy: SortBy,
   cursor: Cursor,
+  filters: SearchFilterParams,
 ): string {
+  // Filtering implies relevance order (the server's filtered path ignores
+  // sortby and paginates by rank), so don't emit a sort cursor when filtering.
+  const filtered = hasActiveFilters(filters);
   let url = `${SERVER_URL}/search?q=${encodeURIComponent(query)}`;
   if (db === "sra" || db === "geo" || db === "arrayexpress") {
     url += `&db=${encodeURIComponent(db)}`;
   }
-  if (sortBy !== "relevance") {
+  if (!filtered && sortBy !== "relevance") {
     const config = SORT_CONFIG[sortBy];
     url += `&sortby=${config.param}&order=${config.order}`;
     if (cursor && "sort_value" in cursor) {
@@ -177,7 +224,7 @@ function buildSearchUrl(
   } else if (cursor && "rank" in cursor) {
     url += `&cursor_rank=${cursor.rank}&cursor_acc=${encodeURIComponent(cursor.accession)}`;
   }
-  return url;
+  return appendFilterParams(url, filters);
 }
 
 const getSearchResults = async (
@@ -185,10 +232,11 @@ const getSearchResults = async (
   db: string | null,
   cursor: Cursor,
   sortBy: SortBy,
+  filters: SearchFilterParams,
   signal?: AbortSignal,
 ): Promise<SearchResponse | null> => {
   if (!query) return null;
-  const url = buildSearchUrl(query, db, sortBy, cursor);
+  const url = buildSearchUrl(query, db, sortBy, cursor, filters);
   const res = await fetch(url, { signal: withTimeout(signal) });
   if (!res.ok) {
     throw new Error("Network Error");
@@ -634,6 +682,24 @@ function applyTimeFilter(
   return results.filter((r) => new Date(r.updated_at) >= cutoff);
 }
 
+// Map the time-filter UI to server year bounds (uses updated_at's year, matching
+// applyTimeFilter and the server's EXTRACT(YEAR FROM updated_at)).
+function timeFilterToYears(
+  timeFilter: string,
+  customYearRange: { from: string; to: string },
+): { year_from?: number; year_to?: number } {
+  if (timeFilter === "any") return {};
+  if (timeFilter === "custom") {
+    const from = parseInt(customYearRange.from);
+    const to = parseInt(customYearRange.to);
+    return { year_from: from || undefined, year_to: to || undefined };
+  }
+  const years = parseInt(timeFilter);
+  if (!years) return {};
+  const currentYear = new Date().getFullYear();
+  return { year_from: currentYear - years, year_to: currentYear };
+}
+
 function applyOrganismFilter(
   results: SearchResult[],
   organismKey: string | null,
@@ -862,6 +928,33 @@ export default function SearchPageBody() {
   const multiPlatformOnly =
     searchParams.get(FILTER_PARAM_KEYS.multiPlatform) === "true";
 
+  // Sidebar filters sent to the server (text search) so it returns an already-
+  // filtered, paginated list — no client-side filtering of a prefetched set.
+  const searchFilters: SearchFilterParams = useMemo(
+    () => ({
+      organism: selectedOrganismKey,
+      country: selectedCountryFilters,
+      library_strategy: selectedLibraryStrategyFilters,
+      instrument_model: selectedInstrumentModelFilters,
+      platform: selectedPlatformFilters,
+      journal: selectedJournalFilters,
+      multi_platform: multiPlatformOnly,
+      ...timeFilterToYears(timeFilter, customYearRange),
+    }),
+    [
+      selectedOrganismKey,
+      selectedCountryFilters,
+      selectedLibraryStrategyFilters,
+      selectedInstrumentModelFilters,
+      selectedPlatformFilters,
+      selectedJournalFilters,
+      multiPlatformOnly,
+      timeFilter,
+      customYearRange,
+    ],
+  );
+  const filtersKey = JSON.stringify(searchFilters);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState<PageSize>(20);
 
@@ -896,11 +989,11 @@ export default function SearchPageBody() {
   } = useInfiniteQuery({
     queryKey: isGeoSearch
       ? ["geo-search", geoLat, geoLng, geoRadiusKm, geoOrganism, geoAssayL2, geoSource]
-      : ["search", query, db, sortBy],
+      : ["search", query, db, sortBy, filtersKey],
     queryFn: ({ pageParam, signal }) =>
       isGeoSearch
         ? getGeoSearchResults(geoLat!, geoLng!, geoRadiusKm, pageParam as Cursor, geoOrganism, geoAssayL2, geoSource, signal)
-        : getSearchResults(query, db, pageParam as Cursor, sortBy, signal),
+        : getSearchResults(query, db, pageParam as Cursor, sortBy, searchFilters, signal),
     initialPageParam: null as Cursor,
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
     enabled: isGeoSearch || !!query,
@@ -911,11 +1004,13 @@ export default function SearchPageBody() {
   // result pages stream in. Best-effort: if it's absent (geo search, timeout,
   // error) the rail falls back to client-derived counts. Not used for geo search.
   const { data: facetsResponse } = useQuery({
-    queryKey: ["search-facets", query, db],
+    queryKey: ["search-facets", query, db, filtersKey],
     queryFn: async ({ signal }) => {
-      const url = `${SERVER_URL}/search/facets?q=${encodeURIComponent(
+      let url = `${SERVER_URL}/search/facets?q=${encodeURIComponent(
         query ?? "",
       )}${db ? `&db=${db}` : ""}`;
+      // Send active filters so each facet narrows by the others (exclude-self).
+      url = appendFilterParams(url, searchFilters);
       const res = await fetch(url, { signal: withTimeout(signal) });
       if (!res.ok) throw new Error("Failed to fetch facets");
       return res.json() as Promise<{ facets: SearchFacets }>;
@@ -939,15 +1034,41 @@ export default function SearchPageBody() {
     });
   }, [data]);
 
+  // Geo search filters client-side, so it still needs the whole result set:
+  // keep eagerly prefetching every page. Text search filters + paginates on the
+  // server, so it must NOT prefetch — pages load on demand (see below).
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (!isGeoSearch) return;
     if (hasNextPage && !isFetchingNextPage) {
       prefetchTimerRef.current = setTimeout(() => fetchNextPage(), 150);
       return () => {
         if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
       };
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [isGeoSearch, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Text search: fetch the next server page only when the user navigates to a
+  // page we haven't loaded yet (each server page is 200 rows, so most page
+  // clicks just slice already-loaded data).
+  useEffect(() => {
+    if (isGeoSearch) return;
+    if (
+      hasNextPage &&
+      !isFetchingNextPage &&
+      allResults.length < currentPage * perPage
+    ) {
+      fetchNextPage();
+    }
+  }, [
+    isGeoSearch,
+    hasNextPage,
+    isFetchingNextPage,
+    allResults.length,
+    currentPage,
+    perPage,
+    fetchNextPage,
+  ]);
 
   // Snapshot sidebar results on first batch and on final load to prevent
   // facet counts from flickering as intermediate pages stream in.
@@ -980,6 +1101,8 @@ export default function SearchPageBody() {
   }
 
   const filteredResults = useMemo(() => {
+    // Text search is already filtered server-side; only geo filters client-side.
+    if (!isGeoSearch) return allResults;
     let results = allResults;
     results = applyTimeFilter(results, timeFilter, customYearRange);
     results = applyOrganismFilter(results, selectedOrganismKey);
@@ -991,6 +1114,7 @@ export default function SearchPageBody() {
     results = applyMultiPlatformFilter(results, multiPlatformOnly);
     return results;
   }, [
+    isGeoSearch,
     allResults,
     timeFilter,
     customYearRange,
@@ -1082,6 +1206,10 @@ export default function SearchPageBody() {
   ]);
 
   useEffect(() => {
+    // Only safe for geo, which holds the full result set. Text search paginates
+    // server-side, so the loaded pages aren't the whole set — a still-valid
+    // filter whose matches are all on later pages would be wrongly pruned.
+    if (!isGeoSearch) return;
     const nextJournalFilters = selectedJournalFilters.filter((journal) =>
       getAvailableJournals(journalFilterResults).has(journal),
     );
@@ -1126,6 +1254,7 @@ export default function SearchPageBody() {
       [FILTER_PARAM_KEYS.instrumentModel]: nextInstrumentModelFilters,
     });
   }, [
+    isGeoSearch,
     selectedJournalFilters,
     selectedCountryFilters,
     selectedLibraryStrategyFilters,
@@ -1137,7 +1266,10 @@ export default function SearchPageBody() {
     updateSearchUrl,
   ]);
 
-  const filteredTotal = filteredResults.length;
+  // Text search paginates server-side: the true total is the server count, and
+  // filteredResults holds only the pages loaded so far. Geo filters client-side,
+  // so its total is the filtered-set length.
+  const filteredTotal = isGeoSearch ? filteredResults.length : total;
   const totalPages = Math.max(1, Math.ceil(filteredTotal / perPage));
   const safePage = Math.min(currentPage, totalPages);
   const startIdx = (safePage - 1) * perPage;
@@ -1152,7 +1284,9 @@ export default function SearchPageBody() {
       return `${allResults.length.toLocaleString()} result${allResults.length === 1 ? "" : "s"} were filtered out. Try removing a filter.`;
     }
     const pageCount = pageResults.length;
-    if (hasNextPage) {
+    // Geo's total grows as pages stream in (client-side count), so show "N+";
+    // text search knows the exact server total up front.
+    if (isGeoSearch && hasNextPage) {
       return `${filteredTotal.toLocaleString()}+ results. Showing page ${safePage} of ${totalPages}, ${pageCount} result${pageCount === 1 ? "" : "s"}.`;
     }
     return `${filteredTotal.toLocaleString()} result${filteredTotal === 1 ? "" : "s"}. Showing page ${safePage} of ${totalPages}.`;
@@ -1253,6 +1387,67 @@ export default function SearchPageBody() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
+
+  // --- "More filters" debounce: tick several boxes, apply (and refetch) once ---
+  // `localMore` is the optimistic copy the rail's checkboxes read, so ticks show
+  // instantly; a single debounced commit then writes them all to the URL at once
+  // (one refetch). Chips/search keep reading the committed URL values.
+  const committedMoreFilters = useMemo(
+    () => ({
+      journal: selectedJournalFilters,
+      country: selectedCountryFilters,
+      library_strategy: selectedLibraryStrategyFilters,
+      instrument_model: selectedInstrumentModelFilters,
+      platform: selectedPlatformFilters,
+      multi_platform: multiPlatformOnly,
+    }),
+    [
+      selectedJournalFilters,
+      selectedCountryFilters,
+      selectedLibraryStrategyFilters,
+      selectedInstrumentModelFilters,
+      selectedPlatformFilters,
+      multiPlatformOnly,
+    ],
+  );
+  const committedMoreKey = JSON.stringify(committedMoreFilters);
+  const [localMore, setLocalMore] = useState(committedMoreFilters);
+  // Re-sync the optimistic copy whenever the URL's filters actually change
+  // (a debounced commit landing, a chip removal, a deep link, back/forward).
+  // Adjusted during render (per React docs) rather than in an effect.
+  const [prevCommittedMoreKey, setPrevCommittedMoreKey] =
+    useState(committedMoreKey);
+  if (committedMoreKey !== prevCommittedMoreKey) {
+    setPrevCommittedMoreKey(committedMoreKey);
+    setLocalMore(committedMoreFilters);
+  }
+
+  // Ticks update only the optimistic copy; nothing reloads until the user hits
+  // the dialog's Apply button. Closing without applying discards the changes.
+  const railSetJournal = (v: string[]) =>
+    setLocalMore((p) => ({ ...p, journal: v }));
+  const railSetCountry = (v: string[]) =>
+    setLocalMore((p) => ({ ...p, country: v }));
+  const railSetLibraryStrategy = (v: string[]) =>
+    setLocalMore((p) => ({ ...p, library_strategy: v }));
+  const railSetInstrumentModel = (v: string[]) =>
+    setLocalMore((p) => ({ ...p, instrument_model: v }));
+  const railSetPlatform = (v: string[]) =>
+    setLocalMore((p) => ({ ...p, platform: v }));
+  const railSetMultiPlatform = (v: boolean) =>
+    setLocalMore((p) => ({ ...p, multi_platform: v }));
+  const applyMoreFilters = () =>
+    updateSearchUrl({
+      [FILTER_PARAM_KEYS.journal]: localMore.journal,
+      [FILTER_PARAM_KEYS.country]: localMore.country,
+      [FILTER_PARAM_KEYS.libraryStrategy]: localMore.library_strategy,
+      [FILTER_PARAM_KEYS.instrumentModel]: localMore.instrument_model,
+      [FILTER_PARAM_KEYS.platform]: localMore.platform,
+      [FILTER_PARAM_KEYS.multiPlatform]: localMore.multi_platform
+        ? "true"
+        : null,
+    });
+  const discardMoreFilters = () => setLocalMore(committedMoreFilters);
 
   const handleSetJournalFilters = useCallback((arr: string[]) => {
     updateSearchUrl({
@@ -1389,6 +1584,9 @@ export default function SearchPageBody() {
   const railProps = {
     results: sidebarResults,
     serverFacets,
+    // Text search knows the exact total up front; geo derives it from its
+    // (prefetched) result set, so let the rail fall back to results.length.
+    totalCount: isGeoSearch ? undefined : total,
     journalResults: journalFilterResults,
     countryResults: countryFilterResults,
     libraryStrategyResults: libraryStrategyFilterResults,
@@ -1400,20 +1598,24 @@ export default function SearchPageBody() {
       updateSearchUrl({
         [FILTER_PARAM_KEYS.organism]: value,
       }),
-    selectedJournalFilters,
-    setSelectedJournalFilters: handleSetJournalFilters,
-    selectedCountryFilters,
-    setSelectedCountryFilters: handleSetCountryFilters,
-    selectedLibraryStrategyFilters,
-    setSelectedLibraryStrategyFilters: handleSetLibraryStrategyFilters,
-    selectedInstrumentModelFilters,
-    setSelectedInstrumentModelFilters: handleSetInstrumentModelFilters,
+    // The rail reads the optimistic copy + debounced setters so ticking several
+    // boxes doesn't refetch per click; the URL (and search) update once, later.
+    selectedJournalFilters: localMore.journal,
+    setSelectedJournalFilters: railSetJournal,
+    selectedCountryFilters: localMore.country,
+    setSelectedCountryFilters: railSetCountry,
+    selectedLibraryStrategyFilters: localMore.library_strategy,
+    setSelectedLibraryStrategyFilters: railSetLibraryStrategy,
+    selectedInstrumentModelFilters: localMore.instrument_model,
+    setSelectedInstrumentModelFilters: railSetInstrumentModel,
     platformResults: platformFilterResults,
-    selectedPlatformFilters,
-    setSelectedPlatformFilters: handleSetPlatformFilters,
-    multiPlatformOnly,
-    setMultiPlatformOnly: handleSetMultiPlatform,
+    selectedPlatformFilters: localMore.platform,
+    setSelectedPlatformFilters: railSetPlatform,
+    multiPlatformOnly: localMore.multi_platform,
+    setMultiPlatformOnly: railSetMultiPlatform,
     onClearMoreFilters: handleClearMoreFilters,
+    onApplyMoreFilters: applyMoreFilters,
+    onDiscardMoreFilters: discardMoreFilters,
   };
 
   const hasAnyFilter =

@@ -8,6 +8,7 @@ import {
 import type { SortBy } from "@/components/search-page-body";
 import { SearchResult } from "@/utils/types";
 import {
+  CheckIcon,
   CrumpledPaperIcon,
   InfoCircledIcon,
   MagnifyingGlassIcon,
@@ -268,6 +269,7 @@ function normalizeYearRange(
 export function SearchOrganismRail({
   results,
   serverFacets,
+  totalCount,
   journalResults,
   countryResults,
   libraryStrategyResults,
@@ -290,11 +292,14 @@ export function SearchOrganismRail({
   multiPlatformOnly,
   setMultiPlatformOnly,
   onClearMoreFilters,
+  onApplyMoreFilters,
+  onDiscardMoreFilters,
   showMobile = false,
   showDesktop = true,
 }: {
   results: SearchResult[];
   serverFacets?: SearchFacets;
+  totalCount?: number;
   journalResults: SearchResult[];
   countryResults: SearchResult[];
   libraryStrategyResults: SearchResult[];
@@ -317,6 +322,10 @@ export function SearchOrganismRail({
   multiPlatformOnly: boolean;
   setMultiPlatformOnly: (value: boolean) => void;
   onClearMoreFilters: () => void;
+  // Commit the pending (optimistic) more-filter selections to the URL / search.
+  onApplyMoreFilters: () => void;
+  // Discard pending changes (called when the dialog closes without applying).
+  onDiscardMoreFilters: () => void;
   showMobile?: boolean;
   showDesktop?: boolean;
 }) {
@@ -533,6 +542,7 @@ export function SearchOrganismRail({
                   <OrganismFilter
                     results={results}
                     serverFacets={organismServerFacets}
+                    totalCount={totalCount}
                     mode={organismNameMode}
                     onChangeMode={setOrganismNameMode}
                     selectedKey={selectedOrganismKey}
@@ -543,7 +553,14 @@ export function SearchOrganismRail({
             </Dialog.Content>
           </Dialog.Root>
 
-          <Dialog.Root open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen}>
+          <Dialog.Root
+            open={moreFiltersOpen}
+            onOpenChange={(open) => {
+              // Closing via X / overlay / Esc discards unapplied ticks.
+              if (!open) onDiscardMoreFilters();
+              setMoreFiltersOpen(open);
+            }}
+          >
             <Dialog.Trigger>
               <Button>
                 <MixerHorizontalIcon />
@@ -563,14 +580,32 @@ export function SearchOrganismRail({
                     <Text>More filters</Text>
                     <Badge color="teal">Beta</Badge>
                   </Flex>
-                  <Button
-                    size={"1"}
-                    color="red"
-                    disabled={selectedFilterCount === 0}
-                    onClick={onClearMoreFilters}
-                  >
-                    <CrumpledPaperIcon /> Clear
-                  </Button>
+                  <Flex align={"center"} gap={"2"}>
+                    {selectedFilterCount > 0 ? (
+                      <Button
+                        size={"1"}
+                        color="red"
+                        variant="soft"
+                        onClick={() => {
+                          onClearMoreFilters();
+                          setMoreFiltersOpen(false);
+                        }}
+                      >
+                        <CrumpledPaperIcon /> Clear
+                      </Button>
+                    ) : null}
+                    <Button
+                      size={"1"}
+                      color="green"
+                      variant="soft"
+                      onClick={() => {
+                        onApplyMoreFilters();
+                        setMoreFiltersOpen(false);
+                      }}
+                    >
+                      <CheckIcon /> Apply filters
+                    </Button>
+                  </Flex>
                 </Flex>
               </Dialog.Title>
 
@@ -952,12 +987,20 @@ export function SearchOrganismRail({
           <OrganismFilter
             results={results}
             serverFacets={organismServerFacets}
+            totalCount={totalCount}
             mode={organismNameMode}
             onChangeMode={setOrganismNameMode}
             selectedKey={selectedOrganismKey}
             onChangeSelection={setSelectedOrganismFilter}
           />
-          <Dialog.Root open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen}>
+          <Dialog.Root
+            open={moreFiltersOpen}
+            onOpenChange={(open) => {
+              // Closing via X / overlay / Esc discards unapplied ticks.
+              if (!open) onDiscardMoreFilters();
+              setMoreFiltersOpen(open);
+            }}
+          >
             <Dialog.Trigger>
               <Button variant="classic">
                 <MixerHorizontalIcon />
@@ -980,14 +1023,32 @@ export function SearchOrganismRail({
                     <Text>More filters</Text>
                     <Badge color="teal">Beta</Badge>
                   </Flex>
-                  <Button
-                    size={"1"}
-                    color="red"
-                    disabled={selectedFilterCount === 0}
-                    onClick={onClearMoreFilters}
-                  >
-                    <CrumpledPaperIcon /> Clear
-                  </Button>
+                  <Flex align={"center"} gap={"2"}>
+                    {selectedFilterCount > 0 ? (
+                      <Button
+                        size={"1"}
+                        color="red"
+                        variant="soft"
+                        onClick={() => {
+                          onClearMoreFilters();
+                          setMoreFiltersOpen(false);
+                        }}
+                      >
+                        <CrumpledPaperIcon /> Clear
+                      </Button>
+                    ) : null}
+                    <Button
+                      size={"1"}
+                      color="green"
+                      variant="soft"
+                      onClick={() => {
+                        onApplyMoreFilters();
+                        setMoreFiltersOpen(false);
+                      }}
+                    >
+                      <CheckIcon /> Apply filters
+                    </Button>
+                  </Flex>
                 </Flex>
               </Dialog.Title>
 

@@ -284,6 +284,7 @@ function FilterList({
 export function OrganismFilter({
   results,
   serverFacets,
+  totalCount: totalCountProp,
   mode,
   onChangeMode,
   selectedKey,
@@ -294,6 +295,9 @@ export function OrganismFilter({
   // client-derived counts (which only reflect loaded pages); the client base
   // still fills the long tail beyond the server's capped top-N.
   serverFacets?: ScientificFacet[];
+  // Exact total study count for the "All organisms" row. Without it the count
+  // would reflect only the loaded pages (server pagination loads them lazily).
+  totalCount?: number;
   mode: OrganismNameMode;
   onChangeMode: (mode: OrganismNameMode) => void;
   selectedKey: string | null;
@@ -348,7 +352,7 @@ export function OrganismFilter({
     [scientificFacets, mode, commonNamesByScientific],
   );
 
-  const totalCount = results.length;
+  const totalCount = totalCountProp ?? results.length;
 
   const onClear = () => onChangeSelection(null);
   const onSelect = (facetKey: string) => onChangeSelection(facetKey);
