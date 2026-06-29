@@ -70,7 +70,7 @@ export type SearchFacets = {
  * Counts for one sidebar facet. Client-derived from the loaded results, then
  * overridden by exact server totals where available — server is authoritative
  * for its (capped) top values, while the client base still supplies the long
- * tail so search-within-filter keeps finding rare values as pages stream in.
+ * tail so search-within-filter keeps finding rare values beyond that cap.
  */
 function buildFacetCounts(
   serverList: SearchFacetList | undefined,

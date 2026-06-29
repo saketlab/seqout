@@ -21,7 +21,6 @@ import {
   ReloadIcon,
 } from "@radix-ui/react-icons";
 import {
-  Badge,
   Button,
   Flex,
   Separator,
@@ -469,45 +468,18 @@ function FilterChip({
   label: string;
   onRemove: () => void;
 }) {
+  // The whole chip removes the filter on click; the X icon signals that.
   return (
-    <Badge size="2" color="gray" variant="soft">
-      <Flex align="center" gap="1">
-        <Text size="1">{label}</Text>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remove ${label} filter`}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: "inherit",
-            // 6px padding + 11px icon + 6px padding = 23px ≈ 24×24 hit area,
-            // negative margin keeps the visual chip compact.
-            padding: "6px",
-            margin: "-6px -4px -6px 0",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minWidth: "24px",
-            minHeight: "24px",
-            cursor: "pointer",
-            opacity: 0.7,
-            borderRadius: "var(--radius-2)",
-            transition: "opacity 120ms, background 120ms",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = "1";
-            e.currentTarget.style.background = "var(--gray-a3)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = "0.7";
-            e.currentTarget.style.background = "transparent";
-          }}
-        >
-          <Cross1Icon width="11" height="11" />
-        </button>
-      </Flex>
-    </Badge>
+    <Button
+      size="1"
+      variant="soft"
+      color="gray"
+      onClick={onRemove}
+      aria-label={`Remove ${label} filter`}
+    >
+      {label}
+      <Cross1Icon />
+    </Button>
   );
 }
 
@@ -647,6 +619,7 @@ function ActiveFilterChips(props: ActiveFilterChipsProps) {
         variant="ghost"
         size="1"
         color="gray"
+        ml="1"
         onClick={props.onClearAll}
         aria-label="Clear all filters"
       >
@@ -1388,10 +1361,10 @@ export default function SearchPageBody() {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  // --- "More filters" debounce: tick several boxes, apply (and refetch) once ---
+  // --- "More filters": tick several boxes, apply (and refetch) once on Apply ---
   // `localMore` is the optimistic copy the rail's checkboxes read, so ticks show
-  // instantly; a single debounced commit then writes them all to the URL at once
-  // (one refetch). Chips/search keep reading the committed URL values.
+  // instantly; the dialog's Apply button then commits them all to the URL at
+  // once (one refetch). Chips/search keep reading the committed URL values.
   const committedMoreFilters = useMemo(
     () => ({
       journal: selectedJournalFilters,
@@ -1413,7 +1386,7 @@ export default function SearchPageBody() {
   const committedMoreKey = JSON.stringify(committedMoreFilters);
   const [localMore, setLocalMore] = useState(committedMoreFilters);
   // Re-sync the optimistic copy whenever the URL's filters actually change
-  // (a debounced commit landing, a chip removal, a deep link, back/forward).
+  // (Apply committing, a chip removal, a deep link, back/forward).
   // Adjusted during render (per React docs) rather than in an effect.
   const [prevCommittedMoreKey, setPrevCommittedMoreKey] =
     useState(committedMoreKey);
@@ -1598,8 +1571,8 @@ export default function SearchPageBody() {
       updateSearchUrl({
         [FILTER_PARAM_KEYS.organism]: value,
       }),
-    // The rail reads the optimistic copy + debounced setters so ticking several
-    // boxes doesn't refetch per click; the URL (and search) update once, later.
+    // The rail reads the optimistic copy + Apply-gated setters so ticking several
+    // boxes doesn't refetch per click; the URL (and search) update once on Apply.
     selectedJournalFilters: localMore.journal,
     setSelectedJournalFilters: railSetJournal,
     selectedCountryFilters: localMore.country,
