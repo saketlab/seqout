@@ -16,17 +16,3 @@ We also have a map of 800K+ datasets in a two-dimensional space, obtained via UM
 Seqout also has an MCP server to help work with genomic datasets using AI agents (such as Claude, Codex, Antigravity etc.). Visit [seqout.org/mcp](https://seqout.org/mcp) for more information.
 
 Additionally, we also provide an _enriched_ view of samples and experiments with standardized attributes. For example, check out: [seqout.org/p/GSE44255#samples=enriched](https://seqout.org/p/GSE44255#samples=enriched).
-
-### Citation
-
-If you have found any component of Seqout helpful in your research, feel free to cite us.
-
-```bibtex
-@misc{Seqout,
-  author = {Mukherjee, Aniruddha and Choudhary, Saket},
-  title  = {Seqout: Search engine for genomic datasets},
-  year   = {2026},
-  url    = {https://seqout.org/},
-  note   = {Accessed: 2026-06-22}
-}
-```
