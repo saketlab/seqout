@@ -3,6 +3,7 @@ import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import LinkedSraFastq from "@/components/linked-sra-fastq";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
+import { useWrapText } from "@/components/wrap-text-toggle";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -20,6 +21,7 @@ import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
   TABLE_PAGE_SIZE,
+  truncatableColDef,
 } from "@/lib/ag-grid";
 import { getJson, getJsonWithTotal } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
@@ -458,6 +460,7 @@ export default function GeoProjectPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const highlightOrganism = searchParams.get("organism")?.toLowerCase() ?? null;
+  const wrap = useWrapText();
   const { resolvedTheme } = useTheme();
   const { showToast } = useToast();
   const accession = params.accession as string | undefined;
@@ -952,20 +955,13 @@ export default function GeoProjectPage() {
       filter: true,
       resizable: true,
       sortable: true,
-      autoHeight: false,
-      wrapText: false,
       minWidth: 20,
       width: 150,
-      cellStyle: {
-        fontSize: "14px",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-      },
+      ...truncatableColDef<GeoSampleGridRow>(wrap),
       valueFormatter: (params) => toDisplayText(params.value),
       tooltipValueGetter: (params) => toDisplayText(params.value),
     }),
-    [],
+    [wrap],
   );
 
   const sampleColumnDefs = React.useMemo<ColDef<GeoSampleGridRow>[]>(

@@ -2,6 +2,7 @@
 import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
+import { useWrapText, WrapTextToggle } from "@/components/wrap-text-toggle";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -20,6 +21,8 @@ import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
   TABLE_PAGE_SIZE,
+  truncatableColDef,
+  wrapColDef,
 } from "@/lib/ag-grid";
 import {
   getJson,
@@ -500,6 +503,7 @@ export function DownloadFastqSection({
   expTitleMap: Map<string, string>;
 }) {
   const { showToast } = useToast();
+  const wrap = useWrapText();
   const [copied, setCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
@@ -1087,8 +1091,13 @@ export function DownloadFastqSection({
   );
 
   const defaultColDef = React.useMemo<ColDef<RunRow>>(
-    () => ({ filter: true, resizable: true, sortable: true }),
-    [],
+    () => ({
+      filter: true,
+      resizable: true,
+      sortable: true,
+      ...wrapColDef<RunRow>(wrap),
+    }),
+    [wrap],
   );
 
   const downloadLabel =
@@ -1152,7 +1161,8 @@ export function DownloadFastqSection({
           )}
         </Flex>
 
-        <Flex gap="2" wrap="wrap">
+        <Flex gap="2" wrap="wrap" align="center">
+          <WrapTextToggle />
           <Button size="2" variant="surface" onClick={downloadTsv}>
             <DownloadIcon /> {downloadLabel} (TSV)
           </Button>
@@ -1676,6 +1686,7 @@ export default function ProjectPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const highlightOrganism = searchParams.get("organism")?.toLowerCase() ?? null;
+  const wrap = useWrapText();
   const { resolvedTheme } = useTheme();
   const { showToast } = useToast();
   const accession = params.accession as string | undefined;
@@ -1953,20 +1964,13 @@ export default function ProjectPage() {
       filter: true,
       resizable: true,
       sortable: true,
-      autoHeight: false,
-      wrapText: false,
       minWidth: 20,
       width: 150,
-      cellStyle: {
-        fontSize: "14px",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-      },
+      ...truncatableColDef<ExperimentGridRow>(wrap),
       valueFormatter: (params) => toDisplayText(params.value),
       tooltipValueGetter: (params) => toDisplayText(params.value),
     }),
-    [],
+    [wrap],
   );
 
   const experimentColumnDefs = React.useMemo<ColDef<ExperimentGridRow>[]>(

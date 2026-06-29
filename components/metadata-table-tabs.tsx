@@ -7,6 +7,7 @@ import {
 } from "@/components/enriched-metadata-card";
 import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
+import { WrapTextToggle } from "@/components/wrap-text-toggle";
 import { buildSectionHash, parseSectionHash } from "@/utils/sectionHash";
 import { copySectionLink } from "@/utils/shareSectionLink";
 import {
@@ -206,6 +207,7 @@ export default function MetadataTableTabs({
               </Tabs.List>
             </Tabs.Root>
           )}
+          <WrapTextToggle size="3" />
           <Button
             onClick={() => {
               if (showEnriched && enriched) {

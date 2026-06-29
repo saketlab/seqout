@@ -3,6 +3,7 @@ import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
   TABLE_PAGE_SIZE,
+  wrapColDef,
 } from "@/lib/ag-grid";
 import { SERVER_URL } from "@/utils/constants";
 import {
@@ -14,6 +15,7 @@ import { Badge, Flex, Spinner, Text, Tooltip } from "@radix-ui/themes";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
+import { useWrapText } from "@/components/wrap-text-toggle";
 import { useTheme } from "next-themes";
 
 ensureAgGridModules();
@@ -395,6 +397,7 @@ export function EnrichedMetadataGrid({
   isFetchingNextPage: boolean;
 }) {
   const { resolvedTheme } = useTheme();
+  const wrap = useWrapText();
   const agGridThemeClassName =
     resolvedTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz";
 
@@ -463,7 +466,12 @@ export function EnrichedMetadataGrid({
       >
         <AgGridReact<OntologySample>
           columnDefs={columnDefs}
-          defaultColDef={{ filter: true, sortable: true, resizable: true }}
+          defaultColDef={{
+            filter: true,
+            sortable: true,
+            resizable: true,
+            ...wrapColDef<OntologySample>(wrap),
+          }}
           enableCellTextSelection
           ensureDomOrder
           getRowId={(params) => params.data.sample}
