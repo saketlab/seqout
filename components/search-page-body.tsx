@@ -963,10 +963,16 @@ export default function SearchPageBody() {
     queryKey: isGeoSearch
       ? ["geo-search", geoLat, geoLng, geoRadiusKm, geoOrganism, geoAssayL2, geoSource]
       : ["search", query, db, sortBy, filtersKey],
-    queryFn: ({ pageParam, signal }) =>
-      isGeoSearch
-        ? getGeoSearchResults(geoLat!, geoLng!, geoRadiusKm, pageParam as Cursor, geoOrganism, geoAssayL2, geoSource, signal)
-        : getSearchResults(query, db, pageParam as Cursor, sortBy, searchFilters, signal),
+    queryFn: async ({ pageParam, signal }) => {
+      // Measure real wall-clock (fetch + network), not the server's took_ms —
+      // backend time alone hides the latency the user actually waits through.
+      const start = performance.now();
+      const res = isGeoSearch
+        ? await getGeoSearchResults(geoLat!, geoLng!, geoRadiusKm, pageParam as Cursor, geoOrganism, geoAssayL2, geoSource, signal)
+        : await getSearchResults(query, db, pageParam as Cursor, sortBy, searchFilters, signal);
+      if (res) res.took_ms = performance.now() - start;
+      return res;
+    },
     initialPageParam: null as Cursor,
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
     enabled: isGeoSearch || !!query,
