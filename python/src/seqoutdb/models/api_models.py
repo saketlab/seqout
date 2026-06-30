@@ -442,11 +442,21 @@ class ExperimentSampleChannel(BaseModel):
 
     @field_validator("characteristics", mode="before")
     @classmethod
+<<<<<<< HEAD
     def _flatten_characteristics(cls, v: Any) -> dict[str, str]:
         result: dict[str, str] = {}
         for item in v:
             result[item["@tag"]] = item["#text"]
         return result
+=======
+    def _flatten_characteristics(cls, v):
+        if isinstance(v, dict):  # single characteristic isn't wrapped in a list
+            v = [v]
+        map: dict[str, str] = {}
+        for item in v or []:
+            map[item["@tag"]] = item["#text"]
+        return map
+>>>>>>> a333fbcdb5430a0481d858e84aa8beb04d2a894f
 
 
 class ExperimentSample(BaseModel):
@@ -468,7 +478,16 @@ class ExperimentSample(BaseModel):
     def _flatten_supplementary_data(cls, v: Any) -> list[str]:
         if not v:
             return []
+<<<<<<< HEAD
         return [item["#text"] for item in v]
+=======
+        if isinstance(v, dict):  # single file isn't wrapped in a list
+            v = [v]
+        links: list[str] = []
+        for item in v:
+            links.append(item["#text"])
+        return links
+>>>>>>> a333fbcdb5430a0481d858e84aa8beb04d2a894f
 
 
 class ExperimentSampleList(BaseContainer[ExperimentSample]):
@@ -500,4 +519,16 @@ class SampleMetadataResult(BaseModel):
 class SampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
+<<<<<<< HEAD
     sample: ExperimentSample | SampleMetadataResult
+=======
+    sample: SampleMetadataResult
+
+
+# GEO sample detail: same /sample-detail/{acc} endpoint, but a GSM's `sample` is a
+# channels-based ExperimentSample rather than an SRA SampleMetadataResult.
+class GeoSampleDetailedMetadata(BaseModel):
+    sample_type: str
+    project: ProjectMetadataResult
+    sample: ExperimentSample
+>>>>>>> a333fbcdb5430a0481d858e84aa8beb04d2a894f

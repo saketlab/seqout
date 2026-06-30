@@ -32,6 +32,7 @@ packages = ["src/seqoutdb"]
 [tool.setuptools.package-data]
 seqoutdb = ["py.typed"]
 
+<<<<<<< HEAD
 [tool.ruff]
 target-version = "py313"
 
@@ -52,6 +53,10 @@ ignore = [
 quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
+=======
+[tool.pytest.ini_options]
+markers = ["network: hits the live seqout.org API; skips when unreachable"]
+>>>>>>> a333fbcdb5430a0481d858e84aa8beb04d2a894f
 
 [dependency-groups]
 dev = [
