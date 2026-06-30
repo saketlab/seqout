@@ -28,6 +28,7 @@ import {
   Skeleton,
   Spinner,
   Text,
+  TextField,
   Tooltip,
 } from "@radix-ui/themes";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -333,10 +334,46 @@ function Paginator({
   totalResults: number;
   displayResultsCount: number;
 }) {
+  const [pageInputState, setPageInputState] = useState({
+    currentPage,
+    value: String(currentPage),
+  });
+  let pageInput = pageInputState.value;
+  if (pageInputState.currentPage !== currentPage) {
+    const nextState = {
+      currentPage,
+      value: String(currentPage),
+    };
+    setPageInputState(nextState);
+    pageInput = nextState.value;
+  }
+
   if (totalResults === 0) return null;
   const start = (currentPage - 1) * perPage + 1;
   const end = Math.min(currentPage * perPage, displayResultsCount);
   const pages = getPageRange(currentPage, totalPages);
+  const handlePageInputCommit = () => {
+    const parsed = Number(pageInput);
+    if (!Number.isFinite(parsed)) {
+      setPageInputState({
+        currentPage,
+        value: String(currentPage),
+      });
+      return;
+    }
+
+    const nextPage = Math.min(
+      Math.max(Math.trunc(parsed), 1),
+      totalPages,
+    );
+    setPageInputState({
+      currentPage: nextPage,
+      value: String(nextPage),
+    });
+    if (nextPage !== currentPage) {
+      onPageChange(nextPage);
+    }
+  };
 
   return (
     <Flex direction="column" gap="3" align="center" py="2">
@@ -405,6 +442,44 @@ function Paginator({
             >
               <ChevronRightIcon />
             </Button>
+            <Flex gap="2" align="center" ml={{ initial: "0", md: "2" }}>
+              <Text size="2" color="gray" asChild>
+                <label htmlFor="search-page-jump">Page</label>
+              </Text>
+              <TextField.Root
+                id="search-page-jump"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={totalPages}
+                value={pageInput}
+                onChange={(event) =>
+                  setPageInputState({
+                    currentPage,
+                    value: event.target.value,
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handlePageInputCommit();
+                  }
+                }}
+                onBlur={handlePageInputCommit}
+                aria-label={`Go to page, 1 through ${totalPages}`}
+                size="1"
+                variant="surface"
+                style={{ width: "4.5rem" }}
+              />
+              <Button
+                variant="soft"
+                size={{ initial: "2", md: "1" }}
+                onClick={handlePageInputCommit}
+                aria-label="Go to entered page"
+              >
+                Go
+              </Button>
+            </Flex>
           </Flex>
         </nav>
       )}
