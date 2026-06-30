@@ -675,7 +675,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="journals"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -726,7 +726,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="countries"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -777,7 +777,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="library-strategy"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -838,7 +838,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="instrument-models"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -899,7 +899,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="platform"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <Text as="label" size="2">
@@ -1117,7 +1117,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="journals"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -1168,7 +1168,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="countries"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -1219,7 +1219,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="library-strategy"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -1280,7 +1280,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="instrument-models"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <TextField.Root
@@ -1341,7 +1341,7 @@ export function SearchOrganismRail({
 
                 <Tabs.Content
                   value="platform"
-                  style={{ height: "17rem", overflow: "auto" }}
+                  style={{ height: "17rem", overflow: "hidden" }}
                 >
                   <Flex direction="column" gap="3" pt="3">
                     <Text as="label" size="2">
