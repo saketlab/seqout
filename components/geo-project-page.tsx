@@ -328,32 +328,6 @@ const getBrowserDownloadUrl = (url: string): string => {
 const getAppDownloadUrl = (url: string, fileName: string): string =>
   `/web-api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`;
 
-const INLINE_PREVIEW_EXTENSIONS = new Set([
-  ".txt",
-  ".tsv",
-  ".csv",
-  ".json",
-  ".xml",
-  ".html",
-  ".htm",
-  ".md",
-  ".yaml",
-  ".yml",
-  ".log",
-]);
-
-const shouldUseProxyDownload = (url: string, fileName: string): boolean => {
-  const normalizedName = fileName.toLowerCase();
-  const nameMatch = normalizedName.match(/(\.[a-z0-9]+)$/);
-  if (nameMatch) {
-    return INLINE_PREVIEW_EXTENSIONS.has(nameMatch[1]);
-  }
-
-  const normalizedUrl = url.toLowerCase().split("?")[0].split("#")[0];
-  const urlMatch = normalizedUrl.match(/(\.[a-z0-9]+)$/);
-  return urlMatch ? INLINE_PREVIEW_EXTENSIONS.has(urlMatch[1]) : false;
-};
-
 const formatFileSize = (sizeInBytes: number | null): string | null => {
   if (
     sizeInBytes === null ||
@@ -404,9 +378,7 @@ const buildSupplementaryItems = ({
         fileSizeLabel: formatFileSize(entry.size),
         curlCommand: buildCurlCommand(browserDownloadUrl),
         browserDownloadUrl,
-        downloadUrl: shouldUseProxyDownload(browserDownloadUrl, fileName)
-          ? getAppDownloadUrl(browserDownloadUrl, fileName)
-          : browserDownloadUrl,
+        downloadUrl: getAppDownloadUrl(browserDownloadUrl, fileName),
         sourceSampleAccession,
       };
     })
@@ -710,8 +682,12 @@ export default function GeoProjectPage() {
         setDownloadAllProgressPercent(progress);
         await new Promise((resolve) => window.setTimeout(resolve, 150));
       }
+      showToast(
+        `Downloading ${items.length} file${items.length === 1 ? "" : "s"}`,
+      );
     } catch (error) {
-      console.error("Failed to download all supplementary files:", error);
+      console.error("Failed to download supplementary files:", error);
+      showToast("Failed to start supplementary downloads");
     } finally {
       setIsDownloadingAllSupplementary(false);
       window.setTimeout(() => {
@@ -790,8 +766,12 @@ export default function GeoProjectPage() {
         setSampleDownloadAllProgressPercent(progress);
         await new Promise((resolve) => window.setTimeout(resolve, 150));
       }
+      showToast(
+        `Downloading ${items.length} file${items.length === 1 ? "" : "s"}`,
+      );
     } catch (error) {
       console.error("Failed to download sample supplementary files:", error);
+      showToast("Failed to start sample supplementary downloads");
     } finally {
       setIsDownloadingAllSampleSupplementary(false);
       window.setTimeout(() => {
@@ -1312,16 +1292,16 @@ export default function GeoProjectPage() {
       : "Download all";
   const supplementaryScriptLabel =
     selectedSupplementaryCount > 0
-      ? `Copy script (${selectedSupplementaryCount} selected)`
-      : "Copy script";
+      ? `Copy download script (${selectedSupplementaryCount} selected)`
+      : "Copy download script";
   const sampleSupplementaryDownloadLabel =
     selectedSampleSupplementaryCount > 0
       ? `Download ${selectedSampleSupplementaryCount} selected`
       : "Download all";
   const sampleSupplementaryScriptLabel =
     selectedSampleSupplementaryCount > 0
-      ? `Copy script (${selectedSampleSupplementaryCount} selected)`
-      : "Copy script";
+      ? `Copy download script (${selectedSampleSupplementaryCount} selected)`
+      : "Copy download script";
 
   return (
     <>
