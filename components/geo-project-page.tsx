@@ -3,7 +3,6 @@ import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import LinkedSraFastq from "@/components/linked-sra-fastq";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
-import { useWrapText } from "@/components/wrap-text-toggle";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -17,6 +16,7 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import { useToast } from "@/components/toast-provider";
+import { useWrapText } from "@/components/wrap-text-toggle";
 import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
@@ -1682,10 +1682,10 @@ export default function GeoProjectPage() {
               hasEnriched={project?.has_enriched}
               titleBadge={
                 samplesTotal > 0 ? (
-                  <Badge style={{ whiteSpace: "nowrap" }}>
+                  <Badge size={"3"} style={{ whiteSpace: "nowrap" }}>
                     {samples && samples.length < samplesTotal
                       ? `Showing first ${samples.length.toLocaleString()} of ${samplesTotal.toLocaleString()} samples`
-                      : `${samplesTotal.toLocaleString()} ${samplesTotal === 1 ? "Sample" : "Samples"}`}
+                      : `${samplesTotal.toLocaleString()} ${samplesTotal === 1 ? "sample" : "samples"}`}
                   </Badge>
                 ) : undefined
               }

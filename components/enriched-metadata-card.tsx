@@ -1,4 +1,5 @@
 "use client";
+import { useWrapText } from "@/components/wrap-text-toggle";
 import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
@@ -15,7 +16,6 @@ import { Badge, Flex, Spinner, Text, Tooltip } from "@radix-ui/themes";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useWrapText } from "@/components/wrap-text-toggle";
 import { useTheme } from "next-themes";
 
 ensureAgGridModules();
@@ -72,9 +72,7 @@ function isLowConfidence(
   const tags = data["low_confidence_tags"];
   if (!Array.isArray(tags)) return false;
   if (tags.includes(field)) return true;
-  return (
-    tags.includes("organism") && ORGANISM_DEPENDENT_FIELDS.includes(field)
-  );
+  return tags.includes("organism") && ORGANISM_DEPENDENT_FIELDS.includes(field);
 }
 
 /** Amber warning badge shown in cells flagged as low-confidence. */
@@ -310,26 +308,26 @@ export function EnrichedMetadataBadges({ data }: { data: EnrichedResponse }) {
   const loaded = data.samples.length;
   return (
     <>
-      <Badge style={{ whiteSpace: "nowrap" }}>
+      <Badge size="3" style={{ whiteSpace: "nowrap" }}>
         {loaded < data.n_samples
           ? `Showing first ${loaded.toLocaleString()} of ${data.n_samples.toLocaleString()} samples`
           : `${data.n_samples.toLocaleString()} samples`}
       </Badge>
       <Tooltip content="Attributes are generated with an AI-assisted pipeline. Their correctness is not guaranteed.">
-        <Badge size="2" style={{ cursor: "help" }} variant="soft">
+        <Badge size="3" style={{ cursor: "help" }} variant="soft">
           <MagicWandIcon /> AI Generated
         </Badge>
       </Tooltip>
       {isV3 && (
         <Tooltip content="Includes standardised ontology mappings (MONDO, UBERON, CL, EFO)">
-          <Badge size="2" variant="soft" style={{ cursor: "help" }}>
+          <Badge size="3" variant="soft" style={{ cursor: "help" }}>
             <InfoCircledIcon /> Ontology
           </Badge>
         </Tooltip>
       )}
       {data.single_cell_modality && (
         <Tooltip content={`Single-cell modality: ${data.single_cell_modality}`}>
-          <Badge color="cyan" size="2" variant="soft">
+          <Badge color="cyan" size="3" variant="soft">
             {data.single_cell_modality}
           </Badge>
         </Tooltip>
