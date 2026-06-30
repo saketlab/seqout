@@ -1,0 +1,27 @@
+name: python-ci
+
+on:
+  push:
+    paths:
+      - "python/**"
+      - ".github/workflows/python-ci.yml"
+  pull_request:
+    paths:
+      - "python/**"
+      - ".github/workflows/python-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -m "not network"

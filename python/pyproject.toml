@@ -48,6 +48,9 @@ ignore = [
     "TRY003", "TRY301",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ANN", "PLC0415", "INP001", "D"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -61,4 +64,5 @@ dev = [
     "ipykernel>=7.2.0",
     "pytest>=9.0.3",
     "pytest-httpx>=0.36.2",
+    "ruff>=0.15.20",
 ]

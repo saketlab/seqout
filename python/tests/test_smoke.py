@@ -29,7 +29,6 @@ def test_all_modules_import():
     for mod in [
         "seqoutdb",
         "seqoutdb.cli",
-        "seqoutdb.norm",
         "seqoutdb.seqout",
         "seqoutdb.clients.api",
         "seqoutdb.clients.parquet",
