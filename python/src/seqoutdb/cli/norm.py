@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-<<<<<<< HEAD:python/src/seqoutdb/cli/norm.py
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -30,10 +29,6 @@ if TYPE_CHECKING:
 from seqoutdb.models.api_models import ExperimentSample, SampleMetadataResult
 
 logger = logging.getLogger(__name__)
-=======
-from seqoutdb.models.api_models import ProjectMetadataResult
-from seqoutdb.seqout import Seqout
->>>>>>> a333fbcdb5430a0481d858e84aa8beb04d2a894f:python/src/seqoutdb/norm.py
 
 # System prompt verbatim from for-ref.md.
 SYS_PROMPT = (
