@@ -39,7 +39,6 @@ import {
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
 import { normalizeAuthors, toDisplayText } from "@/utils/project";
-import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
   CopyIcon,
@@ -1709,15 +1708,6 @@ export default function ProjectPage() {
     ? "ag-theme-quartz-dark"
     : "ag-theme-quartz";
 
-  useScrollSpy([
-    "enriched",
-    "experiments",
-    "publications",
-    "supplementary",
-    "fastq",
-    "bam",
-    "similar",
-  ]);
   const organismRowStyle = useMemo(
     () =>
       makeOrganismRowStyle<ExperimentGridRow>(

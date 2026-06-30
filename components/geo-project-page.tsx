@@ -41,7 +41,6 @@ import {
   parsePostgresTextArray,
   toDisplayText,
 } from "@/utils/project";
-import { useScrollSpy } from "@/utils/useScrollSpy";
 import {
   CheckIcon,
   CopyIcon,
@@ -482,15 +481,6 @@ export default function GeoProjectPage() {
     ? "ag-theme-quartz-dark"
     : "ag-theme-quartz";
 
-  useScrollSpy([
-    "overall-design",
-    "enriched",
-    "samples",
-    "publications",
-    "fastq",
-    "supplementary",
-    "similar",
-  ]);
   const organismRowStyle = useMemo(
     () =>
       makeOrganismRowStyle<GeoSampleGridRow>(
