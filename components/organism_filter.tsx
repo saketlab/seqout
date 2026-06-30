@@ -1,13 +1,17 @@
 "use client";
 
 import { SERVER_URL } from "@/utils/constants";
+import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import {
   Badge,
   Button,
   Flex,
+  IconButton,
   Separator,
   Switch,
   Text,
+  TextField,
+  Tooltip,
 } from "@radix-ui/themes";
 import * as React from "react";
 
@@ -16,6 +20,7 @@ export type ScientificFacet = { name: string; count: number };
 type OrganismDisplayFacet = {
   key: string;
   label: string;
+  commonName: string | null;
   count: number;
 };
 
@@ -92,7 +97,10 @@ async function fetchCommonNames(scientificNames: string[]): Promise<void> {
   } catch {}
 
   for (const name of missing) {
-    commonNameCache.set(name, byLowerName.get(name.trim().toLowerCase()) ?? null);
+    commonNameCache.set(
+      name,
+      byLowerName.get(name.trim().toLowerCase()) ?? null,
+    );
   }
 }
 
@@ -103,6 +111,7 @@ function buildCommonFacets(
   return scientificFacets
     .map((facet) => ({
       key: facet.name,
+      commonName: commonNamesByScientific.get(facet.name) ?? null,
       label:
         capitalizeFirstLetter(
           (commonNamesByScientific.get(facet.name) ?? facet.name).trim(),
@@ -121,6 +130,7 @@ function buildDisplayFacets(
     return scientificFacets.map((facet) => ({
       key: facet.name,
       label: facet.name,
+      commonName: commonNamesByScientific.get(facet.name) ?? null,
       count: facet.count,
     }));
   }
@@ -134,16 +144,20 @@ function FilterList({
   totalCount,
   onSelect,
   onClear,
+  isSearchActive,
 }: {
   facets: OrganismDisplayFacet[];
   selectedKey: string | null;
   totalCount: number;
   onSelect: (facetKey: string) => void;
   onClear: () => void;
+  isSearchActive: boolean;
 }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const hasMoreThanTop = facets.length > 5;
-  const visibleFacets = isExpanded ? facets : facets.slice(0, 5);
+  const hasMoreThanTop = !isSearchActive && facets.length > 5;
+  const visibleFacets =
+    isSearchActive || isExpanded ? facets : facets.slice(0, 5);
+  const shouldScroll = isExpanded || (isSearchActive && facets.length > 5);
 
   return (
     <Flex direction="column" gap="2">
@@ -160,11 +174,11 @@ function FilterList({
       </Button>
 
       <div
-        className={isExpanded ? "organism-list-scroll" : undefined}
+        className={shouldScroll ? "organism-list-scroll" : undefined}
         style={{
-          maxHeight: isExpanded ? 360 : undefined,
-          overflowY: isExpanded ? "scroll" : "visible",
-          paddingRight: isExpanded ? 4 : undefined,
+          maxHeight: shouldScroll ? 360 : undefined,
+          overflowY: shouldScroll ? "scroll" : "visible",
+          paddingRight: shouldScroll ? 4 : undefined,
         }}
       >
         <Flex direction="column" gap="2">
@@ -194,7 +208,9 @@ function FilterList({
 
           {facets.length === 0 ? (
             <Text size="2" color="gray">
-              No organism data available for these results.
+              {isSearchActive
+                ? "No organisms match your search."
+                : "No organism data available for these results."}
             </Text>
           ) : null}
         </Flex>
@@ -273,9 +289,18 @@ export function OrganismFilter({
     0,
   );
   const commonNamesByScientific = getCachedCommonNames(scientificNames);
+  const [organismSearch, setOrganismSearch] = React.useState("");
+  const normalizedOrganismSearch = organismSearch.trim().toLowerCase();
+  const shouldShowOrganismSearch = scientificFacets.length > 5;
 
   React.useEffect(() => {
-    if (mode !== "common" || scientificNames.length === 0) return;
+    if (
+      scientificNames.length === 0 ||
+      (mode !== "common" &&
+        (!shouldShowOrganismSearch || normalizedOrganismSearch.length === 0))
+    ) {
+      return;
+    }
 
     const missing = scientificNames.filter(
       (name) => !commonNameCache.has(name),
@@ -291,12 +316,28 @@ export function OrganismFilter({
     return () => {
       cancelled = true;
     };
-  }, [mode, scientificNames]);
+  }, [
+    mode,
+    scientificNames,
+    shouldShowOrganismSearch,
+    normalizedOrganismSearch.length,
+  ]);
 
   const facets = React.useMemo(
     () => buildDisplayFacets(scientificFacets, mode, commonNamesByScientific),
     [scientificFacets, mode, commonNamesByScientific],
   );
+  const searchedFacets = React.useMemo(() => {
+    if (!normalizedOrganismSearch) return facets;
+
+    return facets.filter((facet) => {
+      const commonName = facet.commonName?.toLowerCase() ?? "";
+      return (
+        facet.key.toLowerCase().includes(normalizedOrganismSearch) ||
+        commonName.includes(normalizedOrganismSearch)
+      );
+    });
+  }, [facets, normalizedOrganismSearch]);
 
   const totalCount = totalCountProp ?? results.length;
 
@@ -315,12 +356,43 @@ export function OrganismFilter({
         />
       </Flex>
       <Separator size="4" />
+      {shouldShowOrganismSearch ? (
+        <Flex asChild gap="2" align="center">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <TextField.Root
+              type="search"
+              value={organismSearch}
+              onChange={(event) => setOrganismSearch(event.target.value)}
+              placeholder="Search organisms"
+              aria-label="Search organisms"
+              size="2"
+              variant="surface"
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <Tooltip content="Search">
+              <IconButton
+                type="submit"
+                size="2"
+                variant="soft"
+                aria-label="Search"
+              >
+                <MagnifyingGlassIcon />
+              </IconButton>
+            </Tooltip>
+          </form>
+        </Flex>
+      ) : null}
       <FilterList
-        facets={facets}
+        facets={searchedFacets}
         selectedKey={selectedKey}
         totalCount={totalCount}
         onSelect={onSelect}
         onClear={onClear}
+        isSearchActive={normalizedOrganismSearch.length > 0}
       />
     </Flex>
   );
