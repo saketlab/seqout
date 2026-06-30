@@ -917,8 +917,11 @@ export default function GeoProjectPage() {
     const headerHeight = 48;
     const rowHeight = 42;
     const maxHeight = 500;
+    // Wrapped rows grow past the fixed rowHeight estimate, so a row-count fit
+    // would clip them — give the grid its full max height instead.
+    if (wrap) return maxHeight;
     return Math.min(maxHeight, headerHeight + sampleRows.length * rowHeight);
-  }, [sampleRows.length]);
+  }, [sampleRows.length, wrap]);
 
   const sampleGridDefaultColDef = React.useMemo<ColDef<GeoSampleGridRow>>(
     () => ({

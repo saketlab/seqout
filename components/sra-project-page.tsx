@@ -502,7 +502,7 @@ export function DownloadFastqSection({
   expTitleMap: Map<string, string>;
 }) {
   const { showToast } = useToast();
-  const wrap = useWrapText();
+  const wrap = useWrapText("fastq");
   const [copied, setCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
@@ -1161,7 +1161,7 @@ export function DownloadFastqSection({
         </Flex>
 
         <Flex gap="2" wrap="wrap" align="center">
-          <WrapTextToggle />
+          <WrapTextToggle scope="fastq" />
           <Button size="2" variant="surface" onClick={downloadTsv}>
             <DownloadIcon /> {downloadLabel} (TSV)
           </Button>
@@ -1943,11 +1943,14 @@ export default function ProjectPage() {
     const headerHeight = 48;
     const rowHeight = 42;
     const maxHeight = 500;
+    // Wrapped rows grow past the fixed rowHeight estimate, so a row-count fit
+    // would clip them — give the grid its full max height instead.
+    if (wrap) return maxHeight;
     return Math.min(
       maxHeight,
       headerHeight + experimentRows.length * rowHeight,
     );
-  }, [experimentRows.length]);
+  }, [experimentRows.length, wrap]);
 
   const experimentsGridDefaultColDef = React.useMemo<ColDef<ExperimentGridRow>>(
     () => ({

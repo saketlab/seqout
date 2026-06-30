@@ -1,13 +1,15 @@
 "use client";
 import { IconButton, Tooltip } from "@radix-ui/themes";
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
-// User-wide preference shared by the project data tables (fastQ, experiments,
-// samples, enriched). Grids read it via useWrapText(); toolbars flip it via
-// <WrapTextToggle/>. Kept in localStorage + a custom event so all mounted grids
-// stay in sync without threading props through their parents.
-const KEY = "seqout:wrap-text";
+// Per-scope wrap-text preference. Each `scope` is an independent toggle (e.g.
+// "table" for samples/experiments, "fastq" for the FASTQ files table). Grids
+// read it via useWrapText(scope); toolbars flip it via <WrapTextToggle scope/>.
+// Kept in localStorage + a custom event so all mounted grids of a scope stay in
+// sync without threading props through their parents.
+const KEY_PREFIX = "seqout:wrap-text";
 const EVENT = "seqout:wrap-text-change";
+const keyFor = (scope: string): string => `${KEY_PREFIX}:${scope}`;
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener(EVENT, callback);
@@ -18,16 +20,19 @@ function subscribe(callback: () => void): () => void {
   };
 }
 
-const getSnapshot = (): boolean => window.localStorage.getItem(KEY) === "1";
 const getServerSnapshot = (): boolean => false;
 
-/** Subscribe to the shared wrap-text preference (false until hydrated). */
-export function useWrapText(): boolean {
+/** Subscribe to a scoped wrap-text preference (false until hydrated). */
+export function useWrapText(scope = "table"): boolean {
+  const getSnapshot = useCallback(
+    (): boolean => window.localStorage.getItem(keyFor(scope)) === "1",
+    [scope],
+  );
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-function setWrapText(next: boolean): void {
-  window.localStorage.setItem(KEY, next ? "1" : "0");
+function setWrapText(scope: string, next: boolean): void {
+  window.localStorage.setItem(keyFor(scope), next ? "1" : "0");
   window.dispatchEvent(new Event(EVENT));
 }
 
@@ -52,16 +57,22 @@ function WrapIcon() {
   );
 }
 
-/** Small toolbar toggle that flips text wrapping for all data tables. */
-export function WrapTextToggle({ size = "2" }: { size?: "1" | "2" | "3" }) {
-  const wrap = useWrapText();
+/** Small toolbar toggle that flips text wrapping for one scope's data tables. */
+export function WrapTextToggle({
+  scope = "table",
+  size = "2",
+}: {
+  scope?: string;
+  size?: "1" | "2" | "3";
+}) {
+  const wrap = useWrapText(scope);
   return (
     <Tooltip content={wrap ? "Wrapping long text" : "Wrap long text"}>
       <IconButton
         size={size}
-        variant={wrap ? "solid" : "surface"}
+        variant={wrap ? "solid" : "outline"}
         color={wrap ? undefined : "gray"}
-        onClick={() => setWrapText(!wrap)}
+        onClick={() => setWrapText(scope, !wrap)}
         aria-label="Toggle text wrapping in tables"
         aria-pressed={wrap}
       >

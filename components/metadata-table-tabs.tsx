@@ -16,14 +16,7 @@ import {
   Link2Icon,
   MagicWandIcon,
 } from "@radix-ui/react-icons";
-import {
-  Button,
-  Flex,
-  Heading,
-  Spinner,
-  Tabs,
-  Text,
-} from "@radix-ui/themes";
+import { Button, Flex, Heading, Spinner, Tabs, Text } from "@radix-ui/themes";
 import { useEffect, useState, type ReactNode } from "react";
 
 type TabValue = "original" | "enriched";
@@ -207,7 +200,7 @@ export default function MetadataTableTabs({
               </Tabs.List>
             </Tabs.Root>
           )}
-          <WrapTextToggle size="3" />
+          <WrapTextToggle size="2" />
           <Button
             onClick={() => {
               if (showEnriched && enriched) {
