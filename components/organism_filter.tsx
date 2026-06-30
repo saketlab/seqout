@@ -45,43 +45,7 @@ function buildScientificFacets(
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-function parseCommonName(payload: unknown): string | null {
-  if (typeof payload === "string") {
-    const value = payload.trim();
-    return value.length > 0 ? value : null;
-  }
-
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const parsed = parseCommonName(item);
-      if (parsed) return parsed;
-    }
-    return null;
-  }
-
-  if (payload && typeof payload === "object") {
-    const asRecord = payload as Record<string, unknown>;
-    const candidates = [
-      asRecord.common_name,
-      asRecord.commonName,
-      asRecord.name,
-      asRecord.common,
-      asRecord.value,
-      asRecord.result,
-      asRecord.data,
-    ];
-
-    for (const candidate of candidates) {
-      const parsed = parseCommonName(candidate);
-      if (parsed) return parsed;
-    }
-  }
-
-  return null;
-}
-
 const commonNameCache = new Map<string, string | null>();
-const commonNameRequests = new Map<string, Promise<string | null>>();
 
 function getCachedCommonNames(scientificNames: string[]): Map<string, string> {
   const commonNames = new Map<string, string>();
@@ -96,52 +60,40 @@ function getCachedCommonNames(scientificNames: string[]): Map<string, string> {
   return commonNames;
 }
 
-async function fetchCommonName(
-  scientificName: string,
-): Promise<string | null> {
-  if (commonNameCache.has(scientificName)) {
-    return commonNameCache.get(scientificName) ?? null;
-  }
+// Resolve every missing scientific name in a single /common-names request.
+// Rows come back keyed by scientific_name (case-insensitive); anything the
+// server omits is cached as null so we don't re-ask for it.
+async function fetchCommonNames(scientificNames: string[]): Promise<void> {
+  const missing = scientificNames.filter((n) => !commonNameCache.has(n));
+  if (missing.length === 0) return;
 
-  const existingRequest = commonNameRequests.get(scientificName);
-  if (existingRequest) {
-    return existingRequest;
-  }
-
-  const request = (async () => {
-    try {
-      const url = `${SERVER_URL}/common-name?scientific_name=${encodeURIComponent(
-        scientificName,
-      )}`;
-      const res = await fetch(url);
-      if (!res.ok) return null;
-
-      const raw = (await res.text()).trim();
-      if (!raw) return null;
-
-      let payload: unknown = raw;
-      try {
-        payload = JSON.parse(raw);
-      } catch {}
-
-      return (
-        parseCommonName(payload) ??
-        (payload !== raw ? parseCommonName(raw) : null)
-      );
-    } catch {
-      return null;
+  const byLowerName = new Map<string, string>();
+  try {
+    const params = missing
+      .map((n) => `scientific_name=${encodeURIComponent(n)}`)
+      .join("&");
+    const res = await fetch(`${SERVER_URL}/common-names?${params}`);
+    if (res.ok) {
+      const rows: unknown = await res.json();
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const sci = (row as { scientific_name?: unknown })?.scientific_name;
+          const common = (row as { common_name?: unknown })?.common_name;
+          if (typeof sci === "string" && typeof common === "string") {
+            const key = sci.trim().toLowerCase();
+            // ORDER BY common_name → keep the first per name.
+            if (key && common.trim() && !byLowerName.has(key)) {
+              byLowerName.set(key, common.trim());
+            }
+          }
+        }
+      }
     }
-  })()
-    .then((commonName) => {
-      commonNameCache.set(scientificName, commonName);
-      return commonName;
-    })
-    .finally(() => {
-      commonNameRequests.delete(scientificName);
-    });
+  } catch {}
 
-  commonNameRequests.set(scientificName, request);
-  return request;
+  for (const name of missing) {
+    commonNameCache.set(name, byLowerName.get(name.trim().toLowerCase()) ?? null);
+  }
 }
 
 function buildCommonFacets(
@@ -332,15 +284,9 @@ export function OrganismFilter({
 
     let cancelled = false;
 
-    const fetchMissing = async () => {
-      await Promise.all(missing.map(fetchCommonName));
-
-      if (!cancelled) {
-        refreshCommonNames();
-      }
-    };
-
-    fetchMissing();
+    fetchCommonNames(scientificNames).then(() => {
+      if (!cancelled) refreshCommonNames();
+    });
 
     return () => {
       cancelled = true;
@@ -360,11 +306,11 @@ export function OrganismFilter({
   return (
     <Flex direction="column" gap="3">
       <Flex align="center" justify="between">
-        <Text size="2">Display scientific names</Text>
+        <Text size="2">Show common names</Text>
         <Switch
-          checked={mode === "scientific"}
+          checked={mode === "common"}
           onCheckedChange={(checked) =>
-            onChangeMode(checked ? "scientific" : "common")
+            onChangeMode(checked ? "common" : "scientific")
           }
         />
       </Flex>

@@ -865,7 +865,7 @@ export default function SearchPageBody() {
   );
 
   const [organismNameMode, setOrganismNameMode] =
-    useState<OrganismNameMode>("common");
+    useState<OrganismNameMode>("scientific");
   const selectedOrganismKey = searchParams.get(FILTER_PARAM_KEYS.organism);
 
   // Filters below are client-side only — not in the queryKey.
