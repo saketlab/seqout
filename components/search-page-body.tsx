@@ -982,7 +982,7 @@ export default function SearchPageBody() {
   // organism/journal/etc. counts are correct outright instead of climbing as
   // result pages stream in. Best-effort: if it's absent (geo search, timeout,
   // error) the rail falls back to client-derived counts. Not used for geo search.
-  const { data: facetsResponse } = useQuery({
+  const { data: facetsResponse, isLoading: facetsLoading } = useQuery({
     queryKey: ["search-facets", query, db, filtersKey],
     queryFn: async ({ signal }) => {
       let url = `${SERVER_URL}/search/facets?q=${encodeURIComponent(
@@ -992,13 +992,20 @@ export default function SearchPageBody() {
       url = appendFilterParams(url, searchFilters);
       const res = await fetch(url, { signal: withTimeout(signal) });
       if (!res.ok) throw new Error("Failed to fetch facets");
-      return res.json() as Promise<{ facets: SearchFacets }>;
+      return res.json() as Promise<{
+        facets: SearchFacets;
+        total?: number | null;
+      }>;
     },
     enabled: !isGeoSearch && !!query,
   });
   const serverFacets = facetsResponse?.facets;
 
-  const total = data?.pages?.[0]?.total ?? 0;
+  // The exact total is deferred to the (parallel) facets request so /search can
+  // return the first page without the expensive full count. Until it lands we
+  // fall back to the loaded-row count and render an inexact "N+".
+  const facetsTotal =
+    typeof facetsResponse?.total === "number" ? facetsResponse.total : null;
   const tookMs = data?.pages?.[0]?.took_ms ?? 0;
   const suggestions = data?.pages?.[0]?.suggestions;
 
@@ -1012,6 +1019,16 @@ export default function SearchPageBody() {
       return true;
     });
   }, [data]);
+
+  // Geo returns its own (client-side) count; text search reads the deferred
+  // total from facets, falling back to the loaded count while it's pending.
+  const total = isGeoSearch
+    ? data?.pages?.[0]?.total ?? 0
+    : facetsTotal ?? allResults.length;
+  // Only "pending" while facets is still in flight; a failed/degraded facets
+  // (total stays null) falls back to the loaded "N+" instead of an endless skeleton.
+  const totalPending =
+    !isGeoSearch && !!query && facetsTotal === null && facetsLoading;
 
   // Geo search filters client-side, so it still needs the whole result set:
   // keep eagerly prefetching every page. Text search filters + paginates on the
@@ -1263,9 +1280,9 @@ export default function SearchPageBody() {
       return `${allResults.length.toLocaleString()} result${allResults.length === 1 ? "" : "s"} were filtered out. Try removing a filter.`;
     }
     const pageCount = pageResults.length;
-    // Geo's total grows as pages stream in (client-side count), so show "N+";
-    // text search knows the exact server total up front.
-    if (isGeoSearch && hasNextPage) {
+    // Geo's total grows as pages stream in (client-side count); text search's
+    // exact total is still loading (from facets). Either way show "N+".
+    if ((isGeoSearch || totalPending) && hasNextPage) {
       return `${filteredTotal.toLocaleString()}+ results. Showing page ${safePage} of ${totalPages}, ${pageCount} result${pageCount === 1 ? "" : "s"}.`;
     }
     return `${filteredTotal.toLocaleString()} result${filteredTotal === 1 ? "" : "s"}. Showing page ${safePage} of ${totalPages}.`;
@@ -1280,6 +1297,7 @@ export default function SearchPageBody() {
     hasNextPage,
     safePage,
     totalPages,
+    totalPending,
   ]);
   // Debounce SR announcements so rapid filter churn doesn't spam the user.
   const [announcedStatus, setAnnouncedStatus] = useState("");
@@ -1780,11 +1798,17 @@ export default function SearchPageBody() {
             <>
               <Flex justify="between" align="center" wrap="wrap" gap="2">
                 <Text color="gray" weight={"light"}>
-                  {total.toLocaleString()} result{total === 1 ? "" : "s"} in{" "}
-                  {(tookMs / 1000).toFixed(2)}s
-                  {hasAnyFilter && filteredTotal < allResults.length && (
-                    <> ({filteredTotal.toLocaleString()} after filters)</>
-                  )}
+                  {totalPending ? (
+                    <Skeleton>00,000</Skeleton>
+                  ) : (
+                    total.toLocaleString()
+                  )}{" "}
+                  result{total === 1 ? "" : "s"} in {(tookMs / 1000).toFixed(2)}s
+                  {!totalPending &&
+                    hasAnyFilter &&
+                    filteredTotal < allResults.length && (
+                      <> ({filteredTotal.toLocaleString()} after filters)</>
+                    )}
                 </Text>
                 {filterToolbar}
               </Flex>
