@@ -41,13 +41,13 @@ class _Experiment(BaseModel):
     library_strategy: str
 
 
-class SRAExperiment(_Experiment):
+class SraExperiment(_Experiment):
     samples: list[str]
     design_description: str | None = None
     submission: str
 
 
-class ENAExperiment(_Experiment):
+class EnaExperiment(_Experiment):
     sample: str
     organism: str | None = None
     taxonomy_id: int | None = None
@@ -60,16 +60,40 @@ class ENAExperiment(_Experiment):
     read_count: int
 
 
-class Sample(BaseModel):
+class _Sample(BaseModel):
     accession: str
-    alias: str
     title: str | None = None
     description: str | None = None
-    organism: str | None = None
-    taxonomy_id: int
-    extract_protocol: str | None = None
-    growth_protocol: str | None = None
+    supplementary_data: list[str]
+
+
+class _Channel(BaseModel):
+    position: int
+    characteristics: list[dict]
+    molecule: str
+    organism: str | None
+    taxonomy_id: int | None
+    source: str
+    extract_protocol: str | None
+    growth_protocol: str | None
+    treatment_protocol: str | None
+
+
+class GeoSample(_Sample):
+    channel_count: int
+    channels: list[_Channel]
+    platform: str
     hybridization_protocol: str | None = None
     scan_protocol: str | None = None
-    characteristics: list[dict]
-    supplementary_data: list[str]
+
+
+class AeSample(_Sample):
+    source_name: str
+    library_strategy: str
+    library_source: str
+    library_selection: str
+    organism: str | None = None
+    organism_part: str | None = None
+    cell_type: str | None = None
+    genotype: str | None = None
+    attributes: dict

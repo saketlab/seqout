@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-seqoutdb = "seqoutdb.cli:main"
+seqoutdb = "seqoutdb.cli.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.10.12,<0.11.0"]
@@ -31,6 +31,27 @@ packages = ["src/seqoutdb"]
 
 [tool.setuptools.package-data]
 seqoutdb = ["py.typed"]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN401",
+    "BLE001",
+    "C901", "COM812",
+    "D100", "D101", "D102", "D103", "D104", "D105", "D107", "D203", "D212",
+    "EM102",
+    "FBT001",
+    "PLR0913", "PLR0912", "PLR0915",
+    "TRY003", "TRY301",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
 
 [dependency-groups]
 dev = [

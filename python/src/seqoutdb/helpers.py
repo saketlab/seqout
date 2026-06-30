@@ -1,7 +1,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import requests
 from pydantic import BaseModel
@@ -10,6 +10,10 @@ from tqdm import tqdm
 # accepts the class itself and not an instance of it
 T = TypeVar("T", bound=BaseModel)
 _RETRYABLE_STATUS_CODES = {429, 443, 500, 502, 503, 504}
+_RANGE_NOT_SATISFIABLE = 416
+_PARTIAL_CONTENT = 206
+
+logger = logging.getLogger(__name__)
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -29,7 +33,7 @@ def _is_retryable(exc: Exception) -> bool:
     )
 
 
-def _send_req(
+def _send_req[T: BaseModel](
     method: str,
     url: str,
     *,
@@ -41,7 +45,7 @@ def _send_req(
     max_wait: int,
     stream: bool = False,
     response_model: type[T],
-    **kwargs,
+    **kwargs: Any,
 ) -> T:
     for attempt in range(num_retries):
         try:
@@ -63,7 +67,7 @@ def _send_req(
                 raise
 
             wait = min(2**attempt, max_wait)
-            logging.warning(
+            logger.warning(
                 "failed to send %s req to %s (attempt %d/%d, retrying in %.0fs) - %s",
                 method,
                 url,
@@ -87,7 +91,7 @@ def _download_file(
     timeout: int,
     max_wait: int,
     with_pbar: bool,
-):
+) -> None:
     dest_path.parent.mkdir(exist_ok=True, parents=True)
     already_downloaded = dest_path.stat().st_size if dest_path.exists() else 0
 
@@ -99,7 +103,7 @@ def _download_file(
                 headers["Range"] = f"bytes={already_downloaded}-"
 
             r = requests.get(url, headers=headers, stream=True, timeout=timeout)
-            if r.status_code == 416:
+            if r.status_code == _RANGE_NOT_SATISFIABLE:
                 return
 
             r.raise_for_status()
@@ -108,7 +112,7 @@ def _download_file(
             if content_length == -1:
                 raise ValueError(f"missing Content-Length header for {url}")
 
-            if r.status_code == 206:
+            if r.status_code == _PARTIAL_CONTENT:
                 open_mode = "ab"
                 resumed_from = already_downloaded
             else:
@@ -129,7 +133,7 @@ def _download_file(
                 else None
             )
 
-            with open(dest_path, open_mode) as f:
+            with dest_path.open(open_mode) as f:
                 for chunk in r.iter_content(chunk_size):
                     if not chunk:
                         continue
@@ -142,7 +146,7 @@ def _download_file(
 
             actual_size = dest_path.stat().st_size
             if actual_size != total:
-                raise IOError(
+                raise OSError(
                     f"downloaded {actual_size} bytes, expected {total} for {url}"
                 )
 
@@ -156,7 +160,7 @@ def _download_file(
             already_downloaded -= bytes_this_attempt
 
             wait = min(2**attempt, max_wait)
-            logging.warning(
+            logger.warning(
                 "failed to download %s (attempt %d/%d): %s. retrying in %.0fs",
                 url,
                 attempt + 1,

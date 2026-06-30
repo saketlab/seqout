@@ -1,12 +1,13 @@
 import functools
 import itertools
+from collections.abc import Iterator
 from concurrent.futures import (
     Future,
     ThreadPoolExecutor,
     as_completed,
 )
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Literal, Self
 
 import requests
 
@@ -49,6 +50,7 @@ from seqoutdb.utils import (
 )
 
 SearchParamsType = SearchParams | StructuredSearchParams
+_NOT_FOUND = 404
 
 
 class SeqoutAPIClient:
@@ -59,6 +61,7 @@ class SeqoutAPIClient:
         num_retries: int = DEFAULT_NUM_RETRIES,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
+        """Initialize the API client with connection settings."""
         self._base_url = base_url
         self._timeout = timeout
         self._num_retries = num_retries
@@ -97,15 +100,13 @@ class SeqoutAPIClient:
             else params.model_dump(exclude_none=True, by_alias=True)
         )
 
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/search"
             if not is_structured
             else f"{self._base_url}/search/structured",
             params=params_dict,
             response_model=SearchResponse,
         )
-
-        return response
 
     def _iter_search_pages(
         self,
@@ -171,44 +172,38 @@ class SeqoutAPIClient:
         return results
 
     def fetch_project_summary(self, accession_id: str) -> ProjectSummaryResult:
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/project/{accession_id}/metadata",
             response_model=ProjectSummaryResult,
         )
 
-        return response
-
     def bulk_fetch_project_summary(
         self, accession_ids: list[str]
     ) -> ProjectSummaryResultList:
-        response = self._poster(
+        return self._poster(
             url=f"{self._base_url}/bulk/project-metadata",
             response_model=ProjectSummaryResultList,
             json={"accessions": accession_ids},
         )
 
-        return response
-
     def fetch_project_metadata(self, accession_id: str) -> ProjectMetadataResult:
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/project/{accession_id}",
             response_model=ProjectMetadataResult,
         )
 
-        return response
-
     def fetch_samples(self, accession_id: str) -> ExperimentSampleList:
         if not accession_id.startswith("GSE") and not accession_id.startswith("E-"):
-            raise ValueError(
-                "samples can be only fetched for GEO series and ArrayExpress experiments"
+            msg = (
+                "samples can be only fetched for GEO series and"
+                " ArrayExpress experiments"
             )
+            raise ValueError(msg)
 
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/geo/series/{accession_id}/samples",
             response_model=ExperimentSampleList,
         )
-
-        return response
 
     def fetch_cross_references(self, accession_id: str) -> ProjectCrossReferenceList:
         response = self._sender(
@@ -227,20 +222,17 @@ class SeqoutAPIClient:
                 response_model=ProjectLLMEnrichedSampleMetadataResponse,
             )
         except requests.exceptions.HTTPError as exc:
-            if exc.response and exc.response.status_code == 404:
+            if exc.response and exc.response.status_code == _NOT_FOUND:
                 return ProjectLLMEnrichedSampleMetadataResults([])
-            else:
-                raise
+            raise
 
         return response.samples
 
     def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/project/{study_id}/experiments",
             response_model=StudyExperimentsResults,
         )
-
-        return response
 
     def fetch_study_runs(self, study_id: str) -> StudyRunsResults:
         response = self._sender(
@@ -251,38 +243,34 @@ class SeqoutAPIClient:
         return response.runs
 
     def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/sample/{sample_id}",
             response_model=SampleMetadataResult,
         )
 
-        return response
-
     def fetch_sample_detailed_metadata(self, sample_id: str) -> SampleDetailedMetadata:
-        response = self._sender(
+        return self._sender(
             url=f"{self._base_url}/sample-detail/{sample_id}",
             response_model=SampleDetailedMetadata,
         )
-
-        return response
 
     def download_project_supplementary_data(
         self,
         metadata: ProjectMetadataResult,
         out_dir: Path,
+        *,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
-    ):
+    ) -> None:
         num_workers = _normalize_num_workers(num_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         url_to_dest: dict[str, Path] = {}
-        print(url_to_dest)
 
         for url, _ in metadata.supplementary_data:
-            url = _normalize_url(url)
-            url_to_dest[url] = out_dir / Path(url.split("/")[-1])
+            normalized_url = _normalize_url(url)
+            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
 
         with ThreadPoolExecutor(num_workers) as pool:
             futures = {
@@ -304,10 +292,11 @@ class SeqoutAPIClient:
         runs: StudyRunsResults,
         out_dir: Path,
         mode: Literal["fastq", "sra", "sra_lite", "s3", "gcs"],
+        *,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = True,
-    ):
+    ) -> None:
         _validate_study_runs_data(runs, mode)
         num_workers = _normalize_num_workers(num_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -324,10 +313,10 @@ class SeqoutAPIClient:
                     f"failed to extract download info for {r.run_accession}"
                 )
 
-            for i, url in enumerate(run_urls):
-                url = _normalize_url(url)
-                dest_path = out_dir / Path(url.split("/")[-1])
-                url_to_dest[url] = dest_path
+            for _i, url in enumerate(run_urls):
+                normalized_url = _normalize_url(url)
+                dest_path = out_dir / Path(normalized_url.split("/")[-1])
+                url_to_dest[normalized_url] = dest_path
 
         with ThreadPoolExecutor(num_workers) as pool:
             futures = {
@@ -347,8 +336,8 @@ class SeqoutAPIClient:
     def close(self) -> None:
         pass
 
-    def __enter__(self) -> "SeqoutAPIClient":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: object) -> None:
         self.close()

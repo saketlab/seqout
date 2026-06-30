@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -12,6 +12,8 @@ from pydantic import (
 )
 
 from seqoutdb.models.models import BaseContainer
+
+_MAX_QUERY_LENGTH = 500
 
 
 # full-text search
@@ -30,9 +32,11 @@ class SearchParams(BaseModel):
         v = v.strip()
 
         if not v:
-            raise ValueError("search query cannot be empty")
-        if len(v) > 500:
-            raise ValueError("query cannot exceed 500 characters")
+            msg = "search query cannot be empty"
+            raise ValueError(msg)
+        if len(v) > _MAX_QUERY_LENGTH:
+            msg = "query cannot exceed 500 characters"
+            raise ValueError(msg)
 
         return v
 
@@ -103,21 +107,21 @@ class SearchResult(BaseModel):
         "organisms", "countries", "instrument_models", "publications", mode="before"
     )
     @classmethod
-    def _null_to_empty_list(cls, v):
+    def _null_to_empty_list(cls, v: Any) -> list:
         return v or []
 
     @field_validator("citation_count", mode="before")
     @classmethod
-    def _normalize_nullable_ints(cls, v):
+    def _normalize_nullable_ints(cls, v: Any) -> int:
         return v or 0
 
     @field_validator("countries", mode="after")
     @classmethod
-    def _lowercase_list(cls, v):
+    def _lowercase_list(cls, v: list[str]) -> list[str]:
         return [item.lower() for item in v]
 
     @model_validator(mode="after")
-    def _normalize_countries(self):
+    def _normalize_countries(self) -> SearchResult:
         if self.countries:
             self.country_code = self.countries[0].upper()
 
@@ -154,7 +158,7 @@ class SearchResults(BaseContainer[SearchResult]):
     def slice(self, start: int, stop: int) -> SearchResults:
         return SearchResults(self.root[start:stop])
 
-    def filter(self, **kwargs) -> SearchResults:
+    def filter(self, **kwargs: Any) -> SearchResults:
         filtered = self.root
 
         for field, value in kwargs.items():
@@ -172,17 +176,17 @@ class SearchResults(BaseContainer[SearchResult]):
 
         return SearchResults(filtered)
 
-    def exclude(self, **kwargs) -> SearchResults:
+    def exclude(self, **kwargs: Any) -> SearchResults:
         filtered = self.root
         for field, value in kwargs.items():
-            filtered = [r for r in filtered if not getattr(r, field, None) == value]
+            filtered = [r for r in filtered if getattr(r, field, None) != value]
         return SearchResults(filtered)
 
     def by_source(self, source: str) -> SearchResults:
         return self.filter(source=source)
 
     def by_organism(self, organism: str) -> SearchResults:
-        return SearchResults(list(r for r in self if r.has_organism(organism)))
+        return SearchResults([r for r in self if r.has_organism(organism)])
 
     def organisms(self) -> Counter[str]:
         return Counter(org for r in self.root for org in r.organisms)
@@ -193,8 +197,8 @@ class SearchResults(BaseContainer[SearchResult]):
     def countries(self) -> Counter[str]:
         return Counter(c for r in self.root for c in r.countries)
 
-    def sort_by(self, field: str, reverse: bool = False) -> SearchResults:
-        def sort_key(r):
+    def sort_by(self, field: str, *, reverse: bool = False) -> SearchResults:
+        def sort_key(r: Any) -> Any:
             value = getattr(r, field)
             return value if value is not None else 0
 
@@ -269,11 +273,8 @@ class ProjectMetadataResult(BaseModel):
 
     @field_validator("supplementary_data", mode="before")
     @classmethod
-    def _flatten_supplementary_data(cls, v):
-        list: list[tuple[str, str]] = []
-        for item in v:
-            list.append((item["#text"], item["@type"]))
-        return list
+    def _flatten_supplementary_data(cls, v: Any) -> list[tuple[str, str]]:
+        return [(item["#text"], item["@type"]) for item in v]
 
     @field_validator(
         "relations",
@@ -285,12 +286,12 @@ class ProjectMetadataResult(BaseModel):
         mode="before",
     )
     @classmethod
-    def _null_to_empty_list(cls, v):
+    def _null_to_empty_list(cls, v: Any) -> list:
         return v or []
 
     @field_validator("relations", mode="before")
     @classmethod
-    def _filter_invalid_relations(cls, v):
+    def _filter_invalid_relations(cls, v: Any) -> list:
         if not v:
             return []
 
@@ -441,11 +442,11 @@ class ExperimentSampleChannel(BaseModel):
 
     @field_validator("characteristics", mode="before")
     @classmethod
-    def _flatten_characteristics(cls, v):
-        map: dict[str, str] = {}
+    def _flatten_characteristics(cls, v: Any) -> dict[str, str]:
+        result: dict[str, str] = {}
         for item in v:
-            map[item["@tag"]] = item["#text"]
-        return map
+            result[item["@tag"]] = item["#text"]
+        return result
 
 
 class ExperimentSample(BaseModel):
@@ -464,13 +465,10 @@ class ExperimentSample(BaseModel):
 
     @field_validator("supplementary_data", mode="before")
     @classmethod
-    def _flatten_supplementary_data(cls, v):
+    def _flatten_supplementary_data(cls, v: Any) -> list[str]:
         if not v:
             return []
-        links: list[str] = []
-        for item in v:
-            links.append(item["#text"])
-        return links
+        return [item["#text"] for item in v]
 
 
 class ExperimentSampleList(BaseContainer[ExperimentSample]):
@@ -492,7 +490,7 @@ class SampleMetadataResult(BaseModel):
 
     @field_validator("external_ids", "attributes", "links", mode="before")
     @classmethod
-    def _parse_json_str(cls, v):
+    def _parse_json_str(cls, v: Any) -> Any:
         if isinstance(v, str):
             return json.loads(v)
         return v
@@ -502,4 +500,4 @@ class SampleMetadataResult(BaseModel):
 class SampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
-    sample: SampleMetadataResult
+    sample: ExperimentSample | SampleMetadataResult

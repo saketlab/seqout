@@ -8,20 +8,22 @@ from seqoutdb.models.api_models import StudyRunsResult, StudyRunsResults
 StudyRunDownloadMode = Literal["fastq", "sra", "sra_lite", "s3", "gcs"]
 
 
-def _validate_study_runs_data(runs: StudyRunsResults, mode: StudyRunDownloadMode):
+def _validate_study_runs_data(
+    runs: StudyRunsResults, mode: StudyRunDownloadMode
+) -> None:
     if mode == "fastq" and not all(r.fastq_ftp is not None for r in runs):
         missing = [r.run_accession for r in runs if r.fastq_ftp is None]
         raise ValueError(f"missing fastq ftp url for runs: {missing}")
-    elif mode == "sra" and not all(r.sra_ftp is not None for r in runs):
+    if mode == "sra" and not all(r.sra_ftp is not None for r in runs):
         missing = [r.run_accession for r in runs if r.sra_ftp is None]
         raise ValueError(f"missing sra ftp url for runs: {missing}")
-    elif mode == "sra_lite" and not all(r.ncbi_sra_lite_url is not None for r in runs):
+    if mode == "sra_lite" and not all(r.ncbi_sra_lite_url is not None for r in runs):
         missing = [r.run_accession for r in runs if r.ncbi_sra_lite_url is None]
         raise ValueError(f"missing sra lite url for runs: {missing}")
-    elif mode == "s3" and not all(r.ncbi_sra_lite_s3_url is not None for r in runs):
+    if mode == "s3" and not all(r.ncbi_sra_lite_s3_url is not None for r in runs):
         missing = [r.run_accession for r in runs if r.ncbi_sra_lite_s3_url is None]
         raise ValueError(f"missing ncbi sra s3 url for runs: {missing}")
-    elif mode == "gcs" and not all(r.ncbi_sra_lite_gs_url is not None for r in runs):
+    if mode == "gcs" and not all(r.ncbi_sra_lite_gs_url is not None for r in runs):
         missing = [r.run_accession for r in runs if r.ncbi_sra_lite_gs_url is None]
         raise ValueError(f"missing ncbi sra gcs url for runs: {missing}")
 
@@ -30,30 +32,21 @@ def _extract_download_info_for_study_run(
     run: StudyRunsResult, mode: StudyRunDownloadMode
 ) -> tuple[list[str], list[str], list[str]]:
     if mode == "fastq":
-        assert run.fastq_ftp
         url_text = run.fastq_ftp
     elif mode == "sra":
-        assert run.sra_ftp
         url_text = run.sra_ftp
     elif mode == "sra_lite":
-        assert run.ncbi_sra_lite_url
         url_text = run.ncbi_sra_lite_url
     elif mode == "s3":
-        assert run.ncbi_sra_lite_s3_url
         url_text = run.ncbi_sra_lite_s3_url
     elif mode == "gcs":
-        assert run.ncbi_sra_lite_gs_url
         url_text = run.ncbi_sra_lite_gs_url
 
     if mode == "fastq":
-        assert run.fastq_bytes
         bytes_text = run.fastq_bytes
-        assert run.fastq_md5
         md5_checksum_text = run.fastq_md5
     else:
-        assert run.sra_bytes
         bytes_text = run.sra_bytes
-        assert run.sra_md5
         md5_checksum_text = run.sra_md5
 
     return (url_text.split(";"), bytes_text.split(";"), md5_checksum_text.split(";"))

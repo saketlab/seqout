@@ -1,6 +1,5 @@
 import re
 import shutil
-import sys
 from pathlib import Path
 
 from seqoutdb import SearchParams, connect_to_seqout, country_code_to_name
@@ -21,12 +20,10 @@ with connect_to_seqout(backend="api") as sq:
     )
 
     # print countries with their full name and count
-    for code, count in response.countries().items():
+    for code in response.countries():
         name = country_code_to_name(code)
         if name is None:
-            print(f"failed to get country name for {code}", file=sys.stderr)
             continue
-        print(f"{name} - {count}")
 
     # split data related to the top cited papers based on country
     countries_dir = output_dir / "countries"
@@ -89,4 +86,4 @@ with connect_to_seqout(backend="api") as sq:
             num_workers=10,
         )
     else:
-        print("no sra study id was found")
+        pass

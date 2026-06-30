@@ -3,7 +3,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, get_args, overload
+from typing import Literal, Self, get_args
 
 import duckdb
 from duckdb import DuckDBPyConnection
@@ -18,7 +18,14 @@ from seqoutdb.constants import (
 from seqoutdb.exception import SeqoutError
 from seqoutdb.helpers import _download_file
 from seqoutdb.models.models import BaseContainer
-from seqoutdb.models.parquet_models import ENAExperiment, SRAExperiment, Study
+from seqoutdb.models.parquet_models import (
+    AeSample,
+    EnaExperiment,
+    GeoSample,
+    SraExperiment,
+    Study,
+    _Channel,
+)
 from seqoutdb.utils import _normalize_num_workers
 
 ParquetFile = Literal[
@@ -60,7 +67,7 @@ class SeqoutParquetClient:
         timeout: int = DEFAULT_REQ_TIMEOUT,
         num_retries: int = DEFAULT_NUM_RETRIES,
         max_wait: int = DEFAULT_MAX_WAIT,
-    ):
+    ) -> None:
         self._base_url = base_url
         self._timeout = timeout
         self._num_retries = num_retries
@@ -70,14 +77,14 @@ class SeqoutParquetClient:
         self._conn = duckdb.connect()
         self._setup_duckdb()
 
-    def _setup_duckdb(self):
+    def _setup_duckdb(self) -> None:
         try:
             self._conn.execute("LOAD httpfs;")
             self._conn.execute("SET enable_http_metadata_cache=true;")
         except duckdb.CatalogException:
             self._conn.execute("INSTALL httpfs; LOAD httpfs;")
 
-    def set_source(self, source_dir: Path | str):
+    def set_source(self, source_dir: Path | str) -> None:
         self._source = source_dir
 
     def download_parquet_files(
@@ -86,8 +93,9 @@ class SeqoutParquetClient:
         files: list[ParquetFile] = _ALL_PARQUET_FILES,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        *,
         with_pbar: bool = False,
-    ):
+    ) -> None:
         num_workers = _normalize_num_workers(num_workers)
         url_to_dest: dict[str, Path] = {}
         for f in files:
@@ -114,20 +122,15 @@ class SeqoutParquetClient:
                 f.result()
 
     def _datasource_from_study_accession(self, study_accession: str) -> _Datasource:
-        if (
-            study_accession.startswith("SRP")
-            or study_accession.startswith("ERP")
-            or study_accession.startswith("DRP")
-        ):
+        if study_accession.startswith(("SRP", "ERP", "DRP")):
             return _Datasource.Sra
-        elif study_accession.startswith("GSE"):
+        if study_accession.startswith("GSE"):
             return _Datasource.Geo
-        elif study_accession.startswith("PRJ"):
+        if study_accession.startswith("PRJ"):
             return _Datasource.Ena
-        elif study_accession.startswith("E-"):
+        if study_accession.startswith("E-"):
             return _Datasource.Ae
-        else:
-            return _Datasource.Unknown
+        return _Datasource.Unknown
 
     def execute_query(
         self, query: str, params: list | None = None
@@ -142,7 +145,11 @@ class SeqoutParquetClient:
 
     def fetch_study(self, accession: str) -> Study:
         result = self.execute_query(
-            "SELECT canonical_accession, source, title, description, aliases, organism_counts, library_strategy_counts, assay_l1_counts, assay_l2_counts, n_experiments, n_samples, center_names, pmid, journal, citation_count, first_published, is_single_cell, single_cell_modality FROM unified_metadata WHERE canonical_accession = ?",
+            "SELECT canonical_accession, source, title, description, aliases, "
+            "organism_counts, library_strategy_counts, assay_l1_counts, "
+            "assay_l2_counts, n_experiments, n_samples, center_names, pmid, "
+            "journal, citation_count, first_published, is_single_cell, "
+            "single_cell_modality FROM unified_metadata WHERE canonical_accession = ?",
             [accession],
         ).fetchone()
         if not result:
@@ -199,68 +206,140 @@ class SeqoutParquetClient:
             pubmed_id=pubmed_id,
             journal=journal,
             citation_count=int(citation_count or 0),
-            published_at=datetime.datetime.strptime(published_at, "%Y-%m-%d"),
+            published_at=datetime.datetime.strptime(published_at, "%Y-%m-%d").replace(
+                tzinfo=datetime.UTC
+            ),
             is_single_cell=is_single_cell,
             single_cell_modality=single_cell_modality,
         )
 
-    @overload
-    def _fetch_experiments_helper(
-        self, study_accession: str, datasource: Literal["sra"]
-    ) -> BaseContainer[SRAExperiment]: ...
-    @overload
-    def _fetch_experiments_helper(
-        self, study_accession: str, datasource: Literal["ena"]
-    ) -> BaseContainer[ENAExperiment]: ...
-
     def _fetch_experiments_helper(
         self, study_accession: str, datasource: Literal["sra", "ena"]
-    ) -> BaseContainer[SRAExperiment] | BaseContainer[ENAExperiment]:
+    ) -> BaseContainer[SraExperiment] | BaseContainer[EnaExperiment]:
         if datasource == "sra":
             rel = self.execute_query(
-                "SELECT accession, design_description, library_layout, library_name, library_selection, library_source, library_strategy, samples, platform, instrument_model, title, submission FROM sra_experiments WHERE study = ?",
+                "SELECT accession, design_description, library_layout, "
+                "library_name, library_selection, library_source, "
+                "library_strategy, samples, platform, instrument_model, "
+                "title, submission FROM sra_experiments WHERE study = ?",
                 [study_accession],
             )
 
             cols = [desc[0] for desc in rel.description]
-            experiments: list[SRAExperiment] = []
+            experiments: list[SraExperiment] = []
 
             for r in rel.fetchmany():
-                d = dict(zip(cols, r))
+                d = dict(zip(cols, r, strict=False))
                 d["samples"] = json.loads(d["samples"])
-                experiments.append(SRAExperiment.model_validate(d))
+                experiments.append(SraExperiment.model_validate(d))
             return BaseContainer(experiments)
-        else:
-            rel = self.execute_query(
-                "SELECT experiment_accession AS accession, experiment_title AS title, instrument_platform AS platform, instrument_model, library_layout, library_name, library_selection, library_source, library_strategy, sample_accession AS sample, scientific_name AS organism, tax_id AS taxonomy_id, host, tissue_type, cell_type, disease, dev_stage, base_count, read_count FROM ena_experiments WHERE study_accession = ?",
-                [study_accession],
-            )
 
-            cols = [desc[0] for desc in rel.description if desc[0]]
-            experiments: list[ENAExperiment] = []
+        rel = self.execute_query(
+            "SELECT experiment_accession AS accession, experiment_title AS title, "
+            "instrument_platform AS platform, instrument_model, library_layout, "
+            "library_name, library_selection, library_source, library_strategy, "
+            "sample_accession AS sample, scientific_name AS organism, "
+            "tax_id AS taxonomy_id, host, tissue_type, cell_type, "
+            "disease, dev_stage, base_count, read_count "
+            "FROM ena_experiments WHERE study_accession = ?",
+            [study_accession],
+        )
 
-            for r in rel.fetchmany():
-                d = dict(zip(cols, r))
-                experiments.append(ENAExperiment.model_validate(d))
-            return BaseContainer(experiments)
+        cols = [desc[0] for desc in rel.description if desc[0]]
+        experiments: list[EnaExperiment] = []
+
+        for r in rel.fetchmany():
+            d = dict(zip(cols, r, strict=False))
+            experiments.append(EnaExperiment.model_validate(d))
+        return BaseContainer(experiments)
 
     def fetch_experiments(
         self, study_accession: str
-    ) -> BaseContainer[SRAExperiment] | BaseContainer[ENAExperiment]:
+    ) -> BaseContainer[SraExperiment] | BaseContainer[EnaExperiment]:
         datasource = self._datasource_from_study_accession(study_accession)
-        if datasource != datasource.Sra and datasource != datasource.Ena:
+        if datasource not in (datasource.Sra, datasource.Ena):
             raise SeqoutError(
-                f"experiments can be only fetched for accessions related to SRA or ENA. {study_accession} is from {datasource}"
+                "experiments can be only fetched for accessions related to"
+                f" SRA or ENA. {study_accession} is from {datasource}"
             )
 
         datasource_str = "sra" if datasource == datasource.Sra else "ena"
         return self._fetch_experiments_helper(study_accession, datasource_str)
 
+    def _fetch_samples_helper(
+        self, study_accession: str, datasource: Literal["geo", "ae"]
+    ) -> BaseContainer[GeoSample] | BaseContainer[AeSample]:
+        if datasource == "geo":
+            result = self.execute_query(
+                "SELECT samples_ref FROM geo_series WHERE accession = ?",
+                [study_accession],
+            ).fetchone()
+            if not result:
+                raise SeqoutError(
+                    f"failed to fetch samples for {study_accession} study"
+                )
+
+            samples = [str(v["@ref"]) for v in json.loads(result[0])]
+            placeholders = ", ".join(["?"] * len(samples))
+
+            rel = self.execute_query(
+                "SELECT accession, channel_count, channels AS channels_json, "  # noqa: S608
+                "title, description, platform_ref AS platform, "
+                "supplementary_data AS supplementary_data_json, "
+                "hybridization_protocol, scan_protocol FROM geo_samples "
+                f"WHERE accession IN ({placeholders})",
+                samples,
+            )
+
+            cols = [desc[0] for desc in rel.description if desc[0]]
+            geo_samples: list[GeoSample] = []
+
+            for r in rel.fetchmany():
+                d = dict(zip(cols, r, strict=False))
+                channels: list[dict] = json.loads(d["channels_json"])
+                d["channels"] = [
+                    _Channel(
+                        position=ch["@position"],
+                        characteristics=ch["Characteristics"],
+                        molecule=ch["Molecule"],
+                        organism=dict(ch["Organism"]).get("#text"),
+                        taxonomy_id=dict(ch["Organism"]).get("@taxid"),
+                        source=ch["Source"],
+                        extract_protocol=ch.get("Extract-Protocol"),
+                        growth_protocol=ch.get("Growth-Protocol"),
+                        treatment_protocol=ch.get("Treatment-Protocol"),
+                    )
+                    for ch in channels
+                ]
+                d["supplementary_data"] = [
+                    str(v["#text"]).replace("ftp://", "https://", 1)
+                    for v in json.loads(d["supplementary_data_json"])
+                    if v["@type"] != "unknown"
+                ]
+                geo_samples.append(GeoSample.model_validate(d))
+
+            return BaseContainer(geo_samples)
+        ae_samples: list[AeSample] = []
+        return BaseContainer(ae_samples)
+
+    def fetch_samples(
+        self, study_accession: str
+    ) -> BaseContainer[GeoSample] | BaseContainer[AeSample]:
+        datasource = self._datasource_from_study_accession(study_accession)
+        if datasource not in (datasource.Geo, datasource.Ae):
+            raise SeqoutError(
+                "samples can be only fetched for accessions related to"
+                f" GEO or AE. {study_accession} is from {datasource}"
+            )
+
+        datasource_str = "geo" if datasource == datasource.Geo else "ae"
+        return self._fetch_samples_helper(study_accession, datasource_str)
+
     def close(self) -> None:
         pass
 
-    def __enter__(self) -> "SeqoutParquetClient":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: object) -> None:
         self.close()
