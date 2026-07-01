@@ -68,33 +68,44 @@ function getCachedCommonNames(scientificNames: string[]): Map<string, string> {
 // Resolve every missing scientific name in a single /common-names request.
 // Rows come back keyed by scientific_name (case-insensitive); anything the
 // server omits is cached as null so we don't re-ask for it.
+const COMMON_NAMES_CHUNK = 50;
+
+async function fetchCommonNamesChunk(
+  names: string[],
+  byLowerName: Map<string, string>,
+): Promise<void> {
+  try {
+    const params = names
+      .map((n) => `scientific_name=${encodeURIComponent(n)}`)
+      .join("&");
+    const res = await fetch(`${SERVER_URL}/common-names?${params}`);
+    if (!res.ok) return;
+    const rows: unknown = await res.json();
+    if (!Array.isArray(rows)) return;
+    for (const row of rows) {
+      const sci = (row as { scientific_name?: unknown })?.scientific_name;
+      const common = (row as { common_name?: unknown })?.common_name;
+      if (typeof sci === "string" && typeof common === "string") {
+        const key = sci.trim().toLowerCase();
+        // ORDER BY common_name → keep the first per name.
+        if (key && common.trim() && !byLowerName.has(key)) {
+          byLowerName.set(key, common.trim());
+        }
+      }
+    }
+  } catch {}
+}
+
 async function fetchCommonNames(scientificNames: string[]): Promise<void> {
   const missing = scientificNames.filter((n) => !commonNameCache.has(n));
   if (missing.length === 0) return;
 
   const byLowerName = new Map<string, string>();
-  try {
-    const params = missing
-      .map((n) => `scientific_name=${encodeURIComponent(n)}`)
-      .join("&");
-    const res = await fetch(`${SERVER_URL}/common-names?${params}`);
-    if (res.ok) {
-      const rows: unknown = await res.json();
-      if (Array.isArray(rows)) {
-        for (const row of rows) {
-          const sci = (row as { scientific_name?: unknown })?.scientific_name;
-          const common = (row as { common_name?: unknown })?.common_name;
-          if (typeof sci === "string" && typeof common === "string") {
-            const key = sci.trim().toLowerCase();
-            // ORDER BY common_name → keep the first per name.
-            if (key && common.trim() && !byLowerName.has(key)) {
-              byLowerName.set(key, common.trim());
-            }
-          }
-        }
-      }
-    }
-  } catch {}
+  const chunks: string[][] = [];
+  for (let i = 0; i < missing.length; i += COMMON_NAMES_CHUNK) {
+    chunks.push(missing.slice(i, i + COMMON_NAMES_CHUNK));
+  }
+  await Promise.all(chunks.map((c) => fetchCommonNamesChunk(c, byLowerName)));
 
   for (const name of missing) {
     commonNameCache.set(
