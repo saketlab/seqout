@@ -50,16 +50,23 @@ function buildCountryColorMap(sorted) {
 const DEFAULT_CENTER = { x: 1.1495, y: -1.5695 };
 const DEFAULT_VIEW_FRACTION = 0.5;
 const SEARCH_VIEW_FRACTION = 0.02;
+const DOUBLE_CLICK_MS = 350;
 
 // Cap the description shown in the hover tooltip (words).
-const TOOLTIP_DESC_WORDS = 100;
+const TOOLTIP_DESC_WORDS = 40;
 const capWords = (s) => {
   const words = s.trim().split(/\s+/);
   return words.length > TOOLTIP_DESC_WORDS
     ? words.slice(0, TOOLTIP_DESC_WORDS).join(" ") + "…"
     : s;
 };
-const HTML_ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const HTML_ESC = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => HTML_ESC[c]);
 
 // Create the scatterplot. The React layer passes the tiles URL (deepscatter
@@ -138,7 +145,8 @@ export async function createMap({
   // (a per-layer sidecar column in the tiles, kept in state.colorField). Seed it
   // with the coarsest labeled layer for the default view; the zoom listener keeps
   // it in sync. cluster ids run [0, max] and -1 = noise (grey, first palette slot).
-  state.colorField = levels[Math.min(LABEL_LAYER_MAX, levels.length - 1)] ?? null;
+  state.colorField =
+    levels[Math.min(LABEL_LAYER_MAX, levels.length - 1)] ?? null;
   state.maxClusterId = (state.colorField && clusterMax[state.colorField]) || 0;
 
   // Index 0 of the range maps to cluster_id -1 (noise) → faint background grey so
@@ -194,8 +202,14 @@ export async function createMap({
   //            hover at the last cursor position so the box updates immediately.
   const metaCache = new Map(); // accession -> meta | "loading"
   let clickedAccession = null;
+  let lastClickedAccession = null;
+  let lastClickAt = 0;
+  let highlitPointIds = [];
   let lastMove = null;
   const svgEl = () => document.querySelector(`${mapSelector} #deepscatter-svg`);
+  sp.highlit_point_change = (points) => {
+    highlitPointIds = points;
+  };
   sp.ready.then(() => {
     svgEl()?.addEventListener("mousemove", (e) => {
       lastMove = { clientX: e.clientX, clientY: e.clientY };
@@ -208,9 +222,22 @@ export async function createMap({
     if (labelrects) labelrects.style.pointerEvents = "none";
   });
   const refreshTooltip = () => {
+    const tooltips = document.querySelectorAll(`${mapSelector} .tooltip`);
+    if (tooltips.length > 0 && highlitPointIds.length > 0) {
+      tooltips.forEach((tooltip, i) => {
+        const pointId = highlitPointIds[i];
+        if (pointId != null) {
+          tooltip.innerHTML = sp.tooltip_handler.f(pointId, sp);
+        }
+      });
+      return;
+    }
+
     const el = svgEl();
     if (el && lastMove)
-      el.dispatchEvent(new MouseEvent("mousemove", { ...lastMove, bubbles: true }));
+      el.dispatchEvent(
+        new MouseEvent("mousemove", { ...lastMove, bubbles: true }),
+      );
   };
   const fetchMeta = async (accession) => {
     if (metaCache.has(accession)) return;
@@ -223,19 +250,38 @@ export async function createMap({
     }
     refreshTooltip();
   };
-  sp.click_function = async (datum) => {
-    const accession = await resolveAccession(sp, datum);
+  const handlePointClick = (accession) => {
     if (!accession) return;
+    const now = Date.now();
+    const isDoubleClick =
+      accession === lastClickedAccession &&
+      now - lastClickAt <= DOUBLE_CLICK_MS;
+    lastClickedAccession = accession;
+    lastClickAt = now;
+
+    if (isDoubleClick) {
+      window.open(`/p/${encodeURIComponent(accession)}`, "_blank", "noopener");
+      return;
+    }
+
     clickedAccession = accession;
     refreshTooltip(); // switch to details/loading right away
     fetchMeta(accession); // fetch if needed; refreshes again on resolve
+  };
+  sp.click_function = (datum) => {
+    if (datum.accession) {
+      handlePointClick(datum.accession);
+      return;
+    }
+    resolveAccession(sp, datum).then(handlePointClick);
   };
   sp.tooltip_html = (datum) => {
     const accession = datum.accession ?? "unknown";
     if (accession !== clickedAccession) {
       return (
-        `<div><strong style="font-size:12px">${esc(accession)}</strong>` +
-        `<div style="margin-top:4px;font-size:11px;opacity:.6">Click to show details</div></div>`
+        `<div><strong style="font-size:1rem">${esc(accession)}</strong>` +
+        `<div style="margin-top:4px;font-size:0.9rem;opacity:.9">Click to show details</div>` +
+        `<div style="margin-top:4px;font-size:0.9rem;opacity:.9">Double click to open in new tab</div></div>`
       );
     }
     const meta = metaCache.get(accession);
@@ -245,10 +291,13 @@ export async function createMap({
     const descShort = description ? capWords(description) : "";
     return (
       `<div>` +
-      `<strong style="font-size:12px">${esc(accession)}</strong>` +
-      (title ? `<div style="margin-top:4px;font-weight:500;font-size:12px">${esc(title)}</div>` : "") +
+      `<div style="margin-top:4px;font-size:0.9rem;opacity:.9">Double click to open in new tab</div></div>` +
+      `<strong style="font-size:1rem">${esc(accession)}</strong>` +
+      (title
+        ? `<div style="margin-top:4px;font-weight:500;font-size:1.2rem">${esc(title)}</div>`
+        : "") +
       (descShort
-        ? `<div style="margin-top:4px;font-size:11px;opacity:.8">${esc(descShort)}</div>`
+        ? `<div style="margin-top:4px;font-size:1rem;opacity:.9">${esc(descShort)}</div>`
         : "") +
       (ready
         ? ""
@@ -377,7 +426,13 @@ function clearLabels(sp) {
 // Replace the label set with a fresh one.
 function applyLabels(sp, fc, labelFont) {
   clearLabels(sp);
-  sp.add_labels(fc, "clusters", "label", "size", labelFont ? { font: labelFont } : {});
+  sp.add_labels(
+    fc,
+    "clusters",
+    "label",
+    "size",
+    labelFont ? { font: labelFont } : {},
+  );
   killLabelShadow(sp, "clusters");
 }
 
@@ -468,7 +523,8 @@ function setupDynamicLabels({
   const colorFloor = (() => {
     const top = Math.min(LABEL_LAYER_MAX, levels.length - 1);
     for (let i = 0; i <= top; i++) {
-      if ((clusterCount[levels[i]] ?? Infinity) + 1 <= COLOR_CATEGORY_LIMIT) return i;
+      if ((clusterCount[levels[i]] ?? Infinity) + 1 <= COLOR_CATEGORY_LIMIT)
+        return i;
     }
     return top;
   })();
@@ -683,12 +739,19 @@ export async function runSearch(sp, accessionId) {
     const extent = state.mapExtent;
     const extentWidth = extent
       ? Math.abs(extent.maxx - extent.minx)
-      : Math.abs(sp.zoom.current_corners().x[1] - sp.zoom.current_corners().x[0]);
+      : Math.abs(
+          sp.zoom.current_corners().x[1] - sp.zoom.current_corners().x[0],
+        );
     const extentHeight = extent
       ? Math.abs(extent.maxy - extent.miny)
-      : Math.abs(sp.zoom.current_corners().y[1] - sp.zoom.current_corners().y[0]);
+      : Math.abs(
+          sp.zoom.current_corners().y[1] - sp.zoom.current_corners().y[0],
+        );
     const halfWidth = Math.max(extentWidth * SEARCH_VIEW_FRACTION * 0.5, 1e-6);
-    const halfHeight = Math.max(extentHeight * SEARCH_VIEW_FRACTION * 0.5, 1e-6);
+    const halfHeight = Math.max(
+      extentHeight * SEARCH_VIEW_FRACTION * 0.5,
+      1e-6,
+    );
     sp.zoom.zoom_to_bbox(
       {
         x: [found.x - halfWidth, found.x + halfWidth],
@@ -774,7 +837,8 @@ export function screenToData(sp, screenX, screenY) {
 // the selection/stats respect the sidebar filters.
 function lassoSelector(dataVerts) {
   const pred = makeFilterPredicate();
-  return (row) => (pointInPolygon(row.x, row.y, dataVerts) && pred(row) ? 1 : 0);
+  return (row) =>
+    pointInPolygon(row.x, row.y, dataVerts) && pred(row) ? 1 : 0;
 }
 
 export async function performLasso(sp, dataVerts) {
@@ -868,7 +932,8 @@ export async function collectLassoData(sp) {
       if (acc) accessions.push(acc);
       if (countriesCol) tally(countryCounts, countriesCol.get(i));
       for (let k = 0; k < facetCols.length; k++) {
-        if (facetCols[k]) tally(facetCounts[facetColumns[k]], facetCols[k].get(i));
+        if (facetCols[k])
+          tally(facetCounts[facetColumns[k]], facetCols[k].get(i));
       }
     }
   }

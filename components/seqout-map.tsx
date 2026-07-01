@@ -89,8 +89,7 @@ function backgroundForTheme(theme: string | undefined): string {
   return theme === "light" ? "#ffffff" : "#000000";
 }
 
-const ACCESSION_LIKE =
-  /^(GSE\d+|[SED]RP\d+|PRJ[A-Z]*\d+|E-[A-Z0-9-]+)$/i;
+const ACCESSION_LIKE = /^(GSE\d+|[SED]RP\d+|PRJ[A-Z]*\d+|E-[A-Z0-9-]+)$/i;
 
 function addAliasCandidate(
   aliases: Set<string>,
@@ -658,8 +657,8 @@ export default function MapGraph() {
           /* deepscatter anchors the box below the point; nudge it right so it
              sits at the point's bottom-right. */
           margin-left: 14px;
-          width: 27rem;
-          font-size: 12px;
+          width: 20rem;
+          font-size: 1rem;
           text-align: left;
           white-space: normal;
           box-shadow: 0 4px 16px var(--black-a6);
@@ -816,7 +815,6 @@ export default function MapGraph() {
             </Flex>
           </ScrollArea>
         </Box>
-
 
         {!isMobile && (
           <>
