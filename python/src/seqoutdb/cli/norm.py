@@ -269,7 +269,7 @@ def build_records(
     # Single GEO sample
     if up.startswith("GSM"):
         progress("Fetching sample metadata")
-        detail = sq.fetch_sample_detailed_metadata(acc)
+        detail = sq.fetch_geo_sample_detailed_metadata(acc)
         study = _study_text_geo(detail.project, sq)
         s = detail.sample
         if not isinstance(s, ExperimentSample):
