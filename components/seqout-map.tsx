@@ -24,6 +24,7 @@ import {
   Flex,
   IconButton,
   Kbd,
+  Link,
   ScrollArea,
   Separator,
   Spinner,
@@ -757,7 +758,25 @@ export default function MapGraph() {
         </Flex>
 
         <Separator size="4" />
-
+        <Flex p="3" direction={"column"} gap={"2"}>
+          <Flex align="center" justify={"between"} gap="2">
+            <Text>Color by cluster</Text>
+            <Switch
+              size="1"
+              checked={colorByClusters}
+              onCheckedChange={onToggleColorByClusters}
+            />
+          </Flex>
+          <Text size={"1"}>
+            Clusters generated using{" "}
+            <Link href="https://evoc.readthedocs.io/en/latest/">EVoC</Link> on
+            embeddings produced by{" "}
+            <Link href="https://huggingface.co/codefuse-ai/F2LLM-v2-8B">
+              F2LLM-v2-8B
+            </Link>{" "}
+            from the dataset metadata in the original embedding space.
+          </Text>
+        </Flex>
         {/* Country filter */}
         <Box p="3" style={{ display: "flex", flexDirection: "column" }}>
           <Flex align="center" justify="between" mb="2">
@@ -765,16 +784,6 @@ export default function MapGraph() {
               <GlobeIcon />
               <Text size="2">Countries</Text>
             </Flex>
-            <Text as="label" size="2">
-              <Flex align="center" gap="2">
-                Color by cluster
-                <Switch
-                  size="1"
-                  checked={colorByClusters}
-                  onCheckedChange={onToggleColorByClusters}
-                />
-              </Flex>
-            </Text>
           </Flex>
           <TextField.Root
             size="1"
