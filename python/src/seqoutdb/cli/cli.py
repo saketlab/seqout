@@ -437,7 +437,10 @@ def cmd_show_sample(acc: str, console: Console) -> None:
             connect_to_seqout(backend="api") as sq,
             console.status(f"[bold]Fetching {acc}…[/]"),
         ):
-            detail = sq.fetch_sample_detailed_metadata(acc)
+            if acc.upper().startswith("GSM"):
+                detail = sq.fetch_geo_sample_detailed_metadata(acc)
+            else:
+                detail = sq.fetch_sample_detailed_metadata(acc)
     except Exception as e:
         console.print(f"[red]Failed to fetch {acc}:[/] {e}")
         raise SystemExit(1) from e
@@ -591,7 +594,10 @@ def cmd_download(accession: str, out: str | None) -> None:
             console.status(f"[bold]Fetching {acc}…[/]"),
         ):
             if up.startswith(SAMPLE_PREFIXES):
-                detail = sq.fetch_sample_detailed_metadata(acc)
+                if up.startswith("GSM"):
+                    detail = sq.fetch_geo_sample_detailed_metadata(acc)
+                else:
+                    detail = sq.fetch_sample_detailed_metadata(acc)
                 data = detail.model_dump()
             else:
                 is_geo = up.startswith(("GSE", "E-"))
