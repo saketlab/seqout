@@ -23,8 +23,8 @@ import {
 import {
   Button,
   Flex,
-  Separator,
   Select,
+  Separator,
   Skeleton,
   Spinner,
   Text,
@@ -302,7 +302,6 @@ function SearchOrganismRailSkeleton() {
   );
 }
 
-
 function getPageRange(current: number, total: number): (number | "ellipsis")[] {
   if (total <= 7) {
     return Array.from({ length: total }, (_, i) => i + 1);
@@ -362,10 +361,7 @@ function Paginator({
       return;
     }
 
-    const nextPage = Math.min(
-      Math.max(Math.trunc(parsed), 1),
-      totalPages,
-    );
+    const nextPage = Math.min(Math.max(Math.trunc(parsed), 1), totalPages);
     setPageInputState({
       currentPage: nextPage,
       value: String(nextPage),
@@ -487,9 +483,6 @@ function Paginator({
   );
 }
 
-
-
-
 const SORT_LABELS: Record<SortBy, string> = {
   relevance: "Relevance",
   date: "Newest first",
@@ -575,7 +568,8 @@ function ActiveFilterChips(props: ActiveFilterChipsProps) {
     let timeLabel: string;
     if (props.timeFilter === "custom") {
       const { from, to } = props.customYearRange;
-      timeLabel = from && to ? `${from}–${to}` : from ? `From ${from}` : `To ${to}`;
+      timeLabel =
+        from && to ? `${from}–${to}` : from ? `From ${from}` : `To ${to}`;
       timeLabel = `Time: ${timeLabel}`;
     } else {
       timeLabel = `Time: ${TIME_LABELS[props.timeFilter] ?? props.timeFilter}`;
@@ -704,9 +698,6 @@ function ActiveFilterChips(props: ActiveFilterChipsProps) {
   );
 }
 
-
-
-
 function applyTimeFilter(
   results: SearchResult[],
   timeFilter: string,
@@ -760,7 +751,10 @@ function applyOrganismFilter(
   );
 }
 
-function applyJournalFilter(results: SearchResult[], journals: string[]): SearchResult[] {
+function applyJournalFilter(
+  results: SearchResult[],
+  journals: string[],
+): SearchResult[] {
   if (journals.length === 0) return results;
   const selectedJournals = new Set(journals);
   return results.filter((r) => {
@@ -778,8 +772,8 @@ function applyCountryFilter(
     countries.map((country) => country.toUpperCase()),
   );
   return results.filter((r) =>
-    (r.countries ?? []).some(
-      (c) => selectedCountries.has(c.trim().toUpperCase()),
+    (r.countries ?? []).some((c) =>
+      selectedCountries.has(c.trim().toUpperCase()),
     ),
   );
 }
@@ -867,9 +861,6 @@ function getAvailableInstrumentModels(results: SearchResult[]): Set<string> {
   return models;
 }
 
-
-
-
 export default function SearchPageBody() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -890,12 +881,7 @@ export default function SearchPageBody() {
   }, [query, setLastSearchQuery]);
 
   const updateSearchUrl = useCallback(
-    (
-      updates: Record<
-        string,
-        string | string[] | null | undefined
-      >,
-    ) => {
+    (updates: Record<string, string | string[] | null | undefined>) => {
       const params = new URLSearchParams(searchParams.toString());
 
       for (const [key, value] of Object.entries(updates)) {
@@ -945,11 +931,13 @@ export default function SearchPageBody() {
 
   // Filters below are client-side only — not in the queryKey.
   const selectedJournalFilters = useMemo(
-    () => normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.journal)),
+    () =>
+      normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.journal)),
     [searchParams],
   );
   const selectedCountryFilters = useMemo(
-    () => normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.country)),
+    () =>
+      normalizeMultiValueFilter(searchParams.getAll(FILTER_PARAM_KEYS.country)),
     [searchParams],
   );
   const selectedLibraryStrategyFilters = useMemo(
@@ -1036,15 +1024,39 @@ export default function SearchPageBody() {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: isGeoSearch
-      ? ["geo-search", geoLat, geoLng, geoRadiusKm, geoOrganism, geoAssayL2, geoSource]
+      ? [
+          "geo-search",
+          geoLat,
+          geoLng,
+          geoRadiusKm,
+          geoOrganism,
+          geoAssayL2,
+          geoSource,
+        ]
       : ["search", query, db, sortBy, filtersKey],
     queryFn: async ({ pageParam, signal }) => {
       // Measure real wall-clock (fetch + network), not the server's took_ms —
       // backend time alone hides the latency the user actually waits through.
       const start = performance.now();
       const res = isGeoSearch
-        ? await getGeoSearchResults(geoLat!, geoLng!, geoRadiusKm, pageParam as Cursor, geoOrganism, geoAssayL2, geoSource, signal)
-        : await getSearchResults(query, db, pageParam as Cursor, sortBy, searchFilters, signal);
+        ? await getGeoSearchResults(
+            geoLat!,
+            geoLng!,
+            geoRadiusKm,
+            pageParam as Cursor,
+            geoOrganism,
+            geoAssayL2,
+            geoSource,
+            signal,
+          )
+        : await getSearchResults(
+            query,
+            db,
+            pageParam as Cursor,
+            sortBy,
+            searchFilters,
+            signal,
+          );
       if (res) res.took_ms = performance.now() - start;
       return res;
     },
@@ -1098,8 +1110,8 @@ export default function SearchPageBody() {
   // Geo returns its own (client-side) count; text search reads the deferred
   // total from facets, falling back to the loaded count while it's pending.
   const total = isGeoSearch
-    ? data?.pages?.[0]?.total ?? 0
-    : facetsTotal ?? allResults.length;
+    ? (data?.pages?.[0]?.total ?? 0)
+    : (facetsTotal ?? allResults.length);
   // Only "pending" while facets is still in flight; a failed/degraded facets
   // (total stays null) falls back to the loaded "N+" instead of an endless skeleton.
   const totalPending =
@@ -1179,8 +1191,14 @@ export default function SearchPageBody() {
     results = applyOrganismFilter(results, selectedOrganismKey);
     results = applyJournalFilter(results, selectedJournalFilters);
     results = applyCountryFilter(results, selectedCountryFilters);
-    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
-    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    results = applyLibraryStrategyFilter(
+      results,
+      selectedLibraryStrategyFilters,
+    );
+    results = applyInstrumentModelFilter(
+      results,
+      selectedInstrumentModelFilters,
+    );
     results = applyPlatformFilter(results, selectedPlatformFilters);
     results = applyMultiPlatformFilter(results, multiPlatformOnly);
     return results;
@@ -1208,8 +1226,14 @@ export default function SearchPageBody() {
   const journalFilterResults = useMemo(() => {
     let results = moreFilterBaseResults;
     results = applyCountryFilter(results, selectedCountryFilters);
-    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
-    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    results = applyLibraryStrategyFilter(
+      results,
+      selectedLibraryStrategyFilters,
+    );
+    results = applyInstrumentModelFilter(
+      results,
+      selectedInstrumentModelFilters,
+    );
     return results;
   }, [
     moreFilterBaseResults,
@@ -1221,8 +1245,14 @@ export default function SearchPageBody() {
   const countryFilterResults = useMemo(() => {
     let results = moreFilterBaseResults;
     results = applyJournalFilter(results, selectedJournalFilters);
-    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
-    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    results = applyLibraryStrategyFilter(
+      results,
+      selectedLibraryStrategyFilters,
+    );
+    results = applyInstrumentModelFilter(
+      results,
+      selectedInstrumentModelFilters,
+    );
     return results;
   }, [
     moreFilterBaseResults,
@@ -1235,7 +1265,10 @@ export default function SearchPageBody() {
     let results = moreFilterBaseResults;
     results = applyJournalFilter(results, selectedJournalFilters);
     results = applyCountryFilter(results, selectedCountryFilters);
-    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    results = applyInstrumentModelFilter(
+      results,
+      selectedInstrumentModelFilters,
+    );
     return results;
   }, [
     moreFilterBaseResults,
@@ -1248,7 +1281,10 @@ export default function SearchPageBody() {
     let results = moreFilterBaseResults;
     results = applyJournalFilter(results, selectedJournalFilters);
     results = applyCountryFilter(results, selectedCountryFilters);
-    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
+    results = applyLibraryStrategyFilter(
+      results,
+      selectedLibraryStrategyFilters,
+    );
     results = applyPlatformFilter(results, selectedPlatformFilters);
     results = applyMultiPlatformFilter(results, multiPlatformOnly);
     return results;
@@ -1265,8 +1301,14 @@ export default function SearchPageBody() {
     let results = moreFilterBaseResults;
     results = applyJournalFilter(results, selectedJournalFilters);
     results = applyCountryFilter(results, selectedCountryFilters);
-    results = applyLibraryStrategyFilter(results, selectedLibraryStrategyFilters);
-    results = applyInstrumentModelFilter(results, selectedInstrumentModelFilters);
+    results = applyLibraryStrategyFilter(
+      results,
+      selectedLibraryStrategyFilters,
+    );
+    results = applyInstrumentModelFilter(
+      results,
+      selectedInstrumentModelFilters,
+    );
     return results;
   }, [
     moreFilterBaseResults,
@@ -1521,36 +1563,54 @@ export default function SearchPageBody() {
     });
   const discardMoreFilters = () => setLocalMore(committedMoreFilters);
 
-  const handleSetJournalFilters = useCallback((arr: string[]) => {
-    updateSearchUrl({
-      [FILTER_PARAM_KEYS.journal]: arr,
-    });
-  }, [updateSearchUrl]);
-  const handleSetCountryFilters = useCallback((arr: string[]) => {
-    updateSearchUrl({
-      [FILTER_PARAM_KEYS.country]: arr,
-    });
-  }, [updateSearchUrl]);
-  const handleSetLibraryStrategyFilters = useCallback((arr: string[]) => {
-    updateSearchUrl({
-      [FILTER_PARAM_KEYS.libraryStrategy]: arr,
-    });
-  }, [updateSearchUrl]);
-  const handleSetInstrumentModelFilters = useCallback((arr: string[]) => {
-    updateSearchUrl({
-      [FILTER_PARAM_KEYS.instrumentModel]: arr,
-    });
-  }, [updateSearchUrl]);
-  const handleSetPlatformFilters = useCallback((arr: string[]) => {
-    updateSearchUrl({
-      [FILTER_PARAM_KEYS.platform]: arr,
-    });
-  }, [updateSearchUrl]);
-  const handleSetMultiPlatform = useCallback((val: boolean) => {
-    updateSearchUrl({
-      [FILTER_PARAM_KEYS.multiPlatform]: val ? "true" : null,
-    });
-  }, [updateSearchUrl]);
+  const handleSetJournalFilters = useCallback(
+    (arr: string[]) => {
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.journal]: arr,
+      });
+    },
+    [updateSearchUrl],
+  );
+  const handleSetCountryFilters = useCallback(
+    (arr: string[]) => {
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.country]: arr,
+      });
+    },
+    [updateSearchUrl],
+  );
+  const handleSetLibraryStrategyFilters = useCallback(
+    (arr: string[]) => {
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.libraryStrategy]: arr,
+      });
+    },
+    [updateSearchUrl],
+  );
+  const handleSetInstrumentModelFilters = useCallback(
+    (arr: string[]) => {
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.instrumentModel]: arr,
+      });
+    },
+    [updateSearchUrl],
+  );
+  const handleSetPlatformFilters = useCallback(
+    (arr: string[]) => {
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.platform]: arr,
+      });
+    },
+    [updateSearchUrl],
+  );
+  const handleSetMultiPlatform = useCallback(
+    (val: boolean) => {
+      updateSearchUrl({
+        [FILTER_PARAM_KEYS.multiPlatform]: val ? "true" : null,
+      });
+    },
+    [updateSearchUrl],
+  );
   const handleClearMoreFilters = useCallback(() => {
     updateSearchUrl({
       [FILTER_PARAM_KEYS.journal]: [],
@@ -1569,7 +1629,8 @@ export default function SearchPageBody() {
   const shouldShowOrganismRail =
     !isLoading && !isError && allResults.length > 0;
   const shouldReserveRailSpace =
-    isLoading || ((!!query || isGeoSearch) && (isError || allResults.length === 0));
+    isLoading ||
+    ((!!query || isGeoSearch) && (isError || allResults.length === 0));
 
   useEffect(() => {
     const onScroll = () => {
@@ -1823,7 +1884,11 @@ export default function SearchPageBody() {
         <Flex
           gap="4"
           direction="column"
-          width={{ initial: "100%", md: "calc(100% - 240px)", lg: "calc(100% - 300px)" }}
+          width={{
+            initial: "100%",
+            md: "calc(100% - 240px)",
+            lg: "calc(100% - 300px)",
+          }}
           minWidth="0"
         >
           <div ref={resultsTopRef} />
@@ -1878,7 +1943,8 @@ export default function SearchPageBody() {
                   ) : (
                     total.toLocaleString()
                   )}{" "}
-                  result{total === 1 ? "" : "s"} in {(tookMs / 1000).toFixed(2)}s
+                  result{total === 1 ? "" : "s"} in {(tookMs / 1000).toFixed(2)}
+                  s
                   {!totalPending &&
                     hasAnyFilter &&
                     filteredTotal < allResults.length && (
@@ -1961,9 +2027,11 @@ export default function SearchPageBody() {
                       center_name={searchResult.center_name}
                       country_code={searchResult.country_code}
                       single_cell_modality={searchResult.single_cell_modality}
-                      href={selectedOrganismKey
-                        ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
-                        : undefined}
+                      href={
+                        selectedOrganismKey
+                          ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
+                          : undefined
+                      }
                     />
                   ))}
                 </Flex>
@@ -1988,9 +2056,11 @@ export default function SearchPageBody() {
               gap="3"
             >
               <Text size={{ initial: "5", md: "6" }} weight="bold">
-                {query
-                  ? <>No results for &ldquo;{query}&rdquo;</>
-                  : "No results found"}
+                {query ? (
+                  <>No results for &ldquo;{query}&rdquo;</>
+                ) : (
+                  "No results found"
+                )}
               </Text>
               {suggestions?.length ? (
                 <DidYouMean
@@ -2031,7 +2101,8 @@ export default function SearchPageBody() {
             direction="column"
             align={"end"}
             gap="2"
-            style={{ right: "1rem", bottom: "1rem", zIndex: 999 }}
+            bottom={{ initial: "9", sm: "4" }}
+            style={{ right: "1rem", zIndex: 999 }}
           >
             {showTopButton && (
               <Tooltip content="Go back to top">
@@ -2067,7 +2138,7 @@ export default function SearchPageBody() {
                   aria-busy={isDownloading}
                 >
                   {isDownloading ? <Spinner /> : <DownloadIcon />}
-                  {isDownloading ? "Preparing ZIP..." : "Download"}
+                  {isDownloading ? "Preparing ZIP..." : "Download results"}
                 </Button>
               </Tooltip>
             )}
