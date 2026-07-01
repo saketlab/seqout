@@ -2,7 +2,6 @@
 import AccessionLink from "@/components/accession-link";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
-import { useWrapText, WrapTextToggle } from "@/components/wrap-text-toggle";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
@@ -17,6 +16,7 @@ import SubmittingOrgPanel, {
 } from "@/components/submitting-org-panel";
 import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import { useToast } from "@/components/toast-provider";
+import { useWrapText, WrapTextToggle } from "@/components/wrap-text-toggle";
 import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,

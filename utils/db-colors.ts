@@ -4,7 +4,7 @@ export type DbSource = "geo" | "sra" | "ena" | "arrayexpress";
 
 export const DB_ORDER: DbSource[] = ["geo", "sra", "ena", "arrayexpress"];
 
-type RadixColor = "blue" | "violet" | "jade" | "amber";
+type RadixColor = "blue" | "brown" | "jade" | "gold";
 
 type DbColor = {
   hex: string;
@@ -20,7 +20,6 @@ export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   },
   sra: {
     hex: "#8b5cf6",
-    // @ts-expect-error This is a type problem from radix
     radix: "brown",
     og: { primary: "#8b5cf6", secondary: "#6d28d9", accent: "#c4b5fd" },
   },
@@ -30,8 +29,8 @@ export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
     og: { primary: "#10b981", secondary: "#059669", accent: "#6ee7b7" },
   },
   arrayexpress: {
-    hex: "#f59e0b",
-    radix: "amber",
+    hex: "#978365", // radix gold 9 (solid) — matches the gold Badge
+    radix: "gold",
     og: { primary: "#f59e0b", secondary: "#d97706", accent: "#fcd34d" },
   },
 };
