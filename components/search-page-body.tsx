@@ -31,7 +31,7 @@ import {
   TextField,
   Tooltip,
 } from "@radix-ui/themes";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -120,6 +120,12 @@ const SORT_CONFIG: Record<
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
+// The server pages relevance results 200 at a time. Text search fetches whole
+// server pages by offset (not cursor) so any UI page can be jumped to directly
+// without walking the pages in between. Every perPage option divides 200, so a
+// UI page always lands inside a single server page.
+const SERVER_PAGE_SIZE = 200;
+
 const FILTER_PARAM_KEYS = {
   sortBy: "sort",
   time: "time",
@@ -205,11 +211,11 @@ function buildSearchUrl(
   query: string,
   db: string | null,
   sortBy: SortBy,
-  cursor: Cursor,
+  offset: number,
   filters: SearchFilterParams,
 ): string {
   // Filtering implies relevance order (the server's filtered path ignores
-  // sortby and paginates by rank), so don't emit a sort cursor when filtering.
+  // sortby), so don't emit sortby when filtering.
   const filtered = hasActiveFilters(filters);
   let url = `${SERVER_URL}/search?q=${encodeURIComponent(query)}`;
   if (db === "sra" || db === "geo" || db === "arrayexpress") {
@@ -218,25 +224,22 @@ function buildSearchUrl(
   if (!filtered && sortBy !== "relevance") {
     const config = SORT_CONFIG[sortBy];
     url += `&sortby=${config.param}&order=${config.order}`;
-    if (cursor && "sort_value" in cursor) {
-      url += `&cursor_sort=${encodeURIComponent(String(cursor.sort_value))}&cursor_acc=${encodeURIComponent(cursor.accession)}`;
-    }
-  } else if (cursor && "rank" in cursor) {
-    url += `&cursor_rank=${cursor.rank}&cursor_acc=${encodeURIComponent(cursor.accession)}`;
   }
+  // Offset paginates by absolute position, so any server page is one request.
+  if (offset > 0) url += `&offset=${offset}`;
   return appendFilterParams(url, filters);
 }
 
 const getSearchResults = async (
   query: string | null,
   db: string | null,
-  cursor: Cursor,
+  offset: number,
   sortBy: SortBy,
   filters: SearchFilterParams,
   signal?: AbortSignal,
 ): Promise<SearchResponse | null> => {
   if (!query) return null;
-  const url = buildSearchUrl(query, db, sortBy, cursor, filters);
+  const url = buildSearchUrl(query, db, sortBy, offset, filters);
   const res = await fetch(url, { signal: withTimeout(signal) });
   if (!res.ok) {
     throw new Error("Network Error");
@@ -1014,56 +1017,97 @@ export default function SearchPageBody() {
     setCurrentPage(1);
   }
 
+  // Geo search filters client-side, so it needs the whole result set: keep the
+  // infinite query that eagerly prefetches every page (cursor-paginated).
   const {
-    data,
-    isLoading,
-    isError,
-    refetch,
+    data: geoData,
+    isLoading: geoIsLoading,
+    isError: geoIsError,
+    refetch: geoRefetch,
     fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
+    hasNextPage: geoHasNextPage,
+    isFetchingNextPage: geoIsFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: isGeoSearch
-      ? [
-          "geo-search",
-          geoLat,
-          geoLng,
-          geoRadiusKm,
-          geoOrganism,
-          geoAssayL2,
-          geoSource,
-        ]
-      : ["search", query, db, sortBy, filtersKey],
+    queryKey: [
+      "geo-search",
+      geoLat,
+      geoLng,
+      geoRadiusKm,
+      geoOrganism,
+      geoAssayL2,
+      geoSource,
+    ],
     queryFn: async ({ pageParam, signal }) => {
       // Measure real wall-clock (fetch + network), not the server's took_ms —
       // backend time alone hides the latency the user actually waits through.
       const start = performance.now();
-      const res = isGeoSearch
-        ? await getGeoSearchResults(
-            geoLat!,
-            geoLng!,
-            geoRadiusKm,
-            pageParam as Cursor,
-            geoOrganism,
-            geoAssayL2,
-            geoSource,
-            signal,
-          )
-        : await getSearchResults(
-            query,
-            db,
-            pageParam as Cursor,
-            sortBy,
-            searchFilters,
-            signal,
-          );
+      const res = await getGeoSearchResults(
+        geoLat!,
+        geoLng!,
+        geoRadiusKm,
+        pageParam as Cursor,
+        geoOrganism,
+        geoAssayL2,
+        geoSource,
+        signal,
+      );
       if (res) res.took_ms = performance.now() - start;
       return res;
     },
     initialPageParam: null as Cursor,
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
-    enabled: isGeoSearch || !!query,
+    enabled: isGeoSearch,
   });
+
+  // Text search paginates on the server by offset, so a UI page maps directly
+  // to the one 200-row server page that contains it. We fetch only that page (a
+  // far jump never drags the pages in between across the network), and revisits
+  // are served from the react-query cache. perPage divides 200, so a UI page
+  // never straddles two server pages — but the range handles it just in case.
+  const neededServerPages = useMemo(() => {
+    if (isGeoSearch || !query) return [];
+    const startIdx = (currentPage - 1) * perPage;
+    const first = Math.floor(startIdx / SERVER_PAGE_SIZE);
+    const last = Math.floor((startIdx + perPage - 1) / SERVER_PAGE_SIZE);
+    const pages: number[] = [];
+    for (let p = first; p <= last; p++) pages.push(p);
+    return pages;
+  }, [isGeoSearch, query, currentPage, perPage]);
+
+  const serverPageQueries = useQueries({
+    queries: neededServerPages.map((p) => ({
+      queryKey: ["search", query, db, sortBy, filtersKey, p],
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const start = performance.now();
+        const res = await getSearchResults(
+          query,
+          db,
+          p * SERVER_PAGE_SIZE,
+          sortBy,
+          searchFilters,
+          signal,
+        );
+        if (res) res.took_ms = performance.now() - start;
+        return res;
+      },
+      enabled: !isGeoSearch && !!query,
+    })),
+  });
+
+  // Unify the geo (infinite) and text (per-page) sources behind one interface so
+  // the rest of the component is agnostic to which is active.
+  const anyTextLoading = serverPageQueries.some((q) => q.isLoading);
+  const isError = isGeoSearch
+    ? geoIsError
+    : serverPageQueries.some((q) => q.isError);
+  const isFetchingNextPage = isGeoSearch
+    ? geoIsFetchingNextPage
+    : serverPageQueries.some((q) => q.isFetching);
+  const refetch = () => {
+    if (isGeoSearch) geoRefetch();
+    else serverPageQueries.forEach((q) => q.refetch());
+  };
+  const windowFirstServerPage = neededServerPages[0] ?? 0;
 
   // Exact sidebar facet counts, fetched in parallel with the results so the
   // organism/journal/etc. counts are correct outright instead of climbing as
@@ -1093,11 +1137,21 @@ export default function SearchPageBody() {
   // fall back to the loaded-row count and render an inexact "N+".
   const facetsTotal =
     typeof facetsResponse?.total === "number" ? facetsResponse.total : null;
-  const tookMs = data?.pages?.[0]?.took_ms ?? 0;
-  const suggestions = data?.pages?.[0]?.suggestions;
+  const tookMs = isGeoSearch
+    ? (geoData?.pages?.[0]?.took_ms ?? 0)
+    : (serverPageQueries[0]?.data?.took_ms ?? 0);
+  // Spelling suggestions ride on the offset-0 page (only surfaced on page 1).
+  const suggestions = isGeoSearch
+    ? geoData?.pages?.[0]?.suggestions
+    : serverPageQueries.find((q) => q.data?.suggestions)?.data?.suggestions;
 
+  // For text search this is only the currently-viewed server page (≤200 rows),
+  // not every loaded page — the exact total comes from facets, and the rail
+  // counts from serverFacets, so we no longer need the whole set on the client.
   const allResults = useMemo(() => {
-    const flat = data?.pages.flatMap((page) => page?.results ?? []) ?? [];
+    const flat = isGeoSearch
+      ? (geoData?.pages.flatMap((page) => page?.results ?? []) ?? [])
+      : serverPageQueries.flatMap((q) => q.data?.results ?? []);
     const seen = new Set<string>();
     return flat.filter((result) => {
       const id = `${result.source}:${result.accession}`;
@@ -1105,53 +1159,43 @@ export default function SearchPageBody() {
       seen.add(id);
       return true;
     });
-  }, [data]);
+  }, [isGeoSearch, geoData, serverPageQueries]);
 
   // Geo returns its own (client-side) count; text search reads the deferred
   // total from facets, falling back to the loaded count while it's pending.
   const total = isGeoSearch
-    ? (data?.pages?.[0]?.total ?? 0)
+    ? (geoData?.pages?.[0]?.total ?? 0)
     : (facetsTotal ?? allResults.length);
   // Only "pending" while facets is still in flight; a failed/degraded facets
   // (total stays null) falls back to the loaded "N+" instead of an endless skeleton.
   const totalPending =
     !isGeoSearch && !!query && facetsTotal === null && facetsLoading;
 
+  // Full-page skeleton only on the very first load (nothing known yet). A jump to
+  // an unloaded page empties the window but the total is already known, so it
+  // falls through to the inline "loading this page" spinner instead.
+  const isLoading = isGeoSearch
+    ? geoIsLoading
+    : !!query && anyTextLoading && allResults.length === 0 && total === 0;
+  // "There are results to show" even while the current page's rows are still
+  // fetching — keeps the header, paginator, and rail mounted across a page jump.
+  const hasResults = isGeoSearch
+    ? allResults.length > 0
+    : total > 0 || allResults.length > 0;
+
   // Geo search filters client-side, so it still needs the whole result set:
-  // keep eagerly prefetching every page. Text search filters + paginates on the
-  // server, so it must NOT prefetch — pages load on demand (see below).
+  // keep eagerly prefetching every page. Text search paginates on the server and
+  // fetches exactly the page it needs, so it never prefetches.
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!isGeoSearch) return;
-    if (hasNextPage && !isFetchingNextPage) {
+    if (geoHasNextPage && !geoIsFetchingNextPage) {
       prefetchTimerRef.current = setTimeout(() => fetchNextPage(), 150);
       return () => {
         if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
       };
     }
-  }, [isGeoSearch, hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // Text search: fetch the next server page only when the user navigates to a
-  // page we haven't loaded yet (each server page is 200 rows, so most page
-  // clicks just slice already-loaded data).
-  useEffect(() => {
-    if (isGeoSearch) return;
-    if (
-      hasNextPage &&
-      !isFetchingNextPage &&
-      allResults.length < currentPage * perPage
-    ) {
-      fetchNextPage();
-    }
-  }, [
-    isGeoSearch,
-    hasNextPage,
-    isFetchingNextPage,
-    allResults.length,
-    currentPage,
-    perPage,
-    fetchNextPage,
-  ]);
+  }, [isGeoSearch, geoHasNextPage, geoIsFetchingNextPage, fetchNextPage]);
 
   // Snapshot sidebar results on first batch and on final load to prevent
   // facet counts from flickering as intermediate pages stream in.
@@ -1169,10 +1213,13 @@ export default function SearchPageBody() {
     setSnapshotFrozen(false);
   }
 
-  let sidebarResults = sidebarSnapshot;
-  if (!sidebarSearchChanged && !snapshotFrozen) {
+  // Geo streams pages in, so snapshot to stop facet counts flickering. Text
+  // search draws its rail from serverFacets (exact) and only holds the current
+  // server page client-side, so it just uses that directly.
+  let sidebarResults = isGeoSearch ? sidebarSnapshot : allResults;
+  if (isGeoSearch && !sidebarSearchChanged && !snapshotFrozen) {
     const allLoaded =
-      !hasNextPage && !isFetchingNextPage && allResults.length > 0;
+      !geoHasNextPage && !geoIsFetchingNextPage && allResults.length > 0;
     if (allLoaded) {
       setSidebarSnapshot(allResults);
       setSnapshotFrozen(true);
@@ -1386,7 +1433,16 @@ export default function SearchPageBody() {
   const totalPages = Math.max(1, Math.ceil(filteredTotal / perPage));
   const safePage = Math.min(currentPage, totalPages);
   const startIdx = (safePage - 1) * perPage;
-  const pageResults = filteredResults.slice(startIdx, startIdx + perPage);
+  // Geo holds the full set, so slice by absolute index. Text search holds only
+  // the current server page, so slice relative to where that page starts.
+  const textLocalStart = startIdx - windowFirstServerPage * SERVER_PAGE_SIZE;
+  const pageResults = isGeoSearch
+    ? filteredResults.slice(startIdx, startIdx + perPage)
+    : textLocalStart < 0
+      ? []
+      : filteredResults.slice(textLocalStart, textLocalStart + perPage);
+  // "More pages exist" — geo grows as it streams; text knows from the total.
+  const hasNextPage = isGeoSearch ? geoHasNextPage : safePage < totalPages;
 
   const liveStatusMessage = useMemo(() => {
     if (!query && !isGeoSearch) return "";
@@ -1626,11 +1682,9 @@ export default function SearchPageBody() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
 
-  const shouldShowOrganismRail =
-    !isLoading && !isError && allResults.length > 0;
+  const shouldShowOrganismRail = !isLoading && !isError && hasResults;
   const shouldReserveRailSpace =
-    isLoading ||
-    ((!!query || isGeoSearch) && (isError || allResults.length === 0));
+    isLoading || ((!!query || isGeoSearch) && (isError || !hasResults));
 
   useEffect(() => {
     const onScroll = () => {
@@ -1934,7 +1988,7 @@ export default function SearchPageBody() {
                 </Button>
               </Flex>
             </Flex>
-          ) : allResults.length > 0 ? (
+          ) : hasResults ? (
             <>
               <Flex justify="between" align="center" wrap="wrap" gap="2">
                 <Text color="gray" weight={"light"}>
