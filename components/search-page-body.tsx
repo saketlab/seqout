@@ -31,7 +31,12 @@ import {
   TextField,
   Tooltip,
 } from "@radix-ui/themes";
-import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -1074,8 +1079,10 @@ export default function SearchPageBody() {
     return pages;
   }, [isGeoSearch, query, currentPage, perPage]);
 
-  const serverPageQueries = useQueries({
-    queries: neededServerPages.map((p) => ({
+  // One react-query config for a given server page — shared by the live queries
+  // and the look-ahead prefetch so both hit the exact same cache entry.
+  const serverPageQuery = useCallback(
+    (p: number) => ({
       queryKey: ["search", query, db, sortBy, filtersKey, p],
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const start = performance.now();
@@ -1091,7 +1098,14 @@ export default function SearchPageBody() {
         return res;
       },
       enabled: !isGeoSearch && !!query,
-    })),
+    }),
+    // searchFilters is captured via its stable JSON key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [query, db, sortBy, filtersKey, isGeoSearch],
+  );
+
+  const serverPageQueries = useQueries({
+    queries: neededServerPages.map((p) => serverPageQuery(p)),
   });
 
   // Unify the geo (infinite) and text (per-page) sources behind one interface so
@@ -1171,12 +1185,16 @@ export default function SearchPageBody() {
   const totalPending =
     !isGeoSearch && !!query && facetsTotal === null && facetsLoading;
 
-  // Full-page skeleton only on the very first load (nothing known yet). A jump to
-  // an unloaded page empties the window but the total is already known, so it
-  // falls through to the inline "loading this page" spinner instead.
+  // Full-page skeleton only while the first block (server page 0) is loading with
+  // nothing to show — i.e. the initial load. This must NOT depend on the total,
+  // which arrives from facets in parallel and can land first. A jump to a deeper
+  // unloaded page (window past page 0) falls through to the inline spinner.
   const isLoading = isGeoSearch
     ? geoIsLoading
-    : !!query && anyTextLoading && allResults.length === 0 && total === 0;
+    : !!query &&
+      anyTextLoading &&
+      allResults.length === 0 &&
+      windowFirstServerPage === 0;
   // "There are results to show" even while the current page's rows are still
   // fetching — keeps the header, paginator, and rail mounted across a page jump.
   const hasResults = isGeoSearch
@@ -1196,6 +1214,24 @@ export default function SearchPageBody() {
       };
     }
   }, [isGeoSearch, geoHasNextPage, geoIsFetchingNextPage, fetchNextPage]);
+
+  // Look-ahead: warm the next server page in the background so crossing into it
+  // (the common forward-paging case) is instant instead of showing a spinner.
+  // Only when we know from the total that a next page exists.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (isGeoSearch || !query || total <= 0) return;
+    const next = windowFirstServerPage + 1;
+    if (next * SERVER_PAGE_SIZE >= total) return;
+    queryClient.prefetchQuery(serverPageQuery(next));
+  }, [
+    isGeoSearch,
+    query,
+    total,
+    windowFirstServerPage,
+    serverPageQuery,
+    queryClient,
+  ]);
 
   // Snapshot sidebar results on first batch and on final load to prevent
   // facet counts from flickering as intermediate pages stream in.
