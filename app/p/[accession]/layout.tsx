@@ -15,6 +15,13 @@ const CATALOG_URLS: Record<string, string> = {
   ArrayExpress: "https://www.ebi.ac.uk/biostudies/arrayexpress",
 };
 
+const LICENSE_URLS: Record<string, string> = {
+  GEO: "https://www.ncbi.nlm.nih.gov/geo/info/disclaimer.html",
+  SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+  ENA: "https://www.ebi.ac.uk/licencing",
+  ArrayExpress: "https://www.ebi.ac.uk/licencing",
+};
+
 function detectProjectType(accession: string): {
   type: string;
   database: string;
@@ -79,13 +86,24 @@ export default async function ProjectLayout({ children, params }: Props) {
   const { type: projectType, database } = detectProjectType(accession);
   const description = `Explore ${projectType} ${accession}: ${title}. View unified metadata, samples, experiments, and similar projects on seqout.`;
 
+  const canonicalUrl = `${SITE_URL}/p/${encodeURIComponent(accession)}`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: `${accession} - ${title}`,
     description,
-    url: `${SITE_URL}/p/${encodeURIComponent(accession)}`,
+    url: canonicalUrl,
     identifier: accession,
+    keywords: [
+      database,
+      "sequencing",
+      "sample metadata",
+      "experiment metadata",
+      "genomics",
+      accession,
+    ],
+    license: LICENSE_URLS[database],
     includedInDataCatalog: {
       "@type": "DataCatalog",
       name: database,
@@ -96,6 +114,35 @@ export default async function ProjectLayout({ children, params }: Props) {
       name: "Saket Lab",
       url: "https://saketlab.org",
     },
+    distribution: [
+      {
+        "@type": "DataDownload",
+        encodingFormat: "text/csv",
+        contentUrl: `${SITE_URL}/api/project/${encodeURIComponent(
+          accession,
+        )}/metadata/download`,
+      },
+    ],
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "seqout", item: SITE_URL },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Search",
+        item: `${SITE_URL}/search`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: accession,
+        item: canonicalUrl,
+      },
+    ],
   };
 
   return (
@@ -103,6 +150,10 @@ export default async function ProjectLayout({ children, params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {children}
     </>

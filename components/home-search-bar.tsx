@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Box, Flex, Text } from "@radix-ui/themes";
+import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import Link from "next/link";
 import HeroSearchBar from "./hero-search-bar";
@@ -48,10 +48,8 @@ export default function HomeSearchBar() {
         />
       </Box>
 
-      {/* Tagline — single punch line in Geist Sans with negative tracking.
-          Quiet on purpose: the search input should still be the visual
-          focal point, not the tagline. */}
-      <Text
+      <Heading
+        as="h1"
         size={{ initial: "3", md: "4" }}
         weight="medium"
         align="center"
@@ -60,7 +58,7 @@ export default function HomeSearchBar() {
       >
         Search public sequencing datasets across GEO, SRA, ENA &amp;
         ArrayExpress
-      </Text>
+      </Heading>
 
       <HeroSearchBar />
 
@@ -115,6 +113,14 @@ export default function HomeSearchBar() {
           ))}
         </Flex>
       </Flex>
+
+      <Text as="p" className="seqout-sr-only">
+        seqout indexes over a million public sequencing studies from NCBI GEO,
+        SRA, ENA/DDBJ, and EBI ArrayExpress. Search by keyword, organism,
+        disease, gene, or accession to find datasets, read harmonized sample and
+        experiment metadata, follow links to publications and raw FASTQ files,
+        and find related studies. Developed at Saket Lab, IIT Bombay.
+      </Text>
     </Flex>
   );
 }

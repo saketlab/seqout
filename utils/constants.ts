@@ -1,7 +1,7 @@
 export const SITE_URL = "https://seqout.org";
 
 /** Date of the last full metadata index refresh. Update this when re-indexing. */
-export const LAST_INDEX_REFRESH = "January 17, 2026";
+export const LAST_INDEX_REFRESH = "April 26, 2026";
 
 /**
  * Placeholder shown in every search input. Teaches by example — each

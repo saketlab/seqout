@@ -5,6 +5,11 @@ import type { ReactNode } from "react";
 const API_BASE_URL =
   process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
 
+const CATALOG_URLS: Record<string, string> = {
+  GEO: "https://www.ncbi.nlm.nih.gov/geo/",
+  SRA: "https://www.ncbi.nlm.nih.gov/sra",
+};
+
 type Props = {
   children: ReactNode;
   params: Promise<{ accession: string }>;
@@ -78,17 +83,46 @@ export default async function SampleLayout({ children, params }: Props) {
   const { type: sampleType, database } = detectSampleType(accession);
   const description = `Explore ${sampleType} ${accession}: ${title}. View metadata, experiment info, and download links on seqout.`;
 
+  const canonicalUrl = `${SITE_URL}/s/${encodeURIComponent(accession)}`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: `${accession} - ${title}`,
     description,
-    url: `${SITE_URL}/s/${encodeURIComponent(accession)}`,
+    url: canonicalUrl,
     identifier: accession,
+    keywords: [database, "sequencing", "sample metadata", "genomics", accession],
     includedInDataCatalog: {
       "@type": "DataCatalog",
       name: database,
+      url: CATALOG_URLS[database],
     },
+    creator: {
+      "@type": "Organization",
+      name: "Saket Lab",
+      url: "https://saketlab.org",
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "seqout", item: SITE_URL },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Search",
+        item: `${SITE_URL}/search`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: accession,
+        item: canonicalUrl,
+      },
+    ],
   };
 
   return (
@@ -96,6 +130,10 @@ export default async function SampleLayout({ children, params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {children}
     </>
