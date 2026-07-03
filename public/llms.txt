@@ -1,0 +1,36 @@
+# seqout
+
+> seqout is a search engine for public sequencing datasets.
+> It unifies metadata from NCBI GEO, SRA, ENA, DDBJ, and EBI ArrayExpress into a
+> single relevance-ranked search, with consolidated sample tables, cross-archive
+> cross-references, similarity graphs, download links, and SLM-enriched ontology
+> metadata (tissue, cell type, disease). Built at Saket Lab, IIT Bombay.
+
+## Coverage
+
+- ~1M projects / studies (GEO Series, SRA/ENA/DDBJ studies, ArrayExpress experiments)
+- Tens of millions of samples, experiments, and runs
+- Sources: NCBI GEO, NCBI SRA, EBI ENA, DDBJ, EBI ArrayExpress, BioProject
+- Publication links with journal + citation counts
+
+## Key pages
+
+- Search: https://seqout.org/search?q={query}
+- Project detail: https://seqout.org/p/{accession} (e.g. /p/GSE196830, /p/SRP123456, /p/E-MTAB-1234)
+- Sample detail: https://seqout.org/s/{accession}
+- Statistics: https://seqout.org/stats
+- About / FAQ: https://seqout.org/faq
+- API reference: https://seqout.org/api-docs
+- MCP server setup: https://seqout.org/mcp
+
+## Programmatic access
+
+- REST API base: https://seqout.org/api
+- MCP server (for Claude Desktop and other LLM agents): https://seqout.org/api/mcp
+  Exposes search, project/sample metadata, download manifests, and enriched
+  metadata as MCP tools.
+
+## Citation
+
+seqout is developed and maintained by Saket Lab, IIT Bombay (https://saketlab.org).
+Source: https://github.com/saketlab/seqout

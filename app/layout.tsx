@@ -138,6 +138,7 @@ export default function RootLayout({
               "@type": "WebSite",
               name: "seqout",
               url: "https://seqout.org",
+              publisher: { "@id": "https://seqout.org/#organization" },
               potentialAction: {
                 "@type": "SearchAction",
                 target: {
@@ -147,6 +148,20 @@ export default function RootLayout({
                 },
                 "query-input": "required name=search_term_string",
               },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "@id": "https://seqout.org/#organization",
+              name: "Saket Lab, IIT Bombay",
+              url: "https://saketlab.org",
+              logo: "https://seqout.org/logo-dark.svg",
+              sameAs: ["https://github.com/saketlab/seqout"],
             }),
           }}
         />
