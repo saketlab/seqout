@@ -6,7 +6,7 @@
 
 import { getDeepDiveTerms } from "@/utils/api";
 import { Crosshair1Icon } from "@radix-ui/react-icons";
-import { Button, Dialog, Flex, Select, Text } from "@radix-ui/themes";
+import { Button, Dialog, Flex, Select, Spinner, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
@@ -21,6 +21,7 @@ export function DeepDiveSection() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") ?? "";
   const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["deep-dive-terms", query],
@@ -57,23 +58,33 @@ export function DeepDiveSection() {
         style={{ width: "56rem", maxWidth: "calc(100vw - 2rem)" }}
       >
         <Flex direction="column" gap="2">
-          <Flex align="center" gap="2" wrap="wrap">
-            <Text size="2" weight="medium">
-              Related terms for
-            </Text>
-            <Select.Root
-              value={activeName ?? undefined}
-              onValueChange={setSelectedName}
-            >
-              <Select.Trigger placeholder="Select a term…" />
-              <Select.Content>
-                {terms.map((t) => (
-                  <Select.Item key={t.name} value={t.name}>
-                    {t.term}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
+          <Flex align="center" justify="between" gap="2" wrap="wrap">
+            <Flex align="center" gap="2" wrap="wrap">
+              <Text size="2" weight="medium">
+                Related terms for
+              </Text>
+              <Select.Root
+                value={activeName ?? undefined}
+                onValueChange={setSelectedName}
+              >
+                <Select.Trigger placeholder="Select a term…" />
+                <Select.Content>
+                  {terms.map((t) => (
+                    <Select.Item key={t.name} value={t.name}>
+                      {t.term}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            </Flex>
+            {graphLoading ? (
+              <Flex align="center" gap="2">
+                <Spinner size="2" />
+                <Text size="2" color="gray">
+                  Loading…
+                </Text>
+              </Flex>
+            ) : null}
           </Flex>
           {selectedTerm ? (
             <DeepDiveGraph
@@ -82,6 +93,7 @@ export function DeepDiveSection() {
               rootName={selectedTerm.name}
               query={query}
               searchParams={new URLSearchParams(searchParams.toString())}
+              onLoadingChange={setGraphLoading}
             />
           ) : null}
         </Flex>

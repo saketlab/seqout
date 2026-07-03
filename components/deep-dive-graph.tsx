@@ -48,6 +48,7 @@ interface DeepDiveGraphProps {
   rootName: string; // lowercase graph key
   query: string; // original search query
   searchParams: URLSearchParams; // current params, preserved on swap-search
+  onLoadingChange?: (loading: boolean) => void; // true while any child fetch is in flight
 }
 
 function nodeStyle(isRoot: boolean, selected: boolean): React.CSSProperties {
@@ -75,6 +76,7 @@ export default function DeepDiveGraph({
   rootName,
   query,
   searchParams,
+  onLoadingChange,
 }: DeepDiveGraphProps) {
   // The parent remounts this component per term (key=name), so state is
   // initialised directly for the root instead of reset inside an effect.
@@ -100,6 +102,16 @@ export default function DeepDiveGraph({
 
   const depthCursor = useRef<Record<number, number>>({ 0: ROW_H });
   const expanded = useRef<Set<string>>(new Set());
+
+  // Track in-flight child fetches (several can run at once) and report to parent.
+  const loadingCount = useRef(0);
+  const setLoading = useCallback(
+    (delta: number) => {
+      loadingCount.current += delta;
+      onLoadingChange?.(loadingCount.current > 0);
+    },
+    [onLoadingChange],
+  );
 
   // Sync React Flow's built-in theming to the app's dark/light mode.
   const { resolvedTheme } = useTheme();
@@ -161,14 +173,17 @@ export default function DeepDiveGraph({
     async (name: string, depth: number) => {
       if (expanded.current.has(name)) return;
       expanded.current.add(name);
+      setLoading(1);
       try {
         const res = await getDeepDiveChildren(name);
         addChildren(name, depth, res.children);
       } catch {
         expanded.current.delete(name); // allow retry on transient failure
+      } finally {
+        setLoading(-1);
       }
     },
-    [addChildren],
+    [addChildren, setLoading],
   );
 
   // Fetch the root's children once on mount (async → no sync setState in effect).
