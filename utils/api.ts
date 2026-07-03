@@ -36,6 +36,35 @@ export async function getJsonOrNull<T>(
   return (await res.json()) as T;
 }
 
+// --- Deep dive (ontology hierarchy) ---------------------------------------
+
+export interface DeepDiveTerm {
+  term: string; // phrase as it appeared in the query (Select label / swap target)
+  name: string; // lowercase graph key
+  child_count: number;
+}
+
+export interface DeepDiveChild {
+  name: string;
+  has_children: boolean; // whether this child can expand further
+}
+
+/** Query sub-phrases that have hierarchy children in the ontology graph. */
+export function getDeepDiveTerms(q: string, signal?: AbortSignal) {
+  return getJson<{ terms: DeepDiveTerm[]; took_ms: number }>(
+    `/search/deep-dive/terms?q=${encodeURIComponent(q)}`,
+    signal,
+  );
+}
+
+/** Direct children of a graph term (synonym-transparent, lazy expansion). */
+export function getDeepDiveChildren(term: string, signal?: AbortSignal) {
+  return getJson<{ term: string; children: DeepDiveChild[]; took_ms: number }>(
+    `/search/deep-dive/children?term=${encodeURIComponent(term)}`,
+    signal,
+  );
+}
+
 const NOT_JSON = Symbol("not-json");
 
 export function parseProjectStringFields<T>(data: T): T {

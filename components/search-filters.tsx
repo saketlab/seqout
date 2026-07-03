@@ -1,5 +1,6 @@
 "use client";
 
+import { DeepDiveSection } from "@/components/deep-dive-section";
 import {
   OrganismFilter,
   OrganismNameMode,
@@ -1414,6 +1415,7 @@ export function SearchOrganismRail({
               </Tabs.Root>
             </Dialog.Content>
           </Dialog.Root>
+          <DeepDiveSection />
         </Flex>
       ) : null}
     </>
