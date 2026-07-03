@@ -55,9 +55,6 @@ function ResultCard({
   href,
   single_cell_modality,
 }: ResultCardProps) {
-  const accessionUpper = accession.toUpperCase();
-  const isArrayExpressAccession = accessionUpper.startsWith("E-");
-  const isPrjAccession = accessionUpper.startsWith("PRJ");
   const db = dbForAccession(accession);
   const authorList = parseAuthors(authors);
   const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
@@ -254,9 +251,6 @@ function ResultCard({
         <Badge
           size={"2"}
           color={db ? DB_COLOR_MAP[db].radix : undefined}
-          variant={
-            isArrayExpressAccession || isPrjAccession ? "solid" : undefined
-          }
           className="seqout-accession"
         >
           {accession}

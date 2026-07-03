@@ -1404,7 +1404,6 @@ export default function GeoProjectPage() {
               <Badge
                 size={{ initial: "2", md: "3" }}
                 color={isArrayExpress ? "gold" : undefined}
-                variant={isArrayExpress ? "solid" : undefined}
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >
@@ -1472,7 +1471,6 @@ export default function GeoProjectPage() {
                     <Badge
                       size={{ initial: "2", md: "3" }}
                       color={DB_COLOR_MAP.arrayexpress.radix}
-                      variant="solid"
                       style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                       className="seqout-accession"
                     >

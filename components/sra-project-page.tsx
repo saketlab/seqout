@@ -2206,11 +2206,6 @@ export default function ProjectPage() {
                       ? "gold"
                       : "brown"
                 }
-                variant={
-                  isArrayExpressAccession || isPrjAccession
-                    ? "solid"
-                    : undefined
-                }
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >
