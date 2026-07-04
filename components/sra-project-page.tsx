@@ -2320,6 +2320,20 @@ export default function ProjectPage() {
                       </a>
                     );
                   }
+                  if (keyLower === "sra" || /^[SED]RP\d+$/.test(value)) {
+                    return (
+                      <a key={`${entry.key}:${value}`} href={`/p/${value}`}>
+                        <Badge
+                          size={{ initial: "2", md: "3" }}
+                          style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                          className="seqout-accession"
+                        >
+                          {value}
+                          <EnterIcon />
+                        </Badge>
+                      </a>
+                    );
+                  }
 
                   return (
                     <Badge
