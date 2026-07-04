@@ -7,6 +7,7 @@ import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import LazyMount from "@/components/lazy-mount";
 import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
@@ -2639,17 +2640,19 @@ export default function ProjectPage() {
               </Heading>
               <SectionAnchor id="similar" />
             </Flex>
-            <SimilarProjectsGraph
-              accession={project.accession}
-              source="sra"
-              title={project.title}
-              description={project.abstract}
-              organisms={project.organisms}
-              coords2d={project.coords_2d}
-              coords3d={project.coords_3d}
-              neighbors={project.neighbors}
-            />
-            <SubmittingOrgPanel center={project.center} />
+            <LazyMount>
+              <SimilarProjectsGraph
+                accession={project.accession}
+                source="sra"
+                title={project.title}
+                description={project.abstract}
+                organisms={project.organisms}
+                coords2d={project.coords_2d}
+                coords3d={project.coords_3d}
+                neighbors={project.neighbors}
+              />
+              <SubmittingOrgPanel center={project.center} />
+            </LazyMount>
           </Flex>
         </>
       )}

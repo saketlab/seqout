@@ -5,9 +5,16 @@ import type { ReactNode } from "react";
 const API_BASE_URL =
   process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
 
+export const revalidate = 86400;
+
 const CATALOG_URLS: Record<string, string> = {
   GEO: "https://www.ncbi.nlm.nih.gov/geo/",
   SRA: "https://www.ncbi.nlm.nih.gov/sra",
+};
+
+const LICENSE_URLS: Record<string, string> = {
+  GEO: "https://www.ncbi.nlm.nih.gov/geo/info/disclaimer.html",
+  SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
 };
 
 type Props = {
@@ -93,6 +100,7 @@ export default async function SampleLayout({ children, params }: Props) {
     url: canonicalUrl,
     identifier: accession,
     keywords: [database, "sequencing", "sample metadata", "genomics", accession],
+    license: LICENSE_URLS[database],
     includedInDataCatalog: {
       "@type": "DataCatalog",
       name: database,

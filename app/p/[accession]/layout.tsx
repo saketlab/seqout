@@ -3,6 +3,8 @@ import { SITE_URL } from "@/utils/constants";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+export const revalidate = 86400;
+
 type Props = {
   children: ReactNode;
   params: Promise<{ accession: string }>;

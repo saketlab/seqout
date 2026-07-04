@@ -1,8 +1,34 @@
 import { CodeBlock, EndpointCard } from "@/components/api-docs-client";
 import SearchBar from "@/components/search-bar";
-import { Badge, Card, Code, Flex, Link, Text } from "@radix-ui/themes";
+import { Badge, Card, Code, Flex, Heading, Link, Text } from "@radix-ui/themes";
+import type { Metadata } from "next";
 
 const BASE = "https://seqout.org/api";
+
+export const metadata: Metadata = {
+  title: "REST API for GEO, SRA & ArrayExpress Metadata",
+  description:
+    "Free REST API for searching and retrieving GEO, SRA, ENA & ArrayExpress sequencing dataset metadata, samples, runs, and download links. No authentication required.",
+  alternates: {
+    canonical: "https://seqout.org/api-docs",
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  headline: "seqout REST API Reference",
+  url: "https://seqout.org/api-docs",
+  description:
+    "REST API reference for searching and retrieving GEO, SRA, ENA, and ArrayExpress sequencing dataset metadata.",
+  author: {
+    "@type": "Organization",
+    name: "Saket Lab, IIT Bombay",
+    url: "https://seqout.org",
+  },
+  dependencies: "HTTP/JSON",
+  proficiencyLevel: "Beginner",
+};
 
 type Param = {
   name: string;
@@ -919,6 +945,10 @@ function buildR(ep: Endpoint): string {
 export default function ApiDocsPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <SearchBar />
       <Flex
         gap="4"
@@ -928,9 +958,9 @@ export default function ApiDocsPage() {
         mr={{ initial: "0", md: "16rem" }}
         direction="column"
       >
-        <Text size={{ initial: "6", md: "8" }} weight="bold">
+        <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
           API Reference
-        </Text>
+        </Heading>
         <Text
           size={{ initial: "2", md: "3" }}
           style={{ color: "var(--gray-11)" }}

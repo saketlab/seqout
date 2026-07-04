@@ -22,9 +22,6 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "SEOkicks", disallow: "/" },
       { userAgent: "serpstatbot", disallow: "/" },
       { userAgent: "MegaIndex", disallow: "/" },
-
-      // Other large crawlers
-      { userAgent: "Bytespider", disallow: "/" },
       { userAgent: "PetalBot", disallow: "/" },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

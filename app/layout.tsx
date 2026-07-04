@@ -159,9 +159,12 @@ export default function RootLayout({
               "@type": "Organization",
               "@id": "https://seqout.org/#organization",
               name: "Saket Lab, IIT Bombay",
-              url: "https://saketlab.org",
+              url: "https://seqout.org",
               logo: "https://seqout.org/logo-dark.svg",
-              sameAs: ["https://github.com/saketlab/seqout"],
+              sameAs: [
+                "https://saketlab.org",
+                "https://github.com/saketlab/seqout",
+              ],
             }),
           }}
         />

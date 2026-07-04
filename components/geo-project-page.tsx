@@ -8,6 +8,7 @@ import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import LazyMount from "@/components/lazy-mount";
 import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
@@ -2245,17 +2246,19 @@ export default function GeoProjectPage() {
               </Heading>
               <SectionAnchor id="similar" />
             </Flex>
-            <SimilarProjectsGraph
-              accession={(dataProject ?? project).accession}
-              source="geo"
-              title={(dataProject ?? project).title}
-              description={(dataProject ?? project).summary}
-              organisms={(dataProject ?? project).organisms}
-              coords2d={(dataProject ?? project).coords_2d}
-              coords3d={(dataProject ?? project).coords_3d}
-              neighbors={(dataProject ?? project).neighbors}
-            />
-            <SubmittingOrgPanel center={project.center} />
+            <LazyMount>
+              <SimilarProjectsGraph
+                accession={(dataProject ?? project).accession}
+                source="geo"
+                title={(dataProject ?? project).title}
+                description={(dataProject ?? project).summary}
+                organisms={(dataProject ?? project).organisms}
+                coords2d={(dataProject ?? project).coords_2d}
+                coords3d={(dataProject ?? project).coords_3d}
+                neighbors={(dataProject ?? project).neighbors}
+              />
+              <SubmittingOrgPanel center={project.center} />
+            </LazyMount>
           </Flex>
         </>
       )}

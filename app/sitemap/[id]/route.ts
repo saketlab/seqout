@@ -2,7 +2,7 @@ import { API_BASE, LIMIT, SITE_URL, SOURCE_PATHS, xmlResponse } from "../_utils"
 
 export const revalidate = 2592000;
 
-const STATIC_PATHS = ["/", "/faq", "/map", "/mcp", "/stats", "/search"];
+const STATIC_PATHS = ["/", "/faq", "/map", "/mcp", "/stats", "/search", "/api-docs"];
 
 export async function GET(
   _request: Request,

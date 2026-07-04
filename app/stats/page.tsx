@@ -6,11 +6,11 @@ import StatsOrganismGrowthCard from "@/components/stats-organism-growth-card";
 import StatsPlatformComparisonCard from "@/components/stats-platform-comparison-card";
 import StatsSequencingTechnologyCard from "@/components/stats-sequencing-technology-card";
 import StatsSourceHistogramCard from "@/components/stats-source-histogram-card";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, Heading } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Statistics",
+  title: "Statistics: GEO, SRA & ArrayExpress Database Growth",
   description:
     "Database growth, source distribution, and organism trends across 1 million+ GEO, SRA, ENA & ArrayExpress projects indexed by seqout.",
   alternates: {
@@ -30,9 +30,9 @@ export default function StatsPage() {
         mr={{ initial: "0", md: "16rem" }}
         direction="column"
       >
-        <Text size={{ initial: "6", md: "8" }} weight={"bold"}>
+        <Heading as="h1" size={{ initial: "6", md: "8" }} weight={"bold"}>
           Key statistics
-        </Text>
+        </Heading>
         {/* Chart list — hairline dividers replace the former Card wrappers.
             Each chart component provides its own vertical padding + width. */}
         <Flex direction="column" gap="0" className="seqout-divided-list">

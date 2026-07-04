@@ -1,10 +1,10 @@
 import SearchBar from "@/components/search-bar";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
-import { Box, Callout, Code, Flex, Link, Text } from "@radix-ui/themes";
+import { Box, Callout, Code, Flex, Heading, Link, Text } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "MCP Server",
+  title: "MCP Server for GEO, SRA & ArrayExpress",
   description:
     "Connect Claude Desktop or any MCP client to seqout's remote Model Context Protocol server. Search GEO, SRA, ENA & ArrayExpress datasets from your LLM.",
   alternates: {
@@ -12,9 +12,30 @@ export const metadata: Metadata = {
   },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "seqout MCP Server",
+  url: "https://seqout.org/mcp",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Any (MCP-compatible client)",
+  description:
+    "Remote MCP server exposing seqout's GEO, SRA, ENA, and ArrayExpress search and metadata tools to LLM agents via FastMCP.",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  creator: {
+    "@type": "Organization",
+    name: "Saket Lab, IIT Bombay",
+    url: "https://seqout.org",
+  },
+};
+
 export default function MCP() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <SearchBar />
       <Flex
         gap="4"
@@ -24,9 +45,9 @@ export default function MCP() {
         mr={{ initial: "0", md: "16rem" }}
         direction={"column"}
       >
-        <Text size={{ initial: "6", md: "8" }} weight="bold" mb="3">
+        <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold" mb="3">
           MCP Server
-        </Text>
+        </Heading>
 
         <Text size={{ initial: "2", md: "3" }}>
           We offer a remote{" "}
