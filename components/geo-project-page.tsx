@@ -1491,6 +1491,14 @@ export default function GeoProjectPage() {
                   if (!bioProject) return null;
                   const prjAccession = bioProject["@target"].split("/").pop();
                   if (!prjAccession) return null;
+                  // Already rendered above via linkedBioProjectAliases — don't
+                  // double up.
+                  if (
+                    linkedBioProjectAliases.some(
+                      (a) => a.toUpperCase() === prjAccession.toUpperCase(),
+                    )
+                  )
+                    return null;
                   return (
                     <BioProjectBadge
                       accession={prjAccession}
