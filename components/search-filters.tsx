@@ -527,8 +527,8 @@ export function SearchOrganismRail({
             <Dialog.Content
               size="2"
               style={{
-                width: "calc(100vw - 1rem)",
-                maxWidth: "calc(100vw - 1rem)",
+                width: "calc(100vw - 2rem)",
+                maxWidth: "calc(100vw - 2rem)",
               }}
             >
               <Dialog.Title>Organisms</Dialog.Title>
@@ -572,8 +572,8 @@ export function SearchOrganismRail({
             <Dialog.Content
               size="3"
               style={{
-                width: "calc(100vw - 1rem)",
-                maxWidth: "calc(100vw - 1rem)",
+                width: "calc(100vw - 2rem)",
+                maxWidth: "calc(100vw - 2rem)",
               }}
             >
               <Dialog.Title>

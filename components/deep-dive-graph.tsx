@@ -251,8 +251,8 @@ export default function DeepDiveGraph({
       <Flex align="center" justify="between" gap="3">
         {newQuery ? (
           <Tooltip content="New search query">
-            <Badge variant="surface" size={"3"}>
-              {newQuery}
+            <Badge variant="surface" size={"3"} style={{ maxWidth: "60%" }}>
+              <Text wrap={"wrap"}>{newQuery}</Text>
             </Badge>
           </Tooltip>
         ) : (
