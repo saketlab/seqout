@@ -147,26 +147,33 @@ export default function PublicationCard({
   const [copiedBibtex, setCopiedBibtex] = useState(false);
 
   // Fallback: backend gave a PMID but no enriched details — pull them from
-  // NCBI PubMed. Existing (non-null) fields always win over the fallback.
-  const [publication, setPublication] = useState(incoming);
+  // NCBI PubMed. Tag the fetched fields with the PMID they belong to so a
+  // stale fallback never bleeds onto a different publication.
+  const [fallback, setFallback] = useState<{
+    pmid: string;
+    extra: Partial<StudyPublication>;
+  } | null>(null);
   useEffect(() => {
-    setPublication(incoming);
     const needsDetails =
       incoming.pmid && !incoming.title && !incoming.journal && !incoming.authors;
     if (!needsDetails) return;
     const controller = new AbortController();
-    fetchPubmedSummary(incoming.pmid!, controller.signal).then((extra) => {
-      setPublication((prev) => ({
-        ...prev,
-        title: prev.title ?? extra.title ?? null,
-        journal: prev.journal ?? extra.journal ?? null,
-        authors: prev.authors ?? extra.authors ?? null,
-        pub_date: prev.pub_date ?? extra.pub_date ?? null,
-        doi: prev.doi ?? extra.doi ?? null,
-      }));
-    });
+    fetchPubmedSummary(incoming.pmid!, controller.signal).then((extra) =>
+      setFallback({ pmid: incoming.pmid!, extra }),
+    );
     return () => controller.abort();
   }, [incoming]);
+
+  // Existing (non-null) fields always win over the fallback.
+  const extra = fallback?.pmid === incoming.pmid ? fallback.extra : {};
+  const publication: StudyPublication = {
+    ...incoming,
+    title: incoming.title ?? extra.title ?? null,
+    journal: incoming.journal ?? extra.journal ?? null,
+    authors: incoming.authors ?? extra.authors ?? null,
+    pub_date: incoming.pub_date ?? extra.pub_date ?? null,
+    doi: incoming.doi ?? extra.doi ?? null,
+  };
 
   const year = extractYear(publication.pub_date);
   const cleanedJournal = publication.journal

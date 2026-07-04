@@ -10,7 +10,7 @@ export async function generateMetadata({
 }: {
   searchParams: SearchParams;
 }): Promise<Metadata> {
-  const { q, db } = await searchParams;
+  const { q } = await searchParams;
 
   if (!q) {
     const fallbackDesc =
