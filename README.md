@@ -1,14 +1,16 @@
-<h1 align="center">
+<div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./public/logo-dark.webp">
     <source media="(prefers-color-scheme: light)" srcset="./public/logo-light.webp">
-    <img src="./public/logo-light.webp" height="72" alt="Seqout" align="absmiddle">
+    <img src="./public/logo-light.webp" height="72" alt="Seqout">
   </picture>
+</div>
 
+<p align="center">
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License">
   <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout/deploy.yml" alt="Build Status">
   <img src="https://img.shields.io/github/last-commit/saketlab/seqout" alt="Last Commit">
-</h1>
+</p>
 
 Seqout is a search engine for finding genomic datasets across NCBI and EBI portals.
 
