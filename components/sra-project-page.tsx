@@ -2306,21 +2306,11 @@ export default function ProjectPage() {
                       </a>
                     );
                   }
-                  if (keyLower === "geo" || value.startsWith("GSE")) {
-                    return (
-                      <a key={`${entry.key}:${value}`} href={`/p/${value}`}>
-                        <Badge
-                          size={{ initial: "2", md: "3" }}
-                          style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                          className="seqout-accession"
-                        >
-                          {value}
-                          <EnterIcon />
-                        </Badge>
-                      </a>
-                    );
-                  }
-                  if (keyLower === "sra" || /^[SED]RP\d+$/.test(value)) {
+                  if (
+                    keyLower === "geo" ||
+                    keyLower === "sra" ||
+                    /^(GSE|[SED]RP)\d+$/.test(value)
+                  ) {
                     return (
                       <a key={`${entry.key}:${value}`} href={`/p/${value}`}>
                         <Badge
