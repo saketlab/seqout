@@ -973,6 +973,7 @@ export function SearchOrganismRail({
               </Tabs.Root>
             </Dialog.Content>
           </Dialog.Root>
+          <DeepDiveSection />
         </Flex>
       ) : null}
 
