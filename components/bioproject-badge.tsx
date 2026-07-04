@@ -9,7 +9,7 @@ export default function BioProjectBadge({
   ncbiHref?: string;
 }) {
   return (
-    <Flex align="center" gap="1">
+    <Flex align="center" gap="2">
       <a href={`/p/${accession}`}>
         <Badge
           size={{ initial: "2", md: "3" }}
@@ -25,10 +25,16 @@ export default function BioProjectBadge({
         href={ncbiHref ?? `https://www.ncbi.nlm.nih.gov/bioproject/${accession}`}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`View ${accession} on NCBI BioProject`}
-        style={{ color: "var(--gray-11)", display: "inline-flex" }}
+        aria-label={`Visit ${accession} BioProject page`}
       >
-        <ExternalLinkIcon />
+        <Badge
+          size={{ initial: "2", md: "3" }}
+          color="blue"
+          style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          Visit BioProject page
+          <ExternalLinkIcon />
+        </Badge>
       </a>
     </Flex>
   );
