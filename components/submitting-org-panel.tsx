@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Flex, Table, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Table, Text } from "@radix-ui/themes";
 import dynamic from "next/dynamic";
 import React from "react";
 
@@ -81,10 +81,10 @@ export default function SubmittingOrgPanel({ center }: Props) {
   if (entries.length === 0) return null;
 
   return (
-    <>
-      <Text weight="medium" size="6">
+    <Flex direction="column" gap="4" mt="4">
+      <Heading as="h2" weight="medium" size="6">
         Submitting organization
-      </Text>
+      </Heading>
       <Flex
         direction={{ initial: "column", md: "row" }}
         gap="4"
@@ -137,6 +137,6 @@ export default function SubmittingOrgPanel({ center }: Props) {
           </Box>
         )}
       </Flex>
-    </>
+    </Flex>
   );
 }
