@@ -30,20 +30,22 @@ export default function HomeSearchBar() {
       >
         <Image
           className="logo-light"
-          src="/logo-light.svg"
+          src="/logo-light.webp"
           alt="seqout"
           fill
           sizes="(max-width: 640px) 18rem, (max-width: 768px) 22rem, (max-width: 1024px) 24rem, 28rem"
-          style={{ objectFit: "contain" }}
+          style={{ objectFit: "contain", userSelect: "none" }}
+          draggable="false"
           priority
         />
         <Image
           className="logo-dark"
-          src="/logo-dark.svg"
+          src="/logo-dark.webp"
           alt="seqout"
           fill
           sizes="(max-width: 640px) 18rem, (max-width: 768px) 22rem, (max-width: 1024px) 24rem, 28rem"
-          style={{ objectFit: "contain" }}
+          style={{ objectFit: "contain", userSelect: "none" }}
+          draggable="false"
           priority
         />
       </Box>

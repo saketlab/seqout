@@ -1,5 +1,5 @@
 <h1 align="center">
-    <img src="./public/logo-dark.svg" height="72" align="absmiddle">
+    <img src="./public/logo-light.webp" height="72" align="absmiddle">
 
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/saketlab/seqout/deploy.yml)

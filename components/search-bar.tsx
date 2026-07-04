@@ -178,21 +178,23 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
           >
             <Image
               className="logo-light"
-              src="/short-logo-light.svg"
+              src="/short-logo-light.webp"
               alt="seqout"
               fill
               loading="eager"
               sizes="10rem"
-              style={{ objectFit: "contain" }}
+              style={{ objectFit: "contain", userSelect: "none" }}
+              draggable="false"
             />
             <Image
               className="logo-dark"
-              src="/short-logo-dark.svg"
+              src="/short-logo-dark.webp"
               alt="seqout"
               fill
               loading="eager"
               sizes="10rem"
-              style={{ objectFit: "contain" }}
+              style={{ objectFit: "contain", userSelect: "none" }}
+              draggable="false"
             />
           </Box>
         </Link>
