@@ -8,6 +8,7 @@ import {
   type SearchFacets,
 } from "@/components/search-filters";
 import { useSearchQuery } from "@/context/search_query";
+import { track } from "@/utils/analytics";
 import { withTimeout } from "@/utils/api";
 import { SERVER_URL } from "@/utils/constants";
 import { getProjectShortUrl } from "@/utils/shortUrl";
@@ -869,8 +870,13 @@ export default function SearchPageBody() {
   const { setLastSearchQuery } = useSearchQuery();
 
   useEffect(() => {
-    if (query) setLastSearchQuery(query);
-  }, [query, setLastSearchQuery]);
+    if (query) {
+      setLastSearchQuery(query);
+      // GA4 canonical search event — fires once per committed query (URL-driven),
+      // so every entry point (search bars, example links, direct links) counts.
+      track("search", { search_term: query, ...(db ? { db } : {}) });
+    }
+  }, [query, db, setLastSearchQuery]);
 
   const updateSearchUrl = useCallback(
     (updates: Record<string, string | string[] | null | undefined>) => {

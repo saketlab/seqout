@@ -1,3 +1,4 @@
+import ClickTracker from "@/components/click-tracker";
 import FooterGate from "@/components/footer-gate";
 import Wrapper from "@/components/wrapper";
 import "ag-grid-community/styles/ag-grid.css";
@@ -437,6 +438,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body suppressHydrationWarning>
+        <ClickTracker />
         <a href="#main-content" className="seqout-skip-link">
           Skip to content
         </a>
