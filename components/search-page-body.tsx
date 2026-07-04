@@ -183,20 +183,6 @@ type SearchFilterParams = {
   year_to?: number;
 };
 
-function hasActiveFilters(f: SearchFilterParams): boolean {
-  return (
-    !!f.organism ||
-    f.country.length > 0 ||
-    f.library_strategy.length > 0 ||
-    f.instrument_model.length > 0 ||
-    f.platform.length > 0 ||
-    f.journal.length > 0 ||
-    f.multi_platform ||
-    f.year_from != null ||
-    f.year_to != null
-  );
-}
-
 function appendFilterParams(url: string, f: SearchFilterParams): string {
   const add = (k: string, v: string) =>
     (url += `&${k}=${encodeURIComponent(v)}`);
@@ -219,14 +205,12 @@ function buildSearchUrl(
   offset: number,
   filters: SearchFilterParams,
 ): string {
-  // Filtering implies relevance order (the server's filtered path ignores
-  // sortby), so don't emit sortby when filtering.
-  const filtered = hasActiveFilters(filters);
   let url = `${SERVER_URL}/search?q=${encodeURIComponent(query)}`;
   if (db === "sra" || db === "geo" || db === "arrayexpress") {
     url += `&db=${encodeURIComponent(db)}`;
   }
-  if (!filtered && sortBy !== "relevance") {
+  // The server's filtered path now honors sortby too, so emit it either way.
+  if (sortBy !== "relevance") {
     const config = SORT_CONFIG[sortBy];
     url += `&sortby=${config.param}&order=${config.order}`;
   }
