@@ -191,10 +191,13 @@ type FieldDef = {
   header: string;
   minWidth?: number;
   v3Only?: boolean;
+  pinned?: "left";
 };
 
 const ALL_FIELDS: FieldDef[] = [
-  { field: "sample", header: "Sample", minWidth: 130 },
+  { field: "sample", header: "Sample", minWidth: 130, pinned: "left" },
+  { field: "title", header: "Title", minWidth: 200, pinned: "left" },
+  { field: "description", header: "Description", minWidth: 220, pinned: "left" },
   { field: "organism", header: "Organism", minWidth: 140, v3Only: true },
   { field: "tissue", header: "Tissue", minWidth: 150 },
   { field: "cell_type", header: "Cell Type", minWidth: 150 },
@@ -409,6 +412,7 @@ export function EnrichedMetadataGrid({
       headerName: f.header,
       minWidth: f.minWidth ?? 100,
       flex: 1,
+      pinned: f.pinned,
     };
 
     // Show "~N" when cell_count_estimated is true

@@ -1,4 +1,8 @@
-import { SITE_URL } from "@/utils/constants";
+import {
+  ARCHIVE_CATALOG_URLS as CATALOG_URLS,
+  ARCHIVE_LICENSE_URLS as LICENSE_URLS,
+  SITE_URL,
+} from "@/utils/constants";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -6,16 +10,6 @@ const API_BASE_URL =
   process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
 
 export const revalidate = 86400;
-
-const CATALOG_URLS: Record<string, string> = {
-  GEO: "https://www.ncbi.nlm.nih.gov/geo/",
-  SRA: "https://www.ncbi.nlm.nih.gov/sra",
-};
-
-const LICENSE_URLS: Record<string, string> = {
-  GEO: "https://www.ncbi.nlm.nih.gov/geo/info/disclaimer.html",
-  SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
-};
 
 type Props = {
   children: ReactNode;

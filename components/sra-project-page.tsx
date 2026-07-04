@@ -7,6 +7,7 @@ import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import BioProjectBadge from "@/components/bioproject-badge";
 import LazyMount from "@/components/lazy-mount";
 import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
@@ -2234,28 +2235,7 @@ export default function ProjectPage() {
                 </Flex>
               </Badge>
               {project.alias?.startsWith("P") && (
-                <Flex align="center" gap="1">
-                  <a href={`/p/${project.alias}`}>
-                    <Badge
-                      size={{ initial: "2", md: "3" }}
-                      color="green"
-                      style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                      className="seqout-accession"
-                    >
-                      {project.alias}
-                      <EnterIcon />
-                    </Badge>
-                  </a>
-                  <a
-                    href={`https://www.ncbi.nlm.nih.gov/bioproject/${project.alias}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`View ${project.alias} on NCBI BioProject`}
-                    style={{ color: "var(--gray-11)", display: "inline-flex" }}
-                  >
-                    <ExternalLinkIcon />
-                  </a>
-                </Flex>
+                <BioProjectBadge accession={project.alias} />
               )}
               {project.alias?.startsWith("G") && (
                 <a href={`/p/${project.alias}`}>
@@ -2276,28 +2256,7 @@ export default function ProjectPage() {
                   const value = entry.value;
                   if (keyLower === "bioproject") {
                     return (
-                      <Flex key={`${entry.key}:${value}`} align="center" gap="1">
-                        <a href={`/p/${value}`}>
-                          <Badge
-                            size={{ initial: "2", md: "3" }}
-                            color="green"
-                            style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                            className="seqout-accession"
-                          >
-                            {value}
-                            <EnterIcon />
-                          </Badge>
-                        </a>
-                        <a
-                          href={`https://www.ncbi.nlm.nih.gov/bioproject/${value}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`View ${value} on NCBI BioProject`}
-                          style={{ color: "var(--gray-11)", display: "inline-flex" }}
-                        >
-                          <ExternalLinkIcon />
-                        </a>
-                      </Flex>
+                      <BioProjectBadge key={`${entry.key}:${value}`} accession={value} />
                     );
                   }
                   if (keyLower === "biosample") {

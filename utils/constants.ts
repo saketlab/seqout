@@ -22,3 +22,17 @@ export { SERVER_URL };
 
 export const SERVER_API_BASE =
   process.env.PYSRAWEB_API_BASE ?? `${SITE_URL}/api`;
+
+export const ARCHIVE_CATALOG_URLS: Record<string, string> = {
+  GEO: "https://www.ncbi.nlm.nih.gov/geo/",
+  SRA: "https://www.ncbi.nlm.nih.gov/sra",
+  ENA: "https://www.ebi.ac.uk/ena/browser/home",
+  ArrayExpress: "https://www.ebi.ac.uk/biostudies/arrayexpress",
+};
+
+export const ARCHIVE_LICENSE_URLS: Record<string, string> = {
+  GEO: "https://www.ncbi.nlm.nih.gov/geo/info/disclaimer.html",
+  SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+  ENA: "https://www.ebi.ac.uk/licencing",
+  ArrayExpress: "https://www.ebi.ac.uk/licencing",
+};

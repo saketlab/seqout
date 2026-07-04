@@ -1,5 +1,9 @@
 import { fetchProjectSocialTitle } from "@/lib/project-og";
-import { SITE_URL } from "@/utils/constants";
+import {
+  ARCHIVE_CATALOG_URLS as CATALOG_URLS,
+  ARCHIVE_LICENSE_URLS as LICENSE_URLS,
+  SITE_URL,
+} from "@/utils/constants";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -8,20 +12,6 @@ export const revalidate = 86400;
 type Props = {
   children: ReactNode;
   params: Promise<{ accession: string }>;
-};
-
-const CATALOG_URLS: Record<string, string> = {
-  GEO: "https://www.ncbi.nlm.nih.gov/geo/",
-  SRA: "https://www.ncbi.nlm.nih.gov/sra",
-  ENA: "https://www.ebi.ac.uk/ena/browser/home",
-  ArrayExpress: "https://www.ebi.ac.uk/biostudies/arrayexpress",
-};
-
-const LICENSE_URLS: Record<string, string> = {
-  GEO: "https://www.ncbi.nlm.nih.gov/geo/info/disclaimer.html",
-  SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
-  ENA: "https://www.ebi.ac.uk/licencing",
-  ArrayExpress: "https://www.ebi.ac.uk/licencing",
 };
 
 function detectProjectType(accession: string): {

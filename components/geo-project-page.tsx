@@ -8,6 +8,7 @@ import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import BioProjectBadge from "@/components/bioproject-badge";
 import LazyMount from "@/components/lazy-mount";
 import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
@@ -1432,28 +1433,7 @@ export default function GeoProjectPage() {
                 </Flex>
               </Badge>
               {linkedBioProjectAliases.map((alias) => (
-                <Flex key={`bioproject-${alias}`} align="center" gap="1">
-                  <a href={`/p/${alias}`}>
-                    <Badge
-                      size={{ initial: "2", md: "3" }}
-                      color="green"
-                      style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                      className="seqout-accession"
-                    >
-                      {alias}
-                      <EnterIcon />
-                    </Badge>
-                  </a>
-                  <a
-                    href={`https://www.ncbi.nlm.nih.gov/bioproject/${alias}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`View ${alias} on NCBI BioProject`}
-                    style={{ color: "var(--gray-11)", display: "inline-flex" }}
-                  >
-                    <ExternalLinkIcon />
-                  </a>
-                </Flex>
+                <BioProjectBadge key={`bioproject-${alias}`} accession={alias} />
               ))}
               {linkedSraAliases.map((alias) => (
                 <a key={`sra-${alias}`} href={`/p/${alias}`}>
@@ -1510,29 +1490,12 @@ export default function GeoProjectPage() {
                   );
                   if (!bioProject) return null;
                   const prjAccession = bioProject["@target"].split("/").pop();
+                  if (!prjAccession) return null;
                   return (
-                    <Flex align="center" gap="1">
-                      <a href={`/p/${prjAccession}`}>
-                        <Badge
-                          size={{ initial: "2", md: "3" }}
-                          color="green"
-                          style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                          className="seqout-accession"
-                        >
-                          {prjAccession}
-                          <EnterIcon />
-                        </Badge>
-                      </a>
-                      <a
-                        href={bioProject["@target"]}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`View ${prjAccession} on NCBI BioProject`}
-                        style={{ color: "var(--gray-11)", display: "inline-flex" }}
-                      >
-                        <ExternalLinkIcon />
-                      </a>
-                    </Flex>
+                    <BioProjectBadge
+                      accession={prjAccession}
+                      ncbiHref={bioProject["@target"]}
+                    />
                   );
                 })()}
               <a
