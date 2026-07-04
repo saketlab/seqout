@@ -2233,21 +2233,28 @@ export default function ProjectPage() {
                 </Flex>
               </Badge>
               {project.alias?.startsWith("P") && (
-                <a
-                  href={`https://www.ncbi.nlm.nih.gov/bioproject/${project.alias}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Badge
-                    size={{ initial: "2", md: "3" }}
-                    color="green"
-                    style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                    className="seqout-accession"
+                <Flex align="center" gap="1">
+                  <a href={`/p/${project.alias}`}>
+                    <Badge
+                      size={{ initial: "2", md: "3" }}
+                      color="green"
+                      style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                      className="seqout-accession"
+                    >
+                      {project.alias}
+                      <EnterIcon />
+                    </Badge>
+                  </a>
+                  <a
+                    href={`https://www.ncbi.nlm.nih.gov/bioproject/${project.alias}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`View ${project.alias} on NCBI BioProject`}
+                    style={{ color: "var(--gray-11)", display: "inline-flex" }}
                   >
-                    {project.alias}
                     <ExternalLinkIcon />
-                  </Badge>
-                </a>
+                  </a>
+                </Flex>
               )}
               {project.alias?.startsWith("G") && (
                 <a href={`/p/${project.alias}`}>
@@ -2268,22 +2275,28 @@ export default function ProjectPage() {
                   const value = entry.value;
                   if (keyLower === "bioproject") {
                     return (
-                      <a
-                        key={`${entry.key}:${value}`}
-                        href={`https://www.ncbi.nlm.nih.gov/bioproject/${value}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Badge
-                          size={{ initial: "2", md: "3" }}
-                          color="green"
-                          style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                          className="seqout-accession"
+                      <Flex key={`${entry.key}:${value}`} align="center" gap="1">
+                        <a href={`/p/${value}`}>
+                          <Badge
+                            size={{ initial: "2", md: "3" }}
+                            color="green"
+                            style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                            className="seqout-accession"
+                          >
+                            {value}
+                            <EnterIcon />
+                          </Badge>
+                        </a>
+                        <a
+                          href={`https://www.ncbi.nlm.nih.gov/bioproject/${value}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`View ${value} on NCBI BioProject`}
+                          style={{ color: "var(--gray-11)", display: "inline-flex" }}
                         >
-                          {value}
                           <ExternalLinkIcon />
-                        </Badge>
-                      </a>
+                        </a>
+                      </Flex>
                     );
                   }
                   if (keyLower === "biosample") {
