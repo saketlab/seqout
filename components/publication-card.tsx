@@ -4,9 +4,10 @@ import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { cleanJournalName } from "@/utils/format";
+import { fetchPubmedSummary } from "@/utils/pubmed";
 import { CheckIcon, CopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Card, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type StudyPublication = {
   pmid: string | null;
@@ -138,12 +139,34 @@ function CopyButton({
 }
 
 export default function PublicationCard({
-  publication,
+  publication: incoming,
   accession,
 }: PublicationCardProps) {
   const { showToast } = useToast();
   const [copiedCitation, setCopiedCitation] = useState(false);
   const [copiedBibtex, setCopiedBibtex] = useState(false);
+
+  // Fallback: backend gave a PMID but no enriched details — pull them from
+  // NCBI PubMed. Existing (non-null) fields always win over the fallback.
+  const [publication, setPublication] = useState(incoming);
+  useEffect(() => {
+    setPublication(incoming);
+    const needsDetails =
+      incoming.pmid && !incoming.title && !incoming.journal && !incoming.authors;
+    if (!needsDetails) return;
+    const controller = new AbortController();
+    fetchPubmedSummary(incoming.pmid!, controller.signal).then((extra) => {
+      setPublication((prev) => ({
+        ...prev,
+        title: prev.title ?? extra.title ?? null,
+        journal: prev.journal ?? extra.journal ?? null,
+        authors: prev.authors ?? extra.authors ?? null,
+        pub_date: prev.pub_date ?? extra.pub_date ?? null,
+        doi: prev.doi ?? extra.doi ?? null,
+      }));
+    });
+    return () => controller.abort();
+  }, [incoming]);
 
   const year = extractYear(publication.pub_date);
   const cleanedJournal = publication.journal
