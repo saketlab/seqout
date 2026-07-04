@@ -8,7 +8,7 @@
 
 import { getDeepDiveChildren, type DeepDiveChild } from "@/utils/api";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
-import { Button, Flex, Text } from "@radix-ui/themes";
+import { Badge, Button, Flex, Text, Tooltip } from "@radix-ui/themes";
 import {
   Background,
   Controls,
@@ -249,11 +249,18 @@ export default function DeepDiveGraph({
         </ReactFlow>
       </div>
       <Flex align="center" justify="between" gap="3">
-        <Text size="2" color="gray" truncate style={{ minWidth: 0 }}>
-          {newQuery
-            ? `Search query: ${newQuery}`
-            : "Click a term to explore and select it"}
-        </Text>
+        {newQuery ? (
+          <Tooltip content="New search query">
+            <Badge variant="surface" size={"3"}>
+              {newQuery}
+            </Badge>
+          </Tooltip>
+        ) : (
+          <Text size="2" color="gray" truncate>
+            {" "}
+            Click a term to explore and select it
+          </Text>
+        )}
         <Button
           size="2"
           disabled={!newQuery}
