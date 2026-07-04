@@ -1,13 +1,18 @@
 <h1 align="center">
-    <img src="./public/logo-light.webp" height="72" align="absmiddle">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/logo-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="./public/logo-light.webp">
+    <img src="./public/logo-light.webp" height="72" alt="Seqout" align="absmiddle">
+  </picture>
 
-![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/saketlab/seqout/deploy.yml)
-![GitHub last commit](https://img.shields.io/github/last-commit/saketlab/seqout)
-
+  <img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License">
+  <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout/deploy.yml" alt="Build Status">
+  <img src="https://img.shields.io/github/last-commit/saketlab/seqout" alt="Last Commit">
 </h1>
 
 Seqout is a search engine for finding genomic datasets across NCBI and EBI portals.
+
+https://github.com/user-attachments/assets/db55a7e8-7f90-4b90-865b-89d8e88601ae
 
 Apart from text-based search, Seqout also offers dataset discovery via semantic similarity using vector embeddings. For example, check out: [seqout.org/p/GSE153562#similar](https://seqout.org/p/GSE153562#similar).
 
