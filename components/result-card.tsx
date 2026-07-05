@@ -3,7 +3,7 @@ import { DB_COLOR_MAP, dbForAccession } from "@/utils/db-colors";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Badge, Box, Flex, Popover, Text } from "@radix-ui/themes";
+import { Badge, Box, Flex, Popover, Text, Tooltip } from "@radix-ui/themes";
 import Link from "next/link";
 import { memo, useState } from "react";
 
@@ -256,9 +256,11 @@ function ResultCard({
           {accession}
         </Badge>
         {single_cell_modality && (
-          <Badge size={"2"} color="cyan">
-            {single_cell_modality}
-          </Badge>
+          <Tooltip content="Derived from dataset metadata">
+            <Badge size={"2"} color="cyan">
+              {single_cell_modality}
+            </Badge>
+          </Tooltip>
         )}
       </Flex>
     </Flex>
