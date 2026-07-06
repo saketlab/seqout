@@ -1,7 +1,6 @@
 "use client";
-import LinkedSraFastq from "@/components/linked-sra-fastq";
 import ProjectSummary from "@/components/project-summary";
-import ProjectSupplementary from "@/components/project-supplementary";
+import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
@@ -63,6 +62,7 @@ type Project = {
   publications?: StudyPublication[] | null;
   published_at?: string | null;
   updated_at?: string | null;
+  supplementary_data?: unknown;
 };
 
 type Experiment = {
@@ -94,6 +94,7 @@ type Sample = {
   channel_count?: number;
   sample_type?: string | null;
   platform_ref?: string | null;
+  supplementary_data?: unknown;
 };
 
 type GeoChannel = {
@@ -976,14 +977,26 @@ export default function SampleDetailPage() {
             />
           )}
 
-          {sampleType === "geo_sample" && (
-            <LinkedSraFastq
-              aliasField={project?.alias}
+          {/* The sample's own supplementary files, then the parent study's —
+              both as tables, self-hiding when there are no valid files. */}
+          {sample?.supplementary_data ? (
+            <SupplementaryDataSection
+              accession={accession ?? ""}
+              rawSupplementaryData={sample.supplementary_data}
               agGridThemeClassName={agGridThemeClassName}
+              title="Sample supplementary files"
+              clientScriptOnly
             />
-          )}
+          ) : null}
 
-          <ProjectSupplementary accession={projectAccession} />
+          {projectAccession && project?.supplementary_data ? (
+            <SupplementaryDataSection
+              accession={projectAccession}
+              rawSupplementaryData={project.supplementary_data}
+              agGridThemeClassName={agGridThemeClassName}
+              title="Study supplementary files"
+            />
+          ) : null}
 
           {/* Project context */}
           {project && (

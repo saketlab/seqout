@@ -88,6 +88,23 @@ const parsePostgresTextArray = (value: string): string[] => {
   return items;
 };
 
+// GEO/AE records sometimes carry placeholder rows like {"#text":"NONE"};
+// only keep entries whose value is an actual URL.
+const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
+  "NONE",
+  "NULL",
+  "N/A",
+  "NA",
+  "-",
+]);
+const isValidSupplementaryUrl = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed || SUPPLEMENTARY_PLACEHOLDER_VALUES.has(trimmed.toUpperCase())) {
+    return false;
+  }
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
+};
+
 const normalizeSupplementaryRecord = (
   value: unknown,
 ): SupplementaryDataRecord | null => {
@@ -99,7 +116,7 @@ const normalizeSupplementaryRecord = (
       typeof record["#text"] === "string" ? record["#text"] : null;
     const urlValue = typeof record.url === "string" ? record.url : null;
     const resolvedUrl = textValue ?? urlValue;
-    if (typeof resolvedUrl !== "string" || resolvedUrl.trim().length === 0) {
+    if (typeof resolvedUrl !== "string" || !isValidSupplementaryUrl(resolvedUrl)) {
       return null;
     }
     const rawType = record["@type"];
@@ -228,11 +245,15 @@ export function SupplementaryDataSection({
   rawSupplementaryData,
   agGridThemeClassName,
   title = "Supplementary Data",
+  clientScriptOnly = false,
 }: {
   accession: string;
   rawSupplementaryData: unknown;
   agGridThemeClassName: string;
   title?: string;
+  // Samples have no /project/{acc}/supplementary/download endpoint — build the
+  // download-all script from the file URLs instead of pointing at that route.
+  clientScriptOnly?: boolean;
 }) {
   const { showToast } = useToast();
   const [isDownloadingAllSupplementary, setIsDownloadingAllSupplementary] =
@@ -385,6 +406,7 @@ export function SupplementaryDataSection({
     items: SupplementaryDataItem[],
   ): string => {
     if (items.length === 0) return "";
+    if (clientScriptOnly) return buildSupplementaryDownloadScript(items);
     return items.length === supplementaryDataItems.length
       ? cliDownloadCommand
       : buildSupplementaryDownloadScript(items);
@@ -425,6 +447,8 @@ export function SupplementaryDataSection({
       ? `Copy download script (${selectedSupplementaryCount} selected)`
       : "Copy download script";
 
+  if (supplementaryDataItems.length === 0) return null;
+
   return (
     <>
       <Flex id="supplementary" align="center" gap="2">
@@ -433,11 +457,6 @@ export function SupplementaryDataSection({
         </Heading>
         <SectionAnchor id="supplementary" />
       </Flex>
-      {supplementaryDataItems.length === 0 && (
-        <Text size="2" color="gray">
-          No supplementary files found
-        </Text>
-      )}
       {supplementaryDataItems.length > 0 && (
         <Flex direction="column" gap="2" style={{ width: "100%" }}>
           <Flex gap="3" justify="between" wrap="wrap">
