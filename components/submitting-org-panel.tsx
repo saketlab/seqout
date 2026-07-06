@@ -1,6 +1,7 @@
 "use client";
 
-import { Box, Flex, Heading, Table, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Table, Text, Tooltip } from "@radix-ui/themes";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 import dynamic from "next/dynamic";
 import React from "react";
 
@@ -82,9 +83,17 @@ export default function SubmittingOrgPanel({ center }: Props) {
 
   return (
     <Flex direction="column" gap="4" mt="4">
-      <Heading as="h2" weight="medium" size="6">
-        Submitting organization
-      </Heading>
+      <Flex align="center" gap="2">
+        <Heading as="h2" weight="medium" size="6">
+          Submitting organization
+        </Heading>
+        <Tooltip content="Derived from metadata using third-party geocoding services">
+          <InfoCircledIcon
+            style={{ cursor: "help" }}
+            aria-label="How the submitting organization is determined"
+          />
+        </Tooltip>
+      </Flex>
       <Flex
         direction={{ initial: "column", md: "row" }}
         gap="4"
