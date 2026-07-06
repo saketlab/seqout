@@ -1876,7 +1876,7 @@ export default function GeoProjectPage() {
             )}
 
             <LinkedSraFastq
-              aliasField={dataProject?.alias}
+              aliasField={linkedSraAliases}
               agGridThemeClassName={agGridThemeClassName}
             />
             <Flex

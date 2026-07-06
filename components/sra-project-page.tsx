@@ -242,7 +242,10 @@ const fetchProject = async (
     ),
   );
 
-  const alias = data?.alias?.trim().toUpperCase();
+  // alias can be a string OR an array (GEO projects list several aliases);
+  // only the string form is a GSE we'd fetch neighbors for.
+  const alias =
+    typeof data?.alias === "string" ? data.alias.trim().toUpperCase() : null;
   const shouldFetchGeoNeighbors =
     !!alias &&
     alias.startsWith("GSE") &&
