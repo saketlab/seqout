@@ -71,7 +71,17 @@ export default function SubmittingOrgPanel({ center }: Props) {
   const entries = React.useMemo(() => {
     if (!center) return [];
     const arr = Array.isArray(center) ? center : [center];
-    return arr.filter((c) => c.organization && c.organization !== "GEO");
+    // Geocoding can emit the same org several times (varying coords/address);
+    // keep one per org name, preferring an entry that has coordinates so the
+    // map still gets a marker.
+    const seen = new Map<string, CenterInfo>();
+    for (const c of arr) {
+      if (!c.organization || c.organization === "GEO") continue;
+      const key = c.organization.trim().toLowerCase();
+      const prev = seen.get(key);
+      if (!prev || (prev.latitude == null && c.latitude != null)) seen.set(key, c);
+    }
+    return [...seen.values()];
   }, [center]);
 
   const markersWithCoords = React.useMemo(
