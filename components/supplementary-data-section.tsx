@@ -571,7 +571,7 @@ export function SupplementaryDataSection({
             className={agGridThemeClassName}
             style={{
               width: "100%",
-              height: `${Math.min(supplementaryDataItems.length * 42 + 49, 320)}px`,
+              height: `${Math.min(500, 48 + supplementaryDataItems.length * 42)}px`,
             }}
           >
             <AgGridReact<SupplementaryDataItem>

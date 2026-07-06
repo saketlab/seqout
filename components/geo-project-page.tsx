@@ -2018,8 +2018,8 @@ export default function GeoProjectPage() {
                   style={{
                     width: "100%",
                     height: `${Math.min(
-                      supplementaryDataItems.length * 42 + 49,
-                      320,
+                      500,
+                      48 + supplementaryDataItems.length * 42,
                     )}px`,
                   }}
                 >
@@ -2181,11 +2181,8 @@ export default function GeoProjectPage() {
                   style={{
                     width: "100%",
                     height: `${Math.min(
-                      Math.max(
-                        sampleSupplementaryGroupedRows.length * 72 + 49,
-                        180,
-                      ),
-                      420,
+                      500,
+                      48 + sampleSupplementaryGroupedRows.length * 72,
                     )}px`,
                   }}
                 >

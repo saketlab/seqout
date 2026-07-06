@@ -1259,7 +1259,10 @@ export function DownloadFastqSection({
 
       <div
         className={agGridThemeClassName}
-        style={{ width: "100%", height: "400px" }}
+        style={{
+          width: "100%",
+          height: `${Math.min(500, 48 + runsData.runs.length * 42)}px`,
+        }}
       >
         <AgGridReact<RunRow>
           columnDefs={runColDefs}
@@ -1618,7 +1621,10 @@ function BamFilesSection({
 
       <div
         className={agGridThemeClassName}
-        style={{ width: "100%", height: "400px" }}
+        style={{
+          width: "100%",
+          height: `${Math.min(500, 48 + bamsData.bams.length * 42)}px`,
+        }}
       >
         <AgGridReact<BamRow>
           columnDefs={bamColDefs}
