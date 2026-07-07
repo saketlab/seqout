@@ -135,6 +135,11 @@ export async function createMap({
   backgroundColor,
   labelFont,
   serverUrl,
+  maxPoints = 1000000,
+  labelLimit = LABEL_LIMIT,
+  pointSize = 0.1,
+  alpha = 25,
+  initialDuration = 500,
 }) {
   const facetColumns = filterColumns ?? [];
   resetState();
@@ -178,11 +183,11 @@ export async function createMap({
 
   await sp.plotAPI({
     source_url: tilesUrl,
-    max_points: 1000000,
-    alpha: 25,
+    max_points: maxPoints,
+    alpha,
     zoom_balance: 0.7,
-    duration: 500,
-    point_size: 0.1,
+    duration: initialDuration,
+    point_size: pointSize,
     background_color: backgroundColor,
     zoom: { bbox: { x: [cx - hw, cx + hw], y: [cy - hh, cy + hh] } },
     encoding: {
@@ -316,6 +321,7 @@ export async function createMap({
     labelFont,
     clusterMax,
     clusterCount,
+    labelLimit,
   });
 
   sp.ready.then(() => {
@@ -394,14 +400,14 @@ function computeLevelAndBbox(sp, levels, extent) {
   return { level, colorIdx, ...bbox };
 }
 
-async function fetchLabelFC(labelsBase, q, signal) {
+async function fetchLabelFC(labelsBase, q, labelLimit, signal) {
   const u = new URL(labelsBase);
   u.searchParams.set("level", q.level);
   u.searchParams.set("minx", q.minx);
   u.searchParams.set("miny", q.miny);
   u.searchParams.set("maxx", q.maxx);
   u.searchParams.set("maxy", q.maxy);
-  u.searchParams.set("limit", String(LABEL_LIMIT));
+  u.searchParams.set("limit", String(labelLimit));
   const res = await fetch(u, { signal });
   if (!res.ok) throw new Error(`labels ${res.status}`);
   return res.json();
@@ -508,6 +514,7 @@ function setupDynamicLabels({
   labelFont,
   clusterMax,
   clusterCount,
+  labelLimit = LABEL_LIMIT,
 }) {
   // Dedupe refetches against the data scale: skip if the layer and a coarsely
   // quantized bbox are unchanged, so tiny jitters don't spam the server.
@@ -575,7 +582,7 @@ function setupDynamicLabels({
     if (ctrl) ctrl.abort();
     ctrl = new AbortController();
     try {
-      const fc = await fetchLabelFC(labelsBase, q, ctrl.signal);
+      const fc = await fetchLabelFC(labelsBase, q, labelLimit, ctrl.signal);
       if (destroyed) return;
       let features = fc.features ?? [];
       // Respect the active facet filters: only label clusters that still have a

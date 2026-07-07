@@ -7,6 +7,7 @@ import { ReactNode, useState } from "react";
 import CommandPalette from "./command-palette";
 import DynamicFavicon from "./dynamic-favicon";
 import KeyboardNavigator from "./keyboard-navigator";
+import PwaRegistrar from "./pwa-registrar";
 import { ToastProvider } from "./toast-provider";
 
 export default function Wrapper({
@@ -34,6 +35,7 @@ export default function Wrapper({
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute={"class"} defaultTheme="dark">
         <DynamicFavicon />
+        <PwaRegistrar />
         <SearchQueryProvider>
           <Theme accentColor="indigo">
             <ToastProvider>

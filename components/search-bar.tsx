@@ -25,17 +25,28 @@ import { Suspense, useRef, useState } from "react";
 
 interface SearchBarProps {
   initialQuery?: string | null;
+  mobileVariant?: "default" | "compact";
 }
 
-export default function SearchBar({ initialQuery }: SearchBarProps) {
+export default function SearchBar({
+  initialQuery,
+  mobileVariant = "default",
+}: SearchBarProps) {
   return (
     <Suspense fallback={null}>
-      <SearchBarContent initialQuery={initialQuery} />
+      <SearchBarContent
+        initialQuery={initialQuery}
+        mobileVariant={mobileVariant}
+      />
     </Suspense>
   );
 }
 
-function SearchBarContent({ initialQuery }: SearchBarProps) {
+function SearchBarContent({
+  initialQuery,
+  mobileVariant = "default",
+}: SearchBarProps) {
+  const compactMobile = mobileVariant === "compact";
   const { lastSearchQuery, setLastSearchQuery } = useSearchQuery();
   const resolvedQuery = (initialQuery ?? "") || lastSearchQuery;
   const [searchQuery, setSearchQuery] = useState(resolvedQuery);
@@ -86,14 +97,12 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
     saveHistory(history.filter((h: string) => h !== item));
   };
 
-  // Filter history based on query - only show if query has text
   const trimmedQuery = suggestionFilterQuery.trim();
   const filteredHistory = trimmedQuery
     ? history
         .filter((h: string) => {
           const hLower = h.toLowerCase();
           const qLower = trimmedQuery.toLowerCase();
-          // include if it contains the query but is not an exact match
           return hLower.includes(qLower) && hLower !== qLower;
         })
         .slice(0, 5)
@@ -110,14 +119,15 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
   return (
     <Flex
       justify={{ initial: "center", md: "between" }}
-      align={{ initial: "start", md: "center" }}
-      p={{ initial: "0", md: "3" }}
-      pb={"3"}
-      gap={"4"}
+      align={{ initial: compactMobile ? "center" : "start", md: "center" }}
+      p={{ initial: compactMobile ? "2" : "0", md: "3" }}
+      pb={{ initial: compactMobile ? "2" : "3", md: "3" }}
+      gap={{ initial: compactMobile ? "2" : "4", md: "4" }}
       style={{
         position: "sticky",
         top: 0,
         width: "100%",
+        minHeight: compactMobile ? "3.5rem" : undefined,
         zIndex: 1100,
         backgroundColor: "var(--color-background)",
         borderBottom: "1px solid var(--gray-a4)",
@@ -165,12 +175,13 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         gap={"4"}
         align={"center"}
         flexGrow={"1"}
-        direction={{ initial: "column", md: "row" }}
-        pt={"2"}
+        justify={{ initial: compactMobile ? "center" : "start", md: "start" }}
+        direction={{ initial: compactMobile ? "row" : "column", md: "row" }}
+        pt={{ initial: compactMobile ? "0" : "2", md: "2" }}
       >
         <Link href="/" style={{ textDecoration: "none" }}>
           <Box
-            width="10rem"
+            width={{ initial: compactMobile ? "7rem" : "10rem", md: "10rem" }}
             style={{
               position: "relative",
               aspectRatio: "794/186",
@@ -200,6 +211,7 @@ function SearchBarContent({ initialQuery }: SearchBarProps) {
         </Link>
 
         <Box
+          display={{ initial: compactMobile ? "none" : "block", md: "block" }}
           width={{ initial: "98%", md: "70%" }}
           style={{ position: "relative" }}
         >

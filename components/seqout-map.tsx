@@ -51,6 +51,21 @@ const useIsoLayoutEffect =
 
 const DEEPSCATTER_ID = "seqout-deepscatter";
 const SIDEBAR_WIDTH = 272;
+const MOBILE_MAP_BREAKPOINT = 768;
+const DESKTOP_RENDER_LIMITS = {
+  maxPoints: 1000000,
+  labelLimit: 400,
+  pointSize: 0.1,
+  alpha: 25,
+  initialDuration: 500,
+};
+const MOBILE_RENDER_LIMITS = {
+  maxPoints: 350000,
+  labelLimit: 160,
+  pointSize: 0.12,
+  alpha: 20,
+  initialDuration: 0,
+};
 
 type MapMeta = {
   version: string;
@@ -88,6 +103,15 @@ type ScreenPoint = { x: number; y: number };
 
 function backgroundForTheme(theme: string | undefined): string {
   return theme === "light" ? "#ffffff" : "#000000";
+}
+
+function hasWebGLSupport(): boolean {
+  const canvas = document.createElement("canvas");
+  return Boolean(
+    canvas.getContext("webgl2") ||
+      canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl"),
+  );
 }
 
 const ACCESSION_LIKE = /^(GSE\d+|[SED]RP\d+|PRJ[A-Z]*\d+|E-[A-Z0-9-]+)$/i;
@@ -256,13 +280,17 @@ export default function MapGraph() {
   useEffect(() => {
     themeRef.current = resolvedTheme;
   }, [resolvedTheme]);
+  const resizeSnapshotRef = useRef<{ width: number; height: number } | null>(
+    null,
+  );
 
   // Mobile: the sidebar collapses into a left drawer so the map gets full width.
   const [isMobile, setIsMobile] = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mapSizeRevision, setMapSizeRevision] = useState(0);
   useIsoLayoutEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
+    const mq = window.matchMedia(`(max-width: ${MOBILE_MAP_BREAKPOINT}px)`);
     const update = () => {
       setIsMobile(mq.matches);
       setLayoutReady(true);
@@ -272,7 +300,50 @@ export default function MapGraph() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // UI state
+  useEffect(() => {
+    if (!layoutReady) return;
+    const areaEl = mapAreaRef.current;
+    if (!areaEl || typeof ResizeObserver === "undefined") return;
+
+    const readSize = () => {
+      const rect = areaEl.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      return width && height ? { width, height } : null;
+    };
+
+    const initial = readSize();
+    if (initial) resizeSnapshotRef.current = initial;
+
+    let timer: number | undefined;
+    const ro = new ResizeObserver(() => {
+      const next = readSize();
+      if (!next) return;
+      const prev = resizeSnapshotRef.current;
+      if (!prev) {
+        resizeSnapshotRef.current = next;
+        return;
+      }
+
+      const widthDelta = Math.abs(next.width - prev.width);
+      const heightDelta = Math.abs(next.height - prev.height);
+      if (widthDelta < 16 && heightDelta < 32) return;
+
+      resizeSnapshotRef.current = next;
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(
+        () => setMapSizeRevision((revision) => revision + 1),
+        isMobile ? 160 : 220,
+      );
+    });
+
+    ro.observe(areaEl);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, [isMobile, layoutReady]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countries, setCountries] = useState<string[]>([]);
@@ -308,13 +379,32 @@ export default function MapGraph() {
     hasSelectionRef.current = hasSelection;
   }, [hasSelection]);
   const accessionsRef = useRef<string[]>([]);
+  const colorByClustersRef = useRef(colorByClusters);
+  const selectedCountriesRef = useRef(selectedCountries);
+  useEffect(() => {
+    colorByClustersRef.current = colorByClusters;
+  }, [colorByClusters]);
+  useEffect(() => {
+    selectedCountriesRef.current = selectedCountries;
+  }, [selectedCountries]);
 
-  // ---- mount: build the scatterplot ---------------------------------------
   useEffect(() => {
     if (!layoutReady) return;
 
     const areaEl = mapAreaRef.current;
     let destroyed = false;
+    const resetForRemount = mapSizeRevision > 0;
+    window.requestAnimationFrame(() => {
+      if (destroyed) return;
+      setLoading(true);
+      setError(null);
+      if (resetForRemount) {
+        setDrawing(false);
+        setDrawPoints([]);
+        setHasSelection(false);
+        setStatsOpen(false);
+      }
+    });
     const controller = new AbortController();
 
     (async () => {
@@ -340,6 +430,12 @@ export default function MapGraph() {
       }
 
       try {
+        if (!hasWebGLSupport()) {
+          setError("This device or browser has WebGL disabled, so the map cannot render.");
+          setLoading(false);
+          return;
+        }
+
         const engine = await import("./seqout-map/engine.js");
         if (destroyed) return;
         engineRef.current = engine;
@@ -364,6 +460,10 @@ export default function MapGraph() {
           label: f.label,
         }));
 
+        const renderLimits = isMobile
+          ? MOBILE_RENDER_LIMITS
+          : DESKTOP_RENDER_LIMITS;
+
         const ctx = await engine.createMap({
           mapSelector: `#${DEEPSCATTER_ID}`,
           width: rect.width,
@@ -379,6 +479,7 @@ export default function MapGraph() {
           backgroundColor: backgroundForTheme(themeRef.current),
           labelFont: GeistSans.style.fontFamily,
           serverUrl: SERVER_URL,
+          ...renderLimits,
         });
         if (destroyed) return;
 
@@ -388,6 +489,14 @@ export default function MapGraph() {
           clusterColors: ctx.clusterColors,
           destroy: ctx.destroy,
         };
+        if (colorByClustersRef.current) {
+          engine.setColorByClusters(ctx.sp, true, ctx.clusterColors);
+        }
+        if (selectedCountriesRef.current.length > 0) {
+          engine.applyFilters(ctx.sp, {
+            countries: selectedCountriesRef.current,
+          });
+        }
         setCountries(ctx.countries);
         setFacets(facetList);
         setLoading(false);
@@ -406,9 +515,8 @@ export default function MapGraph() {
       if (areaEl) areaEl.querySelectorAll("canvas").forEach((c) => c.remove());
       spRef.current = null;
     };
-  }, [layoutReady, isMobile]);
+  }, [layoutReady, isMobile, mapSizeRevision]);
 
-  // ---- theme background sync ----------------------------------------------
   useEffect(() => {
     const sp = spRef.current;
     const engine = engineRef.current;
@@ -416,7 +524,6 @@ export default function MapGraph() {
     engine.setBackgroundColor(sp, backgroundForTheme(resolvedTheme));
   }, [resolvedTheme]);
 
-  // ---- lasso keyboard (Shift to draw, Escape to cancel) -------------------
   useEffect(() => {
     if (isMobile) return;
 
@@ -446,7 +553,6 @@ export default function MapGraph() {
     };
   }, [isMobile]);
 
-  // ---- handlers ------------------------------------------------------------
   const doSearch = useCallback(async () => {
     const sp = spRef.current;
     const engine = engineRef.current;
@@ -458,6 +564,7 @@ export default function MapGraph() {
       const found = await engine.runSearch(sp, id);
       if (found) {
         setSearchStatus({ kind: "found", text: found.accession });
+        if (isMobile) setDrawerOpen(false);
         return;
       }
 
@@ -469,6 +576,7 @@ export default function MapGraph() {
             kind: "found",
             text: `${aliasFound.accession} (alias for ${id})`,
           });
+          if (isMobile) setDrawerOpen(false);
           return;
         }
       }
@@ -477,7 +585,7 @@ export default function MapGraph() {
     } catch (err) {
       setSearchStatus({ kind: "error", text: (err as Error).message });
     }
-  }, [searchValue]);
+  }, [isMobile, searchValue]);
 
   const onSearchChange = useCallback((value: string) => {
     setSearchValue(value);
@@ -571,7 +679,6 @@ export default function MapGraph() {
     window.location.reload();
   }, []);
 
-  // ---- lasso pointer drawing ----------------------------------------------
   const coordsOf = (e: React.PointerEvent): ScreenPoint => {
     const rect = overlayRef.current!.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -612,7 +719,6 @@ export default function MapGraph() {
     openStats();
   };
 
-  // ---- render --------------------------------------------------------------
   const statusColor: Record<
     SearchStatus["kind"],
     "gray" | "green" | "red" | "orange"
@@ -646,7 +752,7 @@ export default function MapGraph() {
     <Flex
       height="100%"
       width="100%"
-      style={{ overflow: "hidden", position: "relative" }}
+      style={{ height: "100%", overflow: "hidden", position: "relative" }}
     >
       {/* deepscatter hardcodes the hover tooltip to inline background:ivory + black
           text; retheme it with Radix vars so it follows light/dark. */}
@@ -658,11 +764,27 @@ export default function MapGraph() {
           /* deepscatter anchors the box below the point; nudge it right so it
              sits at the point's bottom-right. */
           margin-left: 14px;
-          width: 20rem;
+          width: min(20rem, calc(100vw - 2rem));
+          max-width: calc(100vw - 2rem);
+          box-sizing: border-box;
           font-size: 1rem;
           text-align: left;
           white-space: normal;
           box-shadow: 0 4px 16px var(--black-a6);
+        }
+        @media (max-width: ${MOBILE_MAP_BREAKPOINT}px) {
+          #${DEEPSCATTER_ID} .tooltip {
+            margin-left: 0;
+            width: min(18rem, calc(100vw - 1.5rem));
+            max-width: calc(100vw - 1.5rem);
+            font-size: 0.875rem;
+            line-height: 1.45;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .seqout-map-drawer {
+            transition: none !important;
+          }
         }
       `}</style>
 
@@ -675,6 +797,7 @@ export default function MapGraph() {
             inset: 0,
             zIndex: 29,
             background: "var(--black-a6)",
+            cursor: "pointer",
           }}
         />
       )}
@@ -682,14 +805,17 @@ export default function MapGraph() {
       {/* Mobile drawer toggle */}
       {isMobile && !drawerOpen && (
         <IconButton
+          size="3"
           variant="soft"
           highContrast
           aria-label="Open map controls"
           onClick={() => setDrawerOpen(true)}
           style={{
             position: "absolute",
-            top: 8,
-            left: 8,
+            top: "max(0.75rem, env(safe-area-inset-top))",
+            left: "max(0.75rem, env(safe-area-inset-left))",
+            width: 44,
+            height: 44,
             zIndex: 25,
             boxShadow: "0 2px 8px var(--black-a6)",
           }}
@@ -700,8 +826,9 @@ export default function MapGraph() {
 
       {/* Sidebar (drawer on mobile) */}
       <Box
+        className="seqout-map-drawer"
         style={{
-          width: SIDEBAR_WIDTH,
+          width: isMobile ? "min(21rem, calc(100vw - 1rem))" : SIDEBAR_WIDTH,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -714,22 +841,37 @@ export default function MapGraph() {
                 top: 0,
                 bottom: 0,
                 left: 0,
-                maxWidth: "85vw",
+                maxWidth: "calc(100vw - 1rem)",
+                height: "100%",
                 zIndex: 30,
+                paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+                overscrollBehavior: "contain",
+                WebkitOverflowScrolling: "touch",
                 transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
-                transition: "transform 0.25s ease",
+                transition: "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)",
                 boxShadow: drawerOpen ? "0 0 40px var(--black-a8)" : "none",
               }
             : {}),
         }}
       >
         {isMobile && (
-          <Flex justify="end" px="3" pt="3">
+          <Flex
+            align="center"
+            justify="between"
+            px="3"
+            py="2"
+            style={{ borderBottom: "1px solid var(--gray-a4)" }}
+          >
+            <Text size="2" weight="medium">
+              Map controls
+            </Text>
             <IconButton
+              size="3"
               variant="ghost"
               color="gray"
               aria-label="Close controls"
               onClick={() => setDrawerOpen(false)}
+              style={{ width: 44, height: 44 }}
             >
               <Cross1Icon />
             </IconButton>
@@ -737,8 +879,9 @@ export default function MapGraph() {
         )}
 
         {/* Search */}
-        <Flex p="3" direction={"column"} gap={"2"}>
+        <Flex p={isMobile ? "4" : "3"} direction="column" gap="2">
           <TextField.Root
+            size={isMobile ? "3" : "2"}
             value={searchValue}
             placeholder="Search using accession ID"
             onChange={(e) => onSearchChange(e.target.value)}
@@ -751,23 +894,33 @@ export default function MapGraph() {
             </TextField.Slot>
           </TextField.Root>
           {statusText && (
-            <Text as="p" size="1" color={statusColor[searchStatus.kind]} mt="1">
+            <Text
+              as="p"
+              size={isMobile ? "2" : "1"}
+              color={statusColor[searchStatus.kind]}
+              mt="1"
+            >
               {statusText}
             </Text>
           )}
         </Flex>
 
         <Separator size="4" />
-        <Flex p="3" direction={"column"} gap={"2"}>
-          <Flex align="center" justify={"between"} gap="2">
-            <Text>Color by cluster</Text>
+        <Flex p={isMobile ? "4" : "3"} direction="column" gap="2">
+          <Flex
+            align="center"
+            justify="between"
+            gap="2"
+            style={{ minHeight: isMobile ? 44 : undefined }}
+          >
+            <Text size="2">Color by cluster</Text>
             <Switch
-              size="1"
+              size={isMobile ? "2" : "1"}
               checked={colorByClusters}
               onCheckedChange={onToggleColorByClusters}
             />
           </Flex>
-          <Text size={"1"}>
+          <Text size={isMobile ? "2" : "1"}>
             Clusters generated using{" "}
             <Link href="https://evoc.readthedocs.io/en/latest/">EVoC</Link> on
             embeddings produced by{" "}
@@ -778,7 +931,10 @@ export default function MapGraph() {
           </Text>
         </Flex>
         {/* Country filter */}
-        <Box p="3" style={{ display: "flex", flexDirection: "column" }}>
+        <Box
+          p={isMobile ? "4" : "3"}
+          style={{ display: "flex", flexDirection: "column" }}
+        >
           <Flex align="center" justify="between" mb="2">
             <Flex align={"center"} gap={"2"}>
               <GlobeIcon />
@@ -786,7 +942,7 @@ export default function MapGraph() {
             </Flex>
           </Flex>
           <TextField.Root
-            size="1"
+            size={isMobile ? "2" : "1"}
             value={countryFilter}
             placeholder="Filter countries"
             onChange={(e) => setCountryFilter(e.target.value)}
@@ -799,7 +955,7 @@ export default function MapGraph() {
           <ScrollArea
             type="auto"
             scrollbars="vertical"
-            style={{ maxHeight: 240 }}
+            style={{ maxHeight: isMobile ? "min(42dvh, 320px)" : 240 }}
           >
             <Flex direction="column" gap="1" pr="2">
               {visibleCountries.map((country) => (
@@ -807,17 +963,21 @@ export default function MapGraph() {
                   as="label"
                   size="2"
                   key={country}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: "pointer", display: "block" }}
                 >
-                  <Flex align="center" gap="2">
+                  <Flex
+                    align="center"
+                    gap="2"
+                    style={{ minHeight: isMobile ? 44 : 28 }}
+                  >
                     <Checkbox
-                      size="1"
+                      size={isMobile ? "2" : "1"}
                       checked={selectedCountries.includes(country)}
                       onCheckedChange={(checked) =>
                         onToggleCountry(country, checked === true)
                       }
                     />
-                    <Text size="1">{country}</Text>
+                    <Text size={isMobile ? "2" : "1"}>{country}</Text>
                   </Flex>
                 </Text>
               ))}
@@ -868,15 +1028,15 @@ export default function MapGraph() {
         )}
 
         {/* Data cache */}
-        <Box p="3">
+        <Box p={isMobile ? "4" : "3"}>
           <Separator size="4" mb="3" />
           <Tooltip content="Clear the browser cache and reload fresh map data from the server">
             <Button
-              size="2"
+              size={isMobile ? "3" : "2"}
               mb={"4"}
               variant="soft"
               onClick={onPurge}
-              style={{ width: "100%" }}
+              style={{ width: "100%", minHeight: isMobile ? 44 : undefined }}
             >
               <UpdateIcon /> Refresh data
             </Button>
@@ -887,7 +1047,7 @@ export default function MapGraph() {
       {/* Map */}
       <Box
         ref={mapAreaRef}
-        style={{ position: "relative", flex: 1, minWidth: 0 }}
+        style={{ position: "relative", flex: 1, minWidth: 0, height: "100%" }}
       >
         <div id={DEEPSCATTER_ID} style={{ position: "absolute", inset: 0 }} />
 
