@@ -14,9 +14,12 @@ export const metadata: Metadata = {
 
 export default function MapPage() {
   return (
-    <Flex direction="column" style={{ height: "100dvh" }}>
-      <SearchBar />
-      <main style={{ flex: 1, minHeight: 0 }}>
+    <Flex
+      direction="column"
+      style={{ height: "100dvh", minHeight: 0, overflow: "hidden" }}
+    >
+      <SearchBar mobileVariant="compact" />
+      <main style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <MapGraph />
       </main>
     </Flex>

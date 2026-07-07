@@ -6,13 +6,17 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 import "@radix-ui/themes/styles.css";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
 const GA_TRACKING_ID = "G-XF18RH7984";
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: "#0e1015",
+  colorScheme: "dark light",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -75,6 +79,33 @@ export const metadata: Metadata = {
   publisher: "Saket Lab",
   metadataBase: new URL("https://seqout.org"),
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      {
+        url: "/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+    shortcut: "/favicon.ico",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "seqout",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   alternates: {
     canonical: "/",
   },
