@@ -58,12 +58,23 @@ type SpellingSuggestion = {
   corrections: SpellingCorrection[];
 };
 
+type SearchCorrection = {
+  original_query: string;
+  corrected_query: string;
+  original_total: number;
+  mode: "replaced" | "augmented";
+  // Literal-typo matches (augmented mode) rendered as a page-1 block, kept out
+  // of the paginated corrected stream so offset paging stays aligned.
+  extra_results?: SearchResult[] | null;
+};
+
 type SearchResponse = {
   results: SearchResult[];
   total: number;
   took_ms: number;
   next_cursor: Cursor;
   suggestions?: SpellingSuggestion[];
+  correction?: SearchCorrection;
 };
 
 type TimeFilter = "any" | "1" | "5" | "10" | "20" | "custom";
@@ -110,6 +121,29 @@ function DidYouMean({
         </a>
       </Text>
       ?
+    </Text>
+  );
+}
+
+function CorrectionNotice({ correction }: { correction: SearchCorrection }) {
+  const { corrected_query, original_query, mode } = correction;
+  return (
+    <Text color="gray" size={"2"}>
+      {mode === "replaced" ? "Showing results for " : "Also showing results for "}
+      <Text size={"2"} weight={"bold"} style={{ color: "var(--accent-11)" }}>
+        {corrected_query}
+      </Text>
+      {mode === "replaced" ? (
+        <>
+          . No results for{" "}
+          <Text size={"2"} style={{ fontStyle: "italic" }}>
+            {original_query}
+          </Text>
+          .
+        </>
+      ) : (
+        "."
+      )}
     </Text>
   );
 }
@@ -1148,6 +1182,12 @@ export default function SearchPageBody() {
   const suggestions = isGeoSearch
     ? geoData?.pages?.[0]?.suggestions
     : serverPageQueries.find((q) => q.data?.suggestions)?.data?.suggestions;
+  // Auto-applied typo correction (backend already swapped in the corrected-query
+  // results); we just render the banner. Geo/map search hits /search/structured,
+  // which has no text query, so there's nothing to correct there.
+  const correction = isGeoSearch
+    ? undefined
+    : serverPageQueries.find((q) => q.data?.correction)?.data?.correction;
 
   // For text search this is only the currently-viewed server page (≤200 rows),
   // not every loaded page — the exact total comes from facets, and the rail
@@ -1469,6 +1509,32 @@ export default function SearchPageBody() {
       : filteredResults.slice(textLocalStart, textLocalStart + perPage);
   // "More pages exist" — geo grows as it streams; text knows from the total.
   const hasNextPage = isGeoSearch ? geoHasNextPage : safePage < totalPages;
+
+  const renderResultCard = (searchResult: SearchResult) => (
+    <ResultCard
+      key={`${searchResult.source}:${searchResult.accession}`}
+      accession={searchResult.accession}
+      title={searchResult.title}
+      summary={searchResult.summary}
+      updated_at={searchResult.updated_at}
+      journal={searchResult.journal}
+      doi={searchResult.doi}
+      citation_count={searchResult.citation_count}
+      authors={searchResult.authors}
+      center_name={searchResult.center_name}
+      country_code={searchResult.country_code}
+      single_cell_modality={searchResult.single_cell_modality}
+      href={
+        selectedOrganismKey
+          ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
+          : undefined
+      }
+    />
+  );
+  // Literal-typo matches shown only on page 1 (augmented mode), above the
+  // corrected stream that the banner labels "additional results".
+  const extraResults =
+    safePage === 1 ? (correction?.extra_results ?? []) : [];
 
   const liveStatusMessage = useMemo(() => {
     if (!query && !isGeoSearch) return "";
@@ -2035,13 +2101,26 @@ export default function SearchPageBody() {
               </Flex>
               {activeFilterChips}
 
-              {suggestions?.length ? (
+              {correction ? (
+                <CorrectionNotice correction={correction} />
+              ) : suggestions?.length ? (
                 <DidYouMean
                   suggestion={suggestions[0]}
                   searchParams={searchParams}
                   onNavigate={(url) => router.push(url)}
                 />
               ) : null}
+
+              {extraResults.length > 0 && (
+                <Flex
+                  direction="column"
+                  gap="0"
+                  className="seqout-divided-list"
+                  style={{ paddingLeft: 0 }}
+                >
+                  {extraResults.map(renderResultCard)}
+                </Flex>
+              )}
 
               {pageResults.length === 0 ? (
                 <Flex
@@ -2093,27 +2172,7 @@ export default function SearchPageBody() {
                   className="seqout-divided-list"
                   style={{ paddingLeft: 0 }}
                 >
-                  {pageResults.map((searchResult) => (
-                    <ResultCard
-                      key={`${searchResult.source}:${searchResult.accession}`}
-                      accession={searchResult.accession}
-                      title={searchResult.title}
-                      summary={searchResult.summary}
-                      updated_at={searchResult.updated_at}
-                      journal={searchResult.journal}
-                      doi={searchResult.doi}
-                      citation_count={searchResult.citation_count}
-                      authors={searchResult.authors}
-                      center_name={searchResult.center_name}
-                      country_code={searchResult.country_code}
-                      single_cell_modality={searchResult.single_cell_modality}
-                      href={
-                        selectedOrganismKey
-                          ? `${getProjectShortUrl(searchResult.accession)}?organism=${encodeURIComponent(selectedOrganismKey)}`
-                          : undefined
-                      }
-                    />
-                  ))}
+                  {pageResults.map(renderResultCard)}
                 </Flex>
               )}
 
