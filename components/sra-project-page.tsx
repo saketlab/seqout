@@ -2552,27 +2552,25 @@ export default function ProjectPage() {
                 </Flex>
               }
             />
-            <Flex id="publications" align="center" gap="2">
-              <Heading as="h2" weight="medium" size="6">
-                Linked publications
-              </Heading>
-              <SectionAnchor id="publications" />
-            </Flex>
+            {publications && publications.length > 0 && (
+              <>
+                <Flex id="publications" align="center" gap="2">
+                  <Heading as="h2" weight="medium" size="6">
+                    Linked publications
+                  </Heading>
+                  <SectionAnchor id="publications" />
+                </Flex>
 
-            {publications && publications.length > 0 ? (
-              <Flex direction="column" gap="3">
-                {publications.map((pub) => (
-                  <PublicationCard
-                    key={pub.pmid ?? pub.doi ?? pub.title}
-                    publication={pub}
-                    accession={accession}
-                  />
-                ))}
-              </Flex>
-            ) : (
-              <Text size="2" color="gray">
-                No linked publications found
-              </Text>
+                <Flex direction="column" gap="3">
+                  {publications.map((pub) => (
+                    <PublicationCard
+                      key={pub.pmid ?? pub.doi ?? pub.title}
+                      publication={pub}
+                      accession={accession}
+                    />
+                  ))}
+                </Flex>
+              </>
             )}
             {linkedGeoProjects?.map(({ accession: geoAccession, project }) => (
               <SupplementaryDataSection
