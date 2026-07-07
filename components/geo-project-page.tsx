@@ -2042,6 +2042,8 @@ export default function GeoProjectPage() {
                 </div>
               </Flex>
             )}
+            {sampleSupplementaryDataItems.length > 0 && (
+            <>
             <Flex justify="between" align="center" gap="3" wrap="wrap" mt="4">
               <Flex align="center" gap="2" wrap="wrap">
                 <Text weight="medium" size="4">
@@ -2169,12 +2171,6 @@ export default function GeoProjectPage() {
                 </Flex>
               )}
             </Flex>
-            {sampleSupplementaryDataItems.length === 0 && (
-              <Text size="2" color="gray">
-                No sample supplementary files found
-              </Text>
-            )}
-            {sampleSupplementaryDataItems.length > 0 && (
               <Flex direction="column" gap="2" style={{ width: "100%" }}>
                 <div
                   className={agGridThemeClassName}
@@ -2206,6 +2202,7 @@ export default function GeoProjectPage() {
                   />
                 </div>
               </Flex>
+            </>
             )}
 
             <Flex id="similar" align="center" gap="2">
