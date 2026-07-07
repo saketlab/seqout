@@ -2346,14 +2346,15 @@ export default function ProjectPage() {
                   : "N/A"}
               </Text>
             </Flex>
-            {projectAuthors.length > 0 && (
-              <Flex align="start" gap="2" style={{ minWidth: 0 }}>
-                <PersonIcon style={{ flexShrink: 0, marginTop: "0.125rem" }} />
-                <Text color="gray" style={{ minWidth: 0 }}>
-                  {projectAuthors.join(", ")}
-                </Text>
-              </Flex>
-            )}
+            {projectAuthors.length > 0 &&
+              projectAuthors.join(", ") !== project?.center_name && (
+                <Flex align="start" gap="2" style={{ minWidth: 0 }}>
+                  <PersonIcon style={{ flexShrink: 0, marginTop: "0.125rem" }} />
+                  <Text color="gray" style={{ minWidth: 0 }}>
+                    {projectAuthors.join(", ")}
+                  </Text>
+                </Flex>
+              )}
             {headerCenter && (
               <Flex align="baseline" gap="2">
                 <SewingPinIcon
