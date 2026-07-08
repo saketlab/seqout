@@ -1,9 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Box, Container, Flex, Grid, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text, TextField } from "@radix-ui/themes";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import ResultCard from "@/components/result-card";
+import SearchBar from "@/components/search-bar";
 import { InstituteFilter } from "@/components/institute-filter";
 import { getJson } from "@/utils/api";
 import { getProjectShortUrl } from "@/utils/shortUrl";
@@ -43,6 +45,17 @@ function hasInstitute(r: AuthorProject, institute: string): boolean {
 }
 
 export default function AuthorProjectsBody({ name }: { name: string }) {
+  const router = useRouter();
+  const [draft, setDraft] = React.useState(name);
+  React.useEffect(() => setDraft(name), [name]);
+
+  const submit = () => {
+    const next = draft.trim();
+    if (next.length >= 2 && next !== name) {
+      router.push(`/authors/${encodeURIComponent(next)}`);
+    }
+  };
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ["author-projects", name],
     queryFn: () => fetchAuthorProjects(name),
@@ -60,21 +73,44 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
     : results;
 
   return (
-    <Container size="4" px="4" py="6">
-      <Heading size="6" mb="1">
-        Projects by {name}
-      </Heading>
-      <Text color="gray" size="2">
-        Datasets linked to a publication by {name}. Matched on first and last
-        name, so common names may include other people.
-      </Text>
+    <>
+      <SearchBar />
 
-      <Grid
-        columns={{ initial: "1", md: "minmax(0, 1fr) 260px" }}
-        gap="5"
-        mt="5"
+      <Flex
+        gap="4"
+        px={{ initial: "0", md: "4" }}
+        width={{ initial: "98%", md: "100%" }}
+        mx="auto"
+        justify={{ initial: "start", md: "between" }}
+        direction={{ initial: "column", md: "row" }}
       >
-        <Flex direction="column" gap="3">
+        <Flex
+          gap="3"
+          direction="column"
+          width={{
+            initial: "100%",
+            md: "calc(100% - 240px)",
+            lg: "calc(100% - 300px)",
+          }}
+          minWidth="0"
+        >
+          <Flex align="center" gap="2" wrap="wrap">
+            <Heading size="6">Projects by</Heading>
+            <TextField.Root
+              size="3"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="Author name"
+              style={{ minWidth: 240 }}
+              aria-label="Author name"
+            />
+          </Flex>
+          <Text color="gray" size="2">
+            Datasets linked to a publication by {name}. Matched on first and
+            last name, so common names may include other people.
+          </Text>
+
           {isLoading && <Text color="gray">Searching…</Text>}
           {isError && (
             <Text color="red">Something went wrong. Please try again.</Text>
@@ -108,17 +144,20 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           ))}
         </Flex>
 
-        {institutes.length > 0 && (
-          <Box style={{ alignSelf: "start", position: "sticky", top: 16 }}>
-            <InstituteFilter
-              facets={institutes}
-              totalCount={data?.total ?? results.length}
-              selectedKey={selectedInstitute}
-              onChangeSelection={setSelectedInstitute}
-            />
-          </Box>
-        )}
-      </Grid>
-    </Container>
+        <Box
+          width={{ initial: "100%", md: "220px", lg: "280px" }}
+          flexShrink="0"
+          display={institutes.length > 0 ? "block" : "none"}
+          style={{ alignSelf: "start", position: "sticky", top: "7rem" }}
+        >
+          <InstituteFilter
+            facets={institutes}
+            totalCount={data?.total ?? results.length}
+            selectedKey={selectedInstitute}
+            onChangeSelection={setSelectedInstitute}
+          />
+        </Box>
+      </Flex>
+    </>
   );
 }
