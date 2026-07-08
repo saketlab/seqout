@@ -14,7 +14,7 @@ export type StudyPublication = {
   title: string | null;
   journal: string | null;
   doi: string | null;
-  pub_date: string | null;
+  pub_date: string | number | null;
   authors: string | null;
   issn: string | null;
   citation_count: number | null;
@@ -39,9 +39,11 @@ function formatAuthors(authors: string | null): string {
   return list.join(", ");
 }
 
-function extractYear(pubDate: string | null): string | null {
+function extractYear(pubDate: string | number | null): string | null {
   if (!pubDate) return null;
-  const match = pubDate.trim().match(/^\d{4}/);
+  // pub_date is usually a string ("2015-06-15") but can arrive as a bare
+  // year number (2025) — coerce before matching so it never crashes.
+  const match = String(pubDate).trim().match(/^\d{4}/);
   return match ? match[0] : null;
 }
 
