@@ -17,5 +17,5 @@ export default function AuthorProjectsPage() {
   // decode here — otherwise the name renders with %20 and the API call double-encodes.
   const raw = params.name;
   const name = safeDecode(Array.isArray(raw) ? raw[0] : (raw ?? ""));
-  return <AuthorProjectsBody name={name} />;
+  return <AuthorProjectsBody key={name} name={name} />;
 }

@@ -47,7 +47,6 @@ function hasInstitute(r: AuthorProject, institute: string): boolean {
 export default function AuthorProjectsBody({ name }: { name: string }) {
   const router = useRouter();
   const [draft, setDraft] = React.useState(name);
-  React.useEffect(() => setDraft(name), [name]);
 
   const submit = () => {
     const next = draft.trim();
