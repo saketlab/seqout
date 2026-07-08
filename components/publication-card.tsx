@@ -7,6 +7,7 @@ import { cleanJournalName } from "@/utils/format";
 import { fetchPubmedSummary } from "@/utils/pubmed";
 import { CheckIcon, CopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Card, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
+import ProjectAuthors from "@/components/project-authors";
 import { useEffect, useState } from "react";
 
 export type StudyPublication = {
@@ -29,15 +30,6 @@ type PublicationCardProps = {
   publication: StudyPublication;
   accession?: string;
 };
-
-function formatAuthors(authors: string | null): string {
-  if (!authors) return "";
-  const list = authors.split(",").map((a) => a.trim());
-  if (list.length > 4) {
-    return `${list.slice(0, 4).join(", ")} et al.`;
-  }
-  return list.join(", ");
-}
 
 function extractYear(pubDate: string | number | null): string | null {
   if (!pubDate) return null;
@@ -300,12 +292,11 @@ export default function PublicationCard({
         </Flex>
 
         {publication.authors && (
-          <Text
+          <ProjectAuthors
+            authors={publication.authors.split(",")}
+            initialVisible={4}
             size="2"
-            style={{ fontStyle: "italic", color: "var(--gray-11)" }}
-          >
-            {formatAuthors(publication.authors)}
-          </Text>
+          />
         )}
 
         {/* Bottom row: canonical identifiers (PMID / DOI) rendered in

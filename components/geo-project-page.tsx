@@ -43,6 +43,7 @@ import {
   parsePostgresTextArray,
   toDisplayText,
 } from "@/utils/project";
+import ProjectAuthors from "@/components/project-authors";
 import {
   CheckIcon,
   CopyIcon,
@@ -1548,9 +1549,10 @@ export default function GeoProjectPage() {
               projectAuthors.join(", ") !== project?.center_name && (
                 <Flex align="start" gap="2" style={{ minWidth: 0 }}>
                   <PersonIcon style={{ flexShrink: 0, marginTop: "0.125rem" }} />
-                  <Text color="gray" style={{ minWidth: 0 }}>
-                    {projectAuthors.join(", ")}
-                  </Text>
+                  <ProjectAuthors
+                    authors={projectAuthors}
+                    centerName={project?.center_name}
+                  />
                 </Flex>
               )}
             {headerCenter && (

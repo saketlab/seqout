@@ -25,6 +25,9 @@ export const normalizeAuthors = (value: AuthorsInput): string[] => {
     .filter(Boolean);
 };
 
+export const authorHref = (name: string): string =>
+  `/authors/${encodeURIComponent(name.trim())}`;
+
 export const toDisplayText = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "-";
   return String(value);
