@@ -197,7 +197,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           )}
           {results.length > 0 && (
             <Text color="gray" weight="light">
-              Fetched {data?.total?.toLocaleString()} result
+              {data?.total?.toLocaleString()} result
               {data?.total === 1 ? "" : "s"} in{" "}
               {((data?.took_ms ?? 0) / 1000).toFixed(2)} seconds
               {selectedInstitute &&
