@@ -5,14 +5,67 @@ import {
   getSampleUrl,
 } from "./shortUrl";
 
-export function getInternalUrl(accession: string): string | null {
+// One accession-shape pattern, shared by the single-token classifier and the
+// whole-string extractor so the two can never drift. PRJ* is recognized for
+// extraction but routed via the async /prj resolver (see useSearchHistory).
+const ACC_BODY =
+  "(?:GSE\\d+|GSM\\d+|[SED]R[PXRS]\\d+|PRJ[A-Z]+\\d+|E-[A-Z]{4}-\\d+)";
+const ACC_GLOBAL = new RegExp(`\\b${ACC_BODY}\\b`, "gi");
+const ACC_ANCHORED = new RegExp(`^${ACC_BODY}\\b`, "i");
+
+type AccessionKind = "project" | "experiment" | "run" | "sample";
+
+const URL_BY_KIND: Record<AccessionKind, (a: string) => string> = {
+  project: getProjectUrl,
+  experiment: getExperimentUrl,
+  run: getRunUrl,
+  sample: getSampleUrl,
+};
+
+// Internal page kind for one accession, or null if unrecognized. PRJ* returns
+// null here (it needs a server round-trip to resolve) — matching prior behavior.
+function accessionKind(accession: string): AccessionKind | null {
   const a = accession.toUpperCase();
   if (/^(GSE|[SED]RP)\d+$/.test(a) || /^E-[A-Z]{4}-\d+$/.test(a))
-    return getProjectUrl(accession);
-  if (/^[SED]RX\d+$/.test(a)) return getExperimentUrl(accession);
-  if (/^[SED]RR\d+$/.test(a)) return getRunUrl(accession);
-  if (/^([SED]RS|GSM)\d+$/.test(a)) return getSampleUrl(accession);
+    return "project";
+  if (/^[SED]RX\d+$/.test(a)) return "experiment";
+  if (/^[SED]RR\d+$/.test(a)) return "run";
+  if (/^([SED]RS|GSM)\d+$/.test(a)) return "sample";
   return null;
+}
+
+export function getInternalUrl(accession: string): string | null {
+  const kind = accessionKind(accession);
+  return kind ? URL_BY_KIND[kind](accession) : null;
+}
+
+export type ParsedAccession = { raw: string; url: string; isPrj: boolean };
+
+// Every accession mentioned in a free-form query, in order, deduped. Known
+// kinds route to their internal page; PRJ* gets a /p/ URL with isPrj set so the
+// caller can resolve it server-side before navigating in the primary tab.
+export function parseAccessions(query: string): ParsedAccession[] {
+  const out: ParsedAccession[] = [];
+  const seen = new Set<string>();
+  for (const match of query.toUpperCase().matchAll(ACC_GLOBAL)) {
+    const raw = match[0];
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    if (/^PRJ[A-Z]+\d+$/.test(raw)) {
+      out.push({ raw, url: getProjectUrl(raw), isPrj: true });
+      continue;
+    }
+    const kind = accessionKind(raw);
+    if (kind) out.push({ raw, url: URL_BY_KIND[kind](raw), isPrj: false });
+  }
+  return out;
+}
+
+// True when the query *begins* with an accession — the signal that the user
+// pasted "<accession> <title/notes>" (or a list) and wants to jump, not search.
+// Anchoring on start avoids hijacking searches that merely mention an accession.
+export function startsWithAccession(query: string): boolean {
+  return ACC_ANCHORED.test(query.trim());
 }
 
 export type ExternalArchive = { url: string; archive: string; label: string };

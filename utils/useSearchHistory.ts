@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SERVER_URL } from "./constants";
-import { getInternalUrl } from "./accessionLinks";
+import { parseAccessions, startsWithAccession } from "./accessionLinks";
 import { getProjectShortUrl } from "./shortUrl";
 
 const HISTORY_KEY = "searchHistory";
@@ -44,7 +44,6 @@ export function useSearchHistory() {
   ) => {
     const trimmed = query.trim();
     if (!trimmed) return;
-    const normalized = trimmed.toUpperCase();
 
     const newHistory = [trimmed, ...history.filter((h) => h !== trimmed)].slice(
       0,
@@ -52,38 +51,41 @@ export function useSearchHistory() {
     );
     saveHistory(newHistory);
 
-    const isSingleTerm = normalized.split(/\s+/).length === 1;
-
-    if (isSingleTerm) {
-      const internalUrl = getInternalUrl(normalized);
-      if (internalUrl) {
-        navigate(internalUrl);
-        return;
-      }
-
-      if (normalized.startsWith("PRJ")) {
-        try {
-          const res = await fetch(
-            `${SERVER_URL}/prj/${encodeURIComponent(normalized)}`,
-          );
-          if (res.status === 500) {
-            alert("project not found");
-            return;
-          }
-          if (!res.ok) {
+    // "<accession> ..." (optionally with a pasted title/notes) → jump to the
+    // first recognized accession instead of full-text search. Any further
+    // accessions in the text are ignored.
+    if (startsWithAccession(trimmed)) {
+      const first = parseAccessions(trimmed)[0];
+      if (first) {
+        if (first.isPrj) {
+          // PRJ* needs a server round-trip to resolve to its GSE/SRP study.
+          try {
+            const res = await fetch(
+              `${SERVER_URL}/prj/${encodeURIComponent(first.raw)}`,
+            );
+            if (res.status === 500) {
+              alert("project not found");
+              return;
+            }
+            if (!res.ok) {
+              navigate(buildSearchUrl(trimmed, db));
+              return;
+            }
+            const data = await res.json();
+            const projectAccession =
+              typeof data.project_accession === "string" &&
+              data.project_accession
+                ? data.project_accession
+                : first.raw;
+            navigate(getProjectShortUrl(projectAccession));
+          } catch (error) {
+            console.error("Error fetching project:", error);
             navigate(buildSearchUrl(trimmed, db));
-            return;
           }
-          const data = await res.json();
-          const projectAccession =
-            typeof data.project_accession === "string" && data.project_accession
-              ? data.project_accession
-              : normalized;
-          navigate(getProjectShortUrl(projectAccession));
-        } catch (error) {
-          console.error("Error fetching project:", error);
-          navigate(buildSearchUrl(trimmed, db));
+          return;
         }
+
+        navigate(first.url);
         return;
       }
     }
