@@ -10,6 +10,7 @@ export default function FooterGate() {
   const pathname = usePathname();
   const isProjectPage = pathname.startsWith("/p/");
   const isSearchResultsPage = pathname === "/search";
+  const isAuthorsPage = pathname.startsWith("/authors/");
   const [readyPathname, setReadyPathname] = useState<string | null>(null);
 
   useEffect(() => {
@@ -24,7 +25,9 @@ export default function FooterGate() {
   }, [isProjectPage, pathname]);
 
   const isVisible =
-    !isSearchResultsPage && (!isProjectPage || readyPathname === pathname);
+    !isSearchResultsPage &&
+    !isAuthorsPage &&
+    (!isProjectPage || readyPathname === pathname);
 
   if (!isVisible) return null;
 

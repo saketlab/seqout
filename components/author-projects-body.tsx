@@ -196,7 +196,25 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
             <Text color="red">Something went wrong. Please try again.</Text>
           )}
           {!isLoading && !isError && results.length === 0 && (
-            <Text color="gray">No projects found for {name}.</Text>
+            <Flex
+              align="center"
+              justify="center"
+              direction="column"
+              height="20rem"
+              gap="3"
+            >
+              <Text size={{ initial: "5", md: "6" }} weight="bold">
+                No projects found for &ldquo;{name}&rdquo;
+              </Text>
+              <Text
+                size="2"
+                align="center"
+                style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
+              >
+                Check the spelling or try just the last name. Only datasets
+                linked to a publication (or GEO contributor) are findable.
+              </Text>
+            </Flex>
           )}
           {results.length > 0 && (
             <Text color="gray" weight="light">
