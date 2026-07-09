@@ -482,11 +482,12 @@ export default function SimilarProjectsGraph({
     };
   }, [graphData, organismFilter, neighborLimit]);
 
-  // Latest data, readable from the async mount effect without re-mounting the
-  // graph. Synced during render so a graph created mid-fetch seeds with real
-  // nodes instead of the empty set (fixes the transient blank graph).
+  // Latest data for the async mount effect; synced before it so a graph created
+  // mid-fetch seeds with real nodes, not the empty set.
   const filteredGraphDataRef = useRef(filteredGraphData);
-  filteredGraphDataRef.current = filteredGraphData;
+  useEffect(() => {
+    filteredGraphDataRef.current = filteredGraphData;
+  });
 
   const tabViewRows = useMemo(() => {
     const seen = new Set<string>();
@@ -570,8 +571,7 @@ export default function SimilarProjectsGraph({
 
       const rect = mountRef.current.getBoundingClientRect();
       graph.width(Math.max(320, rect.width)).height(420);
-      // Seed with whatever data is current now — the async import above may have
-      // let the [filteredGraphData] effect fire and no-op while graph was null.
+      // Seed with current data; the [filteredGraphData] effect no-ops while graph is null.
       graph.graphData(filteredGraphDataRef.current);
       graph.zoomToFit(zoomMsRef.current, 48);
     };

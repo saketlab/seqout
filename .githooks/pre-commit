@@ -1,0 +1,3 @@
+#!/bin/sh
+# Runs the same lint CI runs. Bypass with `git commit --no-verify` if needed.
+npm run lint

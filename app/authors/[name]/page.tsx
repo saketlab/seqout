@@ -13,8 +13,7 @@ function safeDecode(s: string): string {
 
 export default function AuthorProjectsPage() {
   const params = useParams();
-  // useParams() returns the raw encoded segment ("Joseph%20E%20Powell"), so
-  // decode here — otherwise the name renders with %20 and the API call double-encodes.
+  // useParams() returns the raw encoded segment; decode before use.
   const raw = params.name;
   const name = safeDecode(Array.isArray(raw) ? raw[0] : (raw ?? ""));
   return <AuthorProjectsBody key={name} name={name} />;

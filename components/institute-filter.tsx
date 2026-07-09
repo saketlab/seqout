@@ -5,10 +5,7 @@ import * as React from "react";
 
 export type InstituteFacet = { name: string; count: number };
 
-// Right-side affiliation facet for the author page. Mirrors the organism
-// filter's FilterList: "All institutes" clear row, count badges, show-more,
-// and a search box once the list is long. Selection is single-choice and
-// filtering happens client-side (all results are already loaded).
+// Single-select affiliation facet for the author page. Mirrors organism_filter's FilterList.
 export function InstituteFilter({
   facets,
   totalCount,

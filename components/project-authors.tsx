@@ -7,13 +7,11 @@ import { authorHref } from "@/utils/project";
 
 type ProjectAuthorsProps = {
   authors: string[];
-  // Render nothing when the author list is just the center/org name.
   centerName?: string | null;
   initialVisible?: number;
   size?: React.ComponentProps<typeof Text>["size"];
 };
 
-// Author names as links to their projects page, with a reveal toggle when long.
 export default function ProjectAuthors({
   authors,
   centerName,

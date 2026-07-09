@@ -51,7 +51,7 @@ type AuthorProjectsResponse = {
 };
 
 const fetchAuthorProjects = async (name: string) => {
-  // Wall-clock (fetch + network), like the search page — the endpoint returns no timing.
+  // Wall-clock timing; the endpoint returns none.
   const start = performance.now();
   const data = await getJson<AuthorProjectsResponse>(
     `/author/projects?q=${encodeURIComponent(name)}&limit=200`,
@@ -59,7 +59,6 @@ const fetchAuthorProjects = async (name: string) => {
   return { ...data, took_ms: performance.now() - start };
 };
 
-// A result belongs to an institute if that name is one of its "; "-joined orgs.
 // `institute` must already be lowercased.
 function hasInstitute(r: AuthorProject, institute: string): boolean {
   return (r.institute ?? "")
@@ -265,7 +264,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           </Flex>
         </Flex>
 
-        {/* Desktop: sticky sidebar rail. */}
+        {/* Desktop rail */}
         <Box
           width={{ md: "220px", lg: "280px" }}
           flexShrink="0"
@@ -279,7 +278,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
         </Box>
       </Flex>
 
-      {/* Mobile: floating button → dialog, like the search page's organism rail. */}
+      {/* Mobile rail */}
       {institutes.length > 0 && (
         <Flex
           display={{ initial: "flex", md: "none" }}
