@@ -8,10 +8,13 @@ import { getProjectShortUrl } from "@/utils/shortUrl";
 import {
   InfoCircledIcon,
   MagnifyingGlassIcon,
+  MixerHorizontalIcon,
   Pencil1Icon,
 } from "@radix-ui/react-icons";
 import {
   Box,
+  Button,
+  Dialog,
   Flex,
   Heading,
   IconButton,
@@ -230,10 +233,14 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           </Flex>
         </Flex>
 
+        {/* Desktop: sticky sidebar rail. */}
         <Box
-          width={{ initial: "100%", md: "220px", lg: "280px" }}
+          width={{ md: "220px", lg: "280px" }}
           flexShrink="0"
-          display={institutes.length > 0 ? "block" : "none"}
+          display={{
+            initial: "none",
+            md: institutes.length > 0 ? "block" : "none",
+          }}
           style={{ alignSelf: "start", position: "sticky", top: "5rem" }}
         >
           <InstituteFilter
@@ -244,6 +251,53 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           />
         </Box>
       </Flex>
+
+      {/* Mobile: floating button → dialog, like the search page's organism rail. */}
+      {institutes.length > 0 && (
+        <Flex
+          display={{ initial: "flex", md: "none" }}
+          position="fixed"
+          direction="column"
+          align="end"
+          bottom={{ initial: "9", sm: "4" }}
+          style={{ right: "1rem", zIndex: 999 }}
+        >
+          <Dialog.Root>
+            <Dialog.Trigger>
+              <Button>
+                <MixerHorizontalIcon />
+                Institutes
+              </Button>
+            </Dialog.Trigger>
+            <Dialog.Content
+              size="2"
+              style={{
+                width: "calc(100vw - 2rem)",
+                maxWidth: "calc(100vw - 2rem)",
+              }}
+            >
+              <Dialog.Title>Institutes</Dialog.Title>
+              <Dialog.Description size="1">
+                Narrow projects by institute.
+              </Dialog.Description>
+              <Flex
+                mt="3"
+                width="100%"
+                style={{ height: "24rem", overflowY: "auto" }}
+              >
+                <div style={{ width: "100%" }}>
+                  <InstituteFilter
+                    facets={institutes}
+                    totalCount={data?.total ?? results.length}
+                    selectedKey={selectedInstitute}
+                    onChangeSelection={setSelectedInstitute}
+                  />
+                </div>
+              </Flex>
+            </Dialog.Content>
+          </Dialog.Root>
+        </Flex>
+      )}
     </>
   );
 }
