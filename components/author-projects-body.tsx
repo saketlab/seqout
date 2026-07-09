@@ -18,7 +18,6 @@ import {
   Popover,
   Text,
   TextField,
-  Tooltip,
 } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -44,12 +43,17 @@ type AuthorProjectsResponse = {
   total: number;
   results: AuthorProject[];
   institutes: { name: string; count: number }[];
+  took_ms: number;
 };
 
-const fetchAuthorProjects = (name: string) =>
-  getJson<AuthorProjectsResponse>(
+const fetchAuthorProjects = async (name: string) => {
+  // Wall-clock (fetch + network), like the search page — the endpoint returns no timing.
+  const start = performance.now();
+  const data = await getJson<AuthorProjectsResponse>(
     `/author/projects?q=${encodeURIComponent(name)}&limit=200`,
   );
+  return { ...data, took_ms: performance.now() - start };
+};
 
 // A result belongs to an institute if that name is one of its "; "-joined orgs.
 function hasInstitute(r: AuthorProject, institute: string): boolean {
@@ -169,9 +173,19 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
                 </Popover.Content>
               </Popover.Root>
             </Heading>
-            <Tooltip content="Matched on first and last name, so common names may include other projects by people with the same name.">
-              <InfoCircledIcon />
-            </Tooltip>
+            <Popover.Root>
+              <Popover.Trigger>
+                <IconButton aria-label="About name matching">
+                  <InfoCircledIcon />
+                </IconButton>
+              </Popover.Trigger>
+              <Popover.Content maxWidth="340px">
+                <Text size={"2"}>
+                  Matched on first and last name, so common names may include
+                  other projects by people with the same name.
+                </Text>
+              </Popover.Content>
+            </Popover.Root>
           </Flex>
 
           {isLoading && <Text color="gray">Searching…</Text>}
@@ -182,10 +196,12 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
             <Text color="gray">No projects found for {name}.</Text>
           )}
           {results.length > 0 && (
-            <Text color="gray" size="2">
-              {selectedInstitute
-                ? `${filtered.length} of ${data?.total} projects · ${selectedInstitute}`
-                : `${data?.total} project${data?.total === 1 ? "" : "s"}`}
+            <Text color="gray" weight="light">
+              Fetched {data?.total?.toLocaleString()} result
+              {data?.total === 1 ? "" : "s"} in{" "}
+              {((data?.took_ms ?? 0) / 1000).toFixed(2)} seconds
+              {selectedInstitute &&
+                ` · ${filtered.length} shown · ${selectedInstitute}`}
             </Text>
           )}
           {filtered.map((r) => (
