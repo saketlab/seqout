@@ -1,6 +1,7 @@
 "use client";
 
 import SearchBar from "@/components/search-bar";
+import { authorHref } from "@/utils/project";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
@@ -12,7 +13,7 @@ export default function AuthorsIndexPage() {
 
   const go = () => {
     const next = name.trim();
-    if (next.length >= 2) router.push(`/authors/${encodeURIComponent(next)}`);
+    if (next.length >= 2) router.push(authorHref(next));
   };
 
   return (

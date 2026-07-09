@@ -34,7 +34,7 @@ export function InstituteFilter({
   );
 
   const isSearchActive = normalized.length > 0;
-  const hasMoreThanTop = !isSearchActive && searched.length > 5;
+  const hasMoreThanTop = !isSearchActive && showSearch;
   const visible =
     isSearchActive || isExpanded ? searched : searched.slice(0, 5);
   const shouldScroll = isExpanded || (isSearchActive && searched.length > 5);

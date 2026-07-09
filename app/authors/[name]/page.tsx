@@ -7,7 +7,7 @@ function safeDecode(s: string): string {
   try {
     return decodeURIComponent(s);
   } catch {
-    return s; // ponytail: malformed %-sequence, use as-is rather than crash
+    return s; // malformed %-sequence, use as-is rather than crash
   }
 }
 

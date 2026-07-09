@@ -22,10 +22,7 @@ export default function ProjectAuthors({
 }: ProjectAuthorsProps) {
   const [expanded, setExpanded] = React.useState(false);
 
-  const names = React.useMemo(
-    () => authors.map((a) => a.trim()).filter(Boolean),
-    [authors],
-  );
+  const names = authors.map((a) => a.trim()).filter(Boolean);
 
   if (names.length === 0) return null;
   if (centerName && names.join(", ") === centerName) return null;

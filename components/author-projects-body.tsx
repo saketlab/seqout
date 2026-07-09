@@ -4,6 +4,7 @@ import { InstituteFilter } from "@/components/institute-filter";
 import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
 import { getJson } from "@/utils/api";
+import { authorHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import {
   InfoCircledIcon,
@@ -59,10 +60,11 @@ const fetchAuthorProjects = async (name: string) => {
 };
 
 // A result belongs to an institute if that name is one of its "; "-joined orgs.
+// `institute` must already be lowercased.
 function hasInstitute(r: AuthorProject, institute: string): boolean {
   return (r.institute ?? "")
     .split(";")
-    .some((p) => p.trim().toLowerCase() === institute.toLowerCase());
+    .some((p) => p.trim().toLowerCase() === institute);
 }
 
 export default function AuthorProjectsBody({ name }: { name: string }) {
@@ -74,7 +76,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
     const next = draft.trim();
     setEditing(false);
     if (next.length >= 2 && next !== name) {
-      router.push(`/authors/${encodeURIComponent(next)}`);
+      router.push(authorHref(next));
     }
   };
 
@@ -90,9 +92,21 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
     string | null
   >(null);
 
-  const filtered = selectedInstitute
-    ? results.filter((r) => hasInstitute(r, selectedInstitute))
-    : results;
+  const filtered = React.useMemo(() => {
+    const rows = data?.results ?? [];
+    if (!selectedInstitute) return rows;
+    const target = selectedInstitute.toLowerCase();
+    return rows.filter((r) => hasInstitute(r, target));
+  }, [data?.results, selectedInstitute]);
+
+  const instituteFilter = (
+    <InstituteFilter
+      facets={institutes}
+      totalCount={data?.total ?? results.length}
+      selectedKey={selectedInstitute}
+      onChangeSelection={setSelectedInstitute}
+    />
+  );
 
   return (
     <>
@@ -261,12 +275,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           }}
           style={{ alignSelf: "start", position: "sticky", top: "5rem" }}
         >
-          <InstituteFilter
-            facets={institutes}
-            totalCount={data?.total ?? results.length}
-            selectedKey={selectedInstitute}
-            onChangeSelection={setSelectedInstitute}
-          />
+          {instituteFilter}
         </Box>
       </Flex>
 
@@ -303,14 +312,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
                 width="100%"
                 style={{ height: "24rem", overflowY: "auto" }}
               >
-                <div style={{ width: "100%" }}>
-                  <InstituteFilter
-                    facets={institutes}
-                    totalCount={data?.total ?? results.length}
-                    selectedKey={selectedInstitute}
-                    onChangeSelection={setSelectedInstitute}
-                  />
-                </div>
+                <div style={{ width: "100%" }}>{instituteFilter}</div>
               </Flex>
             </Dialog.Content>
           </Dialog.Root>
