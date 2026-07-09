@@ -10,7 +10,7 @@ export default function FooterGate() {
   const pathname = usePathname();
   const isProjectPage = pathname.startsWith("/p/");
   const isSearchResultsPage = pathname === "/search";
-  const isAuthorsPage = pathname.startsWith("/authors/");
+  const isAuthorsPage = pathname === "/authors" || pathname.startsWith("/authors/");
   const [readyPathname, setReadyPathname] = useState<string | null>(null);
 
   useEffect(() => {
