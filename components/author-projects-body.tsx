@@ -234,7 +234,7 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           width={{ initial: "100%", md: "220px", lg: "280px" }}
           flexShrink="0"
           display={institutes.length > 0 ? "block" : "none"}
-          style={{ alignSelf: "start", position: "sticky", top: "7rem" }}
+          style={{ alignSelf: "start", position: "sticky", top: "5rem" }}
         >
           <InstituteFilter
             facets={institutes}

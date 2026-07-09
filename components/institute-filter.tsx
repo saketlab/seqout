@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Badge,
-  Button,
-  Flex,
-  Separator,
-  Text,
-  TextField,
-} from "@radix-ui/themes";
+import { Badge, Button, Flex, Text, TextField } from "@radix-ui/themes";
 import * as React from "react";
 
 export type InstituteFacet = { name: string; count: number };
@@ -48,17 +41,13 @@ export function InstituteFilter({
 
   return (
     <Flex direction="column" gap="3">
-      <Text size="2" weight="medium">
-        Institutes
-      </Text>
-      <Separator size="4" />
       {showSearch ? (
         <TextField.Root
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search institutes"
-          aria-label="Search institutes"
+          placeholder="Search institute"
+          aria-label="Search institute"
           size="2"
           variant="surface"
         />
