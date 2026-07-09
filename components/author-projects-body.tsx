@@ -204,23 +204,30 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
                 ` · ${filtered.length} shown · ${selectedInstitute}`}
             </Text>
           )}
-          {filtered.map((r) => (
-            <ResultCard
-              key={r.accession}
-              accession={r.accession}
-              title={r.title}
-              summary={r.summary}
-              updated_at={r.updated_at}
-              journal={r.journal}
-              doi={r.doi}
-              citation_count={r.citation_count}
-              authors={r.authors}
-              center_name={r.institute ?? r.center_name}
-              country_code={r.country_code}
-              single_cell_modality={r.single_cell_modality}
-              href={getProjectShortUrl(r.accession)}
-            />
-          ))}
+          <Flex
+            direction="column"
+            gap="0"
+            className="seqout-divided-list"
+            style={{ paddingLeft: 0 }}
+          >
+            {filtered.map((r) => (
+              <ResultCard
+                key={r.accession}
+                accession={r.accession}
+                title={r.title}
+                summary={r.summary}
+                updated_at={r.updated_at}
+                journal={r.journal}
+                doi={r.doi}
+                citation_count={r.citation_count}
+                authors={r.authors}
+                center_name={r.institute ?? r.center_name}
+                country_code={r.country_code}
+                single_cell_modality={r.single_cell_modality}
+                href={getProjectShortUrl(r.accession)}
+              />
+            ))}
+          </Flex>
         </Flex>
 
         <Box
