@@ -30,7 +30,7 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Mode = "experiments" | "projects";
 type View = "cumulative" | "monthly";
-type DbFilter = "overall" | "geo" | "sra" | "ena";
+type DbFilter = "overall" | "geo" | "sra" | "ena" | "gsa";
 
 interface GrowthPoint {
   month: string;
@@ -356,6 +356,7 @@ export default function StatsPlatformComparisonCard() {
               <SegmentedControl.Item value="geo">GEO</SegmentedControl.Item>
               <SegmentedControl.Item value="sra">SRA</SegmentedControl.Item>
               <SegmentedControl.Item value="ena">ENA</SegmentedControl.Item>
+              <SegmentedControl.Item value="gsa">GSA</SegmentedControl.Item>
             </SegmentedControl.Root>
             <SegmentedControl.Root
               value={logScale ? "log" : "linear"}

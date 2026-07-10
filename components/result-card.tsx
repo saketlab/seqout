@@ -255,6 +255,11 @@ function ResultCard({
         >
           {accession}
         </Badge>
+        {db === "gsa" && (
+          <Badge size={"2"} color="ruby" variant="soft">
+            GSA
+          </Badge>
+        )}
         {single_cell_modality && (
           <Tooltip content="Derived from dataset metadata">
             <Badge size={"2"} color="cyan">

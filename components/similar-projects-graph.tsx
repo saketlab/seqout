@@ -34,7 +34,7 @@ export type SimilarNeighbor = {
 
 type SimilarProjectsGraphProps = {
   accession: string;
-  source: "geo" | "sra" | "arrayexpress";
+  source: "geo" | "sra" | "arrayexpress" | "gsa";
   title: string;
   description: string | null | undefined;
   organisms?: unknown;
@@ -45,7 +45,7 @@ type SimilarProjectsGraphProps = {
 
 type GraphNode = {
   id: string;
-  source: "geo" | "sra" | "arrayexpress";
+  source: "geo" | "sra" | "arrayexpress" | "gsa";
   x: number;
   y: number;
   z: number;
@@ -85,10 +85,12 @@ const escHtml = (value: string) =>
 
 const toSource = (
   value: string | null | undefined,
-  fallback: "geo" | "sra" | "arrayexpress",
+  fallback: "geo" | "sra" | "arrayexpress" | "gsa",
 ) => {
   const v = value?.toLowerCase();
-  return v === "geo" || v === "sra" || v === "arrayexpress" ? v : fallback;
+  return v === "geo" || v === "sra" || v === "arrayexpress" || v === "gsa"
+    ? v
+    : fallback;
 };
 
 const MIN_RADIUS = 45;

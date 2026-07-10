@@ -20,6 +20,7 @@ const labelByKind: Record<ProjectKind, string> = {
   sra: "SRA",
   ena: "ENA",
   arrayexpress: "ArrayExpress",
+  gsa: "GSA",
 };
 
 function decodeHtmlEntities(input: string): string {

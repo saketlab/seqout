@@ -38,8 +38,8 @@ interface GrowthResponse {
 }
 
 const DB_ORDER: Record<Mode, string[]> = {
-  projects: ["geo", "sra", "arrayexpress", "ena"],
-  experiments: ["geo", "sra", "arrayexpress", "ena"],
+  projects: ["geo", "sra", "arrayexpress", "ena", "gsa"],
+  experiments: ["geo", "sra", "arrayexpress", "ena", "gsa"],
   bases: ["ena", "sra_fastq_bytes", "sra_sra_bytes"],
 };
 

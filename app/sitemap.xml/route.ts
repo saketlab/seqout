@@ -19,6 +19,9 @@ const SOURCE_DATE_KEY: Record<string, string> = {
   ena_exp: "ena",
   ena_sample: "ena",
   arrayexpress: "arrayexpress",
+  gsa: "gsa",
+  gsa_exp: "gsa",
+  gsa_sample: "gsa",
 };
 
 type LastUpdated = {

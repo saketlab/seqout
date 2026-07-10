@@ -241,7 +241,7 @@ function buildSearchUrl(
   filters: SearchFilterParams,
 ): string {
   let url = `${SERVER_URL}/search?q=${encodeURIComponent(query)}`;
-  if (db === "sra" || db === "geo" || db === "arrayexpress") {
+  if (db === "sra" || db === "geo" || db === "arrayexpress" || db === "gsa") {
     url += `&db=${encodeURIComponent(db)}`;
   }
   // The server's filtered path now honors sortby too, so emit it either way.
@@ -529,6 +529,7 @@ const DB_LABELS_DISPLAY: Record<string, string> = {
   geo: "GEO",
   sra: "SRA",
   arrayexpress: "ArrayExpress",
+  gsa: "GSA",
 };
 
 type ActiveFilterChipsProps = {
@@ -1843,12 +1844,17 @@ export default function SearchPageBody() {
   };
 
   const handleDatabaseChange = useCallback(
-    (value: "geo" | "sra" | "arrayexpress" | "both") => {
+    (value: "geo" | "sra" | "arrayexpress" | "gsa" | "both") => {
       if (!query) return;
 
       const params = new URLSearchParams(searchParams.toString());
       params.set("q", query);
-      if (value === "sra" || value === "geo" || value === "arrayexpress") {
+      if (
+        value === "sra" ||
+        value === "geo" ||
+        value === "arrayexpress" ||
+        value === "gsa"
+      ) {
         params.set("db", value);
       } else {
         params.delete("db");

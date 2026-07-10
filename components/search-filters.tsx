@@ -104,7 +104,7 @@ type SearchFiltersProps = {
   timeFilter: TimeFilter;
   customYearRange: { from: string; to: string };
   setCustomYearRange: (value: { from: string; to: string }) => void;
-  onDatabaseChange: (value: "geo" | "sra" | "arrayexpress" | "both") => void;
+  onDatabaseChange: (value: "geo" | "sra" | "arrayexpress" | "gsa" | "both") => void;
 };
 
 export function SearchFilters({
@@ -168,7 +168,7 @@ export function SearchFilters({
         value={db ? db : "both"}
         onValueChange={(value) => {
           if (!query) return;
-          onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "both");
+          onDatabaseChange(value as "geo" | "sra" | "arrayexpress" | "gsa" | "both");
         }}
         size="1"
       >
@@ -179,6 +179,7 @@ export function SearchFilters({
             <Select.Item value="geo">GEO only</Select.Item>
             <Select.Item value="sra">SRA only</Select.Item>
             <Select.Item value="arrayexpress">ArrayExpress only</Select.Item>
+            <Select.Item value="gsa">GSA only</Select.Item>
           </Select.Group>
         </Select.Content>
       </Select.Root>

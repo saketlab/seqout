@@ -85,7 +85,7 @@ interface PlatformFiltersResponse {
 }
 
 const ALL = "__all__";
-const DB_ORDER = ["geo", "sra", "ena"];
+const DB_ORDER = ["geo", "sra", "ena", "gsa"];
 
 async function fetchPlatformTotals(): Promise<PlatformTotalsResponse> {
   return fetchJsonWithIndexedDbCache<PlatformTotalsResponse>(

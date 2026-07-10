@@ -1704,16 +1704,26 @@ export default function ProjectPage() {
   const accessionUpper = accession?.toUpperCase();
   const isArrayExpressAccession = accessionUpper?.startsWith("E-") ?? false;
   const isPrjAccession = accessionUpper?.startsWith("PRJ") ?? false;
-  const externalStudyUrl =
-    accession && isPrjAccession
+  // GSA (CNCB-NGDC): CRA = open archive, HRA = human archive.
+  const isGsaAccession = /^(CRA|HRA)\d+$/.test(accessionUpper ?? "");
+  const gsaStudyUrl = accessionUpper?.startsWith("HRA")
+    ? `https://ngdc.cncb.ac.cn/gsa-human/browse/${accession}`
+    : `https://ngdc.cncb.ac.cn/gsa/browse/${accession}`;
+  const externalStudyUrl = isGsaAccession
+    ? gsaStudyUrl
+    : accession && isPrjAccession
       ? `https://www.ebi.ac.uk/ena/browser/view/${accession}`
       : `https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`;
-  const externalStudyLabel = isPrjAccession
-    ? "Visit ENA page"
-    : "Visit SRA page";
-  const externalStudyColor = isPrjAccession
-    ? DB_COLOR_MAP.ena.radix
-    : DB_COLOR_MAP.sra.radix;
+  const externalStudyLabel = isGsaAccession
+    ? "Visit GSA page"
+    : isPrjAccession
+      ? "Visit ENA page"
+      : "Visit SRA page";
+  const externalStudyColor = isGsaAccession
+    ? DB_COLOR_MAP.gsa.radix
+    : isPrjAccession
+      ? DB_COLOR_MAP.ena.radix
+      : DB_COLOR_MAP.sra.radix;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
   const agGridThemeClassName = isDark
@@ -2212,11 +2222,13 @@ export default function ProjectPage() {
               <Badge
                 size={{ initial: "2", md: "3" }}
                 color={
-                  isPrjAccession
-                    ? "jade"
-                    : isArrayExpressAccession
-                      ? "gold"
-                      : "brown"
+                  isGsaAccession
+                    ? "ruby"
+                    : isPrjAccession
+                      ? "jade"
+                      : isArrayExpressAccession
+                        ? "gold"
+                        : "brown"
                 }
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
@@ -2244,6 +2256,11 @@ export default function ProjectPage() {
                   </Tooltip>
                 </Flex>
               </Badge>
+              {isGsaAccession && (
+                <Badge size={{ initial: "2", md: "3" }} color="ruby" variant="soft">
+                  GSA
+                </Badge>
+              )}
               {project.alias?.startsWith("P") && (
                 <BioProjectBadge accession={project.alias} />
               )}
@@ -2612,7 +2629,7 @@ export default function ProjectPage() {
             <LazyMount>
               <SimilarProjectsGraph
                 accession={project.accession}
-                source="sra"
+                source={isGsaAccession ? "gsa" : "sra"}
                 title={project.title}
                 description={project.abstract}
                 organisms={project.organisms}

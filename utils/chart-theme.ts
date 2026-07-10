@@ -112,4 +112,5 @@ export const SIMILARITY_GRAPH_COLORS = {
   geo: "#2563eb",
   sra: "#8b4513",
   arrayexpress: "#eab308",
+  gsa: "#e54666",
 } as const;

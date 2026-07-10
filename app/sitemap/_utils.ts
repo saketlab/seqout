@@ -10,12 +10,15 @@ export const SITEMAP_SOURCES: { key: string; path: string }[] = [
   { key: "sra", path: "/p" },
   { key: "arrayexpress", path: "/p" },
   { key: "ena", path: "/p" },
+  { key: "gsa", path: "/p" },
   { key: "sra_exp", path: "/e" },
   { key: "ena_exp", path: "/e" },
+  { key: "gsa_exp", path: "/e" },
   { key: "run", path: "/r" },
   { key: "geo_sample", path: "/s" },
   { key: "sra_sample", path: "/s" },
   { key: "ena_sample", path: "/s" },
+  { key: "gsa_sample", path: "/s" },
 ];
 
 export const SOURCE_PATHS = new Map(

@@ -21,7 +21,7 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Metric = "Projects" | "Samples";
 
-const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena"] as const;
+const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena", "gsa"] as const;
 
 export default function StatsSourceHistogramCard() {
   const [metric, setMetric] = useState<Metric>("Projects");
@@ -54,7 +54,7 @@ export default function StatsSourceHistogramCard() {
         },
       },
       subtitle: {
-        text: `Total ${metric.toLowerCase()} across SRA, GEO, ArrayExpress & ENA`,
+        text: `Total ${metric.toLowerCase()} across SRA, GEO, ArrayExpress, ENA & GSA`,
         align: "left",
         style: {
           fontSize: "12px",

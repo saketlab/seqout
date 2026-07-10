@@ -59,7 +59,7 @@ interface OrganismTotalsResponse {
   took_ms: number;
 }
 
-const DB_ORDER = ["geo", "sra", "arrayexpress", "ena"];
+const DB_ORDER = ["geo", "sra", "arrayexpress", "ena", "gsa"];
 
 interface OrganismSearchResult {
   organism: string;

@@ -1,10 +1,10 @@
 import type { ExternalArchive } from "./accessionLinks";
 
-export type DbSource = "geo" | "sra" | "ena" | "arrayexpress";
+export type DbSource = "geo" | "sra" | "ena" | "arrayexpress" | "gsa";
 
-export const DB_ORDER: DbSource[] = ["geo", "sra", "ena", "arrayexpress"];
+export const DB_ORDER: DbSource[] = ["geo", "sra", "ena", "arrayexpress", "gsa"];
 
-type RadixColor = "blue" | "brown" | "jade" | "gold";
+type RadixColor = "blue" | "brown" | "jade" | "gold" | "ruby";
 
 type DbColor = {
   hex: string;
@@ -33,6 +33,11 @@ export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
     radix: "gold",
     og: { primary: "#f59e0b", secondary: "#d97706", accent: "#fcd34d" },
   },
+  gsa: {
+    hex: "#e54666", // radix ruby 9 (solid) — matches the ruby Badge
+    radix: "ruby",
+    og: { primary: "#e54666", secondary: "#c31d5a", accent: "#f7a8c0" },
+  },
 };
 
 /** Consistent colors for database sources across all stats charts. */
@@ -41,6 +46,7 @@ export const DB_COLORS: Record<string, string> = {
   sra: DB_COLOR_MAP.sra.hex,
   arrayexpress: DB_COLOR_MAP.arrayexpress.hex,
   ena: DB_COLOR_MAP.ena.hex,
+  gsa: DB_COLOR_MAP.gsa.hex,
   sra_fastq_bytes: DB_COLOR_MAP.sra.hex,
   sra_sra_bytes: "#6366f1",
 };
@@ -51,6 +57,7 @@ export const DB_LABELS: Record<string, string> = {
   sra: "SRA",
   arrayexpress: "ArrayExpress",
   ena: "ENA",
+  gsa: "GSA",
   sra_fastq_bytes: "SRA (FASTQ)",
   sra_sra_bytes: "SRA (SRA archive)",
 };
@@ -61,6 +68,9 @@ export function dbForAccession(accession: string): DbSource | null {
   if (/^E-[A-Z]{4}-\d+$/.test(a)) return "arrayexpress";
   if (/^ER[PXRS]\d+$/.test(a) || /^PRJEB\d+$/.test(a)) return "ena";
   if (/^[SD]R[PXRS]\d+$/.test(a) || /^PRJ(NA|DB)\d+$/.test(a)) return "sra";
+  // GSA (CNCB-NGDC): open CRA + human HRA, plus PRJCA / SAMC biosample.
+  if (/^(CRA|CRX|CRR|HRA|HRX|HRR|HRS|HRI)\d+$/.test(a) || /^(PRJCA|SAMC)\d+$/.test(a))
+    return "gsa";
   return null;
 }
 
@@ -70,6 +80,7 @@ const ARCHIVE_DB: Record<string, DbSource | undefined> = {
   DDBJ: "sra",
   ENA: "ena",
   ArrayExpress: "arrayexpress",
+  GSA: "gsa",
 };
 
 export function dbColorForArchive(

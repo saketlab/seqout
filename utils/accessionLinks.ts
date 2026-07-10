@@ -9,7 +9,7 @@ import {
 // whole-string extractor so the two can never drift. PRJ* is recognized for
 // extraction but routed via the async /prj resolver (see useSearchHistory).
 const ACC_BODY =
-  "(?:GSE\\d+|GSM\\d+|[SED]R[PXRS]\\d+|PRJ[A-Z]+\\d+|E-[A-Z]{4}-\\d+)";
+  "(?:GSE\\d+|GSM\\d+|[SED]R[PXRS]\\d+|PRJ[A-Z]+\\d+|E-[A-Z]{4}-\\d+|(?:CRA|CRX|HRA|HRX|HRS)\\d+)";
 const ACC_GLOBAL = new RegExp(`\\b${ACC_BODY}\\b`, "gi");
 const ACC_ANCHORED = new RegExp(`^${ACC_BODY}\\b`, "i");
 
@@ -31,6 +31,11 @@ function accessionKind(accession: string): AccessionKind | null {
   if (/^[SED]RX\d+$/.test(a)) return "experiment";
   if (/^[SED]RR\d+$/.test(a)) return "run";
   if (/^([SED]RS|GSM)\d+$/.test(a)) return "sample";
+  // GSA (CNCB-NGDC): CRA/HRA studies, CRX/HRX experiments, SAMC/HRS samples have
+  // internal pages; CRR/HRR runs have no download data → external link only.
+  if (/^(CRA|HRA)\d+$/.test(a)) return "project";
+  if (/^(CRX|HRX)\d+$/.test(a)) return "experiment";
+  if (/^(HRS|SAMC)\d+$/.test(a)) return "sample";
   return null;
 }
 
@@ -86,6 +91,26 @@ export function getExternalArchiveUrl(
       url: `https://www.ebi.ac.uk/biostudies/ArrayExpress/studies/${accession}`,
       archive: "ArrayExpress",
       label: "View on ArrayExpress",
+    };
+  // GSA — CNCB-NGDC (China National Genomics Data Center). Checked before the
+  // generic PRJ*/SAM* cases so PRJCA/SAMC route to GSA, not NCBI.
+  if (/^CRA\d+$/.test(a))
+    return {
+      url: `https://ngdc.cncb.ac.cn/gsa/browse/${accession}`,
+      archive: "GSA",
+      label: "View on GSA",
+    };
+  if (/^HRA\d+$/.test(a))
+    return {
+      url: `https://ngdc.cncb.ac.cn/gsa-human/browse/${accession}`,
+      archive: "GSA",
+      label: "View on GSA",
+    };
+  if (/^(CRX|CRR|SAMC|PRJCA|HRX|HRR|HRS|HRI)\d+$/.test(a))
+    return {
+      url: `https://ngdc.cncb.ac.cn/search/all?q=${accession}`,
+      archive: "GSA",
+      label: "View on GSA",
     };
   if (/^PRJ[A-Z]+\d+$/.test(a))
     return {

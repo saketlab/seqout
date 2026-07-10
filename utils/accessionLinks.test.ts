@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  getExternalArchiveUrl,
   getInternalUrl,
   parseAccessions,
   startsWithAccession,
@@ -16,6 +17,38 @@ describe("getInternalUrl", () => {
     expect(getInternalUrl("PRJNA123")).toBeNull(); // resolved via /prj, not here
     expect(getInternalUrl("cancer")).toBeNull();
   });
+
+  it("routes GSA accessions (runs → null: no internal download page)", () => {
+    expect(getInternalUrl("CRA000004")).toBe("/p/CRA000004");
+    expect(getInternalUrl("HRA007928")).toBe("/p/HRA007928");
+    expect(getInternalUrl("CRX111967")).toBe("/e/CRX111967");
+    expect(getInternalUrl("HRX111967")).toBe("/e/HRX111967");
+    expect(getInternalUrl("HRS096807")).toBe("/s/HRS096807");
+    expect(getInternalUrl("SAMC123")).toBe("/s/SAMC123");
+    expect(getInternalUrl("CRR999")).toBeNull(); // GSA run → external only
+    expect(getInternalUrl("HRR999")).toBeNull();
+  });
+});
+
+describe("getExternalArchiveUrl (GSA → CNCB-NGDC)", () => {
+  it("links CRA/HRA studies to their browse pages", () => {
+    expect(getExternalArchiveUrl("CRA000004")).toEqual({
+      url: "https://ngdc.cncb.ac.cn/gsa/browse/CRA000004",
+      archive: "GSA",
+      label: "View on GSA",
+    });
+    expect(getExternalArchiveUrl("HRA007928")?.url).toBe(
+      "https://ngdc.cncb.ac.cn/gsa-human/browse/HRA007928",
+    );
+  });
+
+  it("routes GSA sub-accessions (incl. SAMC/PRJCA) to NGDC, not NCBI", () => {
+    for (const acc of ["CRR9", "CRX9", "HRR9", "HRS9", "SAMC9", "PRJCA9"]) {
+      const r = getExternalArchiveUrl(acc);
+      expect(r?.archive).toBe("GSA");
+      expect(r?.url).toBe(`https://ngdc.cncb.ac.cn/search/all?q=${acc}`);
+    }
+  });
 });
 
 describe("startsWithAccession", () => {
@@ -25,6 +58,8 @@ describe("startsWithAccession", () => {
     expect(startsWithAccession("role of GSE12345 in cancer")).toBe(false);
     expect(startsWithAccession("brain scrna")).toBe(false);
     expect(startsWithAccession("GSE12345abc")).toBe(false); // no boundary
+    expect(startsWithAccession("CRA000004")).toBe(true);
+    expect(startsWithAccession("HRA007928 nasopharyngeal carcinoma")).toBe(true);
   });
 });
 

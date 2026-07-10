@@ -6,9 +6,9 @@ import type { Metadata } from "next";
 const BASE = "https://seqout.org/api";
 
 export const metadata: Metadata = {
-  title: "REST API for GEO, SRA & ArrayExpress Metadata",
+  title: "REST API for GEO, SRA, ArrayExpress & GSA Metadata",
   description:
-    "Free REST API for searching and retrieving GEO, SRA, ENA & ArrayExpress sequencing dataset metadata, samples, runs, and download links. No authentication required.",
+    "Free REST API for searching and retrieving GEO, SRA, ENA, ArrayExpress & GSA sequencing dataset metadata, samples, runs, and download links. No authentication required.",
   alternates: {
     canonical: "https://seqout.org/api-docs",
   },
@@ -20,7 +20,7 @@ const jsonLd = {
   headline: "seqout REST API Reference",
   url: "https://seqout.org/api-docs",
   description:
-    "REST API reference for searching and retrieving GEO, SRA, ENA, and ArrayExpress sequencing dataset metadata.",
+    "REST API reference for searching and retrieving GEO, SRA, ENA, ArrayExpress, and GSA sequencing dataset metadata.",
   author: {
     "@type": "Organization",
     name: "Saket Lab, IIT Bombay",
@@ -66,7 +66,7 @@ const API: Category[] = [
         path: "/search",
         summary: "Search all databases",
         description:
-          "Full-text search across GEO, SRA, ArrayExpress and ENA. Results are ranked by relevance. Supports cursor-based pagination and sorting by citations, journal, or year.",
+          "Full-text search across GEO, SRA, ArrayExpress, ENA and GSA. Results are ranked by relevance. Supports cursor-based pagination and sorting by citations, journal, or year.",
         params: [
           {
             name: "q",
@@ -77,7 +77,7 @@ const API: Category[] = [
           {
             name: "db",
             type: "string",
-            description: "Filter to a database: geo, sra, arrayexpress, or ena",
+            description: "Filter to a database: geo, sra, arrayexpress, ena, or gsa",
           },
           {
             name: "sortby",
@@ -198,7 +198,7 @@ const API: Category[] = [
           {
             name: "source",
             type: "string",
-            description: "Database: geo, sra, arrayexpress, ena, or all",
+            description: "Database: geo, sra, arrayexpress, ena, gsa, or all",
           },
           { name: "journal", type: "string", description: "Journal name" },
           {
@@ -269,7 +269,7 @@ const API: Category[] = [
         path: "/project/{accession}",
         summary: "Get project metadata",
         description:
-          "Retrieve full metadata for a project. Works with GEO (GSE*), SRA (SRP/ERP/DRP*), BioProject (PRJ*), and ArrayExpress (E-*) accessions.",
+          "Retrieve full metadata for a project. Works with GEO (GSE*), SRA (SRP/ERP/DRP*), BioProject (PRJ*), ArrayExpress (E-*), and GSA (CRA*/HRA*) accessions.",
         params: [
           {
             name: "accession",
@@ -621,7 +621,7 @@ const API: Category[] = [
           {
             name: "db",
             type: "string",
-            description: "Filter to: geo, sra, arrayexpress, or ena",
+            description: "Filter to: geo, sra, arrayexpress, ena, or gsa",
           },
         ],
         exampleParams: { mode: "projects" },
@@ -966,7 +966,7 @@ export default function ApiDocsPage() {
           style={{ color: "var(--gray-11)" }}
         >
           The seqout API provides programmatic access to over 1 million GEO,
-          SRA, ENA &amp; ArrayExpress projects. All endpoints are free, require
+          SRA, ENA, ArrayExpress &amp; GSA projects. All endpoints are free, require
           no authentication, and return JSON unless noted otherwise.
         </Text>
 

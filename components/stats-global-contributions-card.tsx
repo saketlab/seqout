@@ -61,6 +61,7 @@ interface LocationPoint {
   n_sra: number;
   n_ae: number;
   n_ena: number;
+  n_gsa: number;
   country: string | null;
   country_code: string | null;
   city: string | null;
@@ -274,11 +275,12 @@ function SearchableSelect({
   );
 }
 
-const SOURCE_LABELS: { label: string; key: keyof Pick<LocationPoint, "n_geo" | "n_sra" | "n_ae" | "n_ena">; db: string }[] = [
+const SOURCE_LABELS: { label: string; key: keyof Pick<LocationPoint, "n_geo" | "n_sra" | "n_ae" | "n_ena" | "n_gsa">; db: string }[] = [
   { label: "GEO", key: "n_geo", db: "geo" },
   { label: "SRA", key: "n_sra", db: "sra" },
   { label: "ArrayExpress", key: "n_ae", db: "arrayexpress" },
   { label: "ENA", key: "n_ena", db: "ena" },
+  { label: "GSA", key: "n_gsa", db: "gsa" },
 ];
 
 function buildGeoSearchParams(
@@ -470,6 +472,12 @@ export default function StatsGlobalContributionsCard() {
       {
         headerName: "ENA",
         field: "n_ena",
+        width: 70,
+        valueFormatter: (p) => p.value?.toLocaleString(),
+      },
+      {
+        headerName: "GSA",
+        field: "n_gsa",
         width: 70,
         valueFormatter: (p) => p.value?.toLocaleString(),
       },

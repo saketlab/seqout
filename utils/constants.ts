@@ -28,6 +28,7 @@ export const ARCHIVE_CATALOG_URLS: Record<string, string> = {
   SRA: "https://www.ncbi.nlm.nih.gov/sra",
   ENA: "https://www.ebi.ac.uk/ena/browser/home",
   ArrayExpress: "https://www.ebi.ac.uk/biostudies/arrayexpress",
+  GSA: "https://ngdc.cncb.ac.cn/gsa/",
 };
 
 export const ARCHIVE_LICENSE_URLS: Record<string, string> = {
@@ -35,4 +36,5 @@ export const ARCHIVE_LICENSE_URLS: Record<string, string> = {
   SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
   ENA: "https://www.ebi.ac.uk/licencing",
   ArrayExpress: "https://www.ebi.ac.uk/licencing",
+  GSA: "https://ngdc.cncb.ac.cn/about/policy",
 };
