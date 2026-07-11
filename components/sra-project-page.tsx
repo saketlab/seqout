@@ -92,6 +92,7 @@ ensureAgGridModules();
 type Project = {
   accession: string;
   alias: string | null;
+  bioproject_id?: string | null;
   title: string;
   abstract: string;
   authors?: string[] | string | null;
@@ -1730,6 +1731,7 @@ export default function ProjectPage() {
       ? DB_COLOR_MAP.ena.radix
       : DB_COLOR_MAP.sra.radix;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
+  const [isBioprojectCopied, setIsBioprojectCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
   const agGridThemeClassName = isDark
     ? "ag-theme-quartz-dark"
@@ -1922,6 +1924,19 @@ export default function ProjectPage() {
     showToast(
       <>
         Copied <span className="seqout-accession">{accession}</span>
+      </>,
+    );
+  };
+
+  const handleCopyBioproject = () => {
+    const prj = project?.bioproject_id;
+    if (!prj) return;
+    copyToClipboard(prj);
+    setIsBioprojectCopied(true);
+    window.setTimeout(() => setIsBioprojectCopied(false), 1500);
+    showToast(
+      <>
+        Copied <span className="seqout-accession">{prj}</span>
       </>,
     );
   };
@@ -2261,11 +2276,47 @@ export default function ProjectPage() {
                   </Tooltip>
                 </Flex>
               </Badge>
-              {isGsaAccession && (
-                <Badge size={{ initial: "2", md: "3" }} color="ruby" variant="soft">
-                  GSA
-                </Badge>
-              )}
+              {isGsaAccession &&
+                (project.bioproject_id ? (
+                  <Badge
+                    size={{ initial: "2", md: "3" }}
+                    color="ruby"
+                    variant="soft"
+                    style={{ whiteSpace: "nowrap" }}
+                    className="seqout-accession"
+                  >
+                    <Flex align="center" gap="1">
+                      <Text>{project.bioproject_id}</Text>
+                      <Tooltip content="Copy BioProject ID">
+                        <button
+                          type="button"
+                          onClick={handleCopyBioproject}
+                          aria-label="Copy BioProject ID"
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            color: "inherit",
+                            padding: 0,
+                            margin: 0,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {isBioprojectCopied ? <CheckIcon /> : <CopyIcon />}
+                        </button>
+                      </Tooltip>
+                    </Flex>
+                  </Badge>
+                ) : (
+                  <Badge
+                    size={{ initial: "2", md: "3" }}
+                    color="ruby"
+                    variant="soft"
+                  >
+                    GSA
+                  </Badge>
+                ))}
               {project.alias?.startsWith("P") && (
                 <BioProjectBadge accession={project.alias} />
               )}
@@ -2625,23 +2676,30 @@ export default function ProjectPage() {
               />
             )}
 
-            <Flex id="similar" align="center" gap="2">
-              <Heading as="h2" weight="medium" size="6">
-                Similar projects
-              </Heading>
-              <SectionAnchor id="similar" />
-            </Flex>
+            {/* GSA has no similarity embeddings, so the graph would be empty. */}
+            {!isGsaAccession && (
+              <>
+                <Flex id="similar" align="center" gap="2">
+                  <Heading as="h2" weight="medium" size="6">
+                    Similar projects
+                  </Heading>
+                  <SectionAnchor id="similar" />
+                </Flex>
+                <LazyMount>
+                  <SimilarProjectsGraph
+                    accession={project.accession}
+                    source="sra"
+                    title={project.title}
+                    description={project.abstract}
+                    organisms={project.organisms}
+                    coords2d={project.coords_2d}
+                    coords3d={project.coords_3d}
+                    neighbors={project.neighbors}
+                  />
+                </LazyMount>
+              </>
+            )}
             <LazyMount>
-              <SimilarProjectsGraph
-                accession={project.accession}
-                source={isGsaAccession ? "gsa" : "sra"}
-                title={project.title}
-                description={project.abstract}
-                organisms={project.organisms}
-                coords2d={project.coords_2d}
-                coords3d={project.coords_3d}
-                neighbors={project.neighbors}
-              />
               <SubmittingOrgPanel center={project.center} />
             </LazyMount>
           </Flex>
