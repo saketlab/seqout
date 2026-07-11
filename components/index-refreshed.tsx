@@ -2,7 +2,8 @@
 import { LAST_INDEX_REFRESH } from "@/utils/constants";
 import { DB_LABELS, DB_ORDER } from "@/utils/db-colors";
 import { useLastUpdated } from "@/utils/useStats";
-import { Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Text, Tooltip } from "@radix-ui/themes";
+import React from "react";
 
 function formatLocal(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -23,15 +24,15 @@ export default function IndexRefreshed() {
   }
 
   const bySource = data.by_source;
-  const perDb = (
-    <Flex direction="column" gap="1">
-      {DB_ORDER.filter((k) => bySource?.[k]).map((k) => (
-        <Text key={k} size="1">
-          {DB_LABELS[k]}: {formatLocal(bySource?.[k] as string)}
-        </Text>
-      ))}
-    </Flex>
-  );
+  const rows = DB_ORDER.filter((k) => bySource?.[k]);
+  // Tooltip content renders inside <Text as="p">, so keep it inline (spans + <br/>);
+  // a <div>/<Flex> here breaks HTML nesting and hydration.
+  const perDb = rows.map((k, i) => (
+    <React.Fragment key={k}>
+      {i > 0 && <br />}
+      {DB_LABELS[k]}: {formatLocal(bySource?.[k] as string)}
+    </React.Fragment>
+  ));
 
   return (
     <Tooltip content={perDb}>
