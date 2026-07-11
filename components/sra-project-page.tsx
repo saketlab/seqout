@@ -93,6 +93,11 @@ type Project = {
   accession: string;
   alias: string | null;
   bioproject_id?: string | null;
+  // ENA/DDBJ study hierarchy (child -> parent umbrella BioProject).
+  parent_accession?: string | null;
+  parent_title?: string | null;
+  children?: { accession: string; title: string | null }[] | null;
+  children_total?: number | null;
   title: string;
   abstract: string;
   authors?: string[] | string | null;
@@ -1699,6 +1704,77 @@ function BamFilesSection({
   );
 }
 
+/** A clickable accession badge that links to its project page, with the study
+ *  title shown as a Radix tooltip. */
+function HierarchyBadge({
+  accession,
+  title,
+}: {
+  accession: string;
+  title: string | null;
+}) {
+  const badge = (
+    <a href={`/p/${accession}`}>
+      <Badge size={{ initial: "1", md: "2" }} style={{ cursor: "pointer" }}>
+        {accession}
+      </Badge>
+    </a>
+  );
+  return title ? <Tooltip content={title}>{badge}</Tooltip> : badge;
+}
+
+/** ENA/DDBJ study hierarchy: parent umbrella + child studies. Ships the first 24
+ *  children inline; "+N more" links to the full list on ENA. */
+function StudyHierarchy({ project }: { project: Project }) {
+  const total = project.children_total ?? 0;
+  const inline = project.children ?? [];
+  const remaining = total - inline.length;
+
+  if (!project.parent_accession && total === 0) return null;
+
+  return (
+    <Flex direction="column" gap="2">
+      {project.parent_accession && (
+        <Flex align="center" gap="2" wrap="wrap">
+          <Text size="2" weight="medium">
+            Child of:
+          </Text>
+          <HierarchyBadge
+            accession={project.parent_accession}
+            title={project.parent_title ?? null}
+          />
+        </Flex>
+      )}
+      {total > 0 && (
+        <Flex align="center" gap="2" wrap="wrap">
+          <Text size="2" weight="medium">
+            {total.toLocaleString()} component{" "}
+            {total === 1 ? "project" : "projects"}:
+          </Text>
+          {inline.map((ch) => (
+            <HierarchyBadge
+              key={ch.accession}
+              accession={ch.accession}
+              title={ch.title}
+            />
+          ))}
+          {remaining > 0 && (
+            <Button variant="ghost" color="gray" size="1" ml="2" asChild>
+              <a
+                href={`https://www.ebi.ac.uk/ena/browser/view/${project.accession}?show=component-projects`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                + {remaining.toLocaleString()} more
+              </a>
+            </Button>
+          )}
+        </Flex>
+      )}
+    </Flex>
+  );
+}
+
 export default function ProjectPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -2470,6 +2546,8 @@ export default function ProjectPage() {
               text={project.abstract}
               charLimit={ABSTRACT_CHAR_LIMIT}
             />
+            {/* ENA/DDBJ study hierarchy: parent umbrella / child studies. */}
+            <StudyHierarchy project={project} />
             {/* Experiments (Original) + AI Enriched metadata, merged via tabs */}
             <MetadataTableTabs
               accession={accession}
