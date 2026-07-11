@@ -95,6 +95,11 @@ const toSource = (
 
 const MIN_RADIUS = 45;
 const TARGET_MEDIAN_RADIUS = 170;
+// Layout scales distances by the median neighbor radius, so a rare far-outlier
+// neighbor (e.g. one at p99 ~600x the median) lands tens of thousands of units
+// out. zoomToFit then frames that outlier and the whole cluster collapses to a
+// speck (blank graph). Clamp the rendered radius so outliers sit at the rim.
+const MAX_RADIUS = TARGET_MEDIAN_RADIUS * 4;
 const ALL_ORGANISMS = "__all__";
 
 const normalizeOrganisms = (value: unknown): string[] => {
@@ -250,6 +255,20 @@ export default function SimilarProjectsGraph({
     zoomMsRef.current = zoomMs;
   }, [zoomMs]);
 
+  // Fit the camera to the graph, deferred by two animation frames. A
+  // synchronous zoomToFit (and even one fired from onEngineStop) runs before
+  // force-graph applies the nodes' three.js positions, so it reads a bbox
+  // collapsed to the origin and slams the camera onto the center node (the
+  // "very zoomed in / blank" bug). Two rAFs guarantee at least one rendered
+  // frame with real node positions before we measure the bbox.
+  const fitView = useCallback(() => {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        graphRef.current?.zoomToFit(zoomMsRef.current, 48),
+      ),
+    );
+  }, []);
+
   const updateGraphSize = useCallback(() => {
     if (!mountRef.current || !graphRef.current) return;
     const rect = mountRef.current.getBoundingClientRect();
@@ -374,6 +393,12 @@ export default function SimilarProjectsGraph({
           x *= stretch;
           y *= stretch;
           z *= stretch;
+        } else if (r > MAX_RADIUS) {
+          // Pull far outliers to the rim so they don't blow up the bbox.
+          const shrink = MAX_RADIUS / r;
+          x *= shrink;
+          y *= shrink;
+          z *= shrink;
         }
 
         return {
@@ -573,9 +598,10 @@ export default function SimilarProjectsGraph({
 
       const rect = mountRef.current.getBoundingClientRect();
       graph.width(Math.max(320, rect.width)).height(420);
-      // Seed with current data; the [filteredGraphData] effect no-ops while graph is null.
+      // Seed with current data; the [filteredGraphData] effect no-ops while
+      // graph is null.
       graph.graphData(filteredGraphDataRef.current);
-      graph.zoomToFit(zoomMsRef.current, 48);
+      fitView();
     };
 
     mountGraph();
@@ -585,15 +611,15 @@ export default function SimilarProjectsGraph({
       graphRef.current?._destructor();
       graphRef.current = null;
     };
-  }, [accession]);
+  }, [accession, fitView]);
 
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
     graph.graphData(filteredGraphData);
     graph.nodeLabel((node) => nodeLabel(node as GraphNode));
-    graph.zoomToFit(zoomMsRef.current, 48);
-  }, [filteredGraphData]);
+    fitView();
+  }, [filteredGraphData, fitView]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -619,23 +645,23 @@ export default function SimilarProjectsGraph({
         !!activeElement && activeElement === graphContainerRef.current,
       );
       updateGraphSize();
-      graphRef.current?.zoomToFit(zoomMsRef.current, 48);
+      fitView();
     };
 
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, [updateGraphSize]);
+  }, [updateGraphSize, fitView]);
 
   useEffect(() => {
     if (!isFullscreen) return;
     const onWindowResize = () => {
       updateGraphSize();
-      graphRef.current?.zoomToFit(zoomMsRef.current, 48);
+      fitView();
     };
     window.addEventListener("resize", onWindowResize);
     return () => window.removeEventListener("resize", onWindowResize);
-  }, [isFullscreen, updateGraphSize]);
+  }, [isFullscreen, updateGraphSize, fitView]);
 
   useEffect(() => {
     if (viewMode !== "tab") return;
