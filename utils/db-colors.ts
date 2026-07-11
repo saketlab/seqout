@@ -4,7 +4,7 @@ export type DbSource = "geo" | "sra" | "ena" | "arrayexpress" | "gsa";
 
 export const DB_ORDER: DbSource[] = ["geo", "sra", "ena", "arrayexpress", "gsa"];
 
-type RadixColor = "blue" | "brown" | "jade" | "gold" | "ruby";
+type RadixColor = "blue" | "brown" | "jade" | "gold" | "tomato";
 
 type DbColor = {
   hex: string;
@@ -34,9 +34,9 @@ export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
     og: { primary: "#f59e0b", secondary: "#d97706", accent: "#fcd34d" },
   },
   gsa: {
-    hex: "#e54666", // radix ruby 9 (solid) — matches the ruby Badge
-    radix: "ruby",
-    og: { primary: "#e54666", secondary: "#c31d5a", accent: "#f7a8c0" },
+    hex: "#e54d2e", // radix tomato 9 (solid) — matches the tomato Badge
+    radix: "tomato",
+    og: { primary: "#e54d2e", secondary: "#d13415", accent: "#f5a390" },
   },
 };
 

@@ -2243,7 +2243,7 @@ export default function ProjectPage() {
                 size={{ initial: "2", md: "3" }}
                 color={
                   isGsaAccession
-                    ? "ruby"
+                    ? "tomato"
                     : isPrjAccession
                       ? "jade"
                       : isArrayExpressAccession
@@ -2280,7 +2280,7 @@ export default function ProjectPage() {
                 (project.bioproject_id ? (
                   <Badge
                     size={{ initial: "2", md: "3" }}
-                    color="ruby"
+                    color="tomato"
                     variant="soft"
                     style={{ whiteSpace: "nowrap" }}
                     className="seqout-accession"
@@ -2311,7 +2311,7 @@ export default function ProjectPage() {
                 ) : (
                   <Badge
                     size={{ initial: "2", md: "3" }}
-                    color="ruby"
+                    color="tomato"
                     variant="soft"
                   >
                     GSA

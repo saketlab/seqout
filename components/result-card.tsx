@@ -256,7 +256,7 @@ function ResultCard({
           {accession}
         </Badge>
         {db === "gsa" && (
-          <Badge size={"2"} color="ruby" variant="soft">
+          <Badge size={"2"} color="tomato" variant="soft">
             GSA
           </Badge>
         )}
