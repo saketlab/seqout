@@ -897,6 +897,139 @@ const API: Category[] = [
       },
     ],
   },
+  {
+    title: "GA4GH Beacon v2",
+    id: "beacon",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/beacon/info",
+        summary: "Beacon identity & metadata",
+        description:
+          "GA4GH Beacon v2.2.0 metadata Beacon over GEO/SRA/ENA/ArrayExpress/GSA. Discovery endpoints: /beacon/info, /beacon/service-info, /beacon/configuration, /beacon/entry_types, /beacon/map, /beacon/filtering_terms. This is a metadata Beacon, not a variant Beacon (no g_variants/analyses).",
+        params: [],
+        responseHint: '{"meta": {...}, "response": {"id": "org.seqout.beacon", ...}}',
+      },
+      {
+        method: "GET",
+        path: "/beacon/filtering_terms",
+        summary: "List usable filter terms",
+        description:
+          "Ontology terms (MONDO disease, UBERON tissue/developmental stage, CL cell type, EFO assay) and alphanumeric fields (organism, sex, age) that can be used in biosample/individual filters.",
+        params: [],
+      },
+      {
+        method: "GET",
+        path: "/beacon/datasets",
+        summary: "List datasets (source archives)",
+        description:
+          "The five source archives (SRA, GEO, ENA, ArrayExpress, GSA) modelled as Beacon datasets. Pass ?id= for a single dataset. Supports requestedGranularity=boolean|count|record.",
+        params: [
+          {
+            name: "id",
+            type: "string",
+            location: "query",
+            description: "Single dataset id (e.g. SRA, GEO, ENA, ArrayExpress, GSA)",
+          },
+        ],
+      },
+      {
+        method: "POST",
+        path: "/beacon/biosamples",
+        summary: "Query ontology-enriched biosamples",
+        description:
+          "Query samples by ontology (MONDO/UBERON/CL/EFO — descendant terms expanded by default; set includeDescendantTerms=false to disable), alphanumeric fields (organism, sex), linked publication (PMID:<n>), or normalized age. Age uses id EFO:0004847 (or \"age\") with an operator (< <= > >= = !=) and an ISO-8601 duration value (P70Y, P6M, P70Y6M, P10D); the operator may also be embedded in the value (\">P70Y\"). requestedGranularity is boolean, count, or record (default record); pagination via skip (default 0) and limit (default 10, max 100).",
+        params: [
+          {
+            name: "query.filters",
+            type: "array",
+            location: "body",
+            description:
+              'Array of filter objects: {"id": "<CURIE|organism|sex|age|PMID:n>", "operator"?: "...", "value"?: "...", "includeDescendantTerms"?: bool}',
+          },
+          {
+            name: "query.requestedGranularity",
+            type: "string",
+            default: "record",
+            location: "body",
+            description: "boolean | count | record",
+          },
+          {
+            name: "query.pagination.skip",
+            type: "int",
+            default: "0",
+            location: "body",
+            description: "Page index",
+          },
+          {
+            name: "query.pagination.limit",
+            type: "int",
+            default: "10",
+            location: "body",
+            description: "Page size (max 100)",
+          },
+        ],
+        exampleBody:
+          '{"query": {"requestedGranularity": "count", "filters": [{"id": "EFO:0004847", "operator": ">", "value": "P70Y"}]}}',
+        responseHint:
+          '{"meta": {...}, "responseSummary": {"exists": true, "numTotalResults": 53495}}',
+      },
+      {
+        method: "POST",
+        path: "/beacon/individuals",
+        summary: "Query individuals",
+        description:
+          "Individuals are a 1:1 projection of biosamples (counts reflect subjects-per-sample, not distinct persons). Accepts the same filters, granularity, and pagination as /beacon/biosamples.",
+        params: [
+          {
+            name: "query.filters",
+            type: "array",
+            location: "body",
+            description: "Same filter objects as /beacon/biosamples",
+          },
+          {
+            name: "query.requestedGranularity",
+            type: "string",
+            default: "record",
+            location: "body",
+            description: "boolean | count | record",
+          },
+        ],
+        exampleBody:
+          '{"query": {"filters": [{"id": "MONDO:0004992"}], "pagination": {"skip": 0, "limit": 5}}}',
+      },
+      {
+        method: "GET",
+        path: "/beacon/runs",
+        summary: "Browse or fetch sequencing runs",
+        description:
+          "Sequencing runs using the custom seqoutRun schema (runDate omitted — no performed-date exists in source metadata). Pass ?id= for a single run; otherwise browse with skip/limit. Run-level ontology filtering is not supported.",
+        params: [
+          {
+            name: "id",
+            type: "string",
+            location: "query",
+            description: "Single run accession (e.g. SRR000001)",
+          },
+          {
+            name: "skip",
+            type: "int",
+            default: "0",
+            location: "query",
+            description: "Page index (browse)",
+          },
+          {
+            name: "limit",
+            type: "int",
+            default: "10",
+            location: "query",
+            description: "Page size, max 100 (browse)",
+          },
+        ],
+        exampleParams: { id: "SRR000001" },
+      },
+    ],
+  },
 ];
 
 function buildUrl(
