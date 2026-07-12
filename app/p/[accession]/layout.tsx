@@ -49,7 +49,7 @@ function detectProjectType(accession: string): {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { accession } = await params;
+  const accession = (await params).accession.toUpperCase();
   const title = await fetchProjectSocialTitle(accession);
   const { type: projectType, database } = detectProjectType(accession);
 
@@ -86,7 +86,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProjectLayout({ children, params }: Props) {
-  const { accession } = await params;
+  const accession = (await params).accession.toUpperCase();
   const title = await fetchProjectSocialTitle(accession);
   const { type: projectType, database } = detectProjectType(accession);
   const description = `Explore ${projectType} ${accession}: ${title}. View unified metadata, samples, experiments, and similar projects on seqout.`;

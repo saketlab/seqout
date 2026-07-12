@@ -11,10 +11,7 @@ export const SITEMAP_SOURCES: { key: string; path: string }[] = [
   { key: "arrayexpress", path: "/p" },
   { key: "ena", path: "/p" },
   { key: "gsa", path: "/p" },
-  { key: "sra_exp", path: "/e" },
-  { key: "ena_exp", path: "/e" },
-  { key: "gsa_exp", path: "/e" },
-  { key: "run", path: "/r" },
+  // *_exp (/e) and run (/r) sources are omitted while those pages are noindex.
   { key: "geo_sample", path: "/s" },
   { key: "sra_sample", path: "/s" },
   { key: "ena_sample", path: "/s" },

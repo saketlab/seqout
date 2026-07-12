@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     "Search and explore millions of GEO, SRA, ENA, GSA (CNCB-NGDC Genome Sequence Archive) & ArrayExpress sequencing datasets. Unified metadata views, relevance-ranked results, and consolidated sample tables for faster research.",
   alternates: {
-    canonical: "https://seqout.org",
+    canonical: "/",
   },
 };
 

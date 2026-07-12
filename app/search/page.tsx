@@ -27,9 +27,7 @@ export async function generateMetadata({
         title: "seqout - Search Results",
         description: fallbackDesc,
       },
-      alternates: {
-        canonical: "https://seqout.org/search",
-      },
+      robots: { index: false, follow: true },
     };
   }
 
@@ -51,9 +49,7 @@ export async function generateMetadata({
       title,
       description,
     },
-    alternates: {
-      canonical: "https://seqout.org/search",
-    },
+    robots: { index: false, follow: true },
   };
 }
 
