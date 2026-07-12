@@ -58,7 +58,7 @@ export default function HomeSearchBar() {
         color="gray"
         style={{ letterSpacing: "-0.02em" }}
       >
-        Search public sequencing datasets across GEO, SRA, ENA &amp;
+        Search public sequencing datasets across GEO, SRA, ENA, GSA &amp;
         ArrayExpress
       </Heading>
 
@@ -118,7 +118,8 @@ export default function HomeSearchBar() {
 
       <Text as="p" className="seqout-sr-only">
         seqout indexes over a million public sequencing studies from NCBI GEO,
-        SRA, ENA/DDBJ, and EBI ArrayExpress. Search by keyword, organism,
+        SRA, ENA/DDBJ, the CNCB-NGDC Genome Sequence Archive (GSA), and EBI
+        ArrayExpress. Search by keyword, organism,
         disease, gene, or accession to find datasets, read harmonized sample and
         experiment metadata, follow links to publications and raw FASTQ files,
         and find related studies. Developed at Saket Lab, IIT Bombay.

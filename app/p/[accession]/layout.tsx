@@ -32,6 +32,19 @@ function detectProjectType(accession: string): {
     return { type: "ENA Study", database: "ENA" };
   }
 
+  if (
+    upper.startsWith("CRA") ||
+    upper.startsWith("CRX") ||
+    upper.startsWith("CRR") ||
+    upper.startsWith("HRA") ||
+    upper.startsWith("HRX") ||
+    upper.startsWith("HRR") ||
+    upper.startsWith("PRJCA") ||
+    upper.startsWith("SAMC")
+  ) {
+    return { type: "GSA Study", database: "GSA" };
+  }
+
   return { type: "SRA Study", database: "SRA" };
 }
 

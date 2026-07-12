@@ -13,7 +13,7 @@ export const contentType = projectOgContentType;
 
 function detectProjectType(
   accession: string,
-): "geo" | "sra" | "ena" | "arrayexpress" {
+): "geo" | "sra" | "ena" | "arrayexpress" | "gsa" {
   const upper = accession.toUpperCase();
 
   if (upper.startsWith("E-")) {
@@ -26,6 +26,19 @@ function detectProjectType(
 
   if (upper.startsWith("ERP") || upper.startsWith("DRP")) {
     return "ena";
+  }
+
+  if (
+    upper.startsWith("CRA") ||
+    upper.startsWith("CRX") ||
+    upper.startsWith("CRR") ||
+    upper.startsWith("HRA") ||
+    upper.startsWith("HRX") ||
+    upper.startsWith("HRR") ||
+    upper.startsWith("PRJCA") ||
+    upper.startsWith("SAMC")
+  ) {
+    return "gsa";
   }
 
   return "sra";

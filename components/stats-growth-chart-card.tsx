@@ -146,7 +146,7 @@ export default function StatsGrowthChartCard() {
         },
       },
       subtitle: {
-        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} counts across GEO, SRA, ArrayExpress & ENA`,
+        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} counts across GEO, SRA, ArrayExpress, ENA & GSA`,
         align: "left",
         style: {
           fontSize: "12px",
