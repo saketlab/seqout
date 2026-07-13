@@ -89,7 +89,7 @@ type Project = {
   accession: string;
   title: string;
   summary: string;
-  overall_design: string;
+  overall_design: string | string[] | null;
   authors?: string[] | string | null;
   organisms?: string[] | string | null;
   coords_2d?: number[] | null;
