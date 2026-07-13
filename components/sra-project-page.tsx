@@ -1,5 +1,7 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
+import DbBadge from "@/components/db-badge";
+import type { DbSource } from "@/utils/db-colors";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
@@ -1810,13 +1812,13 @@ export default function ProjectPage() {
       : isPrjAccession
         ? "Visit ENA page"
         : "Visit SRA page";
-  const externalStudyColor = isGsaAccession
-    ? DB_COLOR_MAP.gsa.radix
+  const externalStudyDb: DbSource = isGsaAccession
+    ? "gsa"
     : isDdbjAccession
-      ? DB_COLOR_MAP.ddbj.radix
+      ? "ddbj"
       : isPrjAccession
-        ? DB_COLOR_MAP.ena.radix
-        : DB_COLOR_MAP.sra.radix;
+        ? "ena"
+        : "sra";
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const [isBioprojectCopied, setIsBioprojectCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
@@ -2326,18 +2328,18 @@ export default function ProjectPage() {
               </Heading>
             </Flex>
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
-              <Badge
+              <DbBadge
                 size={{ initial: "2", md: "3" }}
-                color={
+                db={
                   isGsaAccession
-                    ? "tomato"
+                    ? "gsa"
                     : isDdbjAccession
-                      ? DB_COLOR_MAP.ddbj.radix
+                      ? "ddbj"
                       : isPrjAccession
-                        ? "jade"
+                        ? "ena"
                         : isArrayExpressAccession
-                          ? "gold"
-                          : "brown"
+                          ? "arrayexpress"
+                          : "sra"
                 }
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
@@ -2364,7 +2366,7 @@ export default function ProjectPage() {
                     </button>
                   </Tooltip>
                 </Flex>
-              </Badge>
+              </DbBadge>
               {isGsaAccession &&
                 (project.bioproject_id ? (
                   <Badge
@@ -2487,13 +2489,13 @@ export default function ProjectPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Badge
+                <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  color={externalStudyColor}
+                  db={externalStudyDb}
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {externalStudyLabel} <ExternalLinkIcon />
-                </Badge>
+                </DbBadge>
               </a>
             </Flex>
             <Flex align={"center"} gap={"2"}>

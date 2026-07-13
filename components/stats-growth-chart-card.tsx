@@ -4,7 +4,7 @@ import SectionAnchor from "@/components/section-anchor";
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import { getApexChartTheme } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
-import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
+import { DB_COLORS, DB_DASH, DB_LABELS } from "@/utils/db-colors";
 import { humanize, humanizeBytes } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import {
@@ -38,8 +38,8 @@ interface GrowthResponse {
 }
 
 const DB_ORDER: Record<Mode, string[]> = {
-  projects: ["geo", "sra", "arrayexpress", "ena", "gsa"],
-  experiments: ["geo", "sra", "arrayexpress", "ena", "gsa"],
+  projects: ["geo", "sra", "arrayexpress", "ena", "gsa", "ddbj", "gea"],
+  experiments: ["geo", "sra", "arrayexpress", "ena", "gsa", "ddbj", "gea"],
   bases: ["ena", "sra_fastq_bytes", "sra_sra_bytes"],
 };
 
@@ -87,6 +87,13 @@ export default function StatsGrowthChartCard() {
       };
     });
   }, [data, view, mode]);
+
+  const dashArray = useMemo(() => {
+    if (!data?.series) return [];
+    return DB_ORDER[mode]
+      .filter((db) => db in data.series)
+      .map((db) => DB_DASH[db] ?? 0);
+  }, [data, mode]);
 
   const xaxisTicks = useMemo(() => {
     if (!data?.series) return undefined;
@@ -157,6 +164,7 @@ export default function StatsGrowthChartCard() {
       stroke: {
         curve: "smooth",
         width: view === "cumulative" ? 2 : 1.5,
+        dashArray,
       },
       fill: {
         type: view === "cumulative" ? "gradient" : "solid",
@@ -221,7 +229,7 @@ export default function StatsGrowthChartCard() {
       },
       };
     },
-    [mode, view, logScale, isDark, xaxisTicks, reduced],
+    [mode, view, logScale, isDark, xaxisTicks, reduced, dashArray],
   );
 
   return (

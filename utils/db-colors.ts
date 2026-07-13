@@ -19,70 +19,85 @@ export const DB_ORDER: DbSource[] = [
   "gea",
 ];
 
-type RadixColor =
-  | "blue"
-  | "brown"
-  | "jade"
-  | "gold"
-  | "tomato"
-  | "purple"
-  | "cyan";
-
 type DbColor = {
   hex: string;
-  radix: RadixColor;
   og: { primary: string; secondary: string; accent: string };
 };
 
+/**
+ * One colour per source: badges, charts and OG images all read from here.
+ *
+ * Not Radix scales -- no seven Radix hues stay distinct under colour blindness.
+ * Chosen by docs/cvd_score.py; worst pair 18.4. Regenerate before changing one.
+ */
 export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   geo: {
-    hex: "#3b82f6",
-    radix: "blue",
-    og: { primary: "#3b82f6", secondary: "#1d4ed8", accent: "#93c5fd" },
+    hex: "#a69dff",
+    og: { primary: "#a69dff", secondary: "#7b6ff0", accent: "#cdc7ff" },
   },
   sra: {
-    hex: "#8b5cf6",
-    radix: "brown",
-    og: { primary: "#8b5cf6", secondary: "#6d28d9", accent: "#c4b5fd" },
+    hex: "#a100fc",
+    og: { primary: "#a100fc", secondary: "#8400cf", accent: "#c976ff" },
   },
   ena: {
-    hex: "#10b981",
-    radix: "jade",
-    og: { primary: "#10b981", secondary: "#059669", accent: "#6ee7b7" },
+    hex: "#0e825c",
+    og: { primary: "#0e825c", secondary: "#0a6146", accent: "#4fbc95" },
   },
   arrayexpress: {
-    hex: "#978365", // radix gold 9 (solid) — matches the gold Badge
-    radix: "gold",
-    og: { primary: "#f59e0b", secondary: "#d97706", accent: "#fcd34d" },
+    hex: "#bab400",
+    og: { primary: "#bab400", secondary: "#8f8a00", accent: "#dcd64d" },
   },
   gsa: {
-    hex: "#e54d2e", // radix tomato 9 (solid) — matches the tomato Badge
-    radix: "tomato",
-    og: { primary: "#e54d2e", secondary: "#d13415", accent: "#f5a390" },
+    hex: "#d80000",
+    og: { primary: "#d80000", secondary: "#a80000", accent: "#f56b6b" },
   },
   ddbj: {
-    hex: "#8e4ec6", // radix purple 9 (solid) — matches the purple Badge
-    radix: "purple",
-    og: { primary: "#8e4ec6", secondary: "#8347b9", accent: "#be93e4" },
+    hex: "#ff558a",
+    og: { primary: "#ff558a", secondary: "#e0336c", accent: "#ffa3c0" },
   },
   gea: {
-    hex: "#00a2c7", // radix cyan 9 (solid) — matches the cyan Badge
-    radix: "cyan",
-    og: { primary: "#00a2c7", secondary: "#0797b9", accent: "#4ccce6" },
+    hex: "#30c0b1",
+    og: { primary: "#30c0b1", secondary: "#219287", accent: "#7fdad0" },
   },
 };
 
-/** Consistent colors for database sources across all stats charts. */
+/** Badge text: the lightest shade that still clears 4.5:1 on its tinted background. */
+export const DB_BADGE_FG: Record<DbSource, { light: string; dark: string }> = {
+  geo: { light: "#6a64a3", dark: "#a69dff" },
+  sra: { light: "#9600ea", dark: "#c157fd" },
+  ena: { light: "#0d7553", dark: "#459f81" },
+  arrayexpress: { light: "#737000", dark: "#bab400" },
+  gsa: { light: "#c70000", dark: "#e65959" },
+  ddbj: { light: "#b53c62", dark: "#ff588c" },
+  gea: { light: "#1e7970", dark: "#30c0b1" },
+};
+
+/**
+ * Chart colours, derived so a line always matches its badge.
+ *
+ * sra_sra_bytes is SRA's other volume series, so it stays in SRA's violet family
+ * rather than taking a hue of its own. Its old #6366f1 sat dE 2.7 from SRA itself.
+ */
 export const DB_COLORS: Record<string, string> = {
-  geo: DB_COLOR_MAP.geo.hex,
-  sra: DB_COLOR_MAP.sra.hex,
-  arrayexpress: DB_COLOR_MAP.arrayexpress.hex,
-  ena: DB_COLOR_MAP.ena.hex,
-  gsa: DB_COLOR_MAP.gsa.hex,
-  ddbj: DB_COLOR_MAP.ddbj.hex,
-  gea: DB_COLOR_MAP.gea.hex,
+  ...(Object.fromEntries(
+    DB_ORDER.map((db) => [db, DB_COLOR_MAP[db].hex]),
+  ) as Record<DbSource, string>),
   sra_fastq_bytes: DB_COLOR_MAP.sra.hex,
-  sra_sra_bytes: "#6366f1",
+  sra_sra_bytes: "#ae4484",
+};
+
+/**
+ * Growth-chart dashes, in px (0 = solid). Seven hues are never fully colour-blind
+ * safe, so the three closest pairs are separated by shape as well as colour.
+ */
+export const DB_DASH: Record<string, number> = {
+  geo: 0,
+  sra: 0,
+  arrayexpress: 0,
+  gsa: 0,
+  ena: 6,
+  ddbj: 3,
+  gea: 10,
 };
 
 /** Human-readable labels for database keys. */
@@ -122,9 +137,8 @@ const ARCHIVE_DB: Record<string, DbSource | undefined> = {
   GSA: "gsa",
 };
 
-export function dbColorForArchive(
+export function dbForArchive(
   archive: ExternalArchive["archive"],
-): RadixColor | undefined {
-  const db = ARCHIVE_DB[archive];
-  return db ? DB_COLOR_MAP[db].radix : undefined;
+): DbSource | undefined {
+  return ARCHIVE_DB[archive];
 }

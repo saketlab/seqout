@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { dbForAccession } from "./db-colors";
+import {
+  DB_BADGE_FG,
+  DB_COLOR_MAP,
+  DB_COLORS,
+  DB_LABELS,
+  DB_ORDER,
+  dbForAccession,
+} from "./db-colors";
 
 describe("dbForAccession", () => {
   it("classifies each archive's accession shapes", () => {
@@ -20,5 +27,26 @@ describe("dbForAccession", () => {
     expect(dbForAccession("DRS000001")).toBe("ddbj");
     expect(dbForAccession("PRJDB1884")).toBe("ddbj");
     expect(dbForAccession("E-GEAD-282")).toBe("gea");
+  });
+});
+
+describe("palette alignment", () => {
+  it("gives every chart line the same colour as its badge", () => {
+    for (const db of DB_ORDER) {
+      expect(DB_COLORS[db]).toBe(DB_COLOR_MAP[db].hex);
+    }
+  });
+
+  it("starts every OG gradient from the badge colour", () => {
+    for (const db of DB_ORDER) {
+      expect(DB_COLOR_MAP[db].og.primary).toBe(DB_COLOR_MAP[db].hex);
+    }
+  });
+
+  it("labels and badge text cover every source", () => {
+    for (const db of DB_ORDER) {
+      expect(DB_LABELS[db]).toBeTruthy();
+      expect(DB_BADGE_FG[db]).toBeTruthy();
+    }
   });
 });

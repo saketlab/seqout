@@ -17,7 +17,7 @@ import type { LastUpdated } from "@/utils/types";
 export const metadata: Metadata = {
   title: "About and FAQ",
   description:
-    "Learn about seqout - a fast exploration tool for GEO, SRA, ENA, ArrayExpress & GSA sequencing datasets. Frequently asked questions about data sources, features, and usage.",
+    "Learn about seqout - a fast exploration tool for GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets. Frequently asked questions about data sources, features, and usage.",
   alternates: {
     canonical: "https://seqout.org/faq",
   },
@@ -31,7 +31,7 @@ const faqItems = [
     id: "data-sources",
     question: "Where does seqout fetch its datasets from?",
     answer:
-      "We maintain a local mirror of all publicly available datasets on NCBI's FTP servers. This includes all SRA datasets and GEO datasets. We also index ArrayExpress and ENA metadata from EBI, and GSA (CNCB-NGDC Genome Sequence Archive) metadata from CNCB-NGDC in China. We do not own or modify the original data.",
+      "We maintain a local mirror of all publicly available datasets on NCBI's FTP servers. This includes all SRA datasets and GEO datasets. We also index ArrayExpress and ENA metadata from EBI, GSA (CNCB-NGDC Genome Sequence Archive) metadata from CNCB-NGDC in China, and DDBJ metadata from Japan, both its Sequence Read Archive (DRA) and its Genomic Expression Archive (GEA). We do not own or modify the original data.",
   },
   {
     id: "download-data",
@@ -43,7 +43,7 @@ const faqItems = [
     id: "difference",
     question: "How is seqout different from browsing NCBI directly?",
     answer:
-      "seqout combines GEO, SRA, ENA, ArrayExpress & GSA metadata into one interface with relevance-ranked search and consolidated tabular views. NCBI spreads this across multiple pages. seqout also adds enriched metadata, similarity graphs, citation counts, and download scripts.",
+      "seqout combines GEO, SRA, ENA, DDBJ, GSA & ArrayExpress metadata into one interface with relevance-ranked search and consolidated tabular views. NCBI spreads this across multiple pages. seqout also adds enriched metadata, similarity graphs, citation counts, and download scripts.",
   },
   {
     id: "scale",
@@ -140,13 +140,15 @@ const ATTRIBUTION_SOURCES = [
   { name: "EMBL-EBI ENA", description: "European Nucleotide Archive", url: "https://www.ebi.ac.uk/ena/browser/home", label: "ebi.ac.uk/ena" },
   { name: "EMBL-EBI ArrayExpress", description: "Functional Genomics Data", url: "https://www.ebi.ac.uk/biostudies/arrayexpress", label: "ebi.ac.uk/arrayexpress" },
   { name: "CNCB-NGDC GSA", description: "Genome Sequence Archive", url: "https://ngdc.cncb.ac.cn/gsa/", label: "ngdc.cncb.ac.cn/gsa" },
+  { name: "DDBJ DRA", description: "Sequence Read Archive", url: "https://www.ddbj.nig.ac.jp/dra/", label: "ddbj.nig.ac.jp/dra" },
+  { name: "DDBJ GEA", description: "Genomic Expression Archive", url: "https://www.ddbj.nig.ac.jp/gea/", label: "ddbj.nig.ac.jp/gea" },
 ];
 
 const features = [
   {
     title: "Unified search",
     description:
-      "Full-text search across GEO, SRA, ENA, ArrayExpress & GSA with filters for organism, journal, country, library strategy, instrument model, and time range.",
+      "Full-text search across GEO, SRA, ENA, DDBJ, GSA & ArrayExpress with filters for organism, journal, country, library strategy, instrument model, and time range.",
     href: "/search?q=CRISPR+screen",
   },
   {

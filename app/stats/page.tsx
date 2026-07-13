@@ -10,9 +10,9 @@ import { Flex, Heading } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Statistics: GEO, SRA, ArrayExpress & GSA Database Growth",
+  title: "Statistics: GEO, SRA, ENA, DDBJ, GSA & ArrayExpress Growth",
   description:
-    "Database growth, source distribution, and organism trends across 1 million+ GEO, SRA, ENA, ArrayExpress & GSA projects indexed by seqout.",
+    "Database growth, source distribution, and organism trends across 1 million+ GEO, SRA, ENA, DDBJ, GSA & ArrayExpress projects indexed by seqout.",
   alternates: {
     canonical: "https://seqout.org/stats",
   },

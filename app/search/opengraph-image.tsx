@@ -37,7 +37,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
   }
 
   const subtitle = !query
-    ? "Search GEO, SRA, ENA, GSA & ArrayExpress sequencing datasets"
+    ? "Search GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets"
     : total !== null
       ? `${total.toLocaleString()} result${total === 1 ? "" : "s"} found`
       : "Search results";

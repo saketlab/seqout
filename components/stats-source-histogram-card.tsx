@@ -21,7 +21,7 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Metric = "Projects" | "Samples";
 
-const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena", "gsa"] as const;
+const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena", "gsa", "ddbj", "gea"] as const;
 
 export default function StatsSourceHistogramCard() {
   const [metric, setMetric] = useState<Metric>("Projects");

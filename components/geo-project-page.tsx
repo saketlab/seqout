@@ -1,5 +1,6 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
+import DbBadge from "@/components/db-badge";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import LinkedSraFastq from "@/components/linked-sra-fastq";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
@@ -1407,15 +1408,9 @@ export default function GeoProjectPage() {
               </Heading>
             </Flex>
             <Flex justify={"start"} align="center" gap="2" wrap="wrap">
-              <Badge
+              <DbBadge
                 size={{ initial: "2", md: "3" }}
-                color={
-                  isGea
-                    ? DB_COLOR_MAP.gea.radix
-                    : isArrayExpress
-                      ? "gold"
-                      : undefined
-                }
+                db={isGea ? "gea" : isArrayExpress ? "arrayexpress" : "geo"}
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >
@@ -1441,21 +1436,21 @@ export default function GeoProjectPage() {
                     </button>
                   </Tooltip>
                 </Flex>
-              </Badge>
+              </DbBadge>
               {linkedBioProjectAliases.map((alias) => (
                 <BioProjectBadge key={`bioproject-${alias}`} accession={alias} />
               ))}
               {linkedSraAliases.map((alias) => (
                 <a key={`sra-${alias}`} href={`/p/${alias}`}>
-                  <Badge
+                  <DbBadge
                     size={{ initial: "2", md: "3" }}
-                    color={DB_COLOR_MAP[dbForAccession(alias) ?? "sra"].radix}
+                    db={dbForAccession(alias) ?? "sra"}
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                     className="seqout-accession"
                   >
                     {alias}
                     <EnterIcon />
-                  </Badge>
+                  </DbBadge>
                 </a>
               ))}
               {linkedArrayExpressAliases
@@ -1465,18 +1460,15 @@ export default function GeoProjectPage() {
                 )
                 .map((alias) => (
                   <a key={`ae-${alias}`} href={`/p/${alias}`}>
-                    <Badge
+                    <DbBadge
                       size={{ initial: "2", md: "3" }}
-                      color={
-                        DB_COLOR_MAP[dbForAccession(alias) ?? "arrayexpress"]
-                          .radix
-                      }
+                      db={dbForAccession(alias) ?? "arrayexpress"}
                       style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                       className="seqout-accession"
                     >
                       {alias}
                       <EnterIcon />
-                    </Badge>
+                    </DbBadge>
                   </a>
                 ))}
               {isEAccession &&
@@ -1529,15 +1521,9 @@ export default function GeoProjectPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Badge
+                <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  color={
-                    isGea
-                      ? DB_COLOR_MAP.gea.radix
-                      : isArrayExpress
-                        ? DB_COLOR_MAP.arrayexpress.radix
-                        : DB_COLOR_MAP.geo.radix
-                  }
+                  db={isGea ? "gea" : isArrayExpress ? "arrayexpress" : "geo"}
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {isGea
@@ -1546,7 +1532,7 @@ export default function GeoProjectPage() {
                       ? "Visit ArrayExpress page"
                       : "Visit GEO page"}{" "}
                   <ExternalLinkIcon />
-                </Badge>
+                </DbBadge>
               </a>
             </Flex>
             <Flex align={"center"} gap={"2"}>

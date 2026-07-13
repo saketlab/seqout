@@ -1,5 +1,6 @@
 import CountryFlagIcon from "@/components/country-flag-icon";
-import { DB_COLOR_MAP, dbForAccession } from "@/utils/db-colors";
+import DbBadge from "@/components/db-badge";
+import { dbForAccession } from "@/utils/db-colors";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
@@ -248,13 +249,9 @@ function ResultCard({
           );
         })()}
       <Flex gap={"2"} align={"center"} wrap={"wrap"}>
-        <Badge
-          size={"2"}
-          color={db ? DB_COLOR_MAP[db].radix : undefined}
-          className="seqout-accession"
-        >
+        <DbBadge size={"2"} db={db} className="seqout-accession">
           {accession}
-        </Badge>
+        </DbBadge>
         {db === "gsa" && (
           <Badge size={"2"} color="tomato" variant="soft">
             GSA

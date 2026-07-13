@@ -16,7 +16,8 @@ import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
-import { dbColorForArchive } from "@/utils/db-colors";
+import DbBadge from "@/components/db-badge";
+import { dbForArchive } from "@/utils/db-colors";
 import { fileUrl } from "@/utils/fileUrl";
 import { formatBytes } from "@/utils/format";
 import {
@@ -698,7 +699,7 @@ export function RunsSection({
 
 function getDbBadgeColor(accession: string) {
   const external = getExternalArchiveUrl(accession);
-  return external ? dbColorForArchive(external.archive) : undefined;
+  return external ? dbForArchive(external.archive) : undefined;
 }
 
 export default function SampleDetailPage() {
@@ -869,9 +870,9 @@ export default function SampleDetailPage() {
           </Flex>
 
           <Flex justify="start" align="center" gap="2" wrap="wrap">
-            <Badge
+            <DbBadge
               size={{ initial: "2", md: "3" }}
-              color={badgeColor}
+              db={badgeColor}
               style={{ whiteSpace: "nowrap" }}
             >
               <Flex align="center" gap="1">
@@ -896,7 +897,7 @@ export default function SampleDetailPage() {
                   </button>
                 </Tooltip>
               </Flex>
-            </Badge>
+            </DbBadge>
 
             {projectAccession && (
               <a href={`/p/${projectAccession}`}>
@@ -929,15 +930,15 @@ export default function SampleDetailPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Badge
+                <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  color={badgeColor}
+                  db={badgeColor}
                   variant="outline"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {externalLink.label}
                   <ExternalLinkIcon />
-                </Badge>
+                </DbBadge>
               </a>
             )}
 

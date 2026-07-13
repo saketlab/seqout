@@ -21,11 +21,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "seqout - Search GEO, SRA, ENA, GSA & ArrayExpress Datasets",
+    default: "seqout - Search GEO, SRA, ENA, DDBJ, GSA & ArrayExpress",
     template: "%s | seqout",
   },
   description:
-    "Fast exploration of GEO, SRA, ENA, GSA (CNCB-NGDC Genome Sequence Archive) & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views, relevance-ranked results, and consolidated sample tables. Developed at Saket Lab, IIT Bombay.",
+    "Fast exploration of GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets. Search millions of experiments with unified metadata, relevance-ranked results, and consolidated sample tables. Developed at Saket Lab, IIT Bombay.",
   applicationName: "seqout",
   keywords: [
     "seqout",
@@ -127,23 +127,23 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://seqout.org",
     siteName: "seqout",
-    title: "seqout - Search GEO, SRA, ENA, GSA & ArrayExpress Datasets",
+    title: "seqout - Search GEO, SRA, ENA, DDBJ, GSA & ArrayExpress",
     description:
-      "Fast exploration of GEO, SRA, ENA, GSA (CNCB-NGDC Genome Sequence Archive) & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views and relevance-ranked results.",
+      "Fast exploration of GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets. Search millions of experiments with unified metadata and relevance-ranked results.",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "seqout - GEO, SRA, ENA, GSA & ArrayExpress Dataset Search",
+        alt: "seqout - GEO, SRA, ENA, DDBJ, GSA & ArrayExpress Dataset Search",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "seqout - Search GEO, SRA, ENA, GSA & ArrayExpress",
+    title: "seqout - Search GEO, SRA, ENA, DDBJ, GSA & ArrayExpress",
     description:
-      "Fast exploration of GEO, SRA, ENA, GSA (NGDC) & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views.",
+      "Fast exploration of GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets. Search millions of experiments with unified metadata.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -214,6 +214,15 @@ export default function RootLayout({
           }}
         />
         <style dangerouslySetInnerHTML={{ __html: `
+          .db-badge {
+            background-color: color-mix(in srgb, var(--db) 15%, transparent);
+            color: var(--db-fg);
+          }
+          .dark .db-badge {
+            background-color: color-mix(in srgb, var(--db) 22%, transparent);
+            color: var(--db-fg-dark);
+          }
+
           .logo-light { display: none; }
           .logo-dark { display: block; }
           .light .logo-light { display: block; }
