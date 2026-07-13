@@ -1808,14 +1808,14 @@ export default function ProjectPage() {
   const externalStudyLabel = isGsaAccession
     ? "Visit GSA page"
     : isDdbjAccession
-      ? "Visit DDBJ page"
+      ? "Visit DRA page"
       : isPrjAccession
         ? "Visit ENA page"
         : "Visit SRA page";
   const externalStudyDb: DbSource = isGsaAccession
     ? "gsa"
     : isDdbjAccession
-      ? "ddbj"
+      ? "dra"
       : isPrjAccession
         ? "ena"
         : "sra";
@@ -2334,7 +2334,7 @@ export default function ProjectPage() {
                   isGsaAccession
                     ? "gsa"
                     : isDdbjAccession
-                      ? "ddbj"
+                      ? "dra"
                       : isPrjAccession
                         ? "ena"
                         : isArrayExpressAccession

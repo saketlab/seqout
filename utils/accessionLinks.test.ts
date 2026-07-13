@@ -54,11 +54,11 @@ describe("getExternalArchiveUrl (GSA → CNCB-NGDC)", () => {
 });
 
 describe("getExternalArchiveUrl (DDBJ)", () => {
-  it("links E-GEAD experiments to DDBJ GEA, not ArrayExpress", () => {
+  it("links E-GEAD experiments to GEA, not ArrayExpress", () => {
     expect(getExternalArchiveUrl("E-GEAD-282")).toEqual({
       url: "https://ddbj.nig.ac.jp/search/entry/gea/E-GEAD-282",
-      archive: "DDBJ",
-      label: "View on DDBJ GEA",
+      archive: "GEA",
+      label: "View on GEA",
     });
     expect(getExternalArchiveUrl("E-MTAB-1234")?.archive).toBe("ArrayExpress");
   });
@@ -66,8 +66,8 @@ describe("getExternalArchiveUrl (DDBJ)", () => {
   it("links DRA accessions to their DDBJ resource pages", () => {
     expect(getExternalArchiveUrl("DRP000001")).toEqual({
       url: "https://ddbj.nig.ac.jp/resource/sra-study/DRP000001",
-      archive: "DDBJ",
-      label: "View on DDBJ",
+      archive: "DRA",
+      label: "View on DRA",
     });
     expect(getExternalArchiveUrl("DRX000001")?.url).toBe(
       "https://ddbj.nig.ac.jp/resource/sra-experiment/DRX000001",

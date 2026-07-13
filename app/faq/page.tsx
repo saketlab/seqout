@@ -17,7 +17,7 @@ import type { LastUpdated } from "@/utils/types";
 export const metadata: Metadata = {
   title: "About and FAQ",
   description:
-    "Learn about seqout - a fast exploration tool for GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets. Frequently asked questions about data sources, features, and usage.",
+    "Learn about seqout - a fast exploration tool for GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets. Frequently asked questions about data sources, features, and usage.",
   alternates: {
     canonical: "https://seqout.org/faq",
   },
@@ -43,7 +43,7 @@ const faqItems = [
     id: "difference",
     question: "How is seqout different from browsing NCBI directly?",
     answer:
-      "seqout combines GEO, SRA, ENA, DDBJ, GSA & ArrayExpress metadata into one interface with relevance-ranked search and consolidated tabular views. NCBI spreads this across multiple pages. seqout also adds enriched metadata, similarity graphs, citation counts, and download scripts.",
+      "seqout combines GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress metadata into one interface with relevance-ranked search and consolidated tabular views. NCBI spreads this across multiple pages. seqout also adds enriched metadata, similarity graphs, citation counts, and download scripts.",
   },
   {
     id: "scale",
@@ -140,15 +140,15 @@ const ATTRIBUTION_SOURCES = [
   { name: "EMBL-EBI ENA", description: "European Nucleotide Archive", url: "https://www.ebi.ac.uk/ena/browser/home", label: "ebi.ac.uk/ena" },
   { name: "EMBL-EBI ArrayExpress", description: "Functional Genomics Data", url: "https://www.ebi.ac.uk/biostudies/arrayexpress", label: "ebi.ac.uk/arrayexpress" },
   { name: "CNCB-NGDC GSA", description: "Genome Sequence Archive", url: "https://ngdc.cncb.ac.cn/gsa/", label: "ngdc.cncb.ac.cn/gsa" },
-  { name: "DDBJ DRA", description: "Sequence Read Archive", url: "https://www.ddbj.nig.ac.jp/dra/", label: "ddbj.nig.ac.jp/dra" },
-  { name: "DDBJ GEA", description: "Genomic Expression Archive", url: "https://www.ddbj.nig.ac.jp/gea/", label: "ddbj.nig.ac.jp/gea" },
+  { name: "DRA", description: "DDBJ Sequence Read Archive", url: "https://www.ddbj.nig.ac.jp/dra/", label: "ddbj.nig.ac.jp/dra" },
+  { name: "GEA", description: "DDBJ Genomic Expression Archive", url: "https://www.ddbj.nig.ac.jp/gea/", label: "ddbj.nig.ac.jp/gea" },
 ];
 
 const features = [
   {
     title: "Unified search",
     description:
-      "Full-text search across GEO, SRA, ENA, DDBJ, GSA & ArrayExpress with filters for organism, journal, country, library strategy, instrument model, and time range.",
+      "Full-text search across GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress with filters for organism, journal, country, library strategy, instrument model, and time range.",
     href: "/search?q=CRISPR+screen",
   },
   {

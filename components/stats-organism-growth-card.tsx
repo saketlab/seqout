@@ -221,7 +221,7 @@ export default function StatsOrganismGrowthCard() {
         },
       },
       subtitle: {
-        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} ${mode === "percentage" ? "percentage" : "counts"} across GEO, SRA, ArrayExpress, ENA & GSA`,
+        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} ${mode === "percentage" ? "percentage" : "counts"} across GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress`,
         align: "left",
         style: {
           fontSize: "12px",

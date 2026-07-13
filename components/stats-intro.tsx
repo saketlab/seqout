@@ -27,7 +27,7 @@ export default function StatsIntro() {
   return (
     <Text color="gray">
       seqout currently indexes {stat(projects, "2M+")} projects and{" "}
-      {stat(samples, "85M+")} samples across GEO, SRA, ENA, DDBJ, GSA,
+      {stat(samples, "85M+")} samples across GEO, SRA, ENA, DRA, GEA, GSA,
       and ArrayExpress for fast search and discovery.
     </Text>
   );

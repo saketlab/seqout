@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const author = decodeURIComponent(name);
   return {
     title: `${author} - Datasets`,
-    description: `Sequencing datasets authored by ${author} across GEO, SRA, ENA, GSA, and ArrayExpress.`,
+    description: `Sequencing datasets authored by ${author} across GEO, SRA, ENA, DRA, GEA, GSA, and ArrayExpress.`,
     alternates: {
       canonical: `/authors/${encodeURIComponent(author)}`,
     },

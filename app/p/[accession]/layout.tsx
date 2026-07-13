@@ -21,7 +21,7 @@ function detectProjectType(accession: string): {
   const upper = accession.toUpperCase();
 
   if (/^E-GEAD-\d+$/.test(upper)) {
-    return { type: "DDBJ GEA Experiment", database: "DDBJ GEA" };
+    return { type: "GEA Experiment", database: "GEA" };
   }
 
   if (upper.startsWith("E-")) {
@@ -37,7 +37,7 @@ function detectProjectType(accession: string): {
   }
 
   if (upper.startsWith("DRP") || upper.startsWith("PRJDB")) {
-    return { type: "DDBJ DRA Study", database: "DDBJ" };
+    return { type: "DRA Study", database: "DRA" };
   }
 
   if (

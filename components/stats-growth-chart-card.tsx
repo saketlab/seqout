@@ -38,8 +38,8 @@ interface GrowthResponse {
 }
 
 const DB_ORDER: Record<Mode, string[]> = {
-  projects: ["geo", "sra", "arrayexpress", "ena", "gsa", "ddbj", "gea"],
-  experiments: ["geo", "sra", "arrayexpress", "ena", "gsa", "ddbj", "gea"],
+  projects: ["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"],
+  experiments: ["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"],
   bases: ["ena", "sra_fastq_bytes", "sra_sra_bytes"],
 };
 
@@ -153,7 +153,7 @@ export default function StatsGrowthChartCard() {
         },
       },
       subtitle: {
-        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} counts across GEO, SRA, ENA, ArrayExpress, GSA, DDBJ DRA & DDBJ GEA`,
+        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} counts across GEO, SRA, ENA, ArrayExpress, GSA, DRA & GEA`,
         align: "left",
         style: {
           fontSize: "12px",

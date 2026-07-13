@@ -89,8 +89,8 @@ export function getExternalArchiveUrl(
   if (/^E-GEAD-\d+$/.test(a))
     return {
       url: `https://ddbj.nig.ac.jp/search/entry/gea/${accession}`,
-      archive: "DDBJ",
-      label: "View on DDBJ GEA",
+      archive: "GEA",
+      label: "View on GEA",
     };
   if (/^E-[A-Z]{4}-\d+$/.test(a))
     return {
@@ -121,8 +121,8 @@ export function getExternalArchiveUrl(
   if (/^PRJDB\d+$/.test(a))
     return {
       url: `https://ddbj.nig.ac.jp/resource/bioproject/${accession}`,
-      archive: "DDBJ",
-      label: "View on DDBJ",
+      archive: "DRA",
+      label: "View on DRA",
     };
   if (/^PRJ[A-Z]+\d+$/.test(a))
     return {
@@ -151,8 +151,8 @@ export function getExternalArchiveUrl(
       const resource = { P: "sra-study", X: "sra-experiment", R: "sra-run", S: "sra-sample" }[kind];
       return {
         url: `https://ddbj.nig.ac.jp/resource/${resource}/${accession}`,
-        archive: "DDBJ",
-        label: "View on DDBJ",
+        archive: "DRA",
+        label: "View on DRA",
       };
     }
     return {

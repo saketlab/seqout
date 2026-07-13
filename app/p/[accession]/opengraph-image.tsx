@@ -13,7 +13,7 @@ export const contentType = projectOgContentType;
 
 function detectProjectType(
   accession: string,
-): "geo" | "sra" | "ena" | "arrayexpress" | "gsa" | "ddbj" | "gea" {
+): "geo" | "sra" | "ena" | "arrayexpress" | "gsa" | "dra" | "gea" {
   const upper = accession.toUpperCase();
 
   if (/^E-GEAD-\d+$/.test(upper)) {
@@ -33,7 +33,7 @@ function detectProjectType(
   }
 
   if (upper.startsWith("DRP") || upper.startsWith("PRJDB")) {
-    return "ddbj";
+    return "dra";
   }
 
   if (

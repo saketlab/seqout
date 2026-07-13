@@ -6,7 +6,7 @@ export type DbSource =
   | "ena"
   | "arrayexpress"
   | "gsa"
-  | "ddbj"
+  | "dra"
   | "gea";
 
 export const DB_ORDER: DbSource[] = [
@@ -15,7 +15,7 @@ export const DB_ORDER: DbSource[] = [
   "ena",
   "arrayexpress",
   "gsa",
-  "ddbj",
+  "dra",
   "gea",
 ];
 
@@ -24,80 +24,64 @@ type DbColor = {
   og: { primary: string; secondary: string; accent: string };
 };
 
-/**
- * One colour per source: badges, charts and OG images all read from here.
- *
- * Not Radix scales -- no seven Radix hues stay distinct under colour blindness.
- * Chosen by docs/cvd_score.py; worst pair 18.4. Regenerate before changing one.
- */
 export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   geo: {
-    hex: "#a69dff",
-    og: { primary: "#a69dff", secondary: "#7b6ff0", accent: "#cdc7ff" },
+    hex: "#00468b",
+    og: { primary: "#00468b", secondary: "#00376c", accent: "#7399bf" },
   },
   sra: {
-    hex: "#a100fc",
-    og: { primary: "#a100fc", secondary: "#8400cf", accent: "#c976ff" },
+    hex: "#ed0000",
+    og: { primary: "#ed0000", secondary: "#b90000", accent: "#f57373" },
   },
   ena: {
-    hex: "#0e825c",
-    og: { primary: "#0e825c", secondary: "#0a6146", accent: "#4fbc95" },
+    hex: "#42b540",
+    og: { primary: "#42b540", secondary: "#338d32", accent: "#97d696" },
   },
   arrayexpress: {
-    hex: "#bab400",
-    og: { primary: "#bab400", secondary: "#8f8a00", accent: "#dcd64d" },
+    hex: "#925e9f",
+    og: { primary: "#925e9f", secondary: "#72497c", accent: "#c3a6ca" },
   },
   gsa: {
-    hex: "#d80000",
-    og: { primary: "#d80000", secondary: "#a80000", accent: "#f56b6b" },
+    hex: "#ad002a",
+    og: { primary: "#ad002a", secondary: "#870021", accent: "#d2738a" },
   },
-  ddbj: {
-    hex: "#ff558a",
-    og: { primary: "#ff558a", secondary: "#e0336c", accent: "#ffa3c0" },
+  dra: {
+    hex: "#0099b4",
+    og: { primary: "#0099b4", secondary: "#00778c", accent: "#73c7d6" },
   },
   gea: {
-    hex: "#30c0b1",
-    og: { primary: "#30c0b1", secondary: "#219287", accent: "#7fdad0" },
+    hex: "#fdaf91",
+    og: { primary: "#fdaf91", secondary: "#c58871", accent: "#fed3c2" },
   },
 };
 
 /** Badge text: the lightest shade that still clears 4.5:1 on its tinted background. */
 export const DB_BADGE_FG: Record<DbSource, { light: string; dark: string }> = {
-  geo: { light: "#6a64a3", dark: "#a69dff" },
-  sra: { light: "#9600ea", dark: "#c157fd" },
-  ena: { light: "#0d7553", dark: "#459f81" },
-  arrayexpress: { light: "#737000", dark: "#bab400" },
-  gsa: { light: "#c70000", dark: "#e65959" },
-  ddbj: { light: "#b53c62", dark: "#ff588c" },
-  gea: { light: "#1e7970", dark: "#30c0b1" },
+  geo: { light: "#00468b", dark: "#5c89b5" },
+  sra: { light: "#cc0000", dark: "#f24c4c" },
+  ena: { light: "#2d7b2c", dark: "#42b540" },
+  arrayexpress: { light: "#865692", dark: "#a87eb2" },
+  gsa: { light: "#ad002a", dark: "#cc617b" },
+  dra: { light: "#007489", dark: "#0f9fb8" },
+  gea: { light: "#936554", dark: "#fdaf91" },
 };
 
-/**
- * Chart colours, derived so a line always matches its badge.
- *
- * sra_sra_bytes is SRA's other volume series, so it stays in SRA's violet family
- * rather than taking a hue of its own. Its old #6366f1 sat dE 2.7 from SRA itself.
- */
 export const DB_COLORS: Record<string, string> = {
   ...(Object.fromEntries(
     DB_ORDER.map((db) => [db, DB_COLOR_MAP[db].hex]),
   ) as Record<DbSource, string>),
   sra_fastq_bytes: DB_COLOR_MAP.sra.hex,
-  sra_sra_bytes: "#ae4484",
+  sra_sra_bytes: "#8a1f3d",
 };
 
-/**
- * Growth-chart dashes, in px (0 = solid). Seven hues are never fully colour-blind
- * safe, so the three closest pairs are separated by shape as well as colour.
- */
 export const DB_DASH: Record<string, number> = {
   geo: 0,
   sra: 0,
   arrayexpress: 0,
-  gsa: 0,
-  ena: 6,
-  ddbj: 3,
-  gea: 10,
+  dra: 0,
+  ena: 3,
+  gsa: 6,
+  gea: 6,
 };
 
 /** Human-readable labels for database keys. */
@@ -107,8 +91,8 @@ export const DB_LABELS: Record<string, string> = {
   arrayexpress: "ArrayExpress",
   ena: "ENA",
   gsa: "GSA",
-  ddbj: "DDBJ DRA",
-  gea: "DDBJ GEA",
+  dra: "DRA",
+  gea: "GEA",
   sra_fastq_bytes: "SRA (FASTQ)",
   sra_sra_bytes: "SRA (SRA archive)",
 };
@@ -120,7 +104,7 @@ export const SEARCH_DBS = [
   "ena",
   "arrayexpress",
   "gsa",
-  "ddbj",
+  "dra",
   "gea",
 ] as const;
 export type SearchDb = (typeof SEARCH_DBS)[number];
@@ -132,7 +116,7 @@ export function dbForAccession(accession: string): DbSource | null {
   if (/^E-GEAD-\d+$/.test(a)) return "gea";
   if (/^E-[A-Z]{4}-\d+$/.test(a)) return "arrayexpress";
   if (/^ER[PXRS]\d+$/.test(a) || /^PRJEB\d+$/.test(a)) return "ena";
-  if (/^DR[PXRS]\d+$/.test(a) || /^PRJDB\d+$/.test(a)) return "ddbj";
+  if (/^DR[PXRS]\d+$/.test(a) || /^PRJDB\d+$/.test(a)) return "dra";
   if (/^SR[PXRS]\d+$/.test(a) || /^PRJNA\d+$/.test(a)) return "sra";
   // GSA (CNCB-NGDC): open CRA + human HRA, plus PRJCA / SAMC biosample.
   if (/^(CRA|CRX|CRR|HRA|HRX|HRR|HRS|HRI)\d+$/.test(a) || /^(PRJCA|SAMC)\d+$/.test(a))
@@ -143,7 +127,8 @@ export function dbForAccession(accession: string): DbSource | null {
 const ARCHIVE_DB: Record<string, DbSource | undefined> = {
   GEO: "geo",
   SRA: "sra",
-  DDBJ: "ddbj",
+  DRA: "dra",
+  GEA: "gea",
   ENA: "ena",
   ArrayExpress: "arrayexpress",
   GSA: "gsa",

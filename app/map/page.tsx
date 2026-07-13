@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Dataset Map",
   description:
-    "Interactive 2D scatter-plot of GEO, SRA, ENA, GSA & ArrayExpress projects. Explore clusters of similar sequencing datasets by visualizing embedding-based proximity.",
+    "Interactive 2D scatter-plot of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress projects. Explore clusters of similar sequencing datasets by visualizing embedding-based proximity.",
   alternates: {
     canonical: "https://seqout.org/map",
   },

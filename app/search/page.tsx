@@ -14,7 +14,7 @@ export async function generateMetadata({
 
   if (!q) {
     const fallbackDesc =
-      "Search results for GEO, SRA, ENA, GSA & ArrayExpress sequencing datasets. Filter by organism, library strategy, and more.";
+      "Search results for GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress sequencing datasets. Filter by organism, library strategy, and more.";
     return {
       title: "Search Results",
       description: fallbackDesc,
@@ -33,7 +33,7 @@ export async function generateMetadata({
 
   // No count fetch: it duplicated the client's search query and blocked the URL
   // update on every navigation. The body shows the real total.
-  const description = `Search results for "${q}" across GEO, SRA, ENA, GSA & ArrayExpress sequencing datasets.`;
+  const description = `Search results for "${q}" across GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress sequencing datasets.`;
 
   const title = `seqout: ${q} - Search results`;
 

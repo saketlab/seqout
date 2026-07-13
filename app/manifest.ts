@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "seqout",
     short_name: "seqout",
     description:
-      "Fast exploration of GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets with unified metadata.",
+      "Fast exploration of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets with unified metadata.",
     id: "/",
     start_url: "/",
     scope: "/",
@@ -46,7 +46,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Search datasets",
         short_name: "Search",
-        description: "Search GEO, SRA, ENA, DDBJ, GSA, and ArrayExpress metadata.",
+        description: "Search GEO, SRA, ENA, DRA, GEA, GSA, and ArrayExpress metadata.",
         url: "/search",
       },
       {

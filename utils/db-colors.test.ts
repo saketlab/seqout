@@ -20,12 +20,12 @@ describe("dbForAccession", () => {
     expect(dbForAccession("cancer")).toBeNull();
   });
 
-  it("keeps DDBJ out of SRA and DDBJ GEA out of ArrayExpress", () => {
-    expect(dbForAccession("DRP000001")).toBe("ddbj");
-    expect(dbForAccession("DRX000001")).toBe("ddbj");
-    expect(dbForAccession("DRR000001")).toBe("ddbj");
-    expect(dbForAccession("DRS000001")).toBe("ddbj");
-    expect(dbForAccession("PRJDB1884")).toBe("ddbj");
+  it("keeps DRA out of SRA and GEA out of ArrayExpress", () => {
+    expect(dbForAccession("DRP000001")).toBe("dra");
+    expect(dbForAccession("DRX000001")).toBe("dra");
+    expect(dbForAccession("DRR000001")).toBe("dra");
+    expect(dbForAccession("DRS000001")).toBe("dra");
+    expect(dbForAccession("PRJDB1884")).toBe("dra");
     expect(dbForAccession("E-GEAD-282")).toBe("gea");
   });
 });

@@ -6,9 +6,9 @@ import type { Metadata } from "next";
 const BASE = "https://seqout.org/api";
 
 export const metadata: Metadata = {
-  title: "REST API for GEO, SRA, ArrayExpress & GSA Metadata",
+  title: "REST API for GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress Metadata",
   description:
-    "Free REST API for searching and retrieving GEO, SRA, ENA, ArrayExpress & GSA sequencing dataset metadata, samples, runs, and download links. No authentication required.",
+    "Free REST API for searching and retrieving GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress sequencing dataset metadata, samples, runs, and download links. No authentication required.",
   alternates: {
     canonical: "https://seqout.org/api-docs",
   },
@@ -20,7 +20,7 @@ const jsonLd = {
   headline: "seqout REST API Reference",
   url: "https://seqout.org/api-docs",
   description:
-    "REST API reference for searching and retrieving GEO, SRA, ENA, ArrayExpress, and GSA sequencing dataset metadata.",
+    "REST API reference for searching and retrieving GEO, SRA, ENA, DRA, GEA, GSA, and ArrayExpress sequencing dataset metadata.",
   author: {
     "@type": "Organization",
     name: "Saket Lab, IIT Bombay",
@@ -66,7 +66,7 @@ const API: Category[] = [
         path: "/search",
         summary: "Search all databases",
         description:
-          "Full-text search across GEO, SRA, ArrayExpress, ENA and GSA. Results are ranked by relevance. Supports cursor-based pagination and sorting by citations, journal, or year.",
+          "Full-text search across GEO, SRA, ENA, DRA, GEA, GSA and ArrayExpress. Results are ranked by relevance. Supports cursor-based pagination and sorting by citations, journal, or year.",
         params: [
           {
             name: "q",
@@ -269,7 +269,7 @@ const API: Category[] = [
         path: "/project/{accession}",
         summary: "Get project metadata",
         description:
-          "Retrieve full metadata for a project. Works with GEO (GSE*), SRA (SRP/ERP/DRP*), BioProject (PRJ*), ArrayExpress (E-*), and GSA (CRA*/HRA*) accessions.",
+          "Retrieve full metadata for a project. Works with GEO (GSE*), SRA (SRP/ERP*), DRA (DRP*), GEA (E-GEAD-*), BioProject (PRJ*), ArrayExpress (E-*), and GSA (CRA*/HRA*) accessions.",
         params: [
           {
             name: "accession",

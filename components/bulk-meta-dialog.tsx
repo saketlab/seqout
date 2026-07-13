@@ -103,7 +103,8 @@ export default function BulkMetaDialog() {
       <Dialog.Content size="4">
         <Dialog.Title>Get bulk metadata</Dialog.Title>
         <Dialog.Description size="2" mb="4">
-          Paste GEO or SRA accessions (one accession per line)
+          Paste GEO, SRA, ENA, DRA, GEA or ArrayExpress accessions (one
+          accession per line)
         </Dialog.Description>
 
         <Flex direction="column" gap="3">

@@ -37,7 +37,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
   }
 
   const subtitle = !query
-    ? "Search GEO, SRA, ENA, DDBJ, GSA & ArrayExpress datasets"
+    ? "Search GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets"
     : total !== null
       ? `${total.toLocaleString()} result${total === 1 ? "" : "s"} found`
       : "Search results";
@@ -175,7 +175,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
               display: "flex",
             }}
           >
-            Explore sequencing datasets across GEO, SRA, ENA &
+            Explore sequencing datasets across GEO, SRA, ENA, DRA, GEA, GSA &
             ArrayExpress
           </div>
         </div>

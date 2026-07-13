@@ -1527,7 +1527,7 @@ export default function GeoProjectPage() {
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {isGea
-                    ? "Visit DDBJ GEA page"
+                    ? "Visit GEA page"
                     : isArrayExpress
                       ? "Visit ArrayExpress page"
                       : "Visit GEO page"}{" "}

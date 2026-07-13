@@ -1795,7 +1795,7 @@ export default function SearchPageBody() {
     try {
       const params = new URLSearchParams();
       params.set("q", query);
-      if (db === "sra" || db === "geo" || db === "arrayexpress" || db === "gsa") {
+      if (db && (SEARCH_DBS as readonly string[]).includes(db)) {
         params.set("db", db);
       }
 

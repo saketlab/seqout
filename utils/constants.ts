@@ -29,8 +29,8 @@ export const ARCHIVE_CATALOG_URLS: Record<string, string> = {
   ENA: "https://www.ebi.ac.uk/ena/browser/home",
   ArrayExpress: "https://www.ebi.ac.uk/biostudies/arrayexpress",
   GSA: "https://ngdc.cncb.ac.cn/gsa/",
-  DDBJ: "https://www.ddbj.nig.ac.jp/dra/index-e.html",
-  "DDBJ GEA": "https://www.ddbj.nig.ac.jp/gea/index-e.html",
+  DRA: "https://www.ddbj.nig.ac.jp/dra/index-e.html",
+  GEA: "https://www.ddbj.nig.ac.jp/gea/index-e.html",
 };
 
 export const ARCHIVE_LICENSE_URLS: Record<string, string> = {
@@ -39,6 +39,6 @@ export const ARCHIVE_LICENSE_URLS: Record<string, string> = {
   ENA: "https://www.ebi.ac.uk/licencing",
   ArrayExpress: "https://www.ebi.ac.uk/licencing",
   GSA: "https://ngdc.cncb.ac.cn/about/policy",
-  DDBJ: "https://www.ddbj.nig.ac.jp/policies-e.html",
-  "DDBJ GEA": "https://www.ddbj.nig.ac.jp/policies-e.html",
+  DRA: "https://www.ddbj.nig.ac.jp/policies-e.html",
+  GEA: "https://www.ddbj.nig.ac.jp/policies-e.html",
 };
