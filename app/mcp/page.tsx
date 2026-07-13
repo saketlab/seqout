@@ -4,9 +4,9 @@ import { Box, Callout, Code, Flex, Heading, Link, Text } from "@radix-ui/themes"
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "MCP Server for GEO, SRA & ArrayExpress",
+  title: "MCP Server for GEO, SRA, ArrayExpress & GSA",
   description:
-    "Connect Claude Desktop or any MCP client to seqout's remote Model Context Protocol server. Search GEO, SRA, ENA & ArrayExpress datasets from your LLM.",
+    "Connect Claude Desktop or any MCP client to seqout's remote Model Context Protocol server. Search GEO, SRA, ENA, ArrayExpress & GSA datasets from your LLM.",
   alternates: {
     canonical: "https://seqout.org/mcp",
   },
@@ -20,7 +20,7 @@ const jsonLd = {
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Any (MCP-compatible client)",
   description:
-    "Remote MCP server exposing seqout's GEO, SRA, ENA, and ArrayExpress search and metadata tools to LLM agents via FastMCP.",
+    "Remote MCP server exposing seqout's GEO, SRA, ENA, ArrayExpress, and GSA search and metadata tools to LLM agents via FastMCP.",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   creator: {
     "@type": "Organization",
@@ -60,7 +60,7 @@ export default function MCP() {
           </Link>{" "}
           server that enables LLM chat clients to use seqout&apos;s features.
           This provides easy and intuitive access to exploring datasets from GEO,
-          SRA, ENA & ArrayExpress.
+          SRA, ENA, ArrayExpress & GSA.
         </Text>
 
         <Callout.Root>
@@ -130,7 +130,7 @@ export default function MCP() {
 
           <Text size={{ initial: "2", md: "3" }}>
             Once configured, you&apos;ll be able to search and explore GEO, SRA,
-            ENA & ArrayExpress datasets directly from Claude Desktop conversations.
+            ENA, ArrayExpress & GSA datasets directly from Claude Desktop conversations.
           </Text>
 
           <Text size={{ initial: "2", md: "3" }}>

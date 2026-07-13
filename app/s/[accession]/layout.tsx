@@ -52,7 +52,7 @@ async function fetchSampleTitle(accession: string): Promise<string> {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { accession } = await params;
+  const accession = (await params).accession.toUpperCase();
   const title = await fetchSampleTitle(accession);
   const { type: sampleType, database } = detectSampleType(accession);
 
@@ -79,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SampleLayout({ children, params }: Props) {
-  const { accession } = await params;
+  const accession = (await params).accession.toUpperCase();
   const title = await fetchSampleTitle(accession);
   const { type: sampleType, database } = detectSampleType(accession);
   const description = `Explore ${sampleType} ${accession}: ${title}. View metadata, experiment info, and download links on seqout.`;

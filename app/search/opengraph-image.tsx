@@ -23,7 +23,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
   if (query) {
     try {
       let url = `${API_BASE_URL}/search?q=${encodeURIComponent(query)}`;
-      if (db === "sra" || db === "geo" || db === "arrayexpress") {
+      if (db === "sra" || db === "geo" || db === "arrayexpress" || db === "gsa") {
         url += `&db=${encodeURIComponent(db)}`;
       }
       const res = await fetch(url, { next: { revalidate: 60 } });
@@ -37,7 +37,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
   }
 
   const subtitle = !query
-    ? "Search GEO, SRA, ENA & ArrayExpress sequencing datasets"
+    ? "Search GEO, SRA, ENA, GSA & ArrayExpress sequencing datasets"
     : total !== null
       ? `${total.toLocaleString()} result${total === 1 ? "" : "s"} found`
       : "Search results";

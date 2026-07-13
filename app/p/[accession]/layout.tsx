@@ -20,6 +20,10 @@ function detectProjectType(accession: string): {
 } {
   const upper = accession.toUpperCase();
 
+  if (/^E-GEAD-\d+$/.test(upper)) {
+    return { type: "DDBJ GEA Experiment", database: "DDBJ GEA" };
+  }
+
   if (upper.startsWith("E-")) {
     return { type: "ArrayExpress Experiment", database: "ArrayExpress" };
   }
@@ -28,15 +32,32 @@ function detectProjectType(accession: string): {
     return { type: "GEO Series", database: "GEO" };
   }
 
-  if (upper.startsWith("ERP") || upper.startsWith("DRP")) {
+  if (upper.startsWith("ERP")) {
     return { type: "ENA Study", database: "ENA" };
+  }
+
+  if (upper.startsWith("DRP") || upper.startsWith("PRJDB")) {
+    return { type: "DDBJ DRA Study", database: "DDBJ" };
+  }
+
+  if (
+    upper.startsWith("CRA") ||
+    upper.startsWith("CRX") ||
+    upper.startsWith("CRR") ||
+    upper.startsWith("HRA") ||
+    upper.startsWith("HRX") ||
+    upper.startsWith("HRR") ||
+    upper.startsWith("PRJCA") ||
+    upper.startsWith("SAMC")
+  ) {
+    return { type: "GSA Study", database: "GSA" };
   }
 
   return { type: "SRA Study", database: "SRA" };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { accession } = await params;
+  const accession = (await params).accession.toUpperCase();
   const title = await fetchProjectSocialTitle(accession);
   const { type: projectType, database } = detectProjectType(accession);
 
@@ -73,7 +94,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProjectLayout({ children, params }: Props) {
-  const { accession } = await params;
+  const accession = (await params).accession.toUpperCase();
   const title = await fetchProjectSocialTitle(accession);
   const { type: projectType, database } = detectProjectType(accession);
   const description = `Explore ${projectType} ${accession}: ${title}. View unified metadata, samples, experiments, and similar projects on seqout.`;

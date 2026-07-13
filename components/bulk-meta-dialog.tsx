@@ -88,7 +88,9 @@ export default function BulkMetaDialog() {
 
   const hasInvalidAccessions =
     accLines.length > 0 &&
-    accLines.some((a) => !/^(GSE|SRP|ERP|DRP|PRJNA)\d+/i.test(a));
+    accLines.some(
+      (a) => !/^((GSE|SRP|ERP|DRP|PRJNA)\d+|E-[A-Z]+-\d+)/i.test(a),
+    );
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>

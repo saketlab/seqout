@@ -37,7 +37,7 @@ export default function AuthorsIndexPage() {
           style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
         >
           Enter a researcher&rsquo;s name to see every dataset they authored
-          across GEO, SRA, ENA, and ArrayExpress.
+          across GEO, SRA, ENA, GSA, and ArrayExpress.
         </Text>
 
         <form

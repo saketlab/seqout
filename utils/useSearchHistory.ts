@@ -5,7 +5,7 @@ import { getProjectShortUrl } from "./shortUrl";
 
 const HISTORY_KEY = "searchHistory";
 const MAX_HISTORY = 5;
-const VALID_DATABASES = new Set(["sra", "geo", "arrayexpress"]);
+const VALID_DATABASES = new Set(["sra", "geo", "arrayexpress", "gsa"]);
 
 const buildSearchUrl = (query: string, db?: string | null) => {
   const params = new URLSearchParams();

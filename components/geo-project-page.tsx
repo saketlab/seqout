@@ -25,9 +25,10 @@ import {
   TABLE_PAGE_SIZE,
   truncatableColDef,
 } from "@/lib/ag-grid";
+import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson, getJsonWithTotal } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
-import { DB_COLOR_MAP } from "@/utils/db-colors";
+import { DB_COLOR_MAP, dbForAccession } from "@/utils/db-colors";
 import {
   buildCurlCommand,
   buildSupplementaryDownloadScript,
@@ -438,7 +439,11 @@ export default function GeoProjectPage() {
   const { resolvedTheme } = useTheme();
   const { showToast } = useToast();
   const accession = params.accession as string | undefined;
-  const isArrayExpress = accession?.toUpperCase().startsWith("E-") ?? false;
+  const isEAccession = accession?.toUpperCase().startsWith("E-") ?? false;
+  const isGea = /^E-GEAD-\d+$/.test(accession?.toUpperCase() ?? "");
+  const isArrayExpress = isEAccession && !isGea;
+  const geaExternalUrl =
+    isGea && accession ? (getExternalArchiveUrl(accession)?.url ?? null) : null;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const [isDownloadingAllSupplementary, setIsDownloadingAllSupplementary] =
     useState(false);
@@ -548,7 +553,7 @@ export default function GeoProjectPage() {
       projectAliases.filter((alias) => alias.toUpperCase().startsWith("E-")),
     [projectAliases],
   );
-  const similarGseAccession = isArrayExpress
+  const similarGseAccession = isEAccession
     ? (linkedGeoSeriesAliases[0] ?? null)
     : null;
   const linkedSraAliases = React.useMemo(
@@ -571,12 +576,10 @@ export default function GeoProjectPage() {
       }),
     [projectAliases],
   );
-  // ArrayExpress pages: borrow similarity graph / supplementary / fastq from a
-  // linked GSE, else a linked SRA study. Samples stay on a GEO-compatible
-  // accession (the GEO series endpoint can't serve an SRA study).
+  // must stay a GEO accession: the GEO series endpoint cannot serve an SRA study
   const borrowedAccession =
     similarGseAccession ??
-    (isArrayExpress ? (linkedSraAliases[0] ?? null) : null);
+    (isEAccession ? (linkedSraAliases[0] ?? null) : null);
   const { data: borrowedProject } = useQuery({
     queryKey: ["project", borrowedAccession],
     queryFn: () => fetchProject(borrowedAccession),
@@ -1406,7 +1409,13 @@ export default function GeoProjectPage() {
             <Flex justify={"start"} align="center" gap="2" wrap="wrap">
               <Badge
                 size={{ initial: "2", md: "3" }}
-                color={isArrayExpress ? "gold" : undefined}
+                color={
+                  isGea
+                    ? DB_COLOR_MAP.gea.radix
+                    : isArrayExpress
+                      ? "gold"
+                      : undefined
+                }
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >
@@ -1440,7 +1449,7 @@ export default function GeoProjectPage() {
                 <a key={`sra-${alias}`} href={`/p/${alias}`}>
                   <Badge
                     size={{ initial: "2", md: "3" }}
-                    color={DB_COLOR_MAP.sra.radix}
+                    color={DB_COLOR_MAP[dbForAccession(alias) ?? "sra"].radix}
                     style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                     className="seqout-accession"
                   >
@@ -1458,7 +1467,10 @@ export default function GeoProjectPage() {
                   <a key={`ae-${alias}`} href={`/p/${alias}`}>
                     <Badge
                       size={{ initial: "2", md: "3" }}
-                      color={DB_COLOR_MAP.arrayexpress.radix}
+                      color={
+                        DB_COLOR_MAP[dbForAccession(alias) ?? "arrayexpress"]
+                          .radix
+                      }
                       style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                       className="seqout-accession"
                     >
@@ -1467,7 +1479,7 @@ export default function GeoProjectPage() {
                     </Badge>
                   </a>
                 ))}
-              {isArrayExpress &&
+              {isEAccession &&
                 linkedGeoSeriesAliases.map((alias) => (
                   <a key={`gse-${alias}`} href={`/p/${alias}`}>
                     <Badge
@@ -1509,9 +1521,10 @@ export default function GeoProjectPage() {
                 })()}
               <a
                 href={
-                  isArrayExpress
+                  geaExternalUrl ??
+                  (isArrayExpress
                     ? `https://www.ebi.ac.uk/biostudies/ArrayExpress/studies/${accession}/sdrf`
-                    : `https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${accession}`
+                    : `https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${accession}`)
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1519,15 +1532,19 @@ export default function GeoProjectPage() {
                 <Badge
                   size={{ initial: "2", md: "3" }}
                   color={
-                    isArrayExpress
-                      ? DB_COLOR_MAP.arrayexpress.radix
-                      : DB_COLOR_MAP.geo.radix
+                    isGea
+                      ? DB_COLOR_MAP.gea.radix
+                      : isArrayExpress
+                        ? DB_COLOR_MAP.arrayexpress.radix
+                        : DB_COLOR_MAP.geo.radix
                   }
                   style={{ whiteSpace: "nowrap" }}
                 >
-                  {isArrayExpress
-                    ? "Visit ArrayExpress page"
-                    : "Visit GEO page"}{" "}
+                  {isGea
+                    ? "Visit DDBJ GEA page"
+                    : isArrayExpress
+                      ? "Visit ArrayExpress page"
+                      : "Visit GEO page"}{" "}
                   <ExternalLinkIcon />
                 </Badge>
               </a>
