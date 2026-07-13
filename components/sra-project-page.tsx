@@ -37,7 +37,7 @@ import {
 } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
-import { DB_COLOR_MAP } from "@/utils/db-colors";
+
 import { fileUrl } from "@/utils/fileUrl";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {

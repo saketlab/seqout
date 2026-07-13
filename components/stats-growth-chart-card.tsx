@@ -143,7 +143,7 @@ export default function StatsGrowthChartCard() {
         events: chartFooterEvents,
       },
       title: {
-        text: `Database Growth — ${mode === "bases" ? "Data Volume" : mode === "projects" ? "Projects" : "Experiments"}`,
+        text: `Database growth: ${mode === "bases" ? "data volume" : mode === "projects" ? "projects" : "experiments"}`,
         align: "left",
         style: {
           fontSize: "16px",
@@ -153,7 +153,7 @@ export default function StatsGrowthChartCard() {
         },
       },
       subtitle: {
-        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} counts across GEO, SRA, ArrayExpress, ENA & GSA`,
+        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} counts across GEO, SRA, ENA, ArrayExpress, GSA, DDBJ DRA & DDBJ GEA`,
         align: "left",
         style: {
           fontSize: "12px",

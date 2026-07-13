@@ -107,11 +107,23 @@ export const DB_LABELS: Record<string, string> = {
   arrayexpress: "ArrayExpress",
   ena: "ENA",
   gsa: "GSA",
-  ddbj: "DDBJ",
+  ddbj: "DDBJ DRA",
   gea: "DDBJ GEA",
   sra_fastq_bytes: "SRA (FASTQ)",
   sra_sra_bytes: "SRA (SRA archive)",
 };
+
+/** The sources `/search?db=` dispatches to. Order is the order the picker lists them. */
+export const SEARCH_DBS = [
+  "geo",
+  "sra",
+  "ena",
+  "arrayexpress",
+  "gsa",
+  "ddbj",
+  "gea",
+] as const;
+export type SearchDb = (typeof SEARCH_DBS)[number];
 
 export function dbForAccession(accession: string): DbSource | null {
   const a = accession.toUpperCase();

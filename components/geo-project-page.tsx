@@ -29,7 +29,7 @@ import {
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson, getJsonWithTotal } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
-import { DB_COLOR_MAP, dbForAccession } from "@/utils/db-colors";
+import { dbForAccession } from "@/utils/db-colors";
 import {
   buildCurlCommand,
   buildSupplementaryDownloadScript,

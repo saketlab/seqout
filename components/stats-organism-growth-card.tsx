@@ -210,8 +210,8 @@ export default function StatsOrganismGrowthCard() {
       },
       title: {
         text: selectedCommonName
-          ? `Organism Growth — ${selectedCommonName.charAt(0).toUpperCase() + selectedCommonName.slice(1)} (${selectedOrganism})`
-          : `Organism Growth — ${selectedOrganism}`,
+          ? `Organism growth: ${selectedCommonName.charAt(0).toUpperCase() + selectedCommonName.slice(1)} (${selectedOrganism})`
+          : `Organism growth: ${selectedOrganism}`,
         align: "left",
         style: {
           fontSize: "16px",
