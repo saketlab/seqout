@@ -17,6 +17,7 @@ import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { dbColorForArchive } from "@/utils/db-colors";
+import { fileUrl } from "@/utils/fileUrl";
 import { formatBytes } from "@/utils/format";
 import {
   CheckIcon,
@@ -505,7 +506,7 @@ export function RunsSection({
                   return (
                     <Flex key={ftp} align="center" gap="2">
                       <Link
-                        href={`https://${ftp}`}
+                        href={fileUrl(ftp)}
                         target="_blank"
                         rel="noopener noreferrer"
                         size="1"

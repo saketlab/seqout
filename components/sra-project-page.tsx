@@ -26,6 +26,7 @@ import {
   truncatableColDef,
   wrapColDef,
 } from "@/lib/ag-grid";
+import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import {
   getJson,
   getJsonOrNull,
@@ -35,6 +36,7 @@ import {
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { DB_COLOR_MAP } from "@/utils/db-colors";
+import { fileUrl } from "@/utils/fileUrl";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
   makeOrganismPostSort,
@@ -591,7 +593,7 @@ export function DownloadFastqSection({
             run.run_alias || "",
             run.experiment_accession || "",
             run.library_layout || "",
-            `https://${url}`,
+            fileUrl(url),
             bytes[i] || "",
             md5s[i] || "",
             sraLiteUrl,
@@ -680,7 +682,7 @@ export function DownloadFastqSection({
           ? run.fastq_bytes.split(";").filter(Boolean)
           : [];
         return ftps.map((ftp, i) => ({
-          url: `https://${ftp}`,
+          url: fileUrl(ftp),
           filename: ftp.split("/").pop() || ftp,
           dirpath,
           md5: md5s[i] || "",
@@ -915,7 +917,7 @@ export function DownloadFastqSection({
                   return (
                     <Flex key={ftp} align="center" gap="2">
                       <Link
-                        href={`https://${ftp}`}
+                        href={fileUrl(ftp)}
                         target="_blank"
                         rel="noopener noreferrer"
                         size="1"
@@ -1034,9 +1036,7 @@ export function DownloadFastqSection({
                 // SRA FTP fallback
                 if (entries.length === 0 && row.sra_ftp) {
                   entries.push({
-                    url: row.sra_ftp.startsWith("ftp://")
-                      ? row.sra_ftp
-                      : `https://${row.sra_ftp}`,
+                    url: fileUrl(row.sra_ftp),
                     bytes: row.sra_bytes,
                     badge: "SRA",
                     color: "gray",
@@ -1788,24 +1788,35 @@ export default function ProjectPage() {
   const isPrjAccession = accessionUpper?.startsWith("PRJ") ?? false;
   // GSA (CNCB-NGDC): CRA = open archive, HRA = human archive.
   const isGsaAccession = /^(CRA|HRA)\d+$/.test(accessionUpper ?? "");
+  // DDBJ DRA: D-namespace studies live on ddbj.nig.ac.jp, not NCBI Trace.
+  const isDdbjAccession = /^(DR[PXRS]|PRJDB)\d+$/.test(accessionUpper ?? "");
   const gsaStudyUrl = accessionUpper?.startsWith("HRA")
     ? `https://ngdc.cncb.ac.cn/gsa-human/browse/${accession}`
     : `https://ngdc.cncb.ac.cn/gsa/browse/${accession}`;
+  const ddbjStudyUrl =
+    accession && isDdbjAccession
+      ? (getExternalArchiveUrl(accession)?.url ?? null)
+      : null;
   const externalStudyUrl = isGsaAccession
     ? gsaStudyUrl
-    : accession && isPrjAccession
-      ? `https://www.ebi.ac.uk/ena/browser/view/${accession}`
-      : `https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`;
+    : (ddbjStudyUrl ??
+      (accession && isPrjAccession
+        ? `https://www.ebi.ac.uk/ena/browser/view/${accession}`
+        : `https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`));
   const externalStudyLabel = isGsaAccession
     ? "Visit GSA page"
-    : isPrjAccession
-      ? "Visit ENA page"
-      : "Visit SRA page";
+    : isDdbjAccession
+      ? "Visit DDBJ page"
+      : isPrjAccession
+        ? "Visit ENA page"
+        : "Visit SRA page";
   const externalStudyColor = isGsaAccession
     ? DB_COLOR_MAP.gsa.radix
-    : isPrjAccession
-      ? DB_COLOR_MAP.ena.radix
-      : DB_COLOR_MAP.sra.radix;
+    : isDdbjAccession
+      ? DB_COLOR_MAP.ddbj.radix
+      : isPrjAccession
+        ? DB_COLOR_MAP.ena.radix
+        : DB_COLOR_MAP.sra.radix;
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const [isBioprojectCopied, setIsBioprojectCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
@@ -2320,11 +2331,13 @@ export default function ProjectPage() {
                 color={
                   isGsaAccession
                     ? "tomato"
-                    : isPrjAccession
-                      ? "jade"
-                      : isArrayExpressAccession
-                        ? "gold"
-                        : "brown"
+                    : isDdbjAccession
+                      ? DB_COLOR_MAP.ddbj.radix
+                      : isPrjAccession
+                        ? "jade"
+                        : isArrayExpressAccession
+                          ? "gold"
+                          : "brown"
                 }
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"

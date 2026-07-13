@@ -20,6 +20,10 @@ function detectProjectType(accession: string): {
 } {
   const upper = accession.toUpperCase();
 
+  if (/^E-GEAD-\d+$/.test(upper)) {
+    return { type: "DDBJ GEA Experiment", database: "DDBJ GEA" };
+  }
+
   if (upper.startsWith("E-")) {
     return { type: "ArrayExpress Experiment", database: "ArrayExpress" };
   }
@@ -28,8 +32,12 @@ function detectProjectType(accession: string): {
     return { type: "GEO Series", database: "GEO" };
   }
 
-  if (upper.startsWith("ERP") || upper.startsWith("DRP")) {
+  if (upper.startsWith("ERP")) {
     return { type: "ENA Study", database: "ENA" };
+  }
+
+  if (upper.startsWith("DRP") || upper.startsWith("PRJDB")) {
+    return { type: "DDBJ DRA Study", database: "DDBJ" };
   }
 
   if (

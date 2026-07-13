@@ -31,8 +31,8 @@ export async function generateMetadata({
     };
   }
 
-  // ponytail: no count fetch here — it duplicated the client's search query and
-  // blocked the URL update on every navigation. The body shows the real total.
+  // No count fetch: it duplicated the client's search query and blocked the URL
+  // update on every navigation. The body shows the real total.
   const description = `Search results for "${q}" across GEO, SRA, ENA, GSA & ArrayExpress sequencing datasets.`;
 
   const title = `seqout: ${q} - Search results`;

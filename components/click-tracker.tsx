@@ -6,7 +6,7 @@ import { useEffect } from "react";
 // One delegated listener for the whole app — reports every button/link click to
 // GA4 with a human-readable label, so we get "what's getting clicked" without
 // touching each button. Capture phase so it fires even if a handler stops
-// propagation. ponytail: label is best-effort (aria-label > text > href).
+// propagation. Label is best-effort (aria-label > text > href).
 export default function ClickTracker() {
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
