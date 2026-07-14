@@ -2,14 +2,16 @@
 import { state } from "./state.js";
 import { DEFAULT_BG_OPACITY, DEFAULT_BG_SIZE, DEFAULT_BG_COLOR } from "./constants.js";
 
-// Categorical color encoding for the current cluster layer. The layer column is
-// dictionary-encoded, so deepscatter assigns distinct colors per cluster via an
-// ordinal scale over this domain: "-1" (noise) → range[0] (grey), cluster id i →
-// range[i+1]. The domain values are strings to match the dictionary values.
-export function clusterColorEncoding(colors) {
-  const domain = ["-1"];
-  for (let i = 0; i <= state.maxClusterId; i++) domain.push(String(i));
-  return { field: state.colorField, range: colors, domain };
+// Cluster columns arrive dictionary-encoded. deepscatter's categorical color
+// texture holds only 4,096 entries, but the finer Leiden levels contain far more
+// clusters. The engine creates a numeric transform for each layer, allowing the
+// GPU's continuous color texture to cover every advertised clustering level.
+export function clusterColorEncoding() {
+  return {
+    field: state.colorValueField,
+    domain: [0, Math.max(1, state.maxClusterId + 1)],
+    range: "Turbo",
+  };
 }
 
 export function pointInPolygon(px, py, verts) {
@@ -55,7 +57,7 @@ export function restoreForeground(sp) {
   });
 }
 
-export function applyColorEncoding(sp, clusterColors) {
+export function applyColorEncoding(sp) {
   const encoding = {};
 
   if (state.currentSearchName) {
@@ -68,7 +70,7 @@ export function applyColorEncoding(sp, clusterColors) {
 
   encoding.color =
     state.colorByClusters && state.colorField
-      ? clusterColorEncoding(clusterColors)
+      ? clusterColorEncoding()
       : { constant: "#4CAF50" };
 
   sp.plotAPI({ encoding });

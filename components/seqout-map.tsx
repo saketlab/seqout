@@ -15,6 +15,7 @@ import {
   MagnifyingGlassIcon,
   MinusIcon,
   PlusIcon,
+  TokensIcon,
   TrashIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
@@ -53,6 +54,9 @@ const useIsoLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const DEEPSCATTER_ID = "seqout-deepscatter";
+// Cap on the cluster picker's list. The fine layers have tens of thousands of
+// clusters, so at those zooms the list is the N biggest, not all of them.
+const CLUSTER_LIST_LIMIT = 2000;
 const SIDEBAR_WIDTH = 272;
 const MOBILE_MAP_BREAKPOINT = 768;
 const DESKTOP_RENDER_LIMITS = {
@@ -364,9 +368,11 @@ export default function MapGraph() {
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
-  // Cluster picker: the named clusters of the coarsest layer. Selecting some hides
-  // every point outside them (a facet filter on that layer's tile column).
+  // Cluster picker: the named clusters of the layer the current zoom is on (the
+  // same layer the points are colored and labeled by). Selecting some hides every
+  // point outside them (a facet filter on that layer's tile column).
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [clusterLevel, setClusterLevel] = useState<string | null>(null);
   const [clusterQuery, setClusterQuery] = useState("");
   const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
 
@@ -420,6 +426,46 @@ export default function MapGraph() {
     },
     [],
   );
+
+  // Point the picker at a cluster layer: list its clusters (whole layer — the
+  // labels endpoint returns everything when no bbox is passed). Called by the
+  // engine whenever the zoom crosses into a new layer.
+  const clusterCacheRef = useRef(new Map<string, Cluster[]>());
+  const loadClusterLevel = useCallback(async (level: string | null) => {
+    // Cluster ids are per-layer, so a level switch would invalidate an active
+    // selection (and the fly-to on select changes the zoom → the level). Stay put
+    // until the user clears; then the picker follows the zoom again.
+    if (selectedClustersRef.current.length > 0) return;
+    if (!level || level === clusterLevelRef.current) return;
+    clusterLevelRef.current = level;
+    setClusterLevel(level);
+
+    const cached = clusterCacheRef.current.get(level);
+    if (cached) {
+      setClusters(cached);
+      return;
+    }
+    try {
+      const fc: {
+        features: {
+          geometry: { coordinates: [number, number] };
+          properties: { label: string; cluster_id: number };
+        }[];
+      } = await fetch(
+        `${SERVER_URL}/map/labels?level=${level}&limit=${CLUSTER_LIST_LIMIT}`,
+      ).then((r) => r.json());
+      const list: Cluster[] = fc.features.map((f) => ({
+        id: String(f.properties.cluster_id),
+        label: f.properties.label,
+        x: f.geometry.coordinates[0],
+        y: f.geometry.coordinates[1],
+      }));
+      clusterCacheRef.current.set(level, list);
+      if (clusterLevelRef.current === level) setClusters(list); // ignore stale
+    } catch (err) {
+      console.error("Failed to load clusters:", err);
+    }
+  }, []);
 
   useEffect(() => {
     if (!layoutReady) return;
@@ -514,11 +560,17 @@ export default function MapGraph() {
           backgroundColor: backgroundForTheme(themeRef.current),
           labelFont: GeistSans.style.fontFamily,
           serverUrl: SERVER_URL,
+          // The engine owns the zoom→layer mapping; it tells us which layer the
+          // points are colored/labeled by so the picker can list that same layer.
+          onColorLevel: (level: string | null) => {
+            void loadClusterLevel(level);
+          },
           ...renderLimits,
         });
         if (destroyed) return;
 
         spRef.current = ctx.sp;
+        (window as unknown as { __sp: unknown }).__sp = ctx.sp; // DBG
         ctxRef.current = {
           countries: ctx.countries,
           clusterColors: ctx.clusterColors,
@@ -527,17 +579,13 @@ export default function MapGraph() {
         if (colorByClustersRef.current) {
           engine.setColorByClusters(ctx.sp, true, ctx.clusterColors);
         }
-        // Coarsest cluster layer that the tiles actually carry as a column — the
-        // backend bakes only the finest few, and filtering on a missing column
-        // would hide every point.
-        const tileCols = engine.tileColumns(ctx.sp);
-        const level =
-          [...meta.levels].reverse().find((l) => tileCols.has(l)) ?? null;
-        clusterLevelRef.current = level;
+        // A surviving selection filters on the layer it was made at (kept in
+        // clusterLevelRef, which onColorLevel only moves while nothing is selected).
         if (
           selectedCountriesRef.current.length > 0 ||
           selectedClustersRef.current.length > 0
         ) {
+          const level = clusterLevelRef.current;
           engine.applyFilters(ctx.sp, {
             countries: selectedCountriesRef.current,
             ...(level ? { [level]: selectedClustersRef.current } : {}),
@@ -546,28 +594,6 @@ export default function MapGraph() {
         setCountries(ctx.countries);
         setFacets(facetList);
         setLoading(false);
-
-        // Named clusters for the picker — the whole coarsest layer (bbox omitted).
-        if (level) {
-          const fc: {
-            features: {
-              geometry: { coordinates: [number, number] };
-              properties: { label: string; cluster_id: number };
-            }[];
-          } = await fetch(
-            `${SERVER_URL}/map/labels?level=${level}&limit=2000`,
-            { signal: controller.signal },
-          ).then((r) => r.json());
-          if (destroyed) return;
-          setClusters(
-            fc.features.map((f) => ({
-              id: String(f.properties.cluster_id),
-              label: f.properties.label,
-              x: f.geometry.coordinates[0],
-              y: f.geometry.coordinates[1],
-            })),
-          );
-        }
       } catch (err) {
         if (destroyed) return;
         console.error("Failed to load map:", err);
@@ -586,7 +612,7 @@ export default function MapGraph() {
       document.getElementById(DEEPSCATTER_ID)?.replaceChildren();
       spRef.current = null;
     };
-  }, [layoutReady, isMobile, mapSizeRevision]);
+  }, [layoutReady, isMobile, mapSizeRevision, loadClusterLevel]);
 
   useEffect(() => {
     const sp = spRef.current;
@@ -693,6 +719,10 @@ export default function MapGraph() {
     (id: string, checked: boolean) => {
       setSelectedClusters((prev) => {
         const next = checked ? [...prev, id] : prev.filter((c) => c !== id);
+        // Set the ref here, not just in its effect: the fly-to below fires zoom
+        // events synchronously, and loadClusterLevel reads this ref to decide
+        // whether the picker's layer is locked.
+        selectedClustersRef.current = next;
         applySelections(selectedCountriesRef.current, next);
         // Fly to the selection — a cluster is a sliver of the map, so filtering
         // alone would just look like an empty view.
@@ -709,8 +739,12 @@ export default function MapGraph() {
 
   const clearClusters = useCallback(() => {
     setSelectedClusters([]);
+    selectedClustersRef.current = [];
     applySelections(selectedCountriesRef.current, []);
-  }, [applySelections]);
+    // Unlocked again — catch the picker up to wherever the zoom drifted to while
+    // the selection held it in place.
+    void loadClusterLevel(engineRef.current?.colorLevel() ?? null);
+  }, [applySelections, loadClusterLevel]);
 
   const onClearLasso = useCallback(() => {
     const sp = spRef.current;
@@ -1338,7 +1372,7 @@ export default function MapGraph() {
             <Flex direction="column" gap="2">
               <Flex align="center" justify="between" gap="2">
                 <Flex align="center" gap="2">
-                  <GroupIcon />
+                  <TokensIcon />
                   <Text size="2">Clusters</Text>
                 </Flex>
                 {selectedClusters.length > 0 && (

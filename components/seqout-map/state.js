@@ -8,7 +8,10 @@ export const state = {
   currentLassoName: null,
   lassoDataVerts: [],
   clusterColors: [],
-  colorField: null, // tile column for the current zoom's cluster layer
+  colorField: null, // source tile column for the current zoom's cluster layer
+  // Numeric transform of colorField. This avoids deepscatter's 4,096-entry
+  // categorical-color texture, which cannot represent the fine cluster layers.
+  colorValueField: null,
   maxClusterId: 0, // max cluster id at that layer (color domain)
   mapExtent: null,
 };
@@ -24,6 +27,7 @@ export function resetState() {
   state.lassoDataVerts = [];
   state.clusterColors = [];
   state.colorField = null;
+  state.colorValueField = null;
   state.maxClusterId = 0;
   state.mapExtent = null;
 }

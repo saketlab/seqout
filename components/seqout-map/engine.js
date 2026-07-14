@@ -84,6 +84,12 @@ const labelColorFor = (bg) => (bg === "#ffffff" ? "#1a1a1a" : "#ffffff");
 // faint near-background grey — noise fades out and the colored clusters pop.
 const noiseColorFor = (bg) => (bg === "#ffffff" ? "#f0f0f0" : "#141414");
 
+// Keep the source cluster id separate from the numeric field sent to the color
+// scale. Cluster ids are stored as Arrow dictionaries in the tiles; color
+// transforms turn them into numbers so all eight levels can use a continuous
+// GPU palette instead of the 4,096-category ordinal texture.
+const colorValueFieldFor = (level) => `__seqout_color_${level}`;
+
 // deepscatter draws cluster labels onto a canvas and hardcodes a 12px shadowBlur,
 // a grey strokeText outline, and white fill text every frame. No option exposes
 // any of these, so wrap the label renderer's ctx: clamp shadowBlur to 0, drop
@@ -127,7 +133,6 @@ export async function createMap({
   tilesUrl,
   labelsBase,
   clusterMax,
-  clusterCount,
   levels,
   extent,
   countries,
@@ -135,6 +140,7 @@ export async function createMap({
   backgroundColor,
   labelFont,
   serverUrl,
+  onColorLevel,
   maxPoints = 1000000,
   labelLimit = LABEL_LIMIT,
   pointSize = 0.1,
@@ -148,10 +154,12 @@ export async function createMap({
 
   // Points are colored by their cluster at the layer matching the current zoom
   // (a per-layer sidecar column in the tiles, kept in state.colorField). Seed it
-  // with the coarsest labeled layer for the default view; the zoom listener keeps
-  // it in sync. cluster ids run [0, max] and -1 = noise (grey, first palette slot).
-  state.colorField =
-    levels[Math.min(COLOR_LAYER_MAX, levels.length - 1)] ?? null;
+  // with the coarsest layer for the default view; the zoom listener keeps it in
+  // sync. cluster ids run [0, max] and -1 = noise (grey, first palette slot).
+  state.colorField = levels[levels.length - 1] ?? null;
+  state.colorValueField = state.colorField
+    ? colorValueFieldFor(state.colorField)
+    : null;
   state.maxClusterId = (state.colorField && clusterMax[state.colorField]) || 0;
 
   // Index 0 of the range maps to cluster_id -1 (noise) → faint background grey so
@@ -196,6 +204,25 @@ export async function createMap({
       color: { constant: "#4CAF50" },
     },
   });
+
+  // Register transforms once. Deepscatter applies them lazily to both existing
+  // and newly loaded tiles whenever the active color field changes.
+  for (const level of levels) {
+    const maxClusterId = Math.max(1, clusterMax[level] ?? 1);
+    sp.deeptable.register_transformation(
+      colorValueFieldFor(level),
+      (row) => {
+        const id = Number(row[level]);
+        if (!Number.isFinite(id) || id < 0) return 0;
+        // Leiden ids are assigned sequentially, so using their raw value puts
+        // similarly numbered clusters into nearly identical shades. A stable
+        // multiplicative hash distributes ids across the whole palette while
+        // preserving the same color for a cluster across tiles and sessions.
+        return 1 + ((Math.imul(id, 2654435761) >>> 0) / 0x100000000) * maxClusterId;
+      },
+      [level],
+    );
+  }
 
   labelColor = labelColorFor(backgroundColor);
 
@@ -320,7 +347,7 @@ export async function createMap({
     extent,
     labelFont,
     clusterMax,
-    clusterCount,
+    onColorLevel,
     labelLimit,
   });
 
@@ -353,24 +380,13 @@ const LABEL_DEBOUNCE_MS = 220;
 const LABEL_LIMIT = 400;
 const LABEL_BBOX_MARGIN = 0.25; // prefetch slightly past the screen for smooth pans
 
-// Only these cluster layers ever get labels (cluster_l0…l4, by array index =
-// cluster_lN suffix). When the zoom is coarser than l4, no labels are shown at
-// all — labels appear only once the user is zoomed into the l0…l4 range.
-const LABEL_LAYER_MIN = 0; // finest labeled layer (cluster_l0)
-const LABEL_LAYER_MAX = 4; // coarsest labeled layer (cluster_l4)
-// deepscatter packs categorical colors into a 4096-tall texture indexed by the
-// column's dictionary, so a layer with more clusters than this can't be colored
-// (its points would overflow the texture → black). Coloring won't go finer than
-// the finest layer under this limit.
-const COLOR_CATEGORY_LIMIT = 4096;
-// Coarsest layer baked into the tiles as a color column — mirrors _COLOR_LAYER_COUNT
-// in the backend (main.py), which bakes the finest N layers only. Labels go coarser
-// (LABEL_LAYER_MAX), but coloring by a layer with no tile column paints nothing.
-const COLOR_LAYER_MAX = 3;
+// Every cluster layer the backend advertises gets labels and color, one layer
+// per 2x zoom (array index = cluster_lN suffix). Zoomed out past the coarsest,
+// no labels are shown.
 
-// Map the current zoom to a labeled layer (one layer per 2x zoom). Returns
-// level: null when zoomed out past l3, so nothing is shown unless the user is
-// actually within the l0…l3 zoom range.
+// Map the current zoom to a cluster layer (one layer per 2x zoom). Returns
+// level: null when zoomed out past the coarsest layer, so nothing is labeled
+// until the user is inside the layer stack's zoom range.
 function computeLevelAndBbox(sp, levels, extent) {
   const corners = sp.zoom.current_corners();
   const vminx = corners.x[0];
@@ -391,16 +407,15 @@ function computeLevelAndBbox(sp, levels, extent) {
 
   const L = levels.length;
   if (L === 0) return { level: null, colorIdx: null, ...bbox };
-  const showMax = Math.min(LABEL_LAYER_MAX, L - 1);
-  const showMin = Math.min(LABEL_LAYER_MIN, showMax);
-  // Anchored so depth 0 (fully zoomed out) lands one layer above the window → no
+  const showMax = L - 1; // coarsest layer
+  // Anchored so depth 0 (fully zoomed out) lands one layer above the stack → no
   // labels; each zoom-in step moves one layer finer.
   const idx = showMax + 1 - Math.round(depth);
-  // colorIdx: same mapping but clamped into the window (never null), so colored
+  // colorIdx: same mapping but clamped into the stack (never null), so colored
   // points keep a sensible layer even when labels are hidden (zoomed out). The
   // caller may clamp it further to a layer small enough for the color texture.
-  const colorIdx = Math.max(showMin, Math.min(idx, showMax));
-  const level = idx > showMax ? null : levels[colorIdx]; // coarser than l3 → no labels
+  const colorIdx = Math.max(0, Math.min(idx, showMax));
+  const level = idx > showMax ? null : levels[colorIdx]; // fully zoomed out → no labels
   return { level, colorIdx, ...bbox };
 }
 
@@ -517,7 +532,7 @@ function setupDynamicLabels({
   extent,
   labelFont,
   clusterMax,
-  clusterCount,
+  onColorLevel,
   labelLimit = LABEL_LIMIT,
 }) {
   // Dedupe refetches against the data scale: skip if the layer and a coarsely
@@ -527,30 +542,29 @@ function setupDynamicLabels({
     `${q.level}|${Math.round(q.minx / bucket)}|${Math.round(q.miny / bucket)}|` +
     `${Math.round(q.maxx / bucket)}|${Math.round(q.maxy / bucket)}`;
 
-  // Finest layer index whose cluster count fits deepscatter's categorical color
-  // texture (COLOR_CATEGORY_LIMIT). Finer layers have more clusters and would
-  // overflow it → black points, so coloring stops getting finer here (labels
-  // still do). +1 leaves room for the noise (-1) category.
-  const colorFloor = (() => {
-    const top = Math.min(COLOR_LAYER_MAX, levels.length - 1);
-    for (let i = 0; i <= top; i++) {
-      if ((clusterCount[levels[i]] ?? Infinity) + 1 <= COLOR_CATEGORY_LIMIT)
-        return i;
-    }
-    return top;
-  })();
+  const top = levels.length - 1;
+  const colorFloor = 0;
 
-  // Point coloring follows the zoom layer just like labels, but never finer than
-  // colorFloor. When the color layer changes, switch the encoding field + domain
-  // (only repaints if coloring is on).
+  // Coarsest layer we can color/filter by: it has to exist as a tile column (the
+  // backend bakes the finest _COLOR_LAYER_COUNT layers, which may be fewer than
+  // /map/meta advertises — coloring by a missing column paints nothing). Resolved
+  // in start(), once a tile is loaded.
+  let colorCeil = top;
+
+  // Point coloring follows the zoom layer just like labels, clamped into
+  // [colorFloor, colorCeil]. When the color layer changes, switch the encoding
+  // field + domain (only repaints if coloring is on) and tell the caller, whose
+  // cluster picker lists that layer.
   const syncColor = (colorIdx) => {
     if (colorIdx == null) return;
     const colorLevel =
-      levels[Math.min(COLOR_LAYER_MAX, Math.max(colorFloor, colorIdx))];
+      levels[Math.min(colorCeil, Math.max(colorFloor, colorIdx))];
     if (!colorLevel || colorLevel === state.colorField) return;
     state.colorField = colorLevel;
+    state.colorValueField = colorValueFieldFor(colorLevel);
     state.maxClusterId = clusterMax[colorLevel] ?? 0;
     if (state.colorByClusters) applyColorEncoding(sp, state.clusterColors);
+    onColorLevel?.(colorLevel);
   };
 
   let timer = null;
@@ -637,6 +651,13 @@ function setupDynamicLabels({
 
   const api = {
     start() {
+      const cols = tileColumns(sp);
+      if (cols.size) {
+        colorCeil = levels.reduce(
+          (best, l, i) => (cols.has(l) ? i : best),
+          colorFloor,
+        );
+      }
       try {
         sp.zoom?.zoomer?.on("zoom.seqoutlabels", onZoom);
       } catch {
@@ -644,6 +665,7 @@ function setupDynamicLabels({
       }
       activeLabels = api;
       run();
+      onColorLevel?.(state.colorField); // seed the caller's picker
     },
     // Re-run the current fetch+filter (e.g. after the country filter changes).
     refresh() {
@@ -697,6 +719,14 @@ export function setBackgroundColor(sp, backgroundColor) {
 // its center, and re-fit. factor < 1 zooms in, > 1 zooms out.
 const ZOOM_DURATION = 300;
 
+// plotAPI zooms don't go through d3-zoom, so the "zoom.seqoutlabels" listener
+// never fires for them — labels and the color/picker layer would stay stuck at
+// whatever the last user-driven zoom left them on. Re-run the layer sync once the
+// animation has settled.
+function resyncAfterZoom() {
+  setTimeout(() => activeLabels?.refresh?.(), ZOOM_DURATION + 50);
+}
+
 export function zoomBy(sp, factor) {
   try {
     const scales = sp.zoom.scales();
@@ -715,6 +745,7 @@ export function zoomBy(sp, factor) {
       zoom: { bbox: { x: [cx - hw, cx + hw], y: [cy - hh, cy + hh] } },
       duration: ZOOM_DURATION,
     });
+    resyncAfterZoom();
   } catch (err) {
     console.warn("zoomBy failed:", err);
   }
@@ -738,6 +769,7 @@ export function zoomToPoints(sp, points) {
     },
     duration: ZOOM_DURATION,
   });
+  resyncAfterZoom();
 }
 
 /** Recenter to the initial view (same box createMap fits on load). */
@@ -752,6 +784,7 @@ export function resetView(sp) {
     zoom: { bbox: { x: [cx - hw, cx + hw], y: [cy - hh, cy + hh] } },
     duration: ZOOM_DURATION,
   });
+  resyncAfterZoom();
 }
 
 /** Resolve the accession for a clicked datum (may require a tile transform). */
@@ -901,6 +934,12 @@ export function tileColumns(sp) {
     console.warn("tileColumns failed:", err);
   }
   return new Set();
+}
+
+// The cluster layer the current zoom is on (what points are colored by, and what
+// the cluster picker lists). Kept in sync by the zoom listener.
+export function colorLevel() {
+  return state.colorField;
 }
 
 export function setColorByClusters(sp, value, clusterColors) {
