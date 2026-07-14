@@ -5,6 +5,7 @@ import {
   exportEnrichedCsv,
   useEnrichedMetadata,
 } from "@/components/enriched-metadata-card";
+import { FirstVisitPing, useFirstVisit } from "@/components/first-visit-ping";
 import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
 import { WrapTextToggle } from "@/components/wrap-text-toggle";
@@ -121,6 +122,9 @@ export default function MetadataTableTabs({
   // Safe to read at init without a hydration mismatch: `activeTab` below is
   // pinned to "original" until the enriched data loads client-side, so the
   // first render is identical regardless of this value.
+  const [seenEnriched, markEnrichedSeen] = useFirstVisit(
+    "seqout-enriched-tab-clicked",
+  );
   const [tab, setTab] = useState<TabValue>(() => {
     if (typeof window === "undefined") return "original";
     const { id, tab: hashTab } = parseSectionHash(window.location.hash);
@@ -168,7 +172,10 @@ export default function MetadataTableTabs({
           {hasEnriched && (
             <Tabs.Root
               value={activeTab}
-              onValueChange={(value) => setTab(value as TabValue)}
+              onValueChange={(value) => {
+                if (value === "enriched") markEnrichedSeen();
+                setTab(value as TabValue);
+              }}
             >
               <Tabs.List size="2">
                 <Tabs.Trigger value="original">
@@ -184,7 +191,7 @@ export default function MetadataTableTabs({
                     />
                   </Flex>
                 </Tabs.Trigger>
-                <Tabs.Trigger value="enriched">
+                <Tabs.Trigger value="enriched" style={{ position: "relative" }}>
                   <Flex gap={"2"} align={"center"}>
                     <MagicWandIcon />
                     <span>Enriched</span>
@@ -196,6 +203,13 @@ export default function MetadataTableTabs({
                       onSelect={setTab}
                     />
                   </Flex>
+                  {/* Inside the box, not hanging off it: Tabs.List is
+                      `overflow-x: auto` and would clip an outset dot. */}
+                  {!seenEnriched && activeTab === "original" && (
+                    <FirstVisitPing
+                      style={{ top: "4px", right: "4px", left: "auto" }}
+                    />
+                  )}
                 </Tabs.Trigger>
               </Tabs.List>
             </Tabs.Root>
