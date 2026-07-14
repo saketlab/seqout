@@ -1,5 +1,6 @@
 import { fetchProjectSocialTitle } from "@/lib/project-og";
 import {
+  type Archive,
   ARCHIVE_CATALOG_URLS as CATALOG_URLS,
   ARCHIVE_LICENSE_URLS as LICENSE_URLS,
   SITE_URL,
@@ -16,7 +17,7 @@ type Props = {
 
 function detectProjectType(accession: string): {
   type: string;
-  database: string;
+  database: Archive;
 } {
   const upper = accession.toUpperCase();
 

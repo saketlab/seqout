@@ -21,36 +21,44 @@ export const DB_ORDER: DbSource[] = [
 
 type DbColor = {
   hex: string;
+  deep: string;
   og: { primary: string; secondary: string; accent: string };
 };
 
 export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   geo: {
     hex: "#00468b",
+    deep: "#00376c",
     og: { primary: "#00468b", secondary: "#00376c", accent: "#7399bf" },
   },
   sra: {
     hex: "#ed0000",
+    deep: "#b90000",
     og: { primary: "#ed0000", secondary: "#b90000", accent: "#f57373" },
   },
   ena: {
     hex: "#42b540",
+    deep: "#30852f",
     og: { primary: "#42b540", secondary: "#338d32", accent: "#97d696" },
   },
   arrayexpress: {
     hex: "#925e9f",
+    deep: "#72497c",
     og: { primary: "#925e9f", secondary: "#72497c", accent: "#c3a6ca" },
   },
   gsa: {
     hex: "#ad002a",
+    deep: "#870021",
     og: { primary: "#ad002a", secondary: "#870021", accent: "#d2738a" },
   },
   dra: {
     hex: "#0099b4",
+    deep: "#00778c",
     og: { primary: "#0099b4", secondary: "#00778c", accent: "#73c7d6" },
   },
   gea: {
     hex: "#fdaf91",
+    deep: "#936554",
     og: { primary: "#fdaf91", secondary: "#c58871", accent: "#fed3c2" },
   },
 };
@@ -65,6 +73,10 @@ export const DB_BADGE_FG: Record<DbSource, { light: string; dark: string }> = {
   dra: { light: "#007489", dark: "#0f9fb8" },
   gea: { light: "#936554", dark: "#fdaf91" },
 };
+
+export const PLATFORM_DBS: DbSource[] = DB_ORDER.filter(
+  (db) => db !== "arrayexpress",
+);
 
 export const DB_COLORS: Record<string, string> = {
   ...(Object.fromEntries(

@@ -11,16 +11,18 @@ import { memo, useState } from "react";
 type ResultCardProps = {
   accession: string;
   title: string | null;
-  summary: string | null;
   updated_at: string | null;
-  journal: string | null;
-  doi: string | null;
-  citation_count: number | null;
-  authors: string | null;
+  summary?: string | null;
+  journal?: string | null;
+  doi?: string | null;
+  citation_count?: number | null;
+  authors?: string | null;
   center_name?: string | null;
   country_code?: string | null;
   href?: string;
   single_cell_modality?: string | null;
+  /** Which archive table linked this row (publication pages). */
+  via?: string | null;
 };
 
 function parseAuthors(authors: string | null): string[] {
@@ -55,9 +57,10 @@ function ResultCard({
   country_code,
   href,
   single_cell_modality,
+  via,
 }: ResultCardProps) {
   const db = dbForAccession(accession);
-  const authorList = parseAuthors(authors);
+  const authorList = parseAuthors(authors ?? null);
   const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
 
   const formattedDate = formatDate(updated_at);
@@ -263,6 +266,11 @@ function ResultCard({
               {single_cell_modality}
             </Badge>
           </Tooltip>
+        )}
+        {via && (
+          <Badge size={"2"} color="gray" variant="outline">
+            via {via}
+          </Badge>
         )}
       </Flex>
     </Flex>

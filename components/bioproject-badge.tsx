@@ -1,3 +1,5 @@
+import DbBadge from "@/components/db-badge";
+import { dbForAccession } from "@/utils/db-colors";
 import { EnterIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Flex } from "@radix-ui/themes";
 
@@ -11,15 +13,16 @@ export default function BioProjectBadge({
   return (
     <Flex align="center" gap="2">
       <a href={`/p/${accession}`}>
-        <Badge
+        <DbBadge
           size={{ initial: "2", md: "3" }}
-          color="green"
+          db={dbForAccession(accession)}
+          variant="solid"
           style={{ cursor: "pointer", whiteSpace: "nowrap" }}
           className="seqout-accession"
         >
           {accession}
           <EnterIcon />
-        </Badge>
+        </DbBadge>
       </a>
       <a
         href={ncbiHref ?? `https://www.ncbi.nlm.nih.gov/bioproject/${accession}`}

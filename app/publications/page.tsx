@@ -2,19 +2,19 @@
 
 import SearchBar from "@/components/search-bar";
 import { ARCHIVE_LIST_TEXT } from "@/utils/constants";
-import { authorHref } from "@/utils/project";
+import { isPmid, pmidHref } from "@/utils/project";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-export default function AuthorsIndexPage() {
+export default function PublicationsIndexPage() {
   const router = useRouter();
-  const [name, setName] = React.useState("");
+  const [pmid, setPmid] = React.useState("");
 
   const go = () => {
-    const next = name.trim();
-    if (next.length >= 2) router.push(authorHref(next));
+    const next = pmid.trim();
+    if (isPmid(next)) router.push(pmidHref(next));
   };
 
   return (
@@ -30,15 +30,15 @@ export default function AuthorsIndexPage() {
         style={{ minHeight: "60vh" }}
       >
         <Heading size="6" align="center">
-          Find projects by author
+          Find projects by publication
         </Heading>
         <Text
           size="2"
           align="center"
           style={{ color: "var(--gray-11)", maxWidth: "32rem" }}
         >
-          Enter a researcher&rsquo;s name to see every dataset they authored
-          across {ARCHIVE_LIST_TEXT}.
+          Enter a PubMed ID to see every dataset linked to that paper across{" "}
+          {ARCHIVE_LIST_TEXT}.
         </Text>
 
         <form
@@ -51,11 +51,12 @@ export default function AuthorsIndexPage() {
           <Flex gap="2">
             <TextField.Root
               size="3"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Author name"
+              value={pmid}
+              onChange={(e) => setPmid(e.target.value)}
+              placeholder="PMID (e.g. 29116155)"
+              inputMode="numeric"
               autoFocus
-              aria-label="Author name"
+              aria-label="PMID"
               style={{ flex: 1 }}
             />
             <Button size="3" type="submit">

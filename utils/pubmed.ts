@@ -1,4 +1,4 @@
-import type { StudyPublication } from "@/components/publication-card";
+import type { StudyPublication } from "@/utils/types";
 
 // Anonymous NCBI E-utilities: 3 req/s cap, no key needed for the handful of
 // PMIDs on one project page. CORS is enabled on eutils.ncbi.nlm.nih.gov.

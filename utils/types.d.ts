@@ -47,3 +47,19 @@ export type SearchResult = {
 };
 
 export type SearchResults = SearchResult[];
+
+export type StudyPublication = {
+  pmid: string | null;
+  title: string | null;
+  journal: string | null;
+  doi: string | null;
+  pub_date: string | number | null;
+  authors: string | null;
+  issn: string | null;
+  citation_count: number | null;
+  journal_h_index: number | null;
+  journal_i10_index: number | null;
+  journal_2yr_mean_citedness: number | null;
+  journal_cited_by_count: number | null;
+  journal_works_count: number | null;
+};

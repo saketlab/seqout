@@ -1,27 +1,21 @@
 "use client";
 
+import EditableHeading from "@/components/editable-heading";
 import { InstituteFilter } from "@/components/institute-filter";
 import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
 import { getJson } from "@/utils/api";
 import { authorHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
-import {
-  InfoCircledIcon,
-  MagnifyingGlassIcon,
-  MixerHorizontalIcon,
-  Pencil1Icon,
-} from "@radix-ui/react-icons";
+import { InfoCircledIcon, MixerHorizontalIcon } from "@radix-ui/react-icons";
 import {
   Box,
   Button,
   Dialog,
   Flex,
-  Heading,
   IconButton,
   Popover,
   Text,
-  TextField,
 } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -68,16 +62,6 @@ function hasInstitute(r: AuthorProject, institute: string): boolean {
 
 export default function AuthorProjectsBody({ name }: { name: string }) {
   const router = useRouter();
-  const [draft, setDraft] = React.useState(name);
-  const [editing, setEditing] = React.useState(false);
-
-  const submit = () => {
-    const next = draft.trim();
-    setEditing(false);
-    if (next.length >= 2 && next !== name) {
-      router.push(authorHref(next));
-    }
-  };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["author-projects", name],
@@ -131,64 +115,14 @@ export default function AuthorProjectsBody({ name }: { name: string }) {
           minWidth="0"
         >
           <Flex align="center" justify="between" gap="2">
-            <Heading size="6">
-              Projects by{" "}
-              <Popover.Root
-                open={editing}
-                onOpenChange={(o) => {
-                  setEditing(o);
-                  if (o) setDraft(name);
-                }}
-              >
-                <Popover.Trigger>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Edit author name"
-                    onKeyDown={(e) =>
-                      (e.key === "Enter" || e.key === " ") && setEditing(true)
-                    }
-                    style={{
-                      cursor: "pointer",
-                      fontStyle: "italic",
-                      textDecoration: "underline",
-                      textDecorationStyle: "dashed",
-                      textUnderlineOffset: 4,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {name}{" "}
-                    <Pencil1Icon
-                      style={{ verticalAlign: "middle", opacity: 0.7 }}
-                    />
-                  </span>
-                </Popover.Trigger>
-                <Popover.Content size="1">
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      submit();
-                    }}
-                  >
-                    <Flex direction="row" gap="2">
-                      <TextField.Root
-                        size="2"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        placeholder="Author name"
-                        autoFocus
-                        aria-label="Author name"
-                      />
-                      <Flex justify="end">
-                        <IconButton type="submit">
-                          <MagnifyingGlassIcon />
-                        </IconButton>
-                      </Flex>
-                    </Flex>
-                  </form>
-                </Popover.Content>
-              </Popover.Root>
-            </Heading>
+            <EditableHeading
+              label="Projects by"
+              value={name}
+              placeholder="Author name"
+              editLabel="Edit author name"
+              isValid={(next) => next.length >= 2}
+              onSubmit={(next) => router.push(authorHref(next))}
+            />
             <Popover.Root>
               <Popover.Trigger>
                 <IconButton aria-label="About name matching">

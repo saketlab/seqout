@@ -9,8 +9,27 @@ type Props = Omit<ComponentProps<typeof Badge>, "color"> & {
 };
 
 /** A Badge in its source's colour. Plain Badge if the source is unknown. */
-export default function DbBadge({ db, className, style, ...rest }: Props) {
-  if (!db) return <Badge className={className} style={style} {...rest} />;
+export default function DbBadge({ db, variant, className, style, ...rest }: Props) {
+  if (!db) {
+    return (
+      <Badge variant={variant} className={className} style={style} {...rest} />
+    );
+  }
+
+  if (variant === "solid") {
+    return (
+      <Badge
+        color="gray"
+        className={className}
+        style={{
+          backgroundColor: DB_COLOR_MAP[db].deep,
+          color: "#fff",
+          ...style,
+        }}
+        {...rest}
+      />
+    );
+  }
 
   const vars = {
     "--db": DB_COLOR_MAP[db].hex,
@@ -20,6 +39,7 @@ export default function DbBadge({ db, className, style, ...rest }: Props) {
 
   return (
     <Badge
+      variant={variant}
       className={className ? `db-badge ${className}` : "db-badge"}
       style={{ ...vars, ...style }}
       {...rest}

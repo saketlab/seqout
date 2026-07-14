@@ -28,6 +28,16 @@ export const normalizeAuthors = (value: AuthorsInput): string[] => {
 export const authorHref = (name: string): string =>
   `/authors/${encodeURIComponent(name.trim())}`;
 
+export const pmidHref = (pmid: string | number): string =>
+  `/publications/${encodeURIComponent(String(pmid).trim())}`;
+
+export const isPmid = (value: string): boolean => /^\d+$/.test(value.trim());
+
+export const pubmedHref = (pmid: string | number): string =>
+  `https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(String(pmid).trim())}`;
+
+export const doiHref = (doi: string): string => `https://doi.org/${doi.trim()}`;
+
 export const toDisplayText = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "-";
   return String(value);

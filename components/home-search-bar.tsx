@@ -1,8 +1,14 @@
 "use client";
 
+import {
+  ARCHIVE_CATALOG_URLS,
+  ARCHIVE_FULL_NAMES,
+  ARCHIVES,
+} from "@/utils/constants";
 import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import Link from "next/link";
+import { Fragment } from "react";
 import HeroSearchBar from "./hero-search-bar";
 
 const EXAMPLE_ACCESSIONS: readonly { accession: string; href: string }[] = [
@@ -58,8 +64,22 @@ export default function HomeSearchBar() {
         color="gray"
         style={{ letterSpacing: "-0.02em" }}
       >
-        Search public sequencing datasets across GEO, SRA, ENA, DRA, GEA, GSA &amp;
-        ArrayExpress
+        Search public sequencing datasets across{" "}
+        {ARCHIVES.map((archive, i) => (
+          <Fragment key={archive}>
+            {i > 0 && (i === ARCHIVES.length - 1 ? " & " : ", ")}
+            <Link
+              href={ARCHIVE_CATALOG_URLS[archive]}
+              title={ARCHIVE_FULL_NAMES[archive]}
+              aria-label={ARCHIVE_FULL_NAMES[archive]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="seqout-inline-link"
+            >
+              {archive}
+            </Link>
+          </Fragment>
+        ))}
       </Heading>
 
       <HeroSearchBar />
@@ -117,9 +137,10 @@ export default function HomeSearchBar() {
       </Flex>
 
       <Text as="p" className="seqout-sr-only">
-        seqout indexes over a million public sequencing studies from NCBI GEO,
-        SRA, EBI ENA, DDBJ DRA and GEA, the CNCB-NGDC Genome Sequence Archive
-        (GSA), and EBI ArrayExpress. Search by keyword, organism,
+        seqout indexes over a million public sequencing studies from NCBI GEO and
+        SRA, EBI ENA and ArrayExpress, the DDBJ Sequence Read Archive (DRA) and
+        Genomic Expression Archive (GEA), and the CNCB-NGDC Genome Sequence
+        Archive (GSA). Search by keyword, organism,
         disease, gene, or accession to find datasets, read harmonized sample and
         experiment metadata, follow links to publications and raw FASTQ files,
         and find related studies. Developed at Saket Lab, IIT Bombay.

@@ -4,7 +4,7 @@ import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
 import { getApexChartTheme } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
-import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
+import { DB_COLORS, DB_LABELS, DB_ORDER } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
@@ -58,8 +58,6 @@ interface OrganismTotalsResponse {
   total_organisms: number;
   took_ms: number;
 }
-
-const DB_ORDER = ["geo", "sra", "arrayexpress", "ena", "gsa"];
 
 interface OrganismSearchResult {
   organism: string;

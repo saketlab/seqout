@@ -23,7 +23,23 @@ export { SERVER_URL };
 export const SERVER_API_BASE =
   process.env.PYSRAWEB_API_BASE ?? `${SITE_URL}/api`;
 
-export const ARCHIVE_CATALOG_URLS: Record<string, string> = {
+export const ARCHIVES = [
+  "GEO",
+  "SRA",
+  "ENA",
+  "DRA",
+  "GEA",
+  "GSA",
+  "ArrayExpress",
+] as const;
+
+export type Archive = (typeof ARCHIVES)[number];
+
+export const ARCHIVE_LIST_TEXT = `${ARCHIVES.slice(0, -1).join(", ")}, and ${
+  ARCHIVES[ARCHIVES.length - 1]
+}`;
+
+export const ARCHIVE_CATALOG_URLS: Record<Archive, string> = {
   GEO: "https://www.ncbi.nlm.nih.gov/geo/",
   SRA: "https://www.ncbi.nlm.nih.gov/sra",
   ENA: "https://www.ebi.ac.uk/ena/browser/home",
@@ -33,7 +49,18 @@ export const ARCHIVE_CATALOG_URLS: Record<string, string> = {
   GEA: "https://www.ddbj.nig.ac.jp/gea/index-e.html",
 };
 
-export const ARCHIVE_LICENSE_URLS: Record<string, string> = {
+/** Spelled-out archive names, for link titles and screen readers. */
+export const ARCHIVE_FULL_NAMES: Record<Archive, string> = {
+  GEO: "NCBI Gene Expression Omnibus",
+  SRA: "NCBI Sequence Read Archive",
+  ENA: "EBI European Nucleotide Archive",
+  ArrayExpress: "EBI ArrayExpress",
+  GSA: "CNCB-NGDC Genome Sequence Archive",
+  DRA: "DDBJ Sequence Read Archive",
+  GEA: "DDBJ Genomic Expression Archive",
+};
+
+export const ARCHIVE_LICENSE_URLS: Record<Archive, string> = {
   GEO: "https://www.ncbi.nlm.nih.gov/geo/info/disclaimer.html",
   SRA: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
   ENA: "https://www.ebi.ac.uk/licencing",

@@ -1,4 +1,5 @@
 import {
+  type Archive,
   ARCHIVE_CATALOG_URLS as CATALOG_URLS,
   ARCHIVE_LICENSE_URLS as LICENSE_URLS,
   SITE_URL,
@@ -18,7 +19,7 @@ type Props = {
 
 function detectSampleType(accession: string): {
   type: string;
-  database: string;
+  database: Archive;
 } {
   const upper = accession.toUpperCase();
   if (upper.startsWith("GSM")) {

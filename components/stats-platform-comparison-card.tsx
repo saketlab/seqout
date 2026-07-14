@@ -4,6 +4,7 @@ import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
 import { CHART_SERIES_PALETTE } from "@/utils/chart-theme";
 import { SERVER_URL } from "@/utils/constants";
+import { DB_LABELS, PLATFORM_DBS, type DbSource } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { loess } from "@/utils/smooth";
@@ -30,7 +31,7 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Mode = "experiments" | "projects";
 type View = "cumulative" | "monthly";
-type DbFilter = "overall" | "geo" | "sra" | "ena" | "gsa";
+type DbFilter = "overall" | DbSource;
 
 interface GrowthPoint {
   month: string;
@@ -353,10 +354,11 @@ export default function StatsPlatformComparisonCard() {
               <SegmentedControl.Item value="overall">
                 Overall
               </SegmentedControl.Item>
-              <SegmentedControl.Item value="geo">GEO</SegmentedControl.Item>
-              <SegmentedControl.Item value="sra">SRA</SegmentedControl.Item>
-              <SegmentedControl.Item value="ena">ENA</SegmentedControl.Item>
-              <SegmentedControl.Item value="gsa">GSA</SegmentedControl.Item>
+              {PLATFORM_DBS.map((source) => (
+                <SegmentedControl.Item key={source} value={source}>
+                  {DB_LABELS[source]}
+                </SegmentedControl.Item>
+              ))}
             </SegmentedControl.Root>
             <SegmentedControl.Root
               value={logScale ? "log" : "linear"}

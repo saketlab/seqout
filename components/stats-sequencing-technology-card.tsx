@@ -3,7 +3,7 @@
 import ChartFooter, { chartFooterEvents } from "@/components/chart-footer";
 import SectionAnchor from "@/components/section-anchor";
 import { SERVER_URL } from "@/utils/constants";
-import { DB_COLORS, DB_LABELS } from "@/utils/db-colors";
+import { DB_COLORS, DB_LABELS, PLATFORM_DBS } from "@/utils/db-colors";
 import { humanize } from "@/utils/format";
 import { fetchJsonWithIndexedDbCache } from "@/utils/indexeddb-cache";
 import { loess } from "@/utils/smooth";
@@ -85,7 +85,7 @@ interface PlatformFiltersResponse {
 }
 
 const ALL = "__all__";
-const DB_ORDER = ["geo", "sra", "ena", "gsa"];
+const DB_ORDER = PLATFORM_DBS;
 
 async function fetchPlatformTotals(): Promise<PlatformTotalsResponse> {
   return fetchJsonWithIndexedDbCache<PlatformTotalsResponse>(

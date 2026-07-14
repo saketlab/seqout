@@ -58,9 +58,9 @@ function buildCumulative(points: GrowthPoint[]): GrowthPoint[] {
 }
 
 export default function StatsGrowthChartCard() {
-  const [mode, setMode] = useState<Mode>("bases");
+  const [mode, setMode] = useState<Mode>("projects");
   const [view, setView] = useState<View>("cumulative");
-  const [logScale, setLogScale] = useState(false);
+  const [logScale, setLogScale] = useState(true);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const reduced = useReducedMotion();

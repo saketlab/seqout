@@ -5,26 +5,15 @@ import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { cleanJournalName } from "@/utils/format";
 import { fetchPubmedSummary } from "@/utils/pubmed";
+import { doiHref, pmidHref, pubmedHref } from "@/utils/project";
+import type { StudyPublication } from "@/utils/types";
 import { CheckIcon, CopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Card, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
+import NextLink from "next/link";
 import ProjectAuthors from "@/components/project-authors";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export type StudyPublication = {
-  pmid: string | null;
-  title: string | null;
-  journal: string | null;
-  doi: string | null;
-  pub_date: string | number | null;
-  authors: string | null;
-  issn: string | null;
-  citation_count: number | null;
-  journal_h_index: number | null;
-  journal_i10_index: number | null;
-  journal_2yr_mean_citedness: number | null;
-  journal_cited_by_count: number | null;
-  journal_works_count: number | null;
-};
+export type { StudyPublication };
 
 type PublicationCardProps = {
   publication: StudyPublication;
@@ -86,12 +75,12 @@ function formatCellCitation(pub: StudyPublication): string {
     parts.push(cleanJournalName(pub.journal) + ".");
   }
   if (pub.doi) {
-    parts.push(`https://doi.org/${pub.doi}`);
+    parts.push(doiHref(pub.doi));
   }
   return parts.join(" ");
 }
 
-const copyBtnStyle: React.CSSProperties = {
+const chipStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -107,20 +96,36 @@ const copyBtnStyle: React.CSSProperties = {
   fontWeight: 500,
   cursor: "pointer",
   lineHeight: 1,
+  textDecoration: "none",
 };
 
+/** Owns its own "Copied" flash so callers don't each keep a boolean + timer. */
 function CopyButton({
   label,
-  copied,
-  onClick,
+  getText,
+  toast,
 }: {
   label: string;
-  copied: boolean;
-  onClick: () => void;
+  getText: () => string | Promise<string | null> | null;
+  toast: string;
 }) {
+  const { showToast } = useToast();
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), []);
+
+  const handleClick = async () => {
+    const text = await getText();
+    if (!text || !copyToClipboard(text)) return;
+    setCopied(true);
+    clearTimeout(timer.current ?? undefined);
+    timer.current = setTimeout(() => setCopied(false), 1500);
+    showToast(toast);
+  };
+
   return (
     <Tooltip content={copied ? "Copied!" : `Copy ${label}`}>
-      <button type="button" onClick={onClick} style={copyBtnStyle}>
+      <button type="button" onClick={handleClick} style={chipStyle}>
         {copied ? (
           <CheckIcon width="12" height="12" />
         ) : (
@@ -136,10 +141,6 @@ export default function PublicationCard({
   publication: incoming,
   accession,
 }: PublicationCardProps) {
-  const { showToast } = useToast();
-  const [copiedCitation, setCopiedCitation] = useState(false);
-  const [copiedBibtex, setCopiedBibtex] = useState(false);
-
   // Fallback: backend gave a PMID but no enriched details — pull them from
   // NCBI PubMed. Tag the fetched fields with the PMID they belong to so a
   // stale fallback never bleeds onto a different publication.
@@ -176,43 +177,27 @@ export default function PublicationCard({
   const hasCitations =
     publication.citation_count != null && publication.citation_count > 0;
   const titleLink = publication.doi
-    ? `https://doi.org/${publication.doi}`
+    ? doiHref(publication.doi)
     : publication.pmid
-      ? `https://pubmed.ncbi.nlm.nih.gov/${publication.pmid}`
+      ? pubmedHref(publication.pmid)
       : null;
 
-  const handleCopyCitation = () => {
-    const text = formatCellCitation(publication);
-    if (copyToClipboard(text)) {
-      setCopiedCitation(true);
-      setTimeout(() => setCopiedCitation(false), 1500);
-      showToast("Citation copied");
-    }
-  };
-
-  const handleCopyBibtex = async () => {
-    if (!accession) return;
+  const fetchBibtex = async (): Promise<string | null> => {
+    if (!accession) return null;
     try {
       const res = await fetch(
         `${SERVER_URL}/project/${encodeURIComponent(accession)}/cite?type=all&format=bibtex`,
       );
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const allBibtex = await res.text();
-      let bibtex = allBibtex;
-      if (publication.pmid) {
-        const entries = allBibtex.split(/\n\n+/);
-        const match = entries.find((e) =>
-          e.includes(`pmid    = {${publication.pmid}}`),
-        );
-        if (match) bibtex = match;
-      }
-      if (copyToClipboard(bibtex)) {
-        setCopiedBibtex(true);
-        setTimeout(() => setCopiedBibtex(false), 1500);
-        showToast("BibTeX copied");
-      }
+      if (!publication.pmid) return allBibtex;
+      const entries = allBibtex.split(/\n\n+/);
+      return (
+        entries.find((e) => e.includes(`pmid    = {${publication.pmid}}`)) ??
+        allBibtex
+      );
     } catch {
-      /* fetch failed */
+      return null;
     }
   };
 
@@ -270,10 +255,7 @@ export default function PublicationCard({
                     publication.doi
                       ? (e) => {
                           e.stopPropagation();
-                          window.open(
-                            `https://doi.org/${publication.doi}`,
-                            "_blank",
-                          );
+                          window.open(doiHref(publication.doi!), "_blank");
                         }
                       : undefined
                   }
@@ -305,27 +287,46 @@ export default function PublicationCard({
             badge row (accession + modality tags). */}
         <Flex gap="2" align="center" wrap="wrap">
           {publication.pmid && (
-            <Link
-              href={`https://pubmed.ncbi.nlm.nih.gov/${publication.pmid}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ textDecoration: "none" }}
-            >
-              <Badge
-                size="2"
-                color="gray"
-                variant="soft"
-                className="seqout-accession"
-                style={{ cursor: "pointer" }}
-              >
-                PMID {publication.pmid}
-                <ExternalLinkIcon color="gray" />
-              </Badge>
-            </Link>
+            <>
+              <Tooltip content="See every project linked to this paper">
+                <NextLink
+                  href={pmidHref(publication.pmid)}
+                  prefetch={false}
+                  style={{ textDecoration: "none" }}
+                >
+                  <Badge
+                    size="2"
+                    color="gray"
+                    variant="soft"
+                    className="seqout-accession"
+                    style={{ cursor: "pointer" }}
+                  >
+                    PMID {publication.pmid}
+                  </Badge>
+                </NextLink>
+              </Tooltip>
+              <CopyButton
+                label="PMID"
+                getText={() => publication.pmid}
+                toast="PMID copied"
+              />
+              <Tooltip content="Open in PubMed">
+                <a
+                  href={pubmedHref(publication.pmid)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open PMID ${publication.pmid} in PubMed`}
+                  style={chipStyle}
+                >
+                  <ExternalLinkIcon width="12" height="12" />
+                  PubMed
+                </a>
+              </Tooltip>
+            </>
           )}
           {publication.doi && !cleanedJournal && (
             <Link
-              href={`https://doi.org/${publication.doi}`}
+              href={doiHref(publication.doi)}
               target="_blank"
               rel="noopener noreferrer"
               style={{ textDecoration: "none" }}
@@ -343,14 +344,14 @@ export default function PublicationCard({
           )}
           <CopyButton
             label="Cite"
-            copied={copiedCitation}
-            onClick={handleCopyCitation}
+            getText={() => formatCellCitation(publication)}
+            toast="Citation copied"
           />
           {accession && (
             <CopyButton
               label="BibTeX"
-              copied={copiedBibtex}
-              onClick={handleCopyBibtex}
+              getText={fetchBibtex}
+              toast="BibTeX copied"
             />
           )}
         </Flex>

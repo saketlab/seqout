@@ -339,7 +339,7 @@ function scaleAlpha(value: number): number {
 export default function StatsGlobalContributionsCard() {
   const [scaleBy, setScaleBy] = useState<ScaleBy>("projects");
   const [pointSize, setPointSize] = useState(1);
-  const [organism, setOrganism] = useState(ALL);
+  const [organism, setOrganism] = useState("Homo sapiens");
   const [assayL2, setAssayL2] = useState(ALL);
   const [placeType, setPlaceType] = useState(ALL);
   const [addressType, setAddressType] = useState(ALL);

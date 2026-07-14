@@ -1,10 +1,10 @@
+import { ARCHIVE_LIST_TEXT } from "@/utils/constants";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Find projects by author",
-  description:
-    "Search GEO, SRA, ENA, DRA, GEA, GSA, and ArrayExpress datasets by researcher name on seqout.",
+  description: `Search ${ARCHIVE_LIST_TEXT} datasets by researcher name on seqout.`,
   alternates: {
     canonical: "/authors",
   },
