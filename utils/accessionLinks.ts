@@ -86,6 +86,12 @@ export function getExternalArchiveUrl(
       archive: "GEO",
       label: "View on GEO",
     };
+  if (/^E-GEAD-\d+$/.test(a))
+    return {
+      url: `https://ddbj.nig.ac.jp/search/entry/gea/${accession}`,
+      archive: "GEA",
+      label: "View on GEA",
+    };
   if (/^E-[A-Z]{4}-\d+$/.test(a))
     return {
       url: `https://www.ebi.ac.uk/biostudies/ArrayExpress/studies/${accession}`,
@@ -111,6 +117,12 @@ export function getExternalArchiveUrl(
       url: `https://ngdc.cncb.ac.cn/search/all?q=${accession}`,
       archive: "GSA",
       label: "View on GSA",
+    };
+  if (/^PRJDB\d+$/.test(a))
+    return {
+      url: `https://ddbj.nig.ac.jp/resource/bioproject/${accession}`,
+      archive: "DRA",
+      label: "View on DRA",
     };
   if (/^PRJ[A-Z]+\d+$/.test(a))
     return {
@@ -139,8 +151,8 @@ export function getExternalArchiveUrl(
       const resource = { P: "sra-study", X: "sra-experiment", R: "sra-run", S: "sra-sample" }[kind];
       return {
         url: `https://ddbj.nig.ac.jp/resource/${resource}/${accession}`,
-        archive: "DDBJ",
-        label: "View on DDBJ",
+        archive: "DRA",
+        label: "View on DRA",
       };
     }
     return {

@@ -1,5 +1,10 @@
 "use client";
 import { OrganismNameMode } from "@/components/organism_filter";
+import {
+  DB_LABELS,
+  SEARCH_DBS,
+  type SearchDb,
+} from "@/utils/db-colors";
 import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
 import {
@@ -241,7 +246,7 @@ function buildSearchUrl(
   filters: SearchFilterParams,
 ): string {
   let url = `${SERVER_URL}/search?q=${encodeURIComponent(query)}`;
-  if (db === "sra" || db === "geo" || db === "arrayexpress" || db === "gsa") {
+  if (db && (SEARCH_DBS as readonly string[]).includes(db)) {
     url += `&db=${encodeURIComponent(db)}`;
   }
   // The server's filtered path now honors sortby too, so emit it either way.
@@ -525,13 +530,6 @@ const TIME_LABELS: Record<string, string> = {
   "20": "Last 20 years",
 };
 
-const DB_LABELS_DISPLAY: Record<string, string> = {
-  geo: "GEO",
-  sra: "SRA",
-  arrayexpress: "ArrayExpress",
-  gsa: "GSA",
-};
-
 type ActiveFilterChipsProps = {
   sortBy: SortBy;
   onResetSort: () => void;
@@ -611,7 +609,7 @@ function ActiveFilterChips(props: ActiveFilterChipsProps) {
     chips.push(
       <FilterChip
         key="db"
-        label={`Source: ${DB_LABELS_DISPLAY[props.db] ?? props.db}`}
+        label={`Source: ${DB_LABELS[props.db] ?? props.db}`}
         onRemove={props.onResetDb}
       />,
     );
@@ -1797,7 +1795,7 @@ export default function SearchPageBody() {
     try {
       const params = new URLSearchParams();
       params.set("q", query);
-      if (db === "sra" || db === "geo" || db === "arrayexpress") {
+      if (db && (SEARCH_DBS as readonly string[]).includes(db)) {
         params.set("db", db);
       }
 
@@ -1844,17 +1842,12 @@ export default function SearchPageBody() {
   };
 
   const handleDatabaseChange = useCallback(
-    (value: "geo" | "sra" | "arrayexpress" | "gsa" | "both") => {
+    (value: SearchDb | "both") => {
       if (!query) return;
 
       const params = new URLSearchParams(searchParams.toString());
       params.set("q", query);
-      if (
-        value === "sra" ||
-        value === "geo" ||
-        value === "arrayexpress" ||
-        value === "gsa"
-      ) {
+      if (value !== "both") {
         params.set("db", value);
       } else {
         params.delete("db");

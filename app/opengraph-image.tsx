@@ -178,7 +178,7 @@ export default async function OpengraphImage() {
               alignItems: "center",
             }}
           >
-            {["GEO", "SRA", "ENA", "ArrayExpress"].map((db) => (
+            {["GEO", "SRA", "ENA", "DRA", "GEA", "GSA", "ArrayExpress"].map((db) => (
               <div
                 key={db}
                 style={{

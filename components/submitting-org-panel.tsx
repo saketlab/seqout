@@ -117,8 +117,8 @@ export default function SubmittingOrgPanel({ center }: Props) {
           {entries.map((c, i) => {
             const details = buildDetails(c);
             return (
-              <Flex key={i} direction="column" gap="2">
-                <Table.Root variant="surface" size="1">
+              <Flex key={i} direction="column" gap="2" style={{ flex: "1 1 0", minHeight: 0 }}>
+                <Table.Root variant="surface" size="1" style={{ height: "100%" }}>
                   <Table.Body>
                     {details.map((row) => (
                       <Table.Row key={row.label}>

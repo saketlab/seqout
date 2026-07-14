@@ -21,11 +21,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "seqout - Search GEO, SRA, ENA & ArrayExpress Datasets",
+    default: "seqout - Search GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress",
     template: "%s | seqout",
   },
   description:
-    "Fast exploration of GEO, SRA, ENA & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views, relevance-ranked results, and consolidated sample tables. Developed at Saket Lab, IIT Bombay.",
+    "Fast exploration of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets. Search millions of experiments with unified metadata, relevance-ranked results, and consolidated sample tables. Developed at Saket Lab, IIT Bombay.",
   applicationName: "seqout",
   keywords: [
     "seqout",
@@ -34,31 +34,68 @@ export const metadata: Metadata = {
     "SRA metadata search",
     "GEO metadata search",
     "ENA metadata search",
+    "GSA metadata search",
+    "NGDC GSA search",
+    "DDBJ metadata search",
+    "DRA metadata search",
+    "GEA metadata search",
     "ArrayExpress metadata search",
     "SRA bulk metadata",
     "GEO bulk metadata",
     "ENA bulk metadata",
+    "GSA bulk metadata",
+    "DDBJ bulk metadata",
     "ArrayExpress bulk metadata",
     "sequencing metadata discovery",
     "harmonized metadata SRA",
     "harmonized metadata GEO",
     "harmonized metadata ENA",
+    "harmonized metadata GSA",
+    "harmonized metadata DDBJ",
     "harmonized metadata ArrayExpress",
     "SRA metadata",
     "GEO metadata",
     "ENA metadata",
+    "GSA metadata",
+    "DDBJ metadata",
+    "DRA metadata",
+    "GEA metadata",
     "ArrayExpress metadata",
     "sequencing data discovery",
     "metadata search sequencing",
     "SRA",
     "GEO",
     "ENA",
+    "GSA",
+    "DDBJ",
+    "DRA",
+    "GEA",
     "ArrayExpress",
     "Sequence Read Archive",
     "Gene Expression Omnibus",
     "European Nucleotide Archive",
+    "Genome Sequence Archive",
+    "DDBJ DRA",
+    "DDBJ GEA",
+    "DNA Data Bank of Japan",
+    "DDBJ Sequence Read Archive",
+    "Genomic Expression Archive",
+    "National Institute of Genetics",
+    "DRP accession",
+    "E-GEAD accession",
+    "PRJDB",
+    "GSA NGDC",
+    "NGDC",
+    "CNCB",
+    "CNCB-NGDC",
+    "China National Center for Bioinformation",
+    "National Genomics Data Center",
+    "CRA accession",
+    "HRA accession",
+    "PRJCA",
     "NCBI",
     "EBI",
+    "NIG",
     "RNA-seq",
     "ChIP-seq",
     "ATAC-seq",
@@ -106,31 +143,28 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
   },
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://seqout.org",
     siteName: "seqout",
-    title: "seqout - Search GEO, SRA, ENA & ArrayExpress Datasets",
+    title: "seqout - Search GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress",
     description:
-      "Fast exploration of GEO, SRA, ENA & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views and relevance-ranked results.",
+      "Fast exploration of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets. Search millions of experiments with unified metadata and relevance-ranked results.",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "seqout - GEO, SRA, ENA & ArrayExpress Dataset Search",
+        alt: "seqout - GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress Dataset Search",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "seqout - Search GEO, SRA, ENA & ArrayExpress",
+    title: "seqout - Search GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress",
     description:
-      "Fast exploration of GEO, SRA, ENA & ArrayExpress sequencing datasets. Search millions of experiments with unified metadata views.",
+      "Fast exploration of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets. Search millions of experiments with unified metadata.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -201,6 +235,15 @@ export default function RootLayout({
           }}
         />
         <style dangerouslySetInnerHTML={{ __html: `
+          .db-badge {
+            background-color: color-mix(in srgb, var(--db) 15%, transparent);
+            color: var(--db-fg);
+          }
+          .dark .db-badge {
+            background-color: color-mix(in srgb, var(--db) 22%, transparent);
+            color: var(--db-fg-dark);
+          }
+
           .logo-light { display: none; }
           .logo-dark { display: block; }
           .light .logo-light { display: block; }

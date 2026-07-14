@@ -1,54 +1,87 @@
 import type { ExternalArchive } from "./accessionLinks";
 
-export type DbSource = "geo" | "sra" | "ena" | "arrayexpress" | "gsa";
+export type DbSource =
+  | "geo"
+  | "sra"
+  | "ena"
+  | "arrayexpress"
+  | "gsa"
+  | "dra"
+  | "gea";
 
-export const DB_ORDER: DbSource[] = ["geo", "sra", "ena", "arrayexpress", "gsa"];
-
-type RadixColor = "blue" | "brown" | "jade" | "gold" | "tomato";
+export const DB_ORDER: DbSource[] = [
+  "geo",
+  "sra",
+  "ena",
+  "arrayexpress",
+  "gsa",
+  "dra",
+  "gea",
+];
 
 type DbColor = {
   hex: string;
-  radix: RadixColor;
   og: { primary: string; secondary: string; accent: string };
 };
 
 export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   geo: {
-    hex: "#3b82f6",
-    radix: "blue",
-    og: { primary: "#3b82f6", secondary: "#1d4ed8", accent: "#93c5fd" },
+    hex: "#00468b",
+    og: { primary: "#00468b", secondary: "#00376c", accent: "#7399bf" },
   },
   sra: {
-    hex: "#8b5cf6",
-    radix: "brown",
-    og: { primary: "#8b5cf6", secondary: "#6d28d9", accent: "#c4b5fd" },
+    hex: "#ed0000",
+    og: { primary: "#ed0000", secondary: "#b90000", accent: "#f57373" },
   },
   ena: {
-    hex: "#10b981",
-    radix: "jade",
-    og: { primary: "#10b981", secondary: "#059669", accent: "#6ee7b7" },
+    hex: "#42b540",
+    og: { primary: "#42b540", secondary: "#338d32", accent: "#97d696" },
   },
   arrayexpress: {
-    hex: "#978365", // radix gold 9 (solid) — matches the gold Badge
-    radix: "gold",
-    og: { primary: "#f59e0b", secondary: "#d97706", accent: "#fcd34d" },
+    hex: "#925e9f",
+    og: { primary: "#925e9f", secondary: "#72497c", accent: "#c3a6ca" },
   },
   gsa: {
-    hex: "#e54d2e", // radix tomato 9 (solid) — matches the tomato Badge
-    radix: "tomato",
-    og: { primary: "#e54d2e", secondary: "#d13415", accent: "#f5a390" },
+    hex: "#ad002a",
+    og: { primary: "#ad002a", secondary: "#870021", accent: "#d2738a" },
+  },
+  dra: {
+    hex: "#0099b4",
+    og: { primary: "#0099b4", secondary: "#00778c", accent: "#73c7d6" },
+  },
+  gea: {
+    hex: "#fdaf91",
+    og: { primary: "#fdaf91", secondary: "#c58871", accent: "#fed3c2" },
   },
 };
 
-/** Consistent colors for database sources across all stats charts. */
+/** Badge text: the lightest shade that still clears 4.5:1 on its tinted background. */
+export const DB_BADGE_FG: Record<DbSource, { light: string; dark: string }> = {
+  geo: { light: "#00468b", dark: "#5c89b5" },
+  sra: { light: "#cc0000", dark: "#f24c4c" },
+  ena: { light: "#2d7b2c", dark: "#42b540" },
+  arrayexpress: { light: "#865692", dark: "#a87eb2" },
+  gsa: { light: "#ad002a", dark: "#cc617b" },
+  dra: { light: "#007489", dark: "#0f9fb8" },
+  gea: { light: "#936554", dark: "#fdaf91" },
+};
+
 export const DB_COLORS: Record<string, string> = {
-  geo: DB_COLOR_MAP.geo.hex,
-  sra: DB_COLOR_MAP.sra.hex,
-  arrayexpress: DB_COLOR_MAP.arrayexpress.hex,
-  ena: DB_COLOR_MAP.ena.hex,
-  gsa: DB_COLOR_MAP.gsa.hex,
+  ...(Object.fromEntries(
+    DB_ORDER.map((db) => [db, DB_COLOR_MAP[db].hex]),
+  ) as Record<DbSource, string>),
   sra_fastq_bytes: DB_COLOR_MAP.sra.hex,
-  sra_sra_bytes: "#6366f1",
+  sra_sra_bytes: "#8a1f3d",
+};
+
+export const DB_DASH: Record<string, number> = {
+  geo: 0,
+  sra: 0,
+  arrayexpress: 0,
+  dra: 0,
+  ena: 3,
+  gsa: 6,
+  gea: 6,
 };
 
 /** Human-readable labels for database keys. */
@@ -58,16 +91,33 @@ export const DB_LABELS: Record<string, string> = {
   arrayexpress: "ArrayExpress",
   ena: "ENA",
   gsa: "GSA",
+  dra: "DRA",
+  gea: "GEA",
   sra_fastq_bytes: "SRA (FASTQ)",
   sra_sra_bytes: "SRA (SRA archive)",
 };
 
+/** The sources `/search?db=` dispatches to. Order is the order the picker lists them. */
+export const SEARCH_DBS = [
+  "geo",
+  "sra",
+  "ena",
+  "arrayexpress",
+  "gsa",
+  "dra",
+  "gea",
+] as const;
+export type SearchDb = (typeof SEARCH_DBS)[number];
+
 export function dbForAccession(accession: string): DbSource | null {
   const a = accession.toUpperCase();
   if (/^(GSE|GSM|GPL)\d+$/.test(a)) return "geo";
+  // E-GEAD-N also matches the ArrayExpress E-XXXX-N shape: always test GEA first.
+  if (/^E-GEAD-\d+$/.test(a)) return "gea";
   if (/^E-[A-Z]{4}-\d+$/.test(a)) return "arrayexpress";
   if (/^ER[PXRS]\d+$/.test(a) || /^PRJEB\d+$/.test(a)) return "ena";
-  if (/^[SD]R[PXRS]\d+$/.test(a) || /^PRJ(NA|DB)\d+$/.test(a)) return "sra";
+  if (/^DR[PXRS]\d+$/.test(a) || /^PRJDB\d+$/.test(a)) return "dra";
+  if (/^SR[PXRS]\d+$/.test(a) || /^PRJNA\d+$/.test(a)) return "sra";
   // GSA (CNCB-NGDC): open CRA + human HRA, plus PRJCA / SAMC biosample.
   if (/^(CRA|CRX|CRR|HRA|HRX|HRR|HRS|HRI)\d+$/.test(a) || /^(PRJCA|SAMC)\d+$/.test(a))
     return "gsa";
@@ -77,15 +127,15 @@ export function dbForAccession(accession: string): DbSource | null {
 const ARCHIVE_DB: Record<string, DbSource | undefined> = {
   GEO: "geo",
   SRA: "sra",
-  DDBJ: "sra",
+  DRA: "dra",
+  GEA: "gea",
   ENA: "ena",
   ArrayExpress: "arrayexpress",
   GSA: "gsa",
 };
 
-export function dbColorForArchive(
+export function dbForArchive(
   archive: ExternalArchive["archive"],
-): RadixColor | undefined {
-  const db = ARCHIVE_DB[archive];
-  return db ? DB_COLOR_MAP[db].radix : undefined;
+): DbSource | undefined {
+  return ARCHIVE_DB[archive];
 }

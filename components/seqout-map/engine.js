@@ -687,6 +687,48 @@ export function setBackgroundColor(sp, backgroundColor) {
   }
 }
 
+// Zoom controls (button trio in the UI). deepscatter has no relative-zoom API,
+// so we read the current visible data bbox off the live scales, scale it around
+// its center, and re-fit. factor < 1 zooms in, > 1 zooms out.
+const ZOOM_DURATION = 300;
+
+export function zoomBy(sp, factor) {
+  try {
+    const scales = sp.zoom.scales();
+    if (!scales) return;
+    const [sx0, sx1] = scales.x_.range();
+    const [sy0, sy1] = scales.y_.range();
+    const dx0 = scales.x_.invert(sx0);
+    const dx1 = scales.x_.invert(sx1);
+    const dy0 = scales.y_.invert(sy0);
+    const dy1 = scales.y_.invert(sy1);
+    const cx = (dx0 + dx1) / 2;
+    const cy = (dy0 + dy1) / 2;
+    const hw = (Math.abs(dx1 - dx0) / 2) * factor;
+    const hh = (Math.abs(dy1 - dy0) / 2) * factor;
+    sp.plotAPI({
+      zoom: { bbox: { x: [cx - hw, cx + hw], y: [cy - hh, cy + hh] } },
+      duration: ZOOM_DURATION,
+    });
+  } catch (err) {
+    console.warn("zoomBy failed:", err);
+  }
+}
+
+/** Recenter to the initial view (same box createMap fits on load). */
+export function resetView(sp) {
+  const extent = state.mapExtent;
+  if (!extent) return;
+  const cx = DEFAULT_CENTER.x;
+  const cy = DEFAULT_CENTER.y;
+  const hw = ((extent.maxx - extent.minx) / 2) * DEFAULT_VIEW_FRACTION || 1;
+  const hh = ((extent.maxy - extent.miny) / 2) * DEFAULT_VIEW_FRACTION || 1;
+  sp.plotAPI({
+    zoom: { bbox: { x: [cx - hw, cx + hw], y: [cy - hh, cy + hh] } },
+    duration: ZOOM_DURATION,
+  });
+}
+
 /** Resolve the accession for a clicked datum (may require a tile transform). */
 export async function resolveAccession(sp, datum) {
   let accession = datum.accession;

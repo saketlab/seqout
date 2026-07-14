@@ -27,9 +27,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const COL_W = 280; // horizontal gap between hierarchy levels
 const ROW_H = 58; // vertical gap between siblings in a column
 
-// ponytail: column-stack layout. Each depth gets its own x-column and a running
-// y-cursor, so nodes never overlap. Cheap and readable; not a "tidy tree" (a
-// node isn't centered on its parent). Swap in dagre if that becomes annoying.
+// Column-stack layout: each depth gets an x-column and a running y-cursor, so nodes
+// never overlap. Not a tidy tree (a node isn't centered on its parent); dagre if needed.
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

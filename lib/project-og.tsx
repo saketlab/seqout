@@ -21,6 +21,8 @@ const labelByKind: Record<ProjectKind, string> = {
   ena: "ENA",
   arrayexpress: "ArrayExpress",
   gsa: "GSA",
+  dra: "DRA",
+  gea: "GEA",
 };
 
 function decodeHtmlEntities(input: string): string {

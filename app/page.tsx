@@ -4,11 +4,11 @@ import { Flex } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "seqout - Search GEO, SRA, ENA & ArrayExpress Datasets",
+  title: "seqout - Search GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress",
   description:
-    "Search and explore millions of GEO, SRA, ENA & ArrayExpress sequencing datasets. Unified metadata views, relevance-ranked results, and consolidated sample tables for faster research.",
+    "Search millions of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets. Unified metadata, relevance-ranked results, and consolidated sample tables for research.",
   alternates: {
-    canonical: "https://seqout.org",
+    canonical: "/",
   },
 };
 

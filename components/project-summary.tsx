@@ -38,7 +38,9 @@ function stripTags(html: string): string {
 }
 
 type ProjectSummaryProps = {
-  text?: string | null;
+  // DDBJ GEA sends overall_design as a list of protocols; every other source
+  // sends one string. Render the list comma-separated rather than crashing.
+  text?: string | string[] | null;
   charLimit?: number;
   size?: ComponentProps<typeof Text>["size"];
 };
@@ -51,12 +53,16 @@ export default function ProjectSummary({
   const [expanded, setExpanded] = useState(false);
 
   const { plainText, sanitized } = useMemo(() => {
-    if (!text) return { plainText: "", sanitized: "" };
-    const clean = sanitizeHtml(text);
-    return { plainText: stripTags(text), sanitized: clean };
+    const raw = Array.isArray(text)
+      ? text.filter(Boolean).join(", ")
+      : typeof text === "string"
+        ? text
+        : "";
+    if (!raw) return { plainText: "", sanitized: "" };
+    return { plainText: stripTags(raw), sanitized: sanitizeHtml(raw) };
   }, [text]);
 
-  if (!text) return null;
+  if (!sanitized) return null;
 
   const shouldTruncate = plainText.length > charLimit;
 

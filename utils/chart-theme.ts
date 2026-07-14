@@ -37,17 +37,17 @@ export function getApexChartTheme(isDark: boolean): ApexChartTheme {
       };
 }
 
-// 8-color palette for multi-series charts. Ordered for adjacent-color
-// contrast under deuteranopia/protanopia. Reads on both themes.
+// 8-colour palette for organism/platform series. Sources use DB_COLOR_MAP instead.
+// Chosen by docs/cvd_score.py; worst pair 17.0.
 export const CHART_SERIES_PALETTE: readonly string[] = [
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-  "#84cc16", // lime
+  "#e20000", // red
+  "#c8b712", // olive
+  "#348557", // green
+  "#22c9b4", // teal
+  "#aea0ff", // periwinkle
+  "#8144ff", // violet
+  "#9d5581", // mauve
+  "#ff698e", // pink
 ] as const;
 
 // Global contributions map — canvas compositing + panel + overlay text

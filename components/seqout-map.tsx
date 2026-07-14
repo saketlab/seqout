@@ -13,6 +13,8 @@ import {
   HamburgerMenuIcon,
   InfoCircledIcon,
   MagnifyingGlassIcon,
+  MinusIcon,
+  PlusIcon,
   TrashIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
@@ -679,6 +681,19 @@ export default function MapGraph() {
     window.location.reload();
   }, []);
 
+  const zoomIn = useCallback(() => {
+    const sp = spRef.current;
+    if (sp) engineRef.current?.zoomBy(sp, 0.6);
+  }, []);
+  const zoomOut = useCallback(() => {
+    const sp = spRef.current;
+    if (sp) engineRef.current?.zoomBy(sp, 1 / 0.6);
+  }, []);
+  const recenter = useCallback(() => {
+    const sp = spRef.current;
+    if (sp) engineRef.current?.resetView(sp);
+  }, []);
+
   const coordsOf = (e: React.PointerEvent): ScreenPoint => {
     const rect = overlayRef.current!.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -1115,6 +1130,80 @@ export default function MapGraph() {
                 </Text>
               </>
             )}
+          </Flex>
+        )}
+
+        {/* Zoom / recenter controls */}
+        {!loading && !error && (
+          <Flex
+            direction="column"
+            style={{
+              position: "absolute",
+              top: isMobile
+                ? "max(0.75rem, env(safe-area-inset-top))"
+                : "0.75rem",
+              right: "0.75rem",
+              zIndex: 15,
+              borderRadius: "var(--radius-3)",
+              overflow: "hidden",
+              background: "var(--color-panel-solid)",
+              border: "1px solid var(--gray-a5)",
+              boxShadow: "0 2px 8px var(--black-a6)",
+            }}
+          >
+            <Tooltip content="Zoom in" side="left">
+              <IconButton
+                size={isMobile ? "3" : "2"}
+                variant="ghost"
+                color="gray"
+                aria-label="Zoom in"
+                onClick={zoomIn}
+                style={{ margin: 0, borderRadius: 0, height: isMobile ? 44 : 36 }}
+              >
+                <PlusIcon />
+              </IconButton>
+            </Tooltip>
+            <Separator size="4" />
+            <Tooltip content="Zoom out" side="left">
+              <IconButton
+                size={isMobile ? "3" : "2"}
+                variant="ghost"
+                color="gray"
+                aria-label="Zoom out"
+                onClick={zoomOut}
+                style={{ margin: 0, borderRadius: 0, height: isMobile ? 44 : 36 }}
+              >
+                <MinusIcon />
+              </IconButton>
+            </Tooltip>
+            <Separator size="4" />
+            <Tooltip content="Recenter" side="left">
+              <IconButton
+                size={isMobile ? "3" : "2"}
+                variant="ghost"
+                color="gray"
+                aria-label="Recenter map"
+                onClick={recenter}
+                style={{ margin: 0, borderRadius: 0, height: isMobile ? 44 : 36 }}
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 15 15"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden
+                >
+                  <circle cx="7.5" cy="7.5" r="2" fill="currentColor" />
+                  <path
+                    d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2"
+                    stroke="currentColor"
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </IconButton>
+            </Tooltip>
           </Flex>
         )}
 

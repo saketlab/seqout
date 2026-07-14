@@ -88,7 +88,9 @@ export default function BulkMetaDialog() {
 
   const hasInvalidAccessions =
     accLines.length > 0 &&
-    accLines.some((a) => !/^(GSE|SRP|ERP|DRP|PRJNA)\d+/i.test(a));
+    accLines.some(
+      (a) => !/^((GSE|SRP|ERP|DRP|PRJNA)\d+|E-[A-Z]+-\d+)/i.test(a),
+    );
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -101,7 +103,8 @@ export default function BulkMetaDialog() {
       <Dialog.Content size="4">
         <Dialog.Title>Get bulk metadata</Dialog.Title>
         <Dialog.Description size="2" mb="4">
-          Paste GEO or SRA accessions (one accession per line)
+          Paste GEO, SRA, ENA, DRA, GEA or ArrayExpress accessions (one
+          accession per line)
         </Dialog.Description>
 
         <Flex direction="column" gap="3">

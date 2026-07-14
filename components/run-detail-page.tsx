@@ -6,7 +6,8 @@ import { RunsSection, type RunRow } from "@/components/sample-detail-page";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
-import { dbColorForArchive } from "@/utils/db-colors";
+import DbBadge from "@/components/db-badge";
+import { dbForArchive } from "@/utils/db-colors";
 import { copyToClipboard } from "@/utils/clipboard";
 import {
   CheckIcon,
@@ -71,7 +72,7 @@ export default function RunDetailPage() {
 
   const externalLink = accession ? getExternalArchiveUrl(accession) : null;
   const badgeColor = externalLink
-    ? dbColorForArchive(externalLink.archive)
+    ? dbForArchive(externalLink.archive)
     : undefined;
 
   return (
@@ -171,9 +172,9 @@ export default function RunDetailPage() {
           </Heading>
 
           <Flex justify="start" align="center" gap="2" wrap="wrap">
-            <Badge
+            <DbBadge
               size={{ initial: "2", md: "3" }}
-              color={badgeColor}
+              db={badgeColor}
               style={{ whiteSpace: "nowrap" }}
             >
               <Flex align="center" gap="1">
@@ -198,19 +199,19 @@ export default function RunDetailPage() {
                   </button>
                 </Tooltip>
               </Flex>
-            </Badge>
+            </DbBadge>
 
             {run.experiment_accession && (
               <a href={`/e/${run.experiment_accession}`}>
-                <Badge
+                <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  color={badgeColor}
+                  db={badgeColor}
                   variant="soft"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {run.experiment_accession}
                   <ExternalLinkIcon />
-                </Badge>
+                </DbBadge>
               </a>
             )}
 
@@ -233,15 +234,15 @@ export default function RunDetailPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Badge
+                <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  color={badgeColor}
+                  db={badgeColor}
                   variant="outline"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {externalLink.label}
                   <ExternalLinkIcon />
-                </Badge>
+                </DbBadge>
               </a>
             )}
           </Flex>

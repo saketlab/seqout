@@ -210,8 +210,8 @@ export default function StatsOrganismGrowthCard() {
       },
       title: {
         text: selectedCommonName
-          ? `Organism Growth — ${selectedCommonName.charAt(0).toUpperCase() + selectedCommonName.slice(1)} (${selectedOrganism})`
-          : `Organism Growth — ${selectedOrganism}`,
+          ? `Organism growth: ${selectedCommonName.charAt(0).toUpperCase() + selectedCommonName.slice(1)} (${selectedOrganism})`
+          : `Organism growth: ${selectedOrganism}`,
         align: "left",
         style: {
           fontSize: "16px",
@@ -221,7 +221,7 @@ export default function StatsOrganismGrowthCard() {
         },
       },
       subtitle: {
-        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} ${mode === "percentage" ? "percentage" : "counts"} across GEO, SRA, ArrayExpress & ENA`,
+        text: `${view === "cumulative" ? "Cumulative" : "Monthly"} ${mode === "percentage" ? "percentage" : "counts"} across GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress`,
         align: "left",
         style: {
           fontSize: "12px",

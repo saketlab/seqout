@@ -1,5 +1,7 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
+import DbBadge from "@/components/db-badge";
+import type { DbSource } from "@/utils/db-colors";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
@@ -26,6 +28,7 @@ import {
   truncatableColDef,
   wrapColDef,
 } from "@/lib/ag-grid";
+import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import {
   getJson,
   getJsonOrNull,
@@ -34,7 +37,8 @@ import {
 } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
-import { DB_COLOR_MAP } from "@/utils/db-colors";
+
+import { fileUrl } from "@/utils/fileUrl";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
   makeOrganismPostSort,
@@ -93,6 +97,11 @@ type Project = {
   accession: string;
   alias: string | null;
   bioproject_id?: string | null;
+  // ENA/DDBJ study hierarchy (child -> parent umbrella BioProject).
+  parent_accession?: string | null;
+  parent_title?: string | null;
+  children?: { accession: string; title: string | null }[] | null;
+  children_total?: number | null;
   title: string;
   abstract: string;
   authors?: string[] | string | null;
@@ -586,7 +595,7 @@ export function DownloadFastqSection({
             run.run_alias || "",
             run.experiment_accession || "",
             run.library_layout || "",
-            `https://${url}`,
+            fileUrl(url),
             bytes[i] || "",
             md5s[i] || "",
             sraLiteUrl,
@@ -675,7 +684,7 @@ export function DownloadFastqSection({
           ? run.fastq_bytes.split(";").filter(Boolean)
           : [];
         return ftps.map((ftp, i) => ({
-          url: `https://${ftp}`,
+          url: fileUrl(ftp),
           filename: ftp.split("/").pop() || ftp,
           dirpath,
           md5: md5s[i] || "",
@@ -910,7 +919,7 @@ export function DownloadFastqSection({
                   return (
                     <Flex key={ftp} align="center" gap="2">
                       <Link
-                        href={`https://${ftp}`}
+                        href={fileUrl(ftp)}
                         target="_blank"
                         rel="noopener noreferrer"
                         size="1"
@@ -1029,9 +1038,7 @@ export function DownloadFastqSection({
                 // SRA FTP fallback
                 if (entries.length === 0 && row.sra_ftp) {
                   entries.push({
-                    url: row.sra_ftp.startsWith("ftp://")
-                      ? row.sra_ftp
-                      : `https://${row.sra_ftp}`,
+                    url: fileUrl(row.sra_ftp),
                     bytes: row.sra_bytes,
                     badge: "SRA",
                     color: "gray",
@@ -1699,6 +1706,77 @@ function BamFilesSection({
   );
 }
 
+/** A clickable accession badge that links to its project page, with the study
+ *  title shown as a Radix tooltip. */
+function HierarchyBadge({
+  accession,
+  title,
+}: {
+  accession: string;
+  title: string | null;
+}) {
+  const badge = (
+    <a href={`/p/${accession}`}>
+      <Badge size={{ initial: "1", md: "2" }} style={{ cursor: "pointer" }}>
+        {accession}
+      </Badge>
+    </a>
+  );
+  return title ? <Tooltip content={title}>{badge}</Tooltip> : badge;
+}
+
+/** ENA/DDBJ study hierarchy: parent umbrella + child studies. Ships the first 24
+ *  children inline; "+N more" links to the full list on ENA. */
+function StudyHierarchy({ project }: { project: Project }) {
+  const total = project.children_total ?? 0;
+  const inline = project.children ?? [];
+  const remaining = total - inline.length;
+
+  if (!project.parent_accession && total === 0) return null;
+
+  return (
+    <Flex direction="column" gap="2">
+      {project.parent_accession && (
+        <Flex align="center" gap="2" wrap="wrap">
+          <Text size="2" weight="medium">
+            Child of:
+          </Text>
+          <HierarchyBadge
+            accession={project.parent_accession}
+            title={project.parent_title ?? null}
+          />
+        </Flex>
+      )}
+      {total > 0 && (
+        <Flex align="center" gap="2" wrap="wrap">
+          <Text size="2" weight="medium">
+            {total.toLocaleString()} component{" "}
+            {total === 1 ? "project" : "projects"}:
+          </Text>
+          {inline.map((ch) => (
+            <HierarchyBadge
+              key={ch.accession}
+              accession={ch.accession}
+              title={ch.title}
+            />
+          ))}
+          {remaining > 0 && (
+            <Button variant="ghost" color="gray" size="1" ml="2" asChild>
+              <a
+                href={`https://www.ebi.ac.uk/ena/browser/view/${project.accession}?show=component-projects`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                + {remaining.toLocaleString()} more
+              </a>
+            </Button>
+          )}
+        </Flex>
+      )}
+    </Flex>
+  );
+}
+
 export default function ProjectPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -1712,24 +1790,35 @@ export default function ProjectPage() {
   const isPrjAccession = accessionUpper?.startsWith("PRJ") ?? false;
   // GSA (CNCB-NGDC): CRA = open archive, HRA = human archive.
   const isGsaAccession = /^(CRA|HRA)\d+$/.test(accessionUpper ?? "");
+  // DDBJ DRA: D-namespace studies live on ddbj.nig.ac.jp, not NCBI Trace.
+  const isDdbjAccession = /^(DR[PXRS]|PRJDB)\d+$/.test(accessionUpper ?? "");
   const gsaStudyUrl = accessionUpper?.startsWith("HRA")
     ? `https://ngdc.cncb.ac.cn/gsa-human/browse/${accession}`
     : `https://ngdc.cncb.ac.cn/gsa/browse/${accession}`;
+  const ddbjStudyUrl =
+    accession && isDdbjAccession
+      ? (getExternalArchiveUrl(accession)?.url ?? null)
+      : null;
   const externalStudyUrl = isGsaAccession
     ? gsaStudyUrl
-    : accession && isPrjAccession
-      ? `https://www.ebi.ac.uk/ena/browser/view/${accession}`
-      : `https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`;
+    : (ddbjStudyUrl ??
+      (accession && isPrjAccession
+        ? `https://www.ebi.ac.uk/ena/browser/view/${accession}`
+        : `https://trace.ncbi.nlm.nih.gov/Traces/?view=study&acc=${accession}`));
   const externalStudyLabel = isGsaAccession
     ? "Visit GSA page"
-    : isPrjAccession
-      ? "Visit ENA page"
-      : "Visit SRA page";
-  const externalStudyColor = isGsaAccession
-    ? DB_COLOR_MAP.gsa.radix
-    : isPrjAccession
-      ? DB_COLOR_MAP.ena.radix
-      : DB_COLOR_MAP.sra.radix;
+    : isDdbjAccession
+      ? "Visit DRA page"
+      : isPrjAccession
+        ? "Visit ENA page"
+        : "Visit SRA page";
+  const externalStudyDb: DbSource = isGsaAccession
+    ? "gsa"
+    : isDdbjAccession
+      ? "dra"
+      : isPrjAccession
+        ? "ena"
+        : "sra";
   const [isAccessionCopied, setIsAccessionCopied] = useState(false);
   const [isBioprojectCopied, setIsBioprojectCopied] = useState(false);
   const isDark = resolvedTheme === "dark";
@@ -2239,16 +2328,18 @@ export default function ProjectPage() {
               </Heading>
             </Flex>
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
-              <Badge
+              <DbBadge
                 size={{ initial: "2", md: "3" }}
-                color={
+                db={
                   isGsaAccession
-                    ? "tomato"
-                    : isPrjAccession
-                      ? "jade"
-                      : isArrayExpressAccession
-                        ? "gold"
-                        : "brown"
+                    ? "gsa"
+                    : isDdbjAccession
+                      ? "dra"
+                      : isPrjAccession
+                        ? "ena"
+                        : isArrayExpressAccession
+                          ? "arrayexpress"
+                          : "sra"
                 }
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
@@ -2275,7 +2366,7 @@ export default function ProjectPage() {
                     </button>
                   </Tooltip>
                 </Flex>
-              </Badge>
+              </DbBadge>
               {isGsaAccession &&
                 (project.bioproject_id ? (
                   <Badge
@@ -2398,13 +2489,13 @@ export default function ProjectPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Badge
+                <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  color={externalStudyColor}
+                  db={externalStudyDb}
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {externalStudyLabel} <ExternalLinkIcon />
-                </Badge>
+                </DbBadge>
               </a>
             </Flex>
             <Flex align={"center"} gap={"2"}>
@@ -2470,6 +2561,8 @@ export default function ProjectPage() {
               text={project.abstract}
               charLimit={ABSTRACT_CHAR_LIMIT}
             />
+            {/* ENA/DDBJ study hierarchy: parent umbrella / child studies. */}
+            <StudyHierarchy project={project} />
             {/* Experiments (Original) + AI Enriched metadata, merged via tabs */}
             <MetadataTableTabs
               accession={accession}

@@ -10,6 +10,7 @@ import {
   Flex,
   Heading,
   SegmentedControl,
+  Skeleton,
 } from "@radix-ui/themes";
 import type { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
@@ -21,11 +22,12 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Metric = "Projects" | "Samples";
 
-const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena", "gsa"] as const;
+const SOURCE_KEYS = ["sra", "geo", "arrayexpress", "ena", "gsa", "dra", "gea"] as const;
 
 export default function StatsSourceHistogramCard() {
   const [metric, setMetric] = useState<Metric>("Projects");
-  const { data: totals } = useSourceTotals();
+  const [logScale, setLogScale] = useState(false);
+  const { data: totals, isLoading } = useSourceTotals();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const reduced = useReducedMotion();
@@ -44,7 +46,7 @@ export default function StatsSourceHistogramCard() {
         events: chartFooterEvents,
       },
       title: {
-        text: `Source Distribution — ${metric}`,
+        text: `Source distribution: ${metric}`,
         align: "left",
         style: {
           fontSize: "16px",
@@ -54,7 +56,7 @@ export default function StatsSourceHistogramCard() {
         },
       },
       subtitle: {
-        text: `Total ${metric.toLowerCase()} across SRA, GEO, ArrayExpress, ENA & GSA`,
+        text: `Total ${metric.toLowerCase()} across SRA, GEO, ArrayExpress, ENA, GSA, DRA & GEA`,
         align: "left",
         style: {
           fontSize: "12px",
@@ -67,7 +69,13 @@ export default function StatsSourceHistogramCard() {
         title: { text: "Source" },
       },
       yaxis: {
+        logarithmic: logScale,
+        logBase: 10,
+        // log(0) is undefined; a bar of 1 renders as an empty bar at the baseline.
+        min: logScale ? 1 : 0,
+        forceNiceScale: !logScale,
         title: { text: metric },
+        labels: { formatter: (value) => humanize(Math.round(value)) },
       },
       dataLabels: {
         enabled: true,
@@ -105,18 +113,18 @@ export default function StatsSourceHistogramCard() {
       },
       };
     },
-    [metric, isDark, reduced],
+    [metric, isDark, reduced, logScale],
   );
 
   const series = useMemo(
     () => [
       {
         name: metric,
-        data: totals
-          ? SOURCE_KEYS.map((k) =>
-              metric === "Projects" ? totals[k].projects : totals[k].samples,
-            )
-          : [],
+        data: SOURCE_KEYS.map((k) =>
+          metric === "Projects"
+            ? (totals?.[k]?.projects ?? 0)
+            : (totals?.[k]?.samples ?? 0),
+        ),
       },
     ],
     [metric, totals],
@@ -135,25 +143,45 @@ export default function StatsSourceHistogramCard() {
           </Heading>
           <SectionAnchor id="sources" />
         </Flex>
-        <SegmentedControl.Root
-          defaultValue={metric}
-          value={metric}
-          onValueChange={(value) => setMetric(value as Metric)}
-        >
-          <SegmentedControl.Item value="Projects">
-            Projects
-          </SegmentedControl.Item>
-          <SegmentedControl.Item value="Samples">Samples</SegmentedControl.Item>
-        </SegmentedControl.Root>
+        <Flex gap="3" align="center" wrap="wrap">
+          <SegmentedControl.Root
+            value={logScale ? "log" : "linear"}
+            onValueChange={(value) => setLogScale(value === "log")}
+            size="1"
+          >
+            <SegmentedControl.Item value="linear">Linear</SegmentedControl.Item>
+            <SegmentedControl.Item value="log">Log</SegmentedControl.Item>
+          </SegmentedControl.Root>
+          <SegmentedControl.Root
+            value={metric}
+            onValueChange={(value) => setMetric(value as Metric)}
+            size="1"
+          >
+            <SegmentedControl.Item value="Projects">
+              Projects
+            </SegmentedControl.Item>
+            <SegmentedControl.Item value="Samples">
+              Samples
+            </SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </Flex>
       </Flex>
-      <Chart
-        type="bar"
-        options={chartOptions}
-        series={series}
-        height={360}
-        width="100%"
-      />
-      <ChartFooter chartId="seqout-source-dist" />
+      {isLoading || !totals ? (
+        <Flex direction="column" gap="3" justify="end" style={{ height: 360 }}>
+          <Skeleton width="100%" height="300px" />
+        </Flex>
+      ) : (
+        <>
+          <Chart
+            type="bar"
+            options={chartOptions}
+            series={series}
+            height={360}
+            width="100%"
+          />
+          <ChartFooter chartId="seqout-source-dist" />
+        </>
+      )}
     </Flex>
   );
 }
