@@ -151,7 +151,7 @@ export async function createMap({
   // with the coarsest labeled layer for the default view; the zoom listener keeps
   // it in sync. cluster ids run [0, max] and -1 = noise (grey, first palette slot).
   state.colorField =
-    levels[Math.min(LABEL_LAYER_MAX, levels.length - 1)] ?? null;
+    levels[Math.min(COLOR_LAYER_MAX, levels.length - 1)] ?? null;
   state.maxClusterId = (state.colorField && clusterMax[state.colorField]) || 0;
 
   // Index 0 of the range maps to cluster_id -1 (noise) → faint background grey so
@@ -363,6 +363,10 @@ const LABEL_LAYER_MAX = 4; // coarsest labeled layer (cluster_l4)
 // (its points would overflow the texture → black). Coloring won't go finer than
 // the finest layer under this limit.
 const COLOR_CATEGORY_LIMIT = 4096;
+// Coarsest layer baked into the tiles as a color column — mirrors _COLOR_LAYER_COUNT
+// in the backend (main.py), which bakes the finest N layers only. Labels go coarser
+// (LABEL_LAYER_MAX), but coloring by a layer with no tile column paints nothing.
+const COLOR_LAYER_MAX = 3;
 
 // Map the current zoom to a labeled layer (one layer per 2x zoom). Returns
 // level: null when zoomed out past l3, so nothing is shown unless the user is
@@ -528,7 +532,7 @@ function setupDynamicLabels({
   // overflow it → black points, so coloring stops getting finer here (labels
   // still do). +1 leaves room for the noise (-1) category.
   const colorFloor = (() => {
-    const top = Math.min(LABEL_LAYER_MAX, levels.length - 1);
+    const top = Math.min(COLOR_LAYER_MAX, levels.length - 1);
     for (let i = 0; i <= top; i++) {
       if ((clusterCount[levels[i]] ?? Infinity) + 1 <= COLOR_CATEGORY_LIMIT)
         return i;
@@ -541,7 +545,8 @@ function setupDynamicLabels({
   // (only repaints if coloring is on).
   const syncColor = (colorIdx) => {
     if (colorIdx == null) return;
-    const colorLevel = levels[Math.max(colorFloor, colorIdx)];
+    const colorLevel =
+      levels[Math.min(COLOR_LAYER_MAX, Math.max(colorFloor, colorIdx))];
     if (!colorLevel || colorLevel === state.colorField) return;
     state.colorField = colorLevel;
     state.maxClusterId = clusterMax[colorLevel] ?? 0;

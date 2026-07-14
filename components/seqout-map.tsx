@@ -514,7 +514,10 @@ export default function MapGraph() {
       destroyed = true;
       controller.abort();
       ctxRef.current?.destroy?.();
-      if (areaEl) areaEl.querySelectorAll("canvas").forEach((c) => c.remove());
+      // Empty the whole holder, not just its canvases: deepscatter's bind() reuses an
+      // existing div.deepscatter_container and appends a second set of containers into
+      // it, then the renderer picks the *first* (stale, canvas-less) one → crash.
+      document.getElementById(DEEPSCATTER_ID)?.replaceChildren();
       spRef.current = null;
     };
   }, [layoutReady, isMobile, mapSizeRevision]);
