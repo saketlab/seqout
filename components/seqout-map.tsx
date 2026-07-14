@@ -5,6 +5,8 @@ import { SERVER_URL } from "@/utils/constants";
 import { normalizeAliases } from "@/utils/project";
 import {
   BarChartIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   Cross1Icon,
   Cross2Icon,
   DownloadIcon,
@@ -375,6 +377,7 @@ export default function MapGraph() {
   const [clusterLevel, setClusterLevel] = useState<string | null>(null);
   const [clusterQuery, setClusterQuery] = useState("");
   const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
+  const [clusterCardExpanded, setClusterCardExpanded] = useState(true);
 
   // Enriched facets (organism/tissue/…), shown as bar charts in the lasso stats.
   const [facets, setFacets] = useState<Facet[]>([]);
@@ -1375,59 +1378,87 @@ export default function MapGraph() {
                   <TokensIcon />
                   <Text size="2">Clusters</Text>
                 </Flex>
-                {selectedClusters.length > 0 && (
-                  <Button
-                    size="1"
-                    variant="ghost"
-                    color="gray"
-                    onClick={clearClusters}
-                  >
-                    Clear ({selectedClusters.length})
-                  </Button>
-                )}
-              </Flex>
-              <TextField.Root
-                size="1"
-                value={clusterQuery}
-                placeholder="Search clusters"
-                onChange={(e) => setClusterQuery(e.target.value)}
-              >
-                <TextField.Slot>
-                  <MagnifyingGlassIcon height="12" width="12" />
-                </TextField.Slot>
-              </TextField.Root>
-              <ScrollArea
-                type="auto"
-                scrollbars="vertical"
-                style={{ height: 220 }}
-              >
-                <Flex direction="column" gap="1" pr="2">
-                  {visibleClusters.map((cluster) => (
-                    <Text
-                      as="label"
+                <Flex align="center" gap="1">
+                  {selectedClusters.length > 0 && (
+                    <Button
                       size="1"
-                      key={cluster.id}
-                      style={{ cursor: "pointer", display: "block" }}
+                      variant="ghost"
+                      color="gray"
+                      onClick={clearClusters}
                     >
-                      <Flex align="center" gap="2" style={{ minHeight: 28 }}>
-                        <Checkbox
-                          size="1"
-                          checked={selectedClusters.includes(cluster.id)}
-                          onCheckedChange={(checked) =>
-                            onToggleCluster(cluster.id, checked === true)
-                          }
-                        />
-                        <Text size="1">{cluster.label}</Text>
-                      </Flex>
-                    </Text>
-                  ))}
-                  {visibleClusters.length === 0 && (
-                    <Text size="1" color="gray">
-                      No clusters match.
-                    </Text>
+                      Clear ({selectedClusters.length})
+                    </Button>
                   )}
+                  <Tooltip
+                    content={
+                      clusterCardExpanded
+                        ? "Collapse clusters"
+                        : "Expand clusters"
+                    }
+                  >
+                    <IconButton
+                      size="1"
+                      variant="ghost"
+                      color="gray"
+                      aria-label={clusterCardExpanded ? "Collapse" : "Expand"}
+                      aria-expanded={clusterCardExpanded}
+                      onClick={() => setClusterCardExpanded((open) => !open)}
+                    >
+                      {clusterCardExpanded ? (
+                        <ChevronDownIcon />
+                      ) : (
+                        <ChevronUpIcon />
+                      )}
+                    </IconButton>
+                  </Tooltip>
                 </Flex>
-              </ScrollArea>
+              </Flex>
+              {clusterCardExpanded && (
+                <TextField.Root
+                  size="1"
+                  value={clusterQuery}
+                  placeholder="Search clusters"
+                  onChange={(e) => setClusterQuery(e.target.value)}
+                >
+                  <TextField.Slot>
+                    <MagnifyingGlassIcon height="12" width="12" />
+                  </TextField.Slot>
+                </TextField.Root>
+              )}
+              {clusterCardExpanded && (
+                <ScrollArea
+                  type="auto"
+                  scrollbars="vertical"
+                  style={{ height: 220 }}
+                >
+                  <Flex direction="column" gap="1" pr="2">
+                    {visibleClusters.map((cluster) => (
+                      <Text
+                        as="label"
+                        size="1"
+                        key={cluster.id}
+                        style={{ cursor: "pointer", display: "block" }}
+                      >
+                        <Flex align="center" gap="2" style={{ minHeight: 28 }}>
+                          <Checkbox
+                            size="1"
+                            checked={selectedClusters.includes(cluster.id)}
+                            onCheckedChange={(checked) =>
+                              onToggleCluster(cluster.id, checked === true)
+                            }
+                          />
+                          <Text size="1">{cluster.label}</Text>
+                        </Flex>
+                      </Text>
+                    ))}
+                    {visibleClusters.length === 0 && (
+                      <Text size="1" color="gray">
+                        No clusters match.
+                      </Text>
+                    )}
+                  </Flex>
+                </ScrollArea>
+              )}
             </Flex>
           </Card>
         )}
