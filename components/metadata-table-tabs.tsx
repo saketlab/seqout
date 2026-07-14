@@ -201,17 +201,21 @@ export default function MetadataTableTabs({
             </Tabs.Root>
           )}
           <WrapTextToggle size="2" />
-          <Button
-            onClick={() => {
-              if (showEnriched && enriched) {
-                void exportEnrichedCsv(accession);
-              } else {
-                onExportOriginalCsv();
-              }
-            }}
-          >
-            <DownloadIcon /> CSV
-          </Button>
+          {/* ponytail: enriched CSV export is hidden for now — drop the
+              `!showEnriched &&` guard to bring it back. */}
+          {!showEnriched && (
+            <Button
+              onClick={() => {
+                if (showEnriched && enriched) {
+                  void exportEnrichedCsv(accession);
+                } else {
+                  onExportOriginalCsv();
+                }
+              }}
+            >
+              <DownloadIcon /> CSV
+            </Button>
+          )}
         </Flex>
       </Flex>
       {!showEnriched && originalContent}
