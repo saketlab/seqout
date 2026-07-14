@@ -25,46 +25,51 @@ type DbColor = {
   og: { primary: string; secondary: string; accent: string };
 };
 
+/**
+ * Seaborn's `muted` palette (tab10 at muted luminance), except geo: tab10's blue
+ * is worn by the "Visit BioProject page" button, so GEO takes a brighter one.
+ * `og.secondary` is the hex darkened, `og.accent` the hex over white.
+ */
 export const DB_COLOR_MAP: Record<DbSource, DbColor> = {
   geo: {
-    hex: "#00468b",
-    og: { primary: "#00468b", secondary: "#00376c", accent: "#7399bf" },
+    hex: "#0090ff",
+    og: { primary: "#0090ff", secondary: "#0070c7", accent: "#73c2ff" },
   },
   sra: {
-    hex: "#ed0000",
-    og: { primary: "#ed0000", secondary: "#b90000", accent: "#f57373" },
+    hex: "#d65f5f",
+    og: { primary: "#d65f5f", secondary: "#a74a4a", accent: "#e8a7a7" },
   },
   ena: {
-    hex: "#42b540",
-    og: { primary: "#42b540", secondary: "#338d32", accent: "#97d696" },
+    hex: "#6acc64",
+    og: { primary: "#6acc64", secondary: "#539f4e", accent: "#ade3aa" },
   },
   arrayexpress: {
-    hex: "#925e9f",
-    og: { primary: "#925e9f", secondary: "#72497c", accent: "#c3a6ca" },
+    hex: "#956cb4",
+    og: { primary: "#956cb4", secondary: "#74548c", accent: "#c5aed6" },
   },
   gsa: {
-    hex: "#006040",
-    og: { primary: "#006040", secondary: "#004b32", accent: "#8cb7a9" },
+    hex: "#8c613c",
+    og: { primary: "#8c613c", secondary: "#6d4c2f", accent: "#c0a894" },
   },
   dra: {
-    hex: "#0099b4",
-    og: { primary: "#0099b4", secondary: "#00778c", accent: "#73c7d6" },
+    hex: "#82c6e2",
+    og: { primary: "#82c6e2", secondary: "#659ab0", accent: "#bae0ef" },
   },
   gea: {
-    hex: "#fdaf91",
-    og: { primary: "#fdaf91", secondary: "#c58871", accent: "#fed3c2" },
+    hex: "#ee854a",
+    og: { primary: "#ee854a", secondary: "#ba683a", accent: "#f6bc9b" },
   },
 };
 
 /** Badge text: the lightest shade that still clears 4.5:1 on its tinted background. */
 export const DB_BADGE_FG: Record<DbSource, { light: string; dark: string }> = {
-  geo: { light: "#00468b", dark: "#5c89b5" },
-  sra: { light: "#cc0000", dark: "#f24c4c" },
-  ena: { light: "#2d7b2c", dark: "#42b540" },
-  arrayexpress: { light: "#865692", dark: "#a87eb2" },
-  gsa: { light: "#006040", dark: "#3fae83" },
-  dra: { light: "#007489", dark: "#0f9fb8" },
-  gea: { light: "#936554", dark: "#fdaf91" },
+  geo: { light: "#006bbd", dark: "#0a94ff" },
+  sra: { light: "#c33232", dark: "#db7171" },
+  ena: { light: "#2f7f2a", dark: "#42b43b" },
+  arrayexpress: { light: "#8556a9", dark: "#a582bf" },
+  gsa: { light: "#885e3a", dark: "#b68154" },
+  dra: { light: "#247799", dark: "#45aad4" },
+  gea: { light: "#b64c11", dark: "#ec7837" },
 };
 
 export const PLATFORM_DBS: DbSource[] = DB_ORDER.filter(

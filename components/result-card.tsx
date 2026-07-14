@@ -1,6 +1,6 @@
 import CountryFlagIcon from "@/components/country-flag-icon";
 import DbBadge from "@/components/db-badge";
-import { dbForAccession } from "@/utils/db-colors";
+import { DB_COLOR_MAP, dbForAccession, type DbSource } from "@/utils/db-colors";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { doiHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
@@ -23,7 +23,16 @@ type ResultCardProps = {
   href?: string;
   single_cell_modality?: string | null;
   via?: string | null;
+  /** The record's archive, as the API reports it. */
+  source?: string | null;
 };
+
+// An ENA study keeps its NCBI PRJNA id, which dbForAccession reads as SRA — trust
+// the record's own source when there is one.
+function dbFor(accession: string, source?: string | null): DbSource | null {
+  if (source && source in DB_COLOR_MAP) return source as DbSource;
+  return dbForAccession(accession);
+}
 
 function parseAuthors(authors: string | null): string[] {
   if (!authors) return [];
@@ -58,8 +67,9 @@ function ResultCard({
   href,
   single_cell_modality,
   via,
+  source,
 }: ResultCardProps) {
-  const db = dbForAccession(accession);
+  const db = dbFor(accession, source);
   const authorList = parseAuthors(authors ?? null);
   const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
 

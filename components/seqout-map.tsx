@@ -556,7 +556,6 @@ export default function MapGraph() {
           tilesUrl: `${base}/tiles`,
           labelsBase: `${SERVER_URL}/map/labels`,
           clusterMax: meta.cluster_max,
-          clusterCount: meta.cluster_count,
           levels: meta.levels,
           extent: meta.extent,
           countries,
@@ -574,7 +573,6 @@ export default function MapGraph() {
         if (destroyed) return;
 
         spRef.current = ctx.sp;
-        (window as unknown as { __sp: unknown }).__sp = ctx.sp; // DBG
         ctxRef.current = {
           countries: ctx.countries,
           clusterColors: ctx.clusterColors,

@@ -1,7 +1,7 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
 import DbBadge from "@/components/db-badge";
-import { dbForAccession, type DbSource } from "@/utils/db-colors";
+import type { DbSource } from "@/utils/db-colors";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
@@ -2329,7 +2329,9 @@ export default function ProjectPage() {
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
               <DbBadge
                 size={{ initial: "2", md: "3" }}
-                db={dbForAccession(accessionUpper ?? "") ?? "sra"}
+                // Not dbForAccession: an ENA study keeps its NCBI PRJNA id, which
+                // that regex reads as SRA. externalStudyDb is the page's own source.
+                db={externalStudyDb}
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >

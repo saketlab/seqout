@@ -1513,6 +1513,7 @@ export default function SearchPageBody() {
     <ResultCard
       key={`${searchResult.source}:${searchResult.accession}`}
       accession={searchResult.accession}
+      source={searchResult.source}
       title={searchResult.title}
       summary={searchResult.summary}
       updated_at={searchResult.updated_at}

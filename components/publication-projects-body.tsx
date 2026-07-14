@@ -176,6 +176,7 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
             <ResultCard
               key={`${p.source}:${p.accession}`}
               accession={p.accession}
+              source={p.source}
               title={p.title}
               updated_at={p.published_at}
               via={p.via}
