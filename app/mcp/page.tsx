@@ -1,6 +1,15 @@
 import SearchBar from "@/components/search-bar";
+import { escapeHtmlJson } from "@/utils/json";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
-import { Box, Callout, Code, Flex, Heading, Link, Text } from "@radix-ui/themes";
+import {
+  Box,
+  Callout,
+  Code,
+  Flex,
+  Heading,
+  Link,
+  Text,
+} from "@radix-ui/themes";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -32,10 +41,7 @@ const jsonLd = {
 export default function MCP() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json">{escapeHtmlJson(jsonLd)}</script>
       <SearchBar />
       <Flex
         gap="4"
@@ -59,8 +65,8 @@ export default function MCP() {
             Model Context Protocol (MCP)
           </Link>{" "}
           server that enables LLM chat clients to use seqout&apos;s features.
-          This provides easy and intuitive access to exploring datasets from GEO,
-          SRA, ENA, DRA, GEA, GSA & ArrayExpress.
+          This provides easy and intuitive access to exploring datasets from
+          GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress.
         </Text>
 
         <Callout.Root>
@@ -126,11 +132,14 @@ export default function MCP() {
             </Code>
           </Box>
 
-          <Text size={{ initial: "2", md: "3" }}>4. Restart Claude Desktop to apply the changes</Text>
+          <Text size={{ initial: "2", md: "3" }}>
+            4. Restart Claude Desktop to apply the changes
+          </Text>
 
           <Text size={{ initial: "2", md: "3" }}>
             Once configured, you&apos;ll be able to search and explore GEO, SRA,
-            ENA, DRA, GEA, GSA & ArrayExpress datasets directly from Claude Desktop conversations.
+            ENA, DRA, GEA, GSA & ArrayExpress datasets directly from Claude
+            Desktop conversations.
           </Text>
 
           <Text size={{ initial: "2", md: "3" }}>

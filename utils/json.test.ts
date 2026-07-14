@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseMaybeJson } from "./json";
+import { escapeHtmlJson, parseMaybeJson } from "./json";
 
 describe("parseMaybeJson", () => {
   it("returns fallback for null/undefined/empty", () => {
@@ -17,5 +17,16 @@ describe("parseMaybeJson", () => {
   it("passes through non-string values unchanged", () => {
     const obj = { a: 1 };
     expect(parseMaybeJson(obj, null)).toBe(obj);
+  });
+});
+
+describe("escapeHtmlJson", () => {
+  it("escapes characters that can change an HTML script's meaning", () => {
+    const json = escapeHtmlJson({ value: "</script><span>&" });
+
+    expect(json).not.toContain("<");
+    expect(json).not.toContain(">");
+    expect(json).not.toContain("&");
+    expect(JSON.parse(json)).toEqual({ value: "</script><span>&" });
   });
 });

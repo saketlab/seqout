@@ -1,5 +1,6 @@
 import { CodeBlock, EndpointCard } from "@/components/api-docs-client";
 import SearchBar from "@/components/search-bar";
+import { escapeHtmlJson } from "@/utils/json";
 import { Badge, Card, Code, Flex, Heading, Link, Text } from "@radix-ui/themes";
 import type { Metadata } from "next";
 
@@ -77,7 +78,8 @@ const API: Category[] = [
           {
             name: "db",
             type: "string",
-            description: "Filter to a database: geo, sra, arrayexpress, ena, or gsa",
+            description:
+              "Filter to a database: geo, sra, arrayexpress, ena, or gsa",
           },
           {
             name: "sortby",
@@ -908,7 +910,8 @@ const API: Category[] = [
         description:
           "GA4GH Beacon v2.2.0 metadata Beacon over GEO/SRA/ENA/ArrayExpress/GSA. Discovery endpoints: /beacon/info, /beacon/service-info, /beacon/configuration, /beacon/entry_types, /beacon/map, /beacon/filtering_terms. This is a metadata Beacon, not a variant Beacon (no g_variants/analyses).",
         params: [],
-        responseHint: '{"meta": {...}, "response": {"id": "org.seqout.beacon", ...}}',
+        responseHint:
+          '{"meta": {...}, "response": {"id": "org.seqout.beacon", ...}}',
       },
       {
         method: "GET",
@@ -929,7 +932,8 @@ const API: Category[] = [
             name: "id",
             type: "string",
             location: "query",
-            description: "Single dataset id (e.g. SRA, GEO, ENA, ArrayExpress, GSA)",
+            description:
+              "Single dataset id (e.g. SRA, GEO, ENA, ArrayExpress, GSA)",
           },
         ],
       },
@@ -938,7 +942,7 @@ const API: Category[] = [
         path: "/beacon/biosamples",
         summary: "Query ontology-enriched biosamples",
         description:
-          "Query samples by ontology (MONDO/UBERON/CL/EFO — descendant terms expanded by default; set includeDescendantTerms=false to disable), alphanumeric fields (organism, sex), linked publication (PMID:<n>), or normalized age. Age uses id EFO:0004847 (or \"age\") with an operator (< <= > >= = !=) and an ISO-8601 duration value (P70Y, P6M, P70Y6M, P10D); the operator may also be embedded in the value (\">P70Y\"). requestedGranularity is boolean, count, or record (default record); pagination via skip (default 0) and limit (default 10, max 100).",
+          'Query samples by ontology (MONDO/UBERON/CL/EFO — descendant terms expanded by default; set includeDescendantTerms=false to disable), alphanumeric fields (organism, sex), linked publication (PMID:<n>), or normalized age. Age uses id EFO:0004847 (or "age") with an operator (< <= > >= = !=) and an ISO-8601 duration value (P70Y, P6M, P70Y6M, P10D); the operator may also be embedded in the value (">P70Y"). requestedGranularity is boolean, count, or record (default record); pagination via skip (default 0) and limit (default 10, max 100).',
         params: [
           {
             name: "query.filters",
@@ -1078,10 +1082,7 @@ function buildR(ep: Endpoint): string {
 export default function ApiDocsPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json">{escapeHtmlJson(jsonLd)}</script>
       <SearchBar />
       <Flex
         gap="4"
@@ -1099,8 +1100,8 @@ export default function ApiDocsPage() {
           style={{ color: "var(--gray-11)" }}
         >
           The seqout API provides programmatic access to over 1 million GEO,
-          SRA, ENA, ArrayExpress &amp; GSA projects. All endpoints are free, require
-          no authentication, and return JSON unless noted otherwise.
+          SRA, ENA, ArrayExpress &amp; GSA projects. All endpoints are free,
+          require no authentication, and return JSON unless noted otherwise.
         </Text>
 
         <Card>

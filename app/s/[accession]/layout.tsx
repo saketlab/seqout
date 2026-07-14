@@ -4,12 +4,12 @@ import {
   ARCHIVE_LICENSE_URLS as LICENSE_URLS,
   SITE_URL,
 } from "@/utils/constants";
+import { escapeHtmlJson } from "@/utils/json";
 import { ARCHIVE_BY_DB, dbForAccession } from "@/utils/db-colors";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-const API_BASE_URL =
-  process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
+const API_BASE_URL = process.env.PYSRAWEB_API_BASE ?? "https://seqout.org/api";
 
 export const revalidate = 86400;
 
@@ -25,7 +25,8 @@ function detectSampleType(accession: string): {
   const upper = accession.toUpperCase();
   const database = ARCHIVE_BY_DB[dbForAccession(upper) ?? "sra"];
   if (upper.startsWith("GSM")) return { type: "GEO Sample", database };
-  if (/^[SED]RX/.test(upper)) return { type: `${database} Experiment`, database };
+  if (/^[SED]RX/.test(upper))
+    return { type: `${database} Experiment`, database };
   if (/^[SED]RS/.test(upper)) return { type: `${database} Sample`, database };
   if (upper.startsWith("SAM")) return { type: "BioSample", database };
   return { type: "Sample", database };
@@ -88,7 +89,13 @@ export default async function SampleLayout({ children, params }: Props) {
     description,
     url: canonicalUrl,
     identifier: accession,
-    keywords: [database, "sequencing", "sample metadata", "genomics", accession],
+    keywords: [
+      database,
+      "sequencing",
+      "sample metadata",
+      "genomics",
+      accession,
+    ],
     license: LICENSE_URLS[database],
     includedInDataCatalog: {
       "@type": "DataCatalog",
@@ -124,14 +131,10 @@ export default async function SampleLayout({ children, params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <script type="application/ld+json">{escapeHtmlJson(jsonLd)}</script>
+      <script type="application/ld+json">
+        {escapeHtmlJson(breadcrumbJsonLd)}
+      </script>
       {children}
     </>
   );

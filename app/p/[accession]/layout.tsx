@@ -1,11 +1,16 @@
 import { fetchProjectSocialTitle } from "@/lib/project-og";
+import { escapeHtmlJson } from "@/utils/json";
 import {
   type Archive,
   ARCHIVE_CATALOG_URLS as CATALOG_URLS,
   ARCHIVE_LICENSE_URLS as LICENSE_URLS,
   SITE_URL,
 } from "@/utils/constants";
-import { ARCHIVE_BY_DB, dbForAccession, type DbSource } from "@/utils/db-colors";
+import {
+  ARCHIVE_BY_DB,
+  dbForAccession,
+  type DbSource,
+} from "@/utils/db-colors";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -139,14 +144,10 @@ export default async function ProjectLayout({ children, params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <script type="application/ld+json">{escapeHtmlJson(jsonLd)}</script>
+      <script type="application/ld+json">
+        {escapeHtmlJson(breadcrumbJsonLd)}
+      </script>
       {children}
     </>
   );

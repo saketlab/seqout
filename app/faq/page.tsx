@@ -1,17 +1,11 @@
 import SectionAnchor from "@/components/section-anchor";
 import SearchBar from "@/components/search-bar";
-import {
-  Flex,
-  Grid,
-  Heading,
-  Link,
-  Separator,
-  Text,
-} from "@radix-ui/themes";
+import { Flex, Grid, Heading, Link, Separator, Text } from "@radix-ui/themes";
 import type { Metadata } from "next";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { LAST_INDEX_REFRESH, SERVER_API_BASE } from "@/utils/constants";
+import { escapeHtmlJson } from "@/utils/json";
 import type { LastUpdated } from "@/utils/types";
 
 export const metadata: Metadata = {
@@ -95,8 +89,7 @@ const faqItems = [
   {
     id: "cite",
     question: "How do I cite seqout?",
-    answer:
-      "Aniruddha Mukherjee and Saket Choudhary. seqout.org.",
+    answer: "Aniruddha Mukherjee and Saket Choudhary. seqout.org.",
   },
   {
     id: "open-source",
@@ -129,19 +122,57 @@ const FAQ_LINK_MAP: Record<string, { text: string; href: string }[]> = {
   api: [{ text: "API Reference", href: "/api-docs" }],
   mcp: [{ text: "MCP page", href: "/mcp" }],
   "open-source": [
-    { text: "github.com/saketlab/seqout", href: "https://github.com/saketlab/seqout" },
+    {
+      text: "github.com/saketlab/seqout",
+      href: "https://github.com/saketlab/seqout",
+    },
   ],
   "accession-map": [{ text: "Map page", href: "/map" }],
 };
 
 const ATTRIBUTION_SOURCES = [
-  { name: "NCBI GEO", description: "Gene Expression Omnibus", url: "https://www.ncbi.nlm.nih.gov/geo/", label: "ncbi.nlm.nih.gov/geo" },
-  { name: "NCBI SRA", description: "Sequence Read Archive", url: "https://www.ncbi.nlm.nih.gov/sra", label: "ncbi.nlm.nih.gov/sra" },
-  { name: "EMBL-EBI ENA", description: "European Nucleotide Archive", url: "https://www.ebi.ac.uk/ena/browser/home", label: "ebi.ac.uk/ena" },
-  { name: "EMBL-EBI ArrayExpress", description: "Functional Genomics Data", url: "https://www.ebi.ac.uk/biostudies/arrayexpress", label: "ebi.ac.uk/arrayexpress" },
-  { name: "CNCB-NGDC GSA", description: "Genome Sequence Archive", url: "https://ngdc.cncb.ac.cn/gsa/", label: "ngdc.cncb.ac.cn/gsa" },
-  { name: "DRA", description: "DDBJ Sequence Read Archive", url: "https://www.ddbj.nig.ac.jp/dra/", label: "ddbj.nig.ac.jp/dra" },
-  { name: "GEA", description: "DDBJ Genomic Expression Archive", url: "https://www.ddbj.nig.ac.jp/gea/", label: "ddbj.nig.ac.jp/gea" },
+  {
+    name: "NCBI GEO",
+    description: "Gene Expression Omnibus",
+    url: "https://www.ncbi.nlm.nih.gov/geo/",
+    label: "ncbi.nlm.nih.gov/geo",
+  },
+  {
+    name: "NCBI SRA",
+    description: "Sequence Read Archive",
+    url: "https://www.ncbi.nlm.nih.gov/sra",
+    label: "ncbi.nlm.nih.gov/sra",
+  },
+  {
+    name: "EMBL-EBI ENA",
+    description: "European Nucleotide Archive",
+    url: "https://www.ebi.ac.uk/ena/browser/home",
+    label: "ebi.ac.uk/ena",
+  },
+  {
+    name: "EMBL-EBI ArrayExpress",
+    description: "Functional Genomics Data",
+    url: "https://www.ebi.ac.uk/biostudies/arrayexpress",
+    label: "ebi.ac.uk/arrayexpress",
+  },
+  {
+    name: "CNCB-NGDC GSA",
+    description: "Genome Sequence Archive",
+    url: "https://ngdc.cncb.ac.cn/gsa/",
+    label: "ngdc.cncb.ac.cn/gsa",
+  },
+  {
+    name: "DRA",
+    description: "DDBJ Sequence Read Archive",
+    url: "https://www.ddbj.nig.ac.jp/dra/",
+    label: "ddbj.nig.ac.jp/dra",
+  },
+  {
+    name: "GEA",
+    description: "DDBJ Genomic Expression Archive",
+    url: "https://www.ddbj.nig.ac.jp/gea/",
+    label: "ddbj.nig.ac.jp/gea",
+  },
 ];
 
 const features = [
@@ -247,7 +278,10 @@ function FaqItem({
         </Heading>
         <SectionAnchor id={id} />
       </Flex>
-      <Text size={{ initial: "2", md: "3" }} style={{ color: "var(--gray-11)" }}>
+      <Text
+        size={{ initial: "2", md: "3" }}
+        style={{ color: "var(--gray-11)" }}
+      >
         {links ? renderTextWithLinks(answer, links) : answer}
       </Text>
     </Flex>
@@ -284,10 +318,9 @@ export default async function FAQ() {
   );
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqJsonLd(items)) }}
-      />
+      <script type="application/ld+json">
+        {escapeHtmlJson(buildFaqJsonLd(items))}
+      </script>
       <SearchBar />
       <Flex
         gap="4"
@@ -315,13 +348,11 @@ export default async function FAQ() {
           <Link href="https://www.ebi.ac.uk/biostudies/arrayexpress">
             ArrayExpress
           </Link>
-          , and{" "}
-          <Link href="https://ngdc.cncb.ac.cn/gsa/">GSA</Link>. It indexes
+          , and <Link href="https://ngdc.cncb.ac.cn/gsa/">GSA</Link>. It indexes
           over{" "}
           <Link href="/stats">1 million projects and 40 million samples</Link>{" "}
           with relevance-ranked search, consolidated experiment and sample
-          tables, enriched annotations, similarity graphs, and download
-          scripts.
+          tables, enriched annotations, similarity graphs, and download scripts.
         </Text>
 
         <Text size={{ initial: "2", md: "3" }}>
@@ -333,8 +364,8 @@ export default async function FAQ() {
           >
             pysradb
           </Link>
-          , a Python package for querying next-generation sequencing metadata and
-          data from NCBI Sequence Read Archive.
+          , a Python package for querying next-generation sequencing metadata
+          and data from NCBI Sequence Read Archive.
         </Text>
 
         <Separator size="4" />
@@ -399,7 +430,10 @@ export default async function FAQ() {
           <SectionAnchor id="sources" />
         </Flex>
 
-        <Text size={{ initial: "2", md: "3" }} style={{ color: "var(--gray-11)" }}>
+        <Text
+          size={{ initial: "2", md: "3" }}
+          style={{ color: "var(--gray-11)" }}
+        >
           seqout indexes publicly available metadata from these sources. We
           thank the teams behind these repositories for making sequencing data
           public. We do not host or redistribute raw sequencing data.
@@ -425,7 +459,10 @@ export default async function FAQ() {
           <SectionAnchor id="contact" />
         </Flex>
 
-        <Text size={{ initial: "2", md: "3" }} style={{ color: "var(--gray-11)" }}>
+        <Text
+          size={{ initial: "2", md: "3" }}
+          style={{ color: "var(--gray-11)" }}
+        >
           Found a bug or have a feature request? Open an issue on{" "}
           <Link
             href="https://github.com/saketlab/seqout/issues"

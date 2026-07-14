@@ -2,6 +2,7 @@ import ClickTracker from "@/components/click-tracker";
 import FooterGate from "@/components/footer-gate";
 import Wrapper from "@/components/wrapper";
 import { BRAND_BG } from "@/utils/constants";
+import { escapeHtmlJson } from "@/utils/json";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 import "@radix-ui/themes/styles.css";
@@ -181,6 +182,81 @@ export const metadata: Metadata = {
   },
 };
 
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "seqout",
+  url: "https://seqout.org",
+  publisher: { "@id": "https://seqout.org/#organization" },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: "https://seqout.org/search?q={search_term_string}",
+    },
+    "query-input": "required name=search_term_string",
+  },
+};
+
+const ORGANIZATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://seqout.org/#organization",
+  name: "Saket Lab, IIT Bombay",
+  url: "https://seqout.org",
+  logo: "https://seqout.org/logo-dark.svg",
+  sameAs: ["https://saketlab.org", "https://github.com/saketlab/seqout"],
+};
+
+function LayoutStructuredData() {
+  return (
+    <>
+      <script type="application/ld+json">
+        {escapeHtmlJson(WEBSITE_JSON_LD)}
+      </script>
+      <script type="application/ld+json">
+        {escapeHtmlJson(ORGANIZATION_JSON_LD)}
+      </script>
+    </>
+  );
+}
+
+function RootBody({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <body suppressHydrationWarning>
+      <ClickTracker />
+      <a href="#main-content" className="seqout-skip-link">
+        Skip to content
+      </a>
+      <Wrapper>
+        <div id="main-content" tabIndex={-1} style={{ outline: "none" }}>
+          {children}
+        </div>
+        <FooterGate />
+      </Wrapper>
+    </body>
+  );
+}
+
+function AnalyticsScripts() {
+  return (
+    <>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}
+        strategy="lazyOnload"
+      />
+      <Script id="google-analytics" strategy="lazyOnload">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_TRACKING_ID}');
+        `}
+      </Script>
+    </>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -197,45 +273,10 @@ export default function RootLayout({
     >
       <head>
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-        <script
-          type="application/ld+json"
+        <LayoutStructuredData />
+        <style
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              name: "seqout",
-              url: "https://seqout.org",
-              publisher: { "@id": "https://seqout.org/#organization" },
-              potentialAction: {
-                "@type": "SearchAction",
-                target: {
-                  "@type": "EntryPoint",
-                  urlTemplate:
-                    "https://seqout.org/search?q={search_term_string}",
-                },
-                "query-input": "required name=search_term_string",
-              },
-            }),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "@id": "https://seqout.org/#organization",
-              name: "Saket Lab, IIT Bombay",
-              url: "https://seqout.org",
-              logo: "https://seqout.org/logo-dark.svg",
-              sameAs: [
-                "https://saketlab.org",
-                "https://github.com/saketlab/seqout",
-              ],
-            }),
-          }}
-        />
-        <style dangerouslySetInnerHTML={{ __html: `
+            __html: `
           .db-badge {
             background-color: color-mix(in srgb, var(--db) 15%, transparent);
             color: var(--db-fg);
@@ -498,32 +539,12 @@ export default function RootLayout({
           .ag-theme-quartz-dark .ag-body-horizontal-scroll {
             border-top: 1px solid var(--gray-5);
           }
-        `}} />
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}
-          strategy="lazyOnload"
+        `,
+          }}
         />
-        <Script id="google-analytics" strategy="lazyOnload">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_TRACKING_ID}');
-          `}
-        </Script>
+        <AnalyticsScripts />
       </head>
-      <body suppressHydrationWarning>
-        <ClickTracker />
-        <a href="#main-content" className="seqout-skip-link">
-          Skip to content
-        </a>
-        <Wrapper>
-          <div id="main-content" tabIndex={-1} style={{ outline: "none" }}>
-            {children}
-          </div>
-          <FooterGate />
-        </Wrapper>
-      </body>
+      <RootBody>{children}</RootBody>
     </html>
   );
 }
