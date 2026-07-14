@@ -31,14 +31,36 @@ function NetworkIcon() {
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 // client-only: React Flow touches the DOM and has no business rendering on the server
 const DeepDiveGraph = dynamic(() => import("@/components/deep-dive-graph"), {
   ssr: false,
 });
 
+const KEY = "seqout-ontology-deep-dive-clicked";
+const EVENT = "seqout-ontology-deep-dive-clicked-change";
+
+function subscribe(callback: () => void) {
+  window.addEventListener(EVENT, callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    window.removeEventListener(EVENT, callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+const getServerSnapshot = () => true;
+const getSnapshot = () => window.localStorage.getItem(KEY) === "true";
+
 export function DeepDiveSection() {
+  const hasClicked = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  const handleClick = () => {
+    window.localStorage.setItem(KEY, "true");
+    window.dispatchEvent(new Event(EVENT));
+  };
+
   const searchParams = useSearchParams();
   const query = searchParams.get("q") ?? "";
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -69,9 +91,49 @@ export function DeepDiveSection() {
   return (
     <Dialog.Root>
       <Dialog.Trigger>
-        <Button variant="classic">
+        <Button
+          variant="classic"
+          onClick={handleClick}
+          style={{ position: "relative" }}
+        >
           <NetworkIcon />
           Ontology deep-dive
+          {!hasClicked && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                top: "-3px",
+                left: "-3px",
+                display: "flex",
+                height: "8px",
+                width: "8px",
+              }}
+            >
+              <span
+                className="animate-ping"
+                style={{
+                  position: "absolute",
+                  display: "inline-flex",
+                  height: "100%",
+                  width: "100%",
+                  borderRadius: "9999px",
+                  backgroundColor: "var(--red-9)",
+                  opacity: 0.75,
+                }}
+              />
+              <span
+                style={{
+                  position: "relative",
+                  display: "inline-flex",
+                  borderRadius: "9999px",
+                  height: "8px",
+                  width: "8px",
+                  backgroundColor: "var(--red-9)",
+                }}
+              />
+            </span>
+          )}
         </Button>
       </Dialog.Trigger>
       <Dialog.Content
