@@ -116,8 +116,8 @@ function hasWebGLSupport(): boolean {
   const canvas = document.createElement("canvas");
   return Boolean(
     canvas.getContext("webgl2") ||
-      canvas.getContext("webgl") ||
-      canvas.getContext("experimental-webgl"),
+    canvas.getContext("webgl") ||
+    canvas.getContext("experimental-webgl"),
   );
 }
 
@@ -464,7 +464,9 @@ export default function MapGraph() {
 
       try {
         if (!hasWebGLSupport()) {
-          setError("This device or browser has WebGL disabled, so the map cannot render.");
+          setError(
+            "This device or browser has WebGL disabled, so the map cannot render.",
+          );
           setLoading(false);
           return;
         }
@@ -1038,7 +1040,12 @@ export default function MapGraph() {
             <Link href="https://huggingface.co/codefuse-ai/F2LLM-v2-8B">
               F2LLM-v2-8B
             </Link>{" "}
-            from the dataset metadata in the original embedding space.
+            from the dataset metadata in the original embedding space. Cluster
+            labels were generated using the 8-bit quantized{" "}
+            <Link href="https://huggingface.co/unsloth/Qwen3.6-27B-GGUF">
+              Qwen 3.6 27B model
+            </Link>
+            .
           </Text>
         </Flex>
         {/* Country filter */}
@@ -1254,7 +1261,11 @@ export default function MapGraph() {
                 color="gray"
                 aria-label="Zoom in"
                 onClick={zoomIn}
-                style={{ margin: 0, borderRadius: 0, height: isMobile ? 44 : 36 }}
+                style={{
+                  margin: 0,
+                  borderRadius: 0,
+                  height: isMobile ? 44 : 36,
+                }}
               >
                 <PlusIcon />
               </IconButton>
@@ -1267,7 +1278,11 @@ export default function MapGraph() {
                 color="gray"
                 aria-label="Zoom out"
                 onClick={zoomOut}
-                style={{ margin: 0, borderRadius: 0, height: isMobile ? 44 : 36 }}
+                style={{
+                  margin: 0,
+                  borderRadius: 0,
+                  height: isMobile ? 44 : 36,
+                }}
               >
                 <MinusIcon />
               </IconButton>
@@ -1280,7 +1295,11 @@ export default function MapGraph() {
                 color="gray"
                 aria-label="Recenter map"
                 onClick={recenter}
-                style={{ margin: 0, borderRadius: 0, height: isMobile ? 44 : 36 }}
+                style={{
+                  margin: 0,
+                  borderRadius: 0,
+                  height: isMobile ? 44 : 36,
+                }}
               >
                 <svg
                   width="15"
@@ -1343,7 +1362,11 @@ export default function MapGraph() {
                   <MagnifyingGlassIcon height="12" width="12" />
                 </TextField.Slot>
               </TextField.Root>
-              <ScrollArea type="auto" scrollbars="vertical" style={{ height: 220 }}>
+              <ScrollArea
+                type="auto"
+                scrollbars="vertical"
+                style={{ height: 220 }}
+              >
                 <Flex direction="column" gap="1" pr="2">
                   {visibleClusters.map((cluster) => (
                     <Text
