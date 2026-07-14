@@ -720,6 +720,26 @@ export function zoomBy(sp, factor) {
   }
 }
 
+// Fit the view to some data-space points (the selected clusters' centroids). A
+// cluster is a tiny share of the points, and deepscatter only loads the tiles for
+// the current view — so without flying there, a cluster selection just looks empty.
+export function zoomToPoints(sp, points) {
+  const extent = state.mapExtent;
+  if (!points.length || !extent) return;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const pad = ((extent.maxx - extent.minx) * SEARCH_VIEW_FRACTION) / 2 || 0.1;
+  sp.plotAPI({
+    zoom: {
+      bbox: {
+        x: [Math.min(...xs) - pad, Math.max(...xs) + pad],
+        y: [Math.min(...ys) - pad, Math.max(...ys) + pad],
+      },
+    },
+    duration: ZOOM_DURATION,
+  });
+}
+
 /** Recenter to the initial view (same box createMap fits on load). */
 export function resetView(sp) {
   const extent = state.mapExtent;
@@ -866,6 +886,21 @@ export async function applyFilters(sp, selections) {
   await reapplyLassoForFilters(sp);
   // Re-filter labels so only clusters with visible (matching) points show.
   activeLabels?.refresh?.();
+}
+
+// Column names actually present in the loaded tiles. The backend bakes only the
+// finest N cluster layers as columns, so the caller uses this to pick a cluster
+// layer it can really filter on.
+export function tileColumns(sp) {
+  try {
+    for (const tile of sp.deeptable.map((t) => t)) {
+      const rb = tile.record_batch;
+      if (rb) return new Set(rb.schema.fields.map((f) => f.name));
+    }
+  } catch (err) {
+    console.warn("tileColumns failed:", err);
+  }
+  return new Set();
 }
 
 export function setColorByClusters(sp, value, clusterColors) {

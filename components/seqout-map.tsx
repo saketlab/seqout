@@ -22,6 +22,7 @@ import {
   Box,
   Button,
   Callout,
+  Card,
   Checkbox,
   Flex,
   IconButton,
@@ -81,6 +82,10 @@ type MapMeta = {
 // An enriched facet baked into the tiles: its column key + display label. Tallied
 // per lasso selection into a bar chart (no separate value list / filter UI).
 type Facet = { key: string; label: string };
+
+// A named cluster of the picker's layer, with its centroid (so selecting one can
+// fly the view to it).
+type Cluster = { id: string; label: string; x: number; y: number };
 
 type EngineModule = typeof import("./seqout-map/engine.js");
 type Scatterplot = Awaited<ReturnType<EngineModule["createMap"]>>["sp"];
@@ -359,6 +364,12 @@ export default function MapGraph() {
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
+  // Cluster picker: the named clusters of the coarsest layer. Selecting some hides
+  // every point outside them (a facet filter on that layer's tile column).
+  const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [clusterQuery, setClusterQuery] = useState("");
+  const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
+
   // Enriched facets (organism/tissue/…), shown as bar charts in the lasso stats.
   const [facets, setFacets] = useState<Facet[]>([]);
 
@@ -383,12 +394,32 @@ export default function MapGraph() {
   const accessionsRef = useRef<string[]>([]);
   const colorByClustersRef = useRef(colorByClusters);
   const selectedCountriesRef = useRef(selectedCountries);
+  const selectedClustersRef = useRef(selectedClusters);
+  const clusterLevelRef = useRef<string | null>(null);
   useEffect(() => {
     colorByClustersRef.current = colorByClusters;
   }, [colorByClusters]);
   useEffect(() => {
     selectedCountriesRef.current = selectedCountries;
   }, [selectedCountries]);
+  useEffect(() => {
+    selectedClustersRef.current = selectedClusters;
+  }, [selectedClusters]);
+
+  // The engine replaces the whole facet set on every call, so both dimensions go
+  // together. Clusters filter on the cluster column of their layer.
+  const applySelections = useCallback(
+    (countries: string[], clusterIds: string[]) => {
+      const sp = spRef.current;
+      if (!sp) return;
+      const level = clusterLevelRef.current;
+      engineRef.current?.applyFilters(sp, {
+        countries,
+        ...(level ? { [level]: clusterIds } : {}),
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!layoutReady) return;
@@ -494,14 +525,47 @@ export default function MapGraph() {
         if (colorByClustersRef.current) {
           engine.setColorByClusters(ctx.sp, true, ctx.clusterColors);
         }
-        if (selectedCountriesRef.current.length > 0) {
+        // Coarsest cluster layer that the tiles actually carry as a column — the
+        // backend bakes only the finest few, and filtering on a missing column
+        // would hide every point.
+        const tileCols = engine.tileColumns(ctx.sp);
+        const level =
+          [...meta.levels].reverse().find((l) => tileCols.has(l)) ?? null;
+        clusterLevelRef.current = level;
+        if (
+          selectedCountriesRef.current.length > 0 ||
+          selectedClustersRef.current.length > 0
+        ) {
           engine.applyFilters(ctx.sp, {
             countries: selectedCountriesRef.current,
+            ...(level ? { [level]: selectedClustersRef.current } : {}),
           });
         }
         setCountries(ctx.countries);
         setFacets(facetList);
         setLoading(false);
+
+        // Named clusters for the picker — the whole coarsest layer (bbox omitted).
+        if (level) {
+          const fc: {
+            features: {
+              geometry: { coordinates: [number, number] };
+              properties: { label: string; cluster_id: number };
+            }[];
+          } = await fetch(
+            `${SERVER_URL}/map/labels?level=${level}&limit=2000`,
+            { signal: controller.signal },
+          ).then((r) => r.json());
+          if (destroyed) return;
+          setClusters(
+            fc.features.map((f) => ({
+              id: String(f.properties.cluster_id),
+              label: f.properties.label,
+              x: f.geometry.coordinates[0],
+              y: f.geometry.coordinates[1],
+            })),
+          );
+        }
       } catch (err) {
         if (destroyed) return;
         console.error("Failed to load map:", err);
@@ -610,16 +674,41 @@ export default function MapGraph() {
     }
   }, []);
 
-  const onToggleCountry = useCallback((country: string, checked: boolean) => {
-    setSelectedCountries((prev) => {
-      const next = checked
-        ? [...prev, country]
-        : prev.filter((c) => c !== country);
-      const sp = spRef.current;
-      if (sp) engineRef.current?.applyFilters(sp, { countries: next });
-      return next;
-    });
-  }, []);
+  const onToggleCountry = useCallback(
+    (country: string, checked: boolean) => {
+      setSelectedCountries((prev) => {
+        const next = checked
+          ? [...prev, country]
+          : prev.filter((c) => c !== country);
+        applySelections(next, selectedClustersRef.current);
+        return next;
+      });
+    },
+    [applySelections],
+  );
+
+  const onToggleCluster = useCallback(
+    (id: string, checked: boolean) => {
+      setSelectedClusters((prev) => {
+        const next = checked ? [...prev, id] : prev.filter((c) => c !== id);
+        applySelections(selectedCountriesRef.current, next);
+        // Fly to the selection — a cluster is a sliver of the map, so filtering
+        // alone would just look like an empty view.
+        const sp = spRef.current;
+        const picked = clusters.filter((c) => next.includes(c.id));
+        if (sp && picked.length > 0) {
+          engineRef.current?.zoomToPoints(sp, picked);
+        }
+        return next;
+      });
+    },
+    [applySelections, clusters],
+  );
+
+  const clearClusters = useCallback(() => {
+    setSelectedClusters([]);
+    applySelections(selectedCountriesRef.current, []);
+  }, [applySelections]);
 
   const onClearLasso = useCallback(() => {
     const sp = spRef.current;
@@ -764,6 +853,10 @@ export default function MapGraph() {
 
   const visibleCountries = countries.filter((c) =>
     c.toLowerCase().includes(countryFilter.toLowerCase()),
+  );
+
+  const visibleClusters = clusters.filter((c) =>
+    c.label.toLowerCase().includes(clusterQuery.toLowerCase()),
   );
 
   return (
@@ -1208,6 +1301,78 @@ export default function MapGraph() {
               </IconButton>
             </Tooltip>
           </Flex>
+        )}
+
+        {/* Cluster picker */}
+        {!isMobile && !loading && !error && clusters.length > 0 && (
+          <Card
+            size="1"
+            style={{
+              position: "absolute",
+              right: "0.75rem",
+              bottom: "0.75rem",
+              width: 260,
+              zIndex: 15,
+              background: "var(--color-panel-solid)",
+            }}
+          >
+            <Flex direction="column" gap="2">
+              <Flex align="center" justify="between" gap="2">
+                <Flex align="center" gap="2">
+                  <GroupIcon />
+                  <Text size="2">Clusters</Text>
+                </Flex>
+                {selectedClusters.length > 0 && (
+                  <Button
+                    size="1"
+                    variant="ghost"
+                    color="gray"
+                    onClick={clearClusters}
+                  >
+                    Clear ({selectedClusters.length})
+                  </Button>
+                )}
+              </Flex>
+              <TextField.Root
+                size="1"
+                value={clusterQuery}
+                placeholder="Search clusters"
+                onChange={(e) => setClusterQuery(e.target.value)}
+              >
+                <TextField.Slot>
+                  <MagnifyingGlassIcon height="12" width="12" />
+                </TextField.Slot>
+              </TextField.Root>
+              <ScrollArea type="auto" scrollbars="vertical" style={{ height: 220 }}>
+                <Flex direction="column" gap="1" pr="2">
+                  {visibleClusters.map((cluster) => (
+                    <Text
+                      as="label"
+                      size="1"
+                      key={cluster.id}
+                      style={{ cursor: "pointer", display: "block" }}
+                    >
+                      <Flex align="center" gap="2" style={{ minHeight: 28 }}>
+                        <Checkbox
+                          size="1"
+                          checked={selectedClusters.includes(cluster.id)}
+                          onCheckedChange={(checked) =>
+                            onToggleCluster(cluster.id, checked === true)
+                          }
+                        />
+                        <Text size="1">{cluster.label}</Text>
+                      </Flex>
+                    </Text>
+                  ))}
+                  {visibleClusters.length === 0 && (
+                    <Text size="1" color="gray">
+                      No clusters match.
+                    </Text>
+                  )}
+                </Flex>
+              </ScrollArea>
+            </Flex>
+          </Card>
         )}
 
         {/* lasso stats panel */}
