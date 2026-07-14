@@ -48,7 +48,9 @@ function buildCountryColorMap(sorted) {
 // data extent shown around it on load. fraction < 1 zooms in past full-fit;
 // smaller = more zoomed in.
 const DEFAULT_CENTER = { x: 1.1495, y: -1.5695 };
-const DEFAULT_VIEW_FRACTION = 0.5;
+// Start just inside the first label threshold so the initial viewport has a
+// visible cluster-label layer rather than the unlabeled overview boundary.
+const DEFAULT_VIEW_FRACTION = 0.35;
 const SEARCH_VIEW_FRACTION = 0.02;
 const DOUBLE_CLICK_MS = 350;
 
@@ -499,6 +501,14 @@ function makeFilterPredicate() {
 function clustersPassingFilters(sp, levelField) {
   const cols = Object.keys(state.filters);
   if (cols.length === 0) return null;
+
+  // The common cluster-picker case needs no point scan: the filter itself is
+  // already the exact set of labels that may remain visible at this layer.
+  // This avoids walking every loaded tile after each cluster selection.
+  if (cols.length === 1 && cols[0] === levelField) {
+    return state.filters[levelField];
+  }
+
   const present = new Set();
   const pred = makeFilterPredicate();
   const dt = sp.deeptable;
@@ -571,6 +581,10 @@ function setupDynamicLabels({
   let ctrl = null;
   let lastKey = "";
   let appliedLevel = null;
+  // A cluster filter is defined against one level. Keep its labels and colors on
+  // that same level even if the viewport changes, otherwise a selection made at
+  // L7 immediately becomes a visually unrelated L0/L1 grouping after a zoom.
+  let lockedLevel = null;
   let destroyed = false;
 
   const run = async () => {
@@ -581,13 +595,16 @@ function setupDynamicLabels({
     } catch {
       return;
     }
-    syncColor(q.colorIdx);
-    if (!q.level) {
+    const level = lockedLevel ?? q.level;
+    const colorIdx = lockedLevel ? levels.indexOf(lockedLevel) : q.colorIdx;
+    syncColor(colorIdx);
+    if (!level) {
       // Zoomed out past the label window — show nothing.
       clearLabels(sp);
       appliedLevel = null;
       return;
     }
+    q = { ...q, level };
     const key = qkey(q);
     if (key === lastKey) return;
     lastKey = key;
@@ -637,8 +654,10 @@ function setupDynamicLabels({
     } catch {
       /* scales not ready yet */
     }
-    if (q) syncColor(q.colorIdx); // recolor immediately on a layer change
-    const lvl = q ? q.level : null;
+    const lvl = lockedLevel ?? (q ? q.level : null);
+    if (q) {
+      syncColor(lockedLevel ? levels.indexOf(lockedLevel) : q.colorIdx);
+    }
     // Clear on any layer change — including crossing out of the l0…l3 window
     // (lvl null), so coarse-zoom views show no stale labels.
     if (lvl !== appliedLevel) {
@@ -670,6 +689,11 @@ function setupDynamicLabels({
     // Re-run the current fetch+filter (e.g. after the country filter changes).
     refresh() {
       if (destroyed) return;
+      lastKey = "";
+      run();
+    },
+    setLockedLevel(level) {
+      lockedLevel = level && levels.includes(level) ? level : null;
       lastKey = "";
       run();
     },
@@ -907,7 +931,12 @@ export async function applyFilters(sp, selections) {
     const name = "ff_" + Date.now();
     state.filterName = name;
     const pred = makeFilterPredicate();
-    await applyTransformation(sp, name, (row) => (pred(row) ? 1 : 0));
+    await applyTransformation(
+      sp,
+      name,
+      (row) => (pred(row) ? 1 : 0),
+      active.map(([column]) => column),
+    );
     sp.plotAPI({
       duration: 0,
       encoding: { filter: { field: name, op: "gt", a: 0 } },
@@ -940,6 +969,11 @@ export function tileColumns(sp) {
 // the cluster picker lists). Kept in sync by the zoom listener.
 export function colorLevel() {
   return state.colorField;
+}
+
+/** Keep a selected cluster's color and label layer fixed until it is cleared. */
+export function setClusterSelectionLevel(level) {
+  activeLabels?.setLockedLevel?.(level);
 }
 
 export function setColorByClusters(sp, value, clusterColors) {

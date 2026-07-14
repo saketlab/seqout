@@ -26,9 +26,12 @@ export function pointInPolygon(px, py, verts) {
   return inside;
 }
 
-export async function applyTransformation(sp, name, fn) {
+export async function applyTransformation(sp, name, fn, prerequisites = []) {
   const dt = sp.deeptable;
-  dt.register_transformation(name, fn);
+  // Sidecar columns (including cluster layers) are fetched lazily by
+  // deepscatter. Declare the source fields so a filter works even before that
+  // field has been used for a color encoding.
+  dt.register_transformation(name, fn, prerequisites);
   await Promise.all(
     dt.map((t) => t.apply_transformation(name).catch(() => { }))
   );

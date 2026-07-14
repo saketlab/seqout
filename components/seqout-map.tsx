@@ -22,6 +22,7 @@ import {
   UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
+  Badge,
   Box,
   Button,
   Callout,
@@ -698,10 +699,16 @@ export default function MapGraph() {
 
   const onToggleColorByClusters = useCallback((value: boolean) => {
     setColorByClusters(value);
+    colorByClustersRef.current = value;
     const sp = spRef.current;
     const ctx = ctxRef.current;
     if (sp && ctx) {
       engineRef.current?.setColorByClusters(sp, value, ctx.clusterColors);
+    }
+    // Keep selected-cluster labels on their original layer regardless of whether
+    // their point colors are currently enabled.
+    if (selectedClustersRef.current.length > 0) {
+      engineRef.current?.setClusterSelectionLevel(clusterLevelRef.current);
     }
   }, []);
 
@@ -726,23 +733,22 @@ export default function MapGraph() {
         // events synchronously, and loadClusterLevel reads this ref to decide
         // whether the picker's layer is locked.
         selectedClustersRef.current = next;
+        // A cluster id only has meaning in the layer where it was selected, so
+        // keep its labels (and, when enabled, colors) fixed while it is selected.
+        engineRef.current?.setClusterSelectionLevel(
+          next.length > 0 ? clusterLevelRef.current : null,
+        );
         applySelections(selectedCountriesRef.current, next);
-        // Fly to the selection — a cluster is a sliver of the map, so filtering
-        // alone would just look like an empty view.
-        const sp = spRef.current;
-        const picked = clusters.filter((c) => next.includes(c.id));
-        if (sp && picked.length > 0) {
-          engineRef.current?.zoomToPoints(sp, picked);
-        }
         return next;
       });
     },
-    [applySelections, clusters],
+    [applySelections],
   );
 
   const clearClusters = useCallback(() => {
     setSelectedClusters([]);
     selectedClustersRef.current = [];
+    engineRef.current?.setClusterSelectionLevel(null);
     applySelections(selectedCountriesRef.current, []);
     // Unlocked again — catch the picker up to wherever the zoom drifted to while
     // the selection held it in place.
@@ -1377,6 +1383,11 @@ export default function MapGraph() {
                 <Flex align="center" gap="2">
                   <TokensIcon />
                   <Text size="2">Clusters</Text>
+                  {clusterLevel && (
+                    <Badge size="1" variant="soft" color="gray">
+                      {clusterLevel.replace("cluster_l", "L")}
+                    </Badge>
+                  )}
                 </Flex>
                 <Flex align="center" gap="1">
                   {selectedClusters.length > 0 && (
