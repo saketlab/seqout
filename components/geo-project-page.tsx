@@ -1410,7 +1410,7 @@ export default function GeoProjectPage() {
             <Flex justify={"start"} align="center" gap="2" wrap="wrap">
               <DbBadge
                 size={{ initial: "2", md: "3" }}
-                db={isGea ? "gea" : isArrayExpress ? "arrayexpress" : "geo"}
+                db={dbForAccession(accession) ?? "geo"}
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >
@@ -1523,7 +1523,7 @@ export default function GeoProjectPage() {
               >
                 <DbBadge
                   size={{ initial: "2", md: "3" }}
-                  db={isGea ? "gea" : isArrayExpress ? "arrayexpress" : "geo"}
+                  db={dbForAccession(accession) ?? "geo"}
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {isGea

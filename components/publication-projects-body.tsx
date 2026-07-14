@@ -27,7 +27,6 @@ type PublicationResponse = Pick<
   "pmid" | "title" | "journal" | "doi" | "pub_date" | "authors" | "citation_count"
 > & {
   projects: PublicationProject[];
-  total_projects: number;
 };
 
 const fetchPublication = async (pmid: string) => {
@@ -39,8 +38,6 @@ const fetchPublication = async (pmid: string) => {
   return { ...data, took_ms: performance.now() - start };
 };
 
-// The endpoint returns every linked project unbounded; a consortium paper can
-// link thousands, so cap the first paint and let the user ask for the rest.
 const INITIAL_ROWS = 100;
 
 export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
@@ -52,7 +49,6 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
     queryFn: () => fetchPublication(pmid),
     enabled: isPmid(pmid),
     retry: false,
-    // A paper's linked projects only change when the archives re-index.
     staleTime: Infinity,
   });
 
@@ -163,9 +159,9 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
 
         {data && (
           <Text color="gray" weight="light">
-            {data.total_projects.toLocaleString()} project
-            {data.total_projects === 1 ? "" : "s"} in{" "}
-            {((data.took_ms ?? 0) / 1000).toFixed(2)} seconds
+            {projects.length.toLocaleString()} project
+            {projects.length === 1 ? "" : "s"} in{" "}
+            {(data.took_ms / 1000).toFixed(2)} seconds
           </Text>
         )}
 

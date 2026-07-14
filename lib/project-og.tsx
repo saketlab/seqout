@@ -1,4 +1,4 @@
-import { SERVER_API_BASE } from "@/utils/constants";
+import { OG, SERVER_API_BASE, ogBackground, ogGlow } from "@/utils/constants";
 import { DB_COLOR_MAP, type DbSource } from "@/utils/db-colors";
 import { ImageResponse } from "next/og";
 
@@ -91,8 +91,8 @@ export async function generateProjectOgImage(
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "60px 70px",
-          color: "#ffffff",
-          background: `linear-gradient(135deg, ${colors.secondary} 0%, #0f172a 50%, #1e293b 100%)`,
+          color: OG.dark.fg,
+          background: ogBackground(colors.secondary),
           fontFamily: "system-ui, -apple-system, sans-serif",
           position: "relative",
         }}
@@ -105,7 +105,7 @@ export async function generateProjectOgImage(
             width: "400px",
             height: "400px",
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${colors.primary} 0%, transparent 70%)`,
+            background: ogGlow(colors.primary),
             opacity: 0.3,
             display: "flex",
           }}
@@ -127,7 +127,7 @@ export async function generateProjectOgImage(
               fontSize: 32,
               fontWeight: 700,
               backgroundColor: colors.primary,
-              color: "#ffffff",
+              color: OG.dark.fg,
               boxShadow: `0 4px 20px ${colors.primary}40`,
             }}
           >
@@ -137,7 +137,7 @@ export async function generateProjectOgImage(
             style={{
               fontSize: 26,
               fontWeight: 600,
-              color: "#94a3b8",
+              color: OG.dark.muted,
               display: "flex",
             }}
           >
@@ -160,7 +160,7 @@ export async function generateProjectOgImage(
               lineHeight: 1.15,
               fontWeight: 800,
               letterSpacing: "-0.025em",
-              color: "#ffffff",
+              color: OG.dark.fg,
               textShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
               display: "flex",
             }}
@@ -192,7 +192,7 @@ export async function generateProjectOgImage(
             style={{
               fontSize: 24,
               fontWeight: 500,
-              color: "#cbd5e1",
+              color: OG.dark.subtle,
               marginTop: 8,
               display: "flex",
             }}

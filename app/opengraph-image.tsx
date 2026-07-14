@@ -1,3 +1,4 @@
+import { ARCHIVES, BRAND, OG } from "@/utils/constants";
 import { ImageResponse } from "next/og";
 
 export const size = {
@@ -18,7 +19,7 @@ export default async function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#ffffff",
+          background: OG.light.bg,
           fontFamily: "-apple-system, SF Pro Display, system-ui, sans-serif",
           position: "relative",
         }}
@@ -30,8 +31,7 @@ export default async function OpengraphImage() {
             right: "-10%",
             width: "60%",
             height: "120%",
-            background:
-              "radial-gradient(circle at center, #6366f140 0%, #8b5cf620 40%, transparent 70%)",
+            background: OG.light.glowWarm,
             filter: "blur(60px)",
             display: "flex",
           }}
@@ -44,8 +44,7 @@ export default async function OpengraphImage() {
             left: "-10%",
             width: "50%",
             height: "100%",
-            background:
-              "radial-gradient(circle at center, #0ea5e930 0%, #10b98120 40%, transparent 70%)",
+            background: OG.light.glowCool,
             filter: "blur(60px)",
             display: "flex",
           }}
@@ -77,8 +76,8 @@ export default async function OpengraphImage() {
             >
               <defs>
                 <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#5BB8F5" />
-                  <stop offset="100%" stopColor="#2E86D0" />
+                  <stop offset="0%" stopColor={BRAND.light} />
+                  <stop offset="100%" stopColor={BRAND.dark} />
                 </linearGradient>
               </defs>
               <circle
@@ -94,21 +93,21 @@ export default async function OpengraphImage() {
                 y1="66"
                 x2="92"
                 y2="92"
-                stroke="#2E86D0"
+                stroke={BRAND.dark}
                 strokeWidth="8"
                 strokeLinecap="round"
               />
               <path
                 d="M 26,36 C 34,46 50,46 58,36"
                 fill="none"
-                stroke="#5BB8F5"
+                stroke={BRAND.light}
                 strokeWidth="2.5"
                 strokeLinecap="round"
               />
               <path
                 d="M 26,48 C 34,38 50,38 58,48"
                 fill="none"
-                stroke="#89d4f7"
+                stroke={BRAND.lighter}
                 strokeWidth="2.5"
                 strokeLinecap="round"
               />
@@ -117,7 +116,7 @@ export default async function OpengraphImage() {
                 y1="39"
                 x2="33"
                 y2="45"
-                stroke="#5BB8F5"
+                stroke={BRAND.light}
                 strokeWidth="1.8"
                 strokeLinecap="round"
                 opacity="0.6"
@@ -127,7 +126,7 @@ export default async function OpengraphImage() {
                 y1="37"
                 x2="42"
                 y2="47"
-                stroke="#5BB8F5"
+                stroke={BRAND.light}
                 strokeWidth="1.8"
                 strokeLinecap="round"
                 opacity="0.6"
@@ -137,7 +136,7 @@ export default async function OpengraphImage() {
                 y1="39"
                 x2="51"
                 y2="45"
-                stroke="#5BB8F5"
+                stroke={BRAND.light}
                 strokeWidth="1.8"
                 strokeLinecap="round"
                 opacity="0.6"
@@ -151,8 +150,8 @@ export default async function OpengraphImage() {
                 display: "flex",
               }}
             >
-              <span style={{ color: "#236598" }}>seq</span>
-              <span style={{ color: "#1a1a1a" }}>out</span>
+              <span style={{ color: BRAND.wordmark }}>seq</span>
+              <span style={{ color: OG.light.ink }}>out</span>
             </div>
           </div>
 
@@ -160,7 +159,7 @@ export default async function OpengraphImage() {
             style={{
               fontSize: 32,
               fontWeight: 500,
-              color: "#666666",
+              color: OG.light.inkMuted,
               textAlign: "center",
               lineHeight: 1.4,
               maxWidth: "700px",
@@ -178,7 +177,7 @@ export default async function OpengraphImage() {
               alignItems: "center",
             }}
           >
-            {["GEO", "SRA", "ENA", "DRA", "GEA", "GSA", "ArrayExpress"].map((db) => (
+            {ARCHIVES.map((db) => (
               <div
                 key={db}
                 style={{
@@ -187,8 +186,8 @@ export default async function OpengraphImage() {
                   borderRadius: "20px",
                   fontSize: 18,
                   fontWeight: 600,
-                  backgroundColor: "#f5f5f7",
-                  color: "#1a1a1a",
+                  backgroundColor: OG.light.chipBg,
+                  color: OG.light.ink,
                 }}
               >
                 {db}
@@ -200,7 +199,7 @@ export default async function OpengraphImage() {
             style={{
               fontSize: 18,
               fontWeight: 500,
-              color: "#999999",
+              color: OG.light.inkFaint,
               marginTop: 48,
               display: "flex",
             }}

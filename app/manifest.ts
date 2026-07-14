@@ -1,18 +1,18 @@
+import { ARCHIVE_LIST_TEXT, BRAND_BG } from "@/utils/constants";
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "seqout",
     short_name: "seqout",
-    description:
-      "Fast exploration of GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets with unified metadata.",
+    description: `Fast exploration of ${ARCHIVE_LIST_TEXT} datasets with unified metadata.`,
     id: "/",
     start_url: "/",
     scope: "/",
     display: "standalone",
     display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
-    background_color: "#0e1015",
-    theme_color: "#0e1015",
+    background_color: BRAND_BG,
+    theme_color: BRAND_BG,
     orientation: "any",
     lang: "en",
     categories: ["science", "education", "productivity"],
@@ -46,7 +46,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Search datasets",
         short_name: "Search",
-        description: "Search GEO, SRA, ENA, DRA, GEA, GSA, and ArrayExpress metadata.",
+        description: `Search ${ARCHIVE_LIST_TEXT} metadata.`,
         url: "/search",
       },
       {

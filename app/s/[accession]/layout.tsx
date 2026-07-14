@@ -4,6 +4,7 @@ import {
   ARCHIVE_LICENSE_URLS as LICENSE_URLS,
   SITE_URL,
 } from "@/utils/constants";
+import { ARCHIVE_BY_DB, dbForAccession } from "@/utils/db-colors";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -22,19 +23,12 @@ function detectSampleType(accession: string): {
   database: Archive;
 } {
   const upper = accession.toUpperCase();
-  if (upper.startsWith("GSM")) {
-    return { type: "GEO Sample", database: "GEO" };
-  }
-  if (/^[SED]RX/i.test(upper)) {
-    return { type: "SRA Experiment", database: "SRA" };
-  }
-  if (/^[SED]RS/i.test(upper)) {
-    return { type: "SRA Sample", database: "SRA" };
-  }
-  if (upper.startsWith("SAM")) {
-    return { type: "BioSample", database: "SRA" };
-  }
-  return { type: "Sample", database: "SRA" };
+  const database = ARCHIVE_BY_DB[dbForAccession(upper) ?? "sra"];
+  if (upper.startsWith("GSM")) return { type: "GEO Sample", database };
+  if (/^[SED]RX/.test(upper)) return { type: `${database} Experiment`, database };
+  if (/^[SED]RS/.test(upper)) return { type: `${database} Sample`, database };
+  if (upper.startsWith("SAM")) return { type: "BioSample", database };
+  return { type: "Sample", database };
 }
 
 async function fetchSampleTitle(accession: string): Promise<string> {

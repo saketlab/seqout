@@ -1,6 +1,7 @@
 import ClickTracker from "@/components/click-tracker";
 import FooterGate from "@/components/footer-gate";
 import Wrapper from "@/components/wrapper";
+import { BRAND_BG } from "@/utils/constants";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 import "@radix-ui/themes/styles.css";
@@ -12,7 +13,7 @@ import Script from "next/script";
 const GA_TRACKING_ID = "G-XF18RH7984";
 
 export const viewport: Viewport = {
-  themeColor: "#0e1015",
+  themeColor: BRAND_BG,
   colorScheme: "dark light",
   width: "device-width",
   initialScale: 1,

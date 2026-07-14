@@ -1,4 +1,5 @@
 import type { ExternalArchive } from "./accessionLinks";
+import type { Archive } from "./constants";
 
 export type DbSource =
   | "geo"
@@ -136,7 +137,7 @@ export function dbForAccession(accession: string): DbSource | null {
   return null;
 }
 
-const ARCHIVE_DB: Record<string, DbSource | undefined> = {
+const ARCHIVE_DB: Record<Archive, DbSource> = {
   GEO: "geo",
   SRA: "sra",
   DRA: "dra",
@@ -146,8 +147,12 @@ const ARCHIVE_DB: Record<string, DbSource | undefined> = {
   GSA: "gsa",
 };
 
+export const ARCHIVE_BY_DB = Object.fromEntries(
+  Object.entries(ARCHIVE_DB).map(([archive, db]) => [db, archive]),
+) as Record<DbSource, Archive>;
+
 export function dbForArchive(
   archive: ExternalArchive["archive"],
 ): DbSource | undefined {
-  return ARCHIVE_DB[archive];
+  return ARCHIVE_DB[archive as Archive];
 }

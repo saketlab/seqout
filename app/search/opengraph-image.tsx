@@ -1,3 +1,10 @@
+import {
+  ARCHIVE_LIST_TEXT,
+  OG,
+  ogBackground,
+  ogGlow,
+} from "@/utils/constants";
+import { SEARCH_DBS, type SearchDb } from "@/utils/db-colors";
 import { ImageResponse } from "next/og";
 
 const API_BASE_URL =
@@ -23,8 +30,8 @@ export default async function OpengraphImage({ searchParams }: Props) {
   if (query) {
     try {
       let url = `${API_BASE_URL}/search?q=${encodeURIComponent(query)}`;
-      if (db === "sra" || db === "geo" || db === "arrayexpress" || db === "gsa") {
-        url += `&db=${encodeURIComponent(db)}`;
+      if (SEARCH_DBS.includes(db as SearchDb)) {
+        url += `&db=${encodeURIComponent(db!)}`;
       }
       const res = await fetch(url, { next: { revalidate: 60 } });
       if (res.ok) {
@@ -37,7 +44,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
   }
 
   const subtitle = !query
-    ? "Search GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress datasets"
+    ? `Search ${ARCHIVE_LIST_TEXT} datasets`
     : total !== null
       ? `${total.toLocaleString()} result${total === 1 ? "" : "s"} found`
       : "Search results";
@@ -52,9 +59,8 @@ export default async function OpengraphImage({ searchParams }: Props) {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "60px 70px",
-          color: "#ffffff",
-          background:
-            "linear-gradient(135deg, #0c4a6e 0%, #0f172a 50%, #1e293b 100%)",
+          color: OG.dark.fg,
+          background: ogBackground(OG.dark.search.secondary),
           fontFamily: "system-ui, -apple-system, sans-serif",
           position: "relative",
         }}
@@ -67,8 +73,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
             width: "400px",
             height: "400px",
             borderRadius: "50%",
-            background:
-              "radial-gradient(circle, #0ea5e9 0%, transparent 70%)",
+            background: ogGlow(OG.dark.search.primary),
             opacity: 0.3,
             display: "flex",
           }}
@@ -89,9 +94,9 @@ export default async function OpengraphImage({ searchParams }: Props) {
               borderRadius: "12px",
               fontSize: 32,
               fontWeight: 700,
-              backgroundColor: "#0ea5e9",
-              color: "#ffffff",
-              boxShadow: "0 4px 20px #0ea5e940",
+              backgroundColor: OG.dark.search.primary,
+              color: OG.dark.fg,
+              boxShadow: `0 4px 20px ${OG.dark.search.primary}40`,
             }}
           >
             Search
@@ -100,7 +105,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
             style={{
               fontSize: 26,
               fontWeight: 600,
-              color: "#94a3b8",
+              color: OG.dark.muted,
               display: "flex",
             }}
           >
@@ -124,7 +129,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
                 lineHeight: 1.15,
                 fontWeight: 800,
                 letterSpacing: "-0.025em",
-                color: "#ffffff",
+                color: OG.dark.fg,
                 textShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
                 display: "flex",
                 overflow: "hidden",
@@ -139,7 +144,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
                 fontSize: 52,
                 lineHeight: 1.15,
                 fontWeight: 800,
-                color: "#ffffff",
+                color: OG.dark.fg,
                 display: "flex",
               }}
             >
@@ -158,7 +163,7 @@ export default async function OpengraphImage({ searchParams }: Props) {
               style={{
                 fontSize: 40,
                 fontWeight: 700,
-                color: "#7dd3fc",
+                color: OG.dark.search.accent,
                 display: "flex",
               }}
             >
@@ -170,13 +175,12 @@ export default async function OpengraphImage({ searchParams }: Props) {
             style={{
               fontSize: 24,
               fontWeight: 500,
-              color: "#cbd5e1",
+              color: OG.dark.subtle,
               marginTop: 8,
               display: "flex",
             }}
           >
-            Explore sequencing datasets across GEO, SRA, ENA, DRA, GEA, GSA &
-            ArrayExpress
+            Explore sequencing datasets across {ARCHIVE_LIST_TEXT}
           </div>
         </div>
       </div>

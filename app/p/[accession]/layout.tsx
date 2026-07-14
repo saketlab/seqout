@@ -5,6 +5,7 @@ import {
   ARCHIVE_LICENSE_URLS as LICENSE_URLS,
   SITE_URL,
 } from "@/utils/constants";
+import { ARCHIVE_BY_DB, dbForAccession, type DbSource } from "@/utils/db-colors";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -15,46 +16,23 @@ type Props = {
   params: Promise<{ accession: string }>;
 };
 
+const PROJECT_NOUN: Record<DbSource, string> = {
+  geo: "Series",
+  sra: "Study",
+  ena: "Study",
+  arrayexpress: "Experiment",
+  gsa: "Study",
+  dra: "Study",
+  gea: "Experiment",
+};
+
 function detectProjectType(accession: string): {
   type: string;
   database: Archive;
 } {
-  const upper = accession.toUpperCase();
-
-  if (/^E-GEAD-\d+$/.test(upper)) {
-    return { type: "GEA Experiment", database: "GEA" };
-  }
-
-  if (upper.startsWith("E-")) {
-    return { type: "ArrayExpress Experiment", database: "ArrayExpress" };
-  }
-
-  if (upper.startsWith("G")) {
-    return { type: "GEO Series", database: "GEO" };
-  }
-
-  if (upper.startsWith("ERP")) {
-    return { type: "ENA Study", database: "ENA" };
-  }
-
-  if (upper.startsWith("DRP") || upper.startsWith("PRJDB")) {
-    return { type: "DRA Study", database: "DRA" };
-  }
-
-  if (
-    upper.startsWith("CRA") ||
-    upper.startsWith("CRX") ||
-    upper.startsWith("CRR") ||
-    upper.startsWith("HRA") ||
-    upper.startsWith("HRX") ||
-    upper.startsWith("HRR") ||
-    upper.startsWith("PRJCA") ||
-    upper.startsWith("SAMC")
-  ) {
-    return { type: "GSA Study", database: "GSA" };
-  }
-
-  return { type: "SRA Study", database: "SRA" };
+  const db = dbForAccession(accession) ?? "sra";
+  const database = ARCHIVE_BY_DB[db];
+  return { type: `${database} ${PROJECT_NOUN[db]}`, database };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

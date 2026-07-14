@@ -2,6 +2,7 @@ import CountryFlagIcon from "@/components/country-flag-icon";
 import DbBadge from "@/components/db-badge";
 import { dbForAccession } from "@/utils/db-colors";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
+import { doiHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Badge, Box, Flex, Popover, Text, Tooltip } from "@radix-ui/themes";
@@ -21,7 +22,6 @@ type ResultCardProps = {
   country_code?: string | null;
   href?: string;
   single_cell_modality?: string | null;
-  /** Which archive table linked this row (publication pages). */
   via?: string | null;
 };
 
@@ -120,7 +120,7 @@ function ResultCard({
               (doi ? (
                 <Badge size="2" color="blue" variant="soft" asChild>
                   <a
-                    href={`https://doi.org/${doi}`}
+                    href={doiHref(doi)}
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}

@@ -96,10 +96,8 @@ const chipStyle: React.CSSProperties = {
   fontWeight: 500,
   cursor: "pointer",
   lineHeight: 1,
-  textDecoration: "none",
 };
 
-/** Owns its own "Copied" flash so callers don't each keep a boolean + timer. */
 function CopyButton({
   label,
   getText,
@@ -311,16 +309,23 @@ export default function PublicationCard({
                 toast="PMID copied"
               />
               <Tooltip content="Open in PubMed">
-                <a
+                <Link
                   href={pubmedHref(publication.pmid)}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`Open PMID ${publication.pmid} in PubMed`}
-                  style={chipStyle}
+                  style={{ textDecoration: "none" }}
                 >
-                  <ExternalLinkIcon width="12" height="12" />
-                  PubMed
-                </a>
+                  <Badge
+                    size="2"
+                    color="gray"
+                    variant="soft"
+                    style={{ cursor: "pointer" }}
+                  >
+                    PubMed
+                    <ExternalLinkIcon />
+                  </Badge>
+                </Link>
               </Tooltip>
             </>
           )}

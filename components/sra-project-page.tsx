@@ -1,7 +1,7 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
 import DbBadge from "@/components/db-badge";
-import type { DbSource } from "@/utils/db-colors";
+import { dbForAccession, type DbSource } from "@/utils/db-colors";
 import CountryFlagIcon from "@/components/country-flag-icon";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
@@ -1786,7 +1786,6 @@ export default function ProjectPage() {
   const { showToast } = useToast();
   const accession = params.accession as string | undefined;
   const accessionUpper = accession?.toUpperCase();
-  const isArrayExpressAccession = accessionUpper?.startsWith("E-") ?? false;
   const isPrjAccession = accessionUpper?.startsWith("PRJ") ?? false;
   // GSA (CNCB-NGDC): CRA = open archive, HRA = human archive.
   const isGsaAccession = /^(CRA|HRA)\d+$/.test(accessionUpper ?? "");
@@ -2330,17 +2329,7 @@ export default function ProjectPage() {
             <Flex justify="start" align={"center"} gap="2" wrap={"wrap"}>
               <DbBadge
                 size={{ initial: "2", md: "3" }}
-                db={
-                  isGsaAccession
-                    ? "gsa"
-                    : isDdbjAccession
-                      ? "dra"
-                      : isPrjAccession
-                        ? "ena"
-                        : isArrayExpressAccession
-                          ? "arrayexpress"
-                          : "sra"
-                }
+                db={dbForAccession(accessionUpper ?? "") ?? "sra"}
                 style={{ whiteSpace: "nowrap" }}
                 className="seqout-accession"
               >
