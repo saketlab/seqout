@@ -16,7 +16,6 @@ export default function BioProjectBadge({
         <DbBadge
           size={{ initial: "2", md: "3" }}
           db={dbForAccession(accession)}
-          variant="solid"
           style={{ cursor: "pointer", whiteSpace: "nowrap" }}
           className="seqout-accession"
         >

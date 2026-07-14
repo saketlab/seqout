@@ -16,21 +16,6 @@ export default function DbBadge({ db, variant, className, style, ...rest }: Prop
     );
   }
 
-  if (variant === "solid") {
-    return (
-      <Badge
-        color="gray"
-        className={className}
-        style={{
-          backgroundColor: DB_COLOR_MAP[db].deep,
-          color: "#fff",
-          ...style,
-        }}
-        {...rest}
-      />
-    );
-  }
-
   const vars = {
     "--db": DB_COLOR_MAP[db].hex,
     "--db-fg": DB_BADGE_FG[db].light,
