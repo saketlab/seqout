@@ -58,7 +58,7 @@ export default function HomeSearchBar() {
 
       <Heading
         as="h1"
-        size={{ initial: "3", md: "4" }}
+        size="2"
         weight="medium"
         align="center"
         color="gray"
@@ -137,13 +137,13 @@ export default function HomeSearchBar() {
       </Flex>
 
       <Text as="p" className="seqout-sr-only">
-        seqout indexes over a million public sequencing studies from NCBI GEO and
-        SRA, EBI ENA and ArrayExpress, the DDBJ Sequence Read Archive (DRA) and
-        Genomic Expression Archive (GEA), and the CNCB-NGDC Genome Sequence
-        Archive (GSA). Search by keyword, organism,
-        disease, gene, or accession to find datasets, read harmonized sample and
-        experiment metadata, follow links to publications and raw FASTQ files,
-        and find related studies. Developed at Saket Lab, IIT Bombay.
+        seqout indexes over a million public sequencing studies from NCBI GEO
+        and SRA, EBI ENA and ArrayExpress, the DDBJ Sequence Read Archive (DRA)
+        and Genomic Expression Archive (GEA), and the CNCB-NGDC Genome Sequence
+        Archive (GSA). Search by keyword, organism, disease, gene, or accession
+        to find datasets, read harmonized sample and experiment metadata, follow
+        links to publications and raw FASTQ files, and find related studies.
+        Developed at Saket Lab, IIT Bombay.
       </Text>
     </Flex>
   );
