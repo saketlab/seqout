@@ -922,7 +922,7 @@ export default function MapGraph() {
           </Flex>
           <Text size={isMobile ? "2" : "1"}>
             Clusters generated using{" "}
-            <Link href="https://evoc.readthedocs.io/en/latest/">EVoC</Link> on
+            <Link href="https://github.com/vtraag/leidenalg">Leiden</Link> on
             embeddings produced by{" "}
             <Link href="https://huggingface.co/codefuse-ai/F2LLM-v2-8B">
               F2LLM-v2-8B

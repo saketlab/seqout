@@ -353,11 +353,11 @@ const LABEL_DEBOUNCE_MS = 220;
 const LABEL_LIMIT = 400;
 const LABEL_BBOX_MARGIN = 0.25; // prefetch slightly past the screen for smooth pans
 
-// Only these cluster layers ever get labels (cluster_l0…l3, by array index =
-// cluster_lN suffix). When the zoom is coarser than l3, no labels are shown at
-// all — labels appear only once the user is zoomed into the l0…l3 range.
+// Only these cluster layers ever get labels (cluster_l0…l4, by array index =
+// cluster_lN suffix). When the zoom is coarser than l4, no labels are shown at
+// all — labels appear only once the user is zoomed into the l0…l4 range.
 const LABEL_LAYER_MIN = 0; // finest labeled layer (cluster_l0)
-const LABEL_LAYER_MAX = 3; // coarsest labeled layer (cluster_l3)
+const LABEL_LAYER_MAX = 4; // coarsest labeled layer (cluster_l4)
 // deepscatter packs categorical colors into a 4096-tall texture indexed by the
 // column's dictionary, so a layer with more clusters than this can't be colored
 // (its points would overflow the texture → black). Coloring won't go finer than
