@@ -1,10 +1,5 @@
 "use client";
 import { OrganismNameMode } from "@/components/organism_filter";
-import {
-  DB_LABELS,
-  SEARCH_DBS,
-  type SearchDb,
-} from "@/utils/db-colors";
 import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
 import {
@@ -16,6 +11,7 @@ import { useSearchQuery } from "@/context/search_query";
 import { track } from "@/utils/analytics";
 import { withTimeout } from "@/utils/api";
 import { SERVER_URL } from "@/utils/constants";
+import { DB_LABELS, SEARCH_DBS, type SearchDb } from "@/utils/db-colors";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import { SearchResult } from "@/utils/types";
 import {
@@ -133,21 +129,30 @@ function DidYouMean({
 function CorrectionNotice({ correction }: { correction: SearchCorrection }) {
   const { corrected_query, original_query, mode } = correction;
   return (
-    <Text color="gray" size={"2"}>
-      {mode === "replaced" ? "Showing results for " : "Also showing results for "}
+    <Text color="gray" size={"3"}>
+      {mode === "replaced"
+        ? "Showing results for "
+        : "Also showing results for "}
       <Text size={"2"} weight={"bold"} style={{ color: "var(--accent-11)" }}>
         {corrected_query}
       </Text>
       {mode === "replaced" ? (
         <>
           . No results for{" "}
-          <Text size={"2"} style={{ fontStyle: "italic" }}>
+          <Text
+            size={"2"}
+            style={{
+              fontStyle: "italic",
+              textDecorationLine: "underline",
+              textDecorationStyle: "wavy",
+            }}
+          >
             {original_query}
           </Text>
           .
         </>
       ) : (
-        "."
+        ""
       )}
     </Text>
   );
@@ -1533,8 +1538,7 @@ export default function SearchPageBody() {
   );
   // Literal-typo matches shown only on page 1 (augmented mode), above the
   // corrected stream that the banner labels "additional results".
-  const extraResults =
-    safePage === 1 ? (correction?.extra_results ?? []) : [];
+  const extraResults = safePage === 1 ? (correction?.extra_results ?? []) : [];
 
   const liveStatusMessage = useMemo(() => {
     if (!query && !isGeoSearch) return "";
