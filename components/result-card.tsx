@@ -265,11 +265,6 @@ function ResultCard({
         <DbBadge size={"2"} db={db} className="seqout-accession">
           {accession}
         </DbBadge>
-        {db === "gsa" && (
-          <Badge size={"2"} color="tomato" variant="soft">
-            GSA
-          </Badge>
-        )}
         {single_cell_modality && (
           <Tooltip content="Derived from dataset metadata">
             <Badge size={"2"} color="cyan">
