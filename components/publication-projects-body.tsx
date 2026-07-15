@@ -9,7 +9,7 @@ import { doiHref, isPmid, pmidHref, pubmedHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import type { StudyPublication } from "@/utils/types";
 import { ExternalLinkIcon, InfoCircledIcon } from "@radix-ui/react-icons";
-import { Button, Flex, IconButton, Link, Popover, Text } from "@radix-ui/themes";
+import { Badge, Button, Flex, IconButton, Link, Popover, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -122,19 +122,39 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
                 {data.title}
               </Text>
             )}
-            <Text size="2" color="gray">
-              {[
-                data.authors,
-                data.journal ? cleanJournalName(data.journal) : null,
-                data.pub_date,
-                data.citation_count != null
-                  ? `${data.citation_count.toLocaleString()} citations`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </Text>
-            <Flex gap="3" align="center" mt="1">
+            {data.authors && (
+              <Text size="2" color="gray">
+                {data.authors}
+              </Text>
+            )}
+            <Flex gap="2" align="center" wrap="wrap" mt="1">
+              {data.citation_count != null && data.citation_count > 0 && (
+                <Badge size="2" color="iris" variant="soft">
+                  {data.citation_count.toLocaleString()} citations
+                </Badge>
+              )}
+              {data.journal &&
+                (data.doi ? (
+                  <Badge size="2" color="blue" variant="soft" asChild>
+                    <a
+                      href={doiHref(data.doi)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "none", color: "inherit" }}
+                    >
+                      {cleanJournalName(data.journal)} <ExternalLinkIcon />
+                    </a>
+                  </Badge>
+                ) : (
+                  <Badge size="2" color="blue" variant="soft">
+                    {cleanJournalName(data.journal)} <ExternalLinkIcon />
+                  </Badge>
+                ))}
+              {data.pub_date && (
+                <Badge size="2" color="gray" variant="soft">
+                  {data.pub_date}
+                </Badge>
+              )}
               <Link
                 href={pubmedHref(pmid)}
                 target="_blank"
@@ -143,16 +163,6 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
               >
                 PubMed <ExternalLinkIcon style={{ verticalAlign: "middle" }} />
               </Link>
-              {data.doi && (
-                <Link
-                  href={doiHref(data.doi)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  size="2"
-                >
-                  DOI <ExternalLinkIcon style={{ verticalAlign: "middle" }} />
-                </Link>
-              )}
             </Flex>
           </Flex>
         )}
