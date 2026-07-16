@@ -1,7 +1,7 @@
 "use client";
 
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
-import { Button } from "@radix-ui/themes";
+import { Button, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 
 const REPO = "saketlab/seqout";
@@ -40,9 +40,7 @@ export default function GitHubButton() {
         aria-label="Star seqout on GitHub"
       >
         <GitHubLogoIcon />
-        {typeof stars === "number" && (
-          <span className="seqout-accession">{compact.format(stars)}</span>
-        )}
+        {typeof stars === "number" && <Text>{compact.format(stars)}</Text>}
       </a>
     </Button>
   );
