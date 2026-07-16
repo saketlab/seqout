@@ -134,11 +134,15 @@ export default function HomeSearchBar() {
           ))}
         </Flex>
         <Flex gap="2" align="center" justify="center" wrap="wrap">
-          <Text size={"1"} color="gray">
+          {/* <Text size={"1"} color="gray">
             or view an{" "}
             <Link href={"https://seqout.org/p/GSE182365#samples=enriched"}>
               enriched sample
             </Link>
+          </Text> */}
+          <Text size={"1"} color="gray">
+            Search by — <Link href={"/pmid"}>PubMed ID</Link> or{" "}
+            <Link href={"/authors"}>author name</Link>
           </Text>
         </Flex>
       </Flex>
