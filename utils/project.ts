@@ -29,7 +29,7 @@ export const authorHref = (name: string): string =>
   `/authors/${encodeURIComponent(name.trim())}`;
 
 export const pmidHref = (pmid: string | number): string =>
-  `/publications/${encodeURIComponent(String(pmid).trim())}`;
+  `/pmid/${encodeURIComponent(String(pmid).trim())}`;
 
 export const isPmid = (value: string): boolean => /^\d+$/.test(value.trim());
 

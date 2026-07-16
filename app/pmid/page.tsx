@@ -30,7 +30,7 @@ export default function PublicationsIndexPage() {
         style={{ minHeight: "60vh" }}
       >
         <Heading size="6" align="center">
-          Find projects by publication
+          Find projects by PMID
         </Heading>
         <Text
           size="2"

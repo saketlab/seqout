@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `PMID ${pmid} - Datasets`,
     description: `Sequencing datasets linked to PMID ${pmid} across ${ARCHIVE_LIST_TEXT}.`,
     alternates: {
-      canonical: `/publications/${encodeURIComponent(pmid)}`,
+      canonical: `/pmid/${encodeURIComponent(pmid)}`,
     },
     robots: { index: false, follow: true },
   };

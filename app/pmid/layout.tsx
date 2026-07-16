@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Find projects by publication",
+  title: "Find projects by PMID",
   description: `Look up every ${ARCHIVE_LIST_TEXT} dataset linked to a PubMed ID on seqout.`,
   alternates: {
-    canonical: "/publications",
+    canonical: "/pmid",
   },
 };
 
