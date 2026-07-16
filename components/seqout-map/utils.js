@@ -14,6 +14,18 @@ export function clusterColorEncoding() {
   };
 }
 
+// Archive coloring: only ~7 sources, so (unlike the fine cluster layers) they fit
+// deepscatter's categorical color texture. `source` is a baked dictionary column,
+// so color it directly with an ordinal scale — domain = the archive strings, range
+// = their parallel hex colors — giving each archive a fixed color.
+export function sourceColorEncoding() {
+  return {
+    field: "source",
+    domain: state.sourceDomain ?? [],
+    range: state.sourceRange ?? ["#4CAF50"],
+  };
+}
+
 export function pointInPolygon(px, py, verts) {
   let inside = false;
   for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
@@ -71,10 +83,13 @@ export function applyColorEncoding(sp) {
     encoding.foreground = null;
   }
 
-  encoding.color =
-    state.colorByClusters && state.colorField
-      ? clusterColorEncoding()
-      : { constant: "#4CAF50" };
+  if (state.colorBySource && state.sourceRange) {
+    encoding.color = sourceColorEncoding();
+  } else if (state.colorByClusters && state.colorField) {
+    encoding.color = clusterColorEncoding();
+  } else {
+    encoding.color = { constant: "#4CAF50" };
+  }
 
   sp.plotAPI({ encoding });
 }

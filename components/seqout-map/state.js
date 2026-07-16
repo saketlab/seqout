@@ -1,6 +1,9 @@
 // Ported from saketlab-experiments/js/state.js
 export const state = {
   colorByClusters: false,
+  colorBySource: false, // color points by their archive (source) instead
+  sourceDomain: null, // archive strings in index order, e.g. ["geo","sra",...]
+  sourceRange: null, // hex colors parallel to sourceDomain
   filterName: null, // transform name for the country hide-filter
   filters: {}, // active facets: column -> Set of selected values (AND across cols)
   facetColumns: [], // enriched facet tile columns to tally for the lasso stats
@@ -19,6 +22,9 @@ export const state = {
 // Reset the singleton state between mounts (React client navigation / StrictMode).
 export function resetState() {
   state.colorByClusters = false;
+  state.colorBySource = false;
+  state.sourceDomain = null;
+  state.sourceRange = null;
   state.filterName = null;
   state.filters = {};
   state.facetColumns = [];
