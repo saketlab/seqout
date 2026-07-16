@@ -143,6 +143,8 @@ export async function createMap({
   labelFont,
   serverUrl,
   onColorLevel,
+  sourceDomain,
+  sourceRange,
   maxPoints = 1000000,
   labelLimit = LABEL_LIMIT,
   pointSize = 0.1,
@@ -153,6 +155,10 @@ export async function createMap({
   resetState();
   state.facetColumns = facetColumns; // after resetState (which clears it)
   state.mapExtent = extent;
+  // Archive-coloring inputs (from db-colors via the React component): the source
+  // strings in index order and their parallel hex colors.
+  state.sourceDomain = sourceDomain ?? null;
+  state.sourceRange = sourceRange ?? null;
 
   // Points are colored by their cluster at the layer matching the current zoom
   // (a per-layer sidecar column in the tiles, kept in state.colorField). Seed it
@@ -357,7 +363,7 @@ export async function createMap({
     const dt = sp.deeptable;
     const origSpawn = dt.spawnDownloads.bind(dt);
     dt.spawnDownloads = (bbox, maxIx, qLen, fields, priority) => {
-      const extra = ["accession", "countries", ...facetColumns].filter(
+      const extra = ["accession", "source", "countries", ...facetColumns].filter(
         (f) => !fields.includes(f),
       );
       return origSpawn(bbox, maxIx, qLen, [...fields, ...extra], priority);
@@ -978,7 +984,14 @@ export function setClusterSelectionLevel(level) {
 
 export function setColorByClusters(sp, value, clusterColors) {
   state.colorByClusters = value;
+  if (value) state.colorBySource = false; // the two color modes are exclusive
   applyColorEncoding(sp, clusterColors);
+}
+
+export function setColorBySource(sp, value) {
+  state.colorBySource = value;
+  if (value) state.colorByClusters = false; // the two color modes are exclusive
+  applyColorEncoding(sp);
 }
 
 // ---------------------------------------------------------------------------

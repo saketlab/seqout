@@ -3,6 +3,7 @@
 import { cachedJson, getMapRev, purgeMapCache } from "@/lib/map-cache";
 import { SERVER_URL } from "@/utils/constants";
 import { normalizeAliases } from "@/utils/project";
+import { DB_COLOR_MAP, DB_LABELS, DB_ORDER } from "@/utils/db-colors";
 import {
   BarChartIcon,
   ChevronDownIcon,
@@ -93,6 +94,12 @@ type Facet = { key: string; label: string };
 // A named cluster of the picker's layer, with its centroid (so selecting one can
 // fly the view to it).
 type Cluster = { id: string; label: string; x: number; y: number };
+
+// Archive coloring: the source strings in a fixed index order and their parallel
+// hex colors (from the shared db-colors palette). Passed to the engine so points
+// can be colored by which repo they came from, and rendered as the map legend.
+const SOURCE_DOMAIN: string[] = [...DB_ORDER];
+const SOURCE_RANGE: string[] = DB_ORDER.map((db) => DB_COLOR_MAP[db].hex);
 
 type EngineModule = typeof import("./seqout-map/engine.js");
 type Scatterplot = Awaited<ReturnType<EngineModule["createMap"]>>["sp"];
@@ -368,6 +375,7 @@ export default function MapGraph() {
   });
 
   const [colorByClusters, setColorByClusters] = useState(false);
+  const [colorBySource, setColorBySource] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
@@ -403,12 +411,16 @@ export default function MapGraph() {
   }, [hasSelection]);
   const accessionsRef = useRef<string[]>([]);
   const colorByClustersRef = useRef(colorByClusters);
+  const colorBySourceRef = useRef(colorBySource);
   const selectedCountriesRef = useRef(selectedCountries);
   const selectedClustersRef = useRef(selectedClusters);
   const clusterLevelRef = useRef<string | null>(null);
   useEffect(() => {
     colorByClustersRef.current = colorByClusters;
   }, [colorByClusters]);
+  useEffect(() => {
+    colorBySourceRef.current = colorBySource;
+  }, [colorBySource]);
   useEffect(() => {
     selectedCountriesRef.current = selectedCountries;
   }, [selectedCountries]);
@@ -568,6 +580,8 @@ export default function MapGraph() {
           onColorLevel: (level: string | null) => {
             void loadClusterLevel(level);
           },
+          sourceDomain: SOURCE_DOMAIN,
+          sourceRange: SOURCE_RANGE,
           ...renderLimits,
         });
         if (destroyed) return;
@@ -578,7 +592,9 @@ export default function MapGraph() {
           clusterColors: ctx.clusterColors,
           destroy: ctx.destroy,
         };
-        if (colorByClustersRef.current) {
+        if (colorBySourceRef.current) {
+          engine.setColorBySource(ctx.sp, true);
+        } else if (colorByClustersRef.current) {
           engine.setColorByClusters(ctx.sp, true, ctx.clusterColors);
         }
         // A surviving selection filters on the layer it was made at (kept in
@@ -698,6 +714,11 @@ export default function MapGraph() {
   const onToggleColorByClusters = useCallback((value: boolean) => {
     setColorByClusters(value);
     colorByClustersRef.current = value;
+    // The two color modes are mutually exclusive; enabling clusters clears source.
+    if (value) {
+      setColorBySource(false);
+      colorBySourceRef.current = false;
+    }
     const sp = spRef.current;
     const ctx = ctxRef.current;
     if (sp && ctx) {
@@ -707,6 +728,20 @@ export default function MapGraph() {
     // their point colors are currently enabled.
     if (selectedClustersRef.current.length > 0) {
       engineRef.current?.setClusterSelectionLevel(clusterLevelRef.current);
+    }
+  }, []);
+
+  const onToggleColorBySource = useCallback((value: boolean) => {
+    setColorBySource(value);
+    colorBySourceRef.current = value;
+    // Mutually exclusive with cluster coloring; enabling source clears clusters.
+    if (value) {
+      setColorByClusters(false);
+      colorByClustersRef.current = false;
+    }
+    const sp = spRef.current;
+    if (sp) {
+      engineRef.current?.setColorBySource(sp, value);
     }
   }, []);
 
@@ -1087,6 +1122,41 @@ export default function MapGraph() {
               Qwen 3.6 27B
             </Link>{" "}
             model.
+          </Text>
+          <Flex
+            align="center"
+            justify="between"
+            gap="2"
+            style={{ minHeight: isMobile ? 44 : undefined }}
+          >
+            <Text size="2">Color by source</Text>
+            <Switch
+              size={isMobile ? "2" : "1"}
+              checked={colorBySource}
+              onCheckedChange={onToggleColorBySource}
+            />
+          </Flex>
+          {colorBySource && (
+            <Flex wrap="wrap" gap="2" mt="1">
+              {SOURCE_DOMAIN.map((db, i) => (
+                <Flex key={db} align="center" gap="1">
+                  <Box
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 2,
+                      backgroundColor: SOURCE_RANGE[i],
+                      flex: "0 0 auto",
+                    }}
+                  />
+                  <Text size="1">{DB_LABELS[db] ?? db}</Text>
+                </Flex>
+              ))}
+            </Flex>
+          )}
+          <Text size={isMobile ? "2" : "1"} color="gray">
+            Colors each point by the archive it came from (GEO, SRA, ENA,
+            ArrayExpress, GSA, DRA, GEA).
           </Text>
         </Flex>
         {/* Country filter */}
