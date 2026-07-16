@@ -354,6 +354,21 @@ export default function RootLayout({
             font-feature-settings: "tnum" 1, "cv11" 1;
           }
 
+          /* Sticky footer. Radix's theme root already carries min-height:100vh,
+             but as a block box a short page stacks main+footer at the top and
+             strands the footer mid-viewport. Flex column + a growing main pins
+             it to the bottom. The -16px offsets body's default 8px margin
+             (there's no reset), which otherwise pushes every page 16px past
+             the fold. */
+          .radix-themes {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 16px);
+          }
+          #main-content {
+            flex: 1 0 auto;
+          }
+
           .seqout-accession {
             font-family: var(--code-font-family);
             font-feature-settings: "ss01" 1, "ss03" 1, "tnum" 1;
