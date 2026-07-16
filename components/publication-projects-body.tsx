@@ -78,6 +78,10 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
   const projects = data?.projects ?? [];
   const visible = showAll ? projects : projects.slice(0, INITIAL_ROWS);
   const pubDate = formatPubDate(data?.pub_date ?? null);
+  // Same preference as PublicationCard — DOI first, PubMed otherwise. Unlike the
+  // card there is no unlinked branch: this page is addressed by PMID, so the
+  // fallback always resolves.
+  const titleLink = data?.doi ? doiHref(data.doi) : pubmedHref(pmid);
 
   return (
     <>
@@ -143,9 +147,19 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
           <Card>
             <Flex direction="column" gap="1">
               {data.title && (
-                <Text size="4" weight="bold" className="seqout-paper-title">
+                <Link
+                  size="4"
+                  href={titleLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="seqout-paper-title"
+                  weight="bold"
+                  underline="hover"
+                  wrap="pretty"
+                  style={{ color: "inherit" }}
+                >
                   {data.title}
-                </Text>
+                </Link>
               )}
               {data.authors && (
                 <Text size="2" color="gray">
