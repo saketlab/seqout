@@ -4,10 +4,11 @@ import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
+import { buildSupplementaryDownloadScript } from "@/utils/downloadScript";
 import {
-  buildCurlCommand,
-  buildSupplementaryDownloadScript,
-} from "@/utils/downloadScript";
+  buildSupplementaryItems,
+  type SupplementaryDataItem,
+} from "@/utils/supplementary";
 import {
   CheckIcon,
   CopyIcon,
@@ -24,231 +25,11 @@ import {
   Spinner,
   Text,
 } from "@radix-ui/themes";
-import type {
-  ColDef,
-  GridApi,
-  ICellRendererParams,
-  ValueGetterParams,
-} from "ag-grid-community";
+import type { ColDef, GridApi, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import React, { useState } from "react";
 
 ensureAgGridModules();
-
-type SupplementaryDataRecord = {
-  url: string;
-  "@type": string | null;
-  path: string | null;
-  size: number | null;
-};
-
-type SupplementaryDataItem = {
-  id: string;
-  url: string;
-  fileName: string;
-  fileSizeBytes: number | null;
-  fileSizeLabel: string | null;
-  curlCommand: string;
-  browserDownloadUrl: string;
-  downloadUrl: string;
-};
-
-const parsePostgresTextArray = (value: string): string[] => {
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return [];
-  const content = trimmed.slice(1, -1);
-  if (!content) return [];
-
-  const items: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  let escaped = false;
-
-  for (const char of content) {
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-    if (char === "\\") {
-      if (inQuotes) escaped = true;
-      else current += char;
-      continue;
-    }
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      if (current.trim()) items.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-
-  if (current.trim()) items.push(current.trim());
-  return items;
-};
-
-// GEO/AE records sometimes carry placeholder rows like {"#text":"NONE"};
-// only keep entries whose value is an actual URL.
-const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
-  "NONE",
-  "NULL",
-  "N/A",
-  "NA",
-  "-",
-]);
-const isValidSupplementaryUrl = (value: string): boolean => {
-  const trimmed = value.trim();
-  if (!trimmed || SUPPLEMENTARY_PLACEHOLDER_VALUES.has(trimmed.toUpperCase())) {
-    return false;
-  }
-  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
-};
-
-const normalizeSupplementaryRecord = (
-  value: unknown,
-): SupplementaryDataRecord | null => {
-  if (!value) return null;
-
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const textValue =
-      typeof record["#text"] === "string" ? record["#text"] : null;
-    const urlValue = typeof record.url === "string" ? record.url : null;
-    const resolvedUrl = textValue ?? urlValue;
-    if (
-      typeof resolvedUrl !== "string" ||
-      !isValidSupplementaryUrl(resolvedUrl)
-    ) {
-      return null;
-    }
-    const rawType = record["@type"];
-    const rawPath = record.path;
-    const rawSize = record.size;
-    return {
-      url: resolvedUrl.trim(),
-      "@type":
-        typeof rawType === "string" && rawType.trim() ? rawType.trim() : null,
-      path:
-        typeof rawPath === "string" && rawPath.trim() ? rawPath.trim() : null,
-      size:
-        typeof rawSize === "number" && Number.isFinite(rawSize)
-          ? rawSize
-          : null,
-    };
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    if (
-      trimmed.startsWith("http://") ||
-      trimmed.startsWith("https://") ||
-      trimmed.startsWith("ftp://")
-    ) {
-      return { url: trimmed, "@type": null, path: null, size: null };
-    }
-    try {
-      return normalizeSupplementaryRecord(JSON.parse(trimmed) as unknown);
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-};
-
-const parseSupplementaryData = (
-  rawValue: unknown,
-): SupplementaryDataRecord[] => {
-  if (!rawValue) return [];
-
-  if (Array.isArray(rawValue)) {
-    return rawValue
-      .map((entry) => normalizeSupplementaryRecord(entry))
-      .filter((entry): entry is SupplementaryDataRecord => entry !== null);
-  }
-
-  if (typeof rawValue === "string") {
-    const trimmed = rawValue.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((entry) => normalizeSupplementaryRecord(entry))
-          .filter((entry): entry is SupplementaryDataRecord => entry !== null);
-      }
-      const normalized = normalizeSupplementaryRecord(parsed);
-      return normalized ? [normalized] : [];
-    } catch {
-      const postgresArrayItems = parsePostgresTextArray(trimmed);
-      if (postgresArrayItems.length > 0) {
-        return postgresArrayItems
-          .map((entry) => normalizeSupplementaryRecord(entry))
-          .filter((entry): entry is SupplementaryDataRecord => entry !== null);
-      }
-      const normalized = normalizeSupplementaryRecord(trimmed);
-      return normalized ? [normalized] : [];
-    }
-  }
-
-  const normalized = normalizeSupplementaryRecord(rawValue);
-  return normalized ? [normalized] : [];
-};
-
-const getFileNameFromUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    const fileName = parsed.pathname.split("/").filter(Boolean).pop();
-    return fileName ?? "supplementary_file";
-  } catch {
-    const fileName = url.split("/").filter(Boolean).pop();
-    return fileName ?? "supplementary_file";
-  }
-};
-
-const getBrowserDownloadUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "ftp:") {
-      parsed.protocol = "https:";
-      return parsed.toString();
-    }
-    return url;
-  } catch {
-    return url;
-  }
-};
-
-const getAppDownloadUrl = (url: string, fileName: string): string =>
-  `/web-api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`;
-
-const formatFileSize = (sizeInBytes: number | null): string | null => {
-  if (
-    sizeInBytes === null ||
-    !Number.isFinite(sizeInBytes) ||
-    sizeInBytes < 0
-  ) {
-    return null;
-  }
-  if (sizeInBytes < 1024) return `${sizeInBytes} B`;
-
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = sizeInBytes / 1024;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
-  return `${rounded} ${units[unitIndex]}`;
-};
 
 export function SupplementaryDataSection({
   accession,
@@ -282,41 +63,16 @@ export function SupplementaryDataSection({
   const [supplementaryScriptCopied, setSupplementaryScriptCopied] =
     useState(false);
 
-  const supplementaryDataItems = React.useMemo(() => {
-    return parseSupplementaryData(rawSupplementaryData)
-      .map((entry, index): SupplementaryDataItem | null => {
-        const url = entry.url?.trim();
-        if (!url) return null;
-        const browserDownloadUrl = getBrowserDownloadUrl(url);
-        const fileName = entry.path?.trim() || getFileNameFromUrl(url);
-        return {
-          id: `${accession}-supplementary-${index}`,
-          url: browserDownloadUrl,
-          fileName,
-          fileSizeBytes: entry.size,
-          fileSizeLabel: formatFileSize(entry.size),
-          curlCommand: buildCurlCommand(browserDownloadUrl),
-          browserDownloadUrl,
-          downloadUrl: getAppDownloadUrl(browserDownloadUrl, fileName),
-        };
-      })
-      .filter((entry): entry is SupplementaryDataItem => entry !== null);
-  }, [accession, rawSupplementaryData]);
+  const supplementaryDataItems = React.useMemo(
+    () =>
+      buildSupplementaryItems({
+        rawValue: rawSupplementaryData,
+        idPrefix: `${accession}-supplementary`,
+      }),
+    [accession, rawSupplementaryData],
+  );
 
   const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${accession}/supplementary/download" | bash`;
-
-  const allSupplementarySizeLabel = React.useMemo(() => {
-    if (supplementaryDataItems.length === 0) return null;
-    const missingSize = supplementaryDataItems.some(
-      (item) => item.fileSizeBytes === null,
-    );
-    if (missingSize) return null;
-    const totalSize = supplementaryDataItems.reduce(
-      (sum, item) => sum + (item.fileSizeBytes ?? 0),
-      0,
-    );
-    return formatFileSize(totalSize);
-  }, [supplementaryDataItems]);
 
   const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [
@@ -340,18 +96,6 @@ export function SupplementaryDataSection({
             </Link>
           );
         },
-      },
-      {
-        headerName: "Size",
-        field: "fileSizeBytes",
-        minWidth: 100,
-        maxWidth: 140,
-        valueGetter: (params: ValueGetterParams<SupplementaryDataItem>) =>
-          params.data?.fileSizeBytes ?? 0,
-        valueFormatter: (params) =>
-          typeof params.value === "number" && params.value > 0
-            ? (formatFileSize(params.value as number) ?? "-")
-            : "-",
       },
     ],
     [],
@@ -471,11 +215,6 @@ export function SupplementaryDataSection({
                 {supplementaryDataItems.length.toLocaleString()} file
                 {supplementaryDataItems.length !== 1 ? "s" : ""}
               </Badge>
-              {allSupplementarySizeLabel && (
-                <Badge size="2" variant="soft">
-                  {allSupplementarySizeLabel} total
-                </Badge>
-              )}
             </Flex>
             <Flex gap="2" wrap="wrap">
               <Button

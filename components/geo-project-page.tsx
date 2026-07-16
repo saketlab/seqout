@@ -31,10 +31,7 @@ import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson, getJsonWithTotal } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { dbForAccession } from "@/utils/db-colors";
-import {
-  buildCurlCommand,
-  buildSupplementaryDownloadScript,
-} from "@/utils/downloadScript";
+import { buildSupplementaryDownloadScript } from "@/utils/downloadScript";
 import { titleCaseCenter } from "@/utils/format";
 import {
   makeOrganismPostSort,
@@ -43,9 +40,12 @@ import {
 import {
   normalizeAliases,
   normalizeAuthors,
-  parsePostgresTextArray,
   toDisplayText,
 } from "@/utils/project";
+import {
+  buildSupplementaryItems,
+  type SupplementaryDataItem,
+} from "@/utils/supplementary";
 import {
   CheckIcon,
   CopyIcon,
@@ -163,230 +163,12 @@ type GeoSampleGridRow = {
   characteristics: Record<string, string>;
 };
 
-type SupplementaryDataRecord = {
-  url: string;
-  "@type": string | null;
-  path: string | null;
-  size: number | null;
-};
-
-type SupplementaryDataItem = {
-  id: string;
-  url: string;
-  fileName: string;
-  fileSizeBytes: number | null;
-  fileSizeLabel: string | null;
-  curlCommand: string;
-  browserDownloadUrl: string;
-  downloadUrl: string;
-  sourceSampleAccession?: string | null;
-};
-
 type SampleSupplementaryGroupRow = {
   id: string;
   sampleAccession: string;
   items: SupplementaryDataItem[];
   fileCount: number;
-  totalSizeBytes: number | null;
 };
-
-const SUPPLEMENTARY_PLACEHOLDER_VALUES = new Set([
-  "NONE",
-  "NULL",
-  "N/A",
-  "NA",
-  "-",
-  "",
-]);
-
-const isValidSupplementaryUrl = (value: string): boolean => {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (SUPPLEMENTARY_PLACEHOLDER_VALUES.has(trimmed.toUpperCase())) {
-    return false;
-  }
-  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
-};
-
-const normalizeSupplementaryRecord = (
-  value: unknown,
-): SupplementaryDataRecord | null => {
-  if (!value) return null;
-
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const textValue =
-      typeof record["#text"] === "string" ? record["#text"] : null;
-    const urlValue = typeof record.url === "string" ? record.url : null;
-    const resolvedUrl = textValue ?? urlValue;
-    if (
-      typeof resolvedUrl !== "string" ||
-      !isValidSupplementaryUrl(resolvedUrl)
-    ) {
-      return null;
-    }
-    const rawType = record["@type"];
-    const rawPath = record.path;
-    const rawSize = record.size;
-    return {
-      url: resolvedUrl.trim(),
-      "@type":
-        typeof rawType === "string" && rawType.trim() ? rawType.trim() : null,
-      path:
-        typeof rawPath === "string" && rawPath.trim() ? rawPath.trim() : null,
-      size:
-        typeof rawSize === "number" && Number.isFinite(rawSize)
-          ? rawSize
-          : null,
-    };
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    if (isValidSupplementaryUrl(trimmed)) {
-      return { url: trimmed, "@type": null, path: null, size: null };
-    }
-
-    try {
-      return normalizeSupplementaryRecord(JSON.parse(trimmed) as unknown);
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-};
-
-const parseSupplementaryData = (
-  rawValue: unknown,
-): SupplementaryDataRecord[] => {
-  if (!rawValue) {
-    return [];
-  }
-
-  if (Array.isArray(rawValue)) {
-    return rawValue
-      .map((entry) => normalizeSupplementaryRecord(entry))
-      .filter((entry): entry is SupplementaryDataRecord => entry !== null);
-  }
-
-  if (typeof rawValue === "string") {
-    const trimmed = rawValue.trim();
-    if (!trimmed) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((entry) => normalizeSupplementaryRecord(entry))
-          .filter((entry): entry is SupplementaryDataRecord => entry !== null);
-      }
-      const normalized = normalizeSupplementaryRecord(parsed);
-      return normalized ? [normalized] : [];
-    } catch {
-      const postgresArrayItems = parsePostgresTextArray(trimmed);
-      if (postgresArrayItems.length > 0) {
-        return postgresArrayItems
-          .map((entry) => normalizeSupplementaryRecord(entry))
-          .filter((entry): entry is SupplementaryDataRecord => entry !== null);
-      }
-      const normalized = normalizeSupplementaryRecord(trimmed);
-      return normalized ? [normalized] : [];
-    }
-  }
-
-  const normalized = normalizeSupplementaryRecord(rawValue);
-  return normalized ? [normalized] : [];
-};
-
-const getFileNameFromUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    const fileName = parsed.pathname.split("/").filter(Boolean).pop();
-    return fileName ?? "supplementary_file";
-  } catch {
-    const fileName = url.split("/").filter(Boolean).pop();
-    return fileName ?? "supplementary_file";
-  }
-};
-
-const getBrowserDownloadUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "ftp:") {
-      parsed.protocol = "https:";
-      return parsed.toString();
-    }
-    return url;
-  } catch {
-    return url;
-  }
-};
-
-const getAppDownloadUrl = (url: string, fileName: string): string =>
-  `/web-api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`;
-
-const formatFileSize = (sizeInBytes: number | null): string | null => {
-  if (
-    sizeInBytes === null ||
-    !Number.isFinite(sizeInBytes) ||
-    sizeInBytes < 0
-  ) {
-    return null;
-  }
-  if (sizeInBytes < 1024) {
-    return `${sizeInBytes} B`;
-  }
-
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = sizeInBytes / 1024;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
-  return `${rounded} ${units[unitIndex]}`;
-};
-
-const buildSupplementaryItems = ({
-  rawValue,
-  idPrefix,
-  sourceSampleAccession = null,
-}: {
-  rawValue: unknown;
-  idPrefix: string;
-  sourceSampleAccession?: string | null;
-}): SupplementaryDataItem[] =>
-  parseSupplementaryData(rawValue)
-    .map((entry, index): SupplementaryDataItem | null => {
-      const url = entry.url?.trim();
-      if (!url) {
-        return null;
-      }
-      const browserDownloadUrl = getBrowserDownloadUrl(url);
-      const fileName = entry.path?.trim() || getFileNameFromUrl(url);
-      return {
-        id: `${idPrefix}-${index}`,
-        url: browserDownloadUrl,
-        fileName,
-        fileSizeBytes: entry.size,
-        fileSizeLabel: formatFileSize(entry.size),
-        curlCommand: buildCurlCommand(browserDownloadUrl),
-        browserDownloadUrl,
-        downloadUrl: getAppDownloadUrl(browserDownloadUrl, fileName),
-        sourceSampleAccession,
-      };
-    })
-    .filter((entry): entry is SupplementaryDataItem => entry !== null);
 
 const fetchSamples = async (
   accession: string,
@@ -1172,40 +954,15 @@ export default function GeoProjectPage() {
     }
     return Array.from(groups.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([sampleAccession, items], index) => {
-        const hasUnknownSize = items.some(
-          (item) => item.fileSizeBytes === null,
-        );
-        const totalSizeBytes = hasUnknownSize
-          ? null
-          : items.reduce((sum, item) => sum + (item.fileSizeBytes ?? 0), 0);
-        return {
-          id: `sample-supp-group-${sampleAccession}-${index}`,
-          sampleAccession,
-          items,
-          fileCount: items.length,
-          totalSizeBytes,
-        };
-      });
+      .map(([sampleAccession, items], index) => ({
+        id: `sample-supp-group-${sampleAccession}-${index}`,
+        sampleAccession,
+        items,
+        fileCount: items.length,
+      }));
   })();
 
   const cliDownloadCommand = `curl -sS "https://seqout.org/api/project/${dataAccession}/supplementary/download" | bash`;
-
-  const sizeLabel = (items: SupplementaryDataItem[]) => {
-    if (
-      items.length === 0 ||
-      items.some((item) => item.fileSizeBytes === null)
-    ) {
-      return null;
-    }
-    return formatFileSize(
-      items.reduce((sum, item) => sum + (item.fileSizeBytes ?? 0), 0),
-    );
-  };
-  const allSupplementarySizeLabel = sizeLabel(supplementaryDataItems);
-  const allSampleSupplementarySizeLabel = sizeLabel(
-    sampleSupplementaryDataItems,
-  );
 
   const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [
@@ -1229,18 +986,6 @@ export default function GeoProjectPage() {
             </Link>
           );
         },
-      },
-      {
-        headerName: "Size",
-        field: "fileSizeBytes",
-        minWidth: 100,
-        maxWidth: 140,
-        valueGetter: (params: ValueGetterParams<SupplementaryDataItem>) =>
-          params.data?.fileSizeBytes ?? 0,
-        valueFormatter: (params) =>
-          typeof params.value === "number" && params.value > 0
-            ? (formatFileSize(params.value as number) ?? "-")
-            : "-",
       },
     ],
     [],
@@ -1301,11 +1046,6 @@ export default function GeoProjectPage() {
                   >
                     {item.fileName}
                   </Link>
-                  {item.fileSizeLabel && (
-                    <Text size="1" color="gray">
-                      {item.fileSizeLabel}
-                    </Text>
-                  )}
                 </Flex>
               ))}
             </Flex>
@@ -1317,16 +1057,6 @@ export default function GeoProjectPage() {
         field: "fileCount",
         minWidth: 90,
         maxWidth: 110,
-      },
-      {
-        headerName: "Total size",
-        field: "totalSizeBytes",
-        minWidth: 120,
-        maxWidth: 140,
-        valueFormatter: (params) =>
-          typeof params.value === "number"
-            ? (formatFileSize(params.value as number) ?? "-")
-            : "-",
       },
     ],
     [],
@@ -1958,9 +1688,6 @@ export default function GeoProjectPage() {
                       {supplementaryDataItems.length.toLocaleString()} file
                       {supplementaryDataItems.length !== 1 ? "s" : ""}
                     </Badge>
-                    {allSupplementarySizeLabel && (
-                      <Badge>{allSupplementarySizeLabel} total</Badge>
-                    )}
                   </>
                 )}
                 <SectionAnchor id="supplementary" />
@@ -2133,11 +1860,6 @@ export default function GeoProjectPage() {
                             ? "s"
                             : ""}
                         </Badge>
-                        {allSampleSupplementarySizeLabel && (
-                          <Badge size="2" variant="soft">
-                            {allSampleSupplementarySizeLabel} total
-                          </Badge>
-                        )}
                       </>
                     )}
                   </Flex>
@@ -2200,7 +1922,7 @@ export default function GeoProjectPage() {
                         <Dialog.Content size="3">
                           <Flex justify="between" align="center" gap="3" mb="3">
                             <Dialog.Title mb="0">
-                              Copy sample download script
+                              Script for downloading files
                             </Dialog.Title>
                             <Button
                               size="2"
