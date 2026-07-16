@@ -37,7 +37,10 @@ export default function Wrapper({
         <DynamicFavicon />
         <PwaRegistrar />
         <SearchQueryProvider>
-          <Theme accentColor="indigo">
+          {/* seqout-root-theme marks THIS Theme as the page-level one. Radix
+              portals (popover/tooltip/dialog) render their own nested
+              .radix-themes, so page-layout CSS must not key off that class. */}
+          <Theme accentColor="indigo" className="seqout-root-theme">
             <ToastProvider>
               {children}
               <CommandPalette />

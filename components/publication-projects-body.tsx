@@ -103,14 +103,15 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
           />
           <Popover.Root>
             <Popover.Trigger>
-              <IconButton aria-label="About publication links">
+              <IconButton variant="soft" aria-label="About publication links">
                 <InfoCircledIcon />
               </IconButton>
             </Popover.Trigger>
-            <Popover.Content maxWidth="340px">
+            <Popover.Content maxWidth={"16rem"}>
               <Text size="2">
-                Projects are linked to a paper by the archives themselves, so a
-                submitter&rsquo;s mistake can attach an unrelated project here.
+                Projects are linked to publications by the archive, so
+                submission errors may occasionally associate an unrelated
+                project with a paper.
               </Text>
             </Popover.Content>
           </Popover.Root>

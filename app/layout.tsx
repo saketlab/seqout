@@ -359,8 +359,11 @@ export default function RootLayout({
              strands the footer mid-viewport. Flex column + a growing main pins
              it to the bottom. The -16px offsets body's default 8px margin
              (there's no reset), which otherwise pushes every page 16px past
-             the fold. */
-          .radix-themes {
+             the fold.
+             Keyed to .seqout-root-theme, NOT .radix-themes: portalled popovers
+             and dialogs render their own nested .radix-themes, and would
+             inherit this min-height and balloon to full viewport height. */
+          .seqout-root-theme {
             display: flex;
             flex-direction: column;
             min-height: calc(100vh - 16px);
