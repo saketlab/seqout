@@ -1,15 +1,29 @@
 "use client";
 
 import EditableHeading from "@/components/editable-heading";
+import {
+  CiteDialog,
+  CopyButton,
+  formatCellCitation,
+} from "@/components/publication-card";
 import ResultCard from "@/components/result-card";
 import SearchBar from "@/components/search-bar";
 import { getJson } from "@/utils/api";
-import { cleanJournalName } from "@/utils/format";
+import { cleanJournalName, formatPubDate } from "@/utils/format";
 import { doiHref, isPmid, pmidHref, pubmedHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
 import type { StudyPublication } from "@/utils/types";
 import { ExternalLinkIcon, InfoCircledIcon } from "@radix-ui/react-icons";
-import { Badge, Button, Flex, IconButton, Link, Popover, Text } from "@radix-ui/themes";
+import {
+  Badge,
+  Button,
+  Card,
+  Flex,
+  IconButton,
+  Link,
+  Popover,
+  Text,
+} from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -18,13 +32,22 @@ type PublicationProject = {
   accession: string;
   source: string;
   title: string | null;
+  summary: string | null;
   published_at: string | null;
   via: string | null;
+  center_name: string | null;
+  country_code: string | null;
 };
 
 type PublicationResponse = Pick<
   StudyPublication,
-  "pmid" | "title" | "journal" | "doi" | "pub_date" | "authors" | "citation_count"
+  | "pmid"
+  | "title"
+  | "journal"
+  | "doi"
+  | "pub_date"
+  | "authors"
+  | "citation_count"
 > & {
   projects: PublicationProject[];
 };
@@ -54,6 +77,7 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
 
   const projects = data?.projects ?? [];
   const visible = showAll ? projects : projects.slice(0, INITIAL_ROWS);
+  const pubDate = formatPubDate(data?.pub_date ?? null);
 
   return (
     <>
@@ -62,9 +86,9 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
       <Flex
         gap="4"
         mt="4"
-        px={{ initial: "0", md: "4" }}
-        width={{ initial: "98%", md: "100%" }}
-        mx="auto"
+        ml={{ initial: "0", md: "12rem" }}
+        mr={{ initial: "0", md: "8rem" }}
+        px={{ initial: "4", md: "3" }}
         direction="column"
       >
         <Flex align="center" justify="between" gap="2">
@@ -87,7 +111,6 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
               <Text size="2">
                 Projects are linked to a paper by the archives themselves, so a
                 submitter&rsquo;s mistake can attach an unrelated project here.
-                Each card shows which table the link came from.
               </Text>
             </Popover.Content>
           </Popover.Root>
@@ -116,60 +139,84 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
         )}
 
         {data && (
-          <Flex direction="column" gap="1">
-            {data.title && (
-              <Text size="4" weight="bold">
-                {data.title}
-              </Text>
-            )}
-            {data.authors && (
-              <Text size="2" color="gray">
-                {data.authors}
-              </Text>
-            )}
-            <Flex gap="2" align="center" wrap="wrap" mt="1">
-              {data.citation_count != null && data.citation_count > 0 && (
-                <Badge size="2" color="iris" variant="soft">
-                  {data.citation_count.toLocaleString()} citations
-                </Badge>
+          <Card>
+            <Flex direction="column" gap="1">
+              {data.title && (
+                <Text size="4" weight="bold" className="seqout-paper-title">
+                  {data.title}
+                </Text>
               )}
-              {data.journal &&
-                (data.doi ? (
-                  <Badge size="2" color="blue" variant="soft" asChild>
-                    <a
-                      href={doiHref(data.doi)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "none", color: "inherit" }}
-                    >
+              {data.authors && (
+                <Text size="2" color="gray">
+                  {data.authors}
+                </Text>
+              )}
+              <Flex gap="2" align="center" wrap="wrap" mt="1">
+                {data.citation_count != null && data.citation_count > 0 && (
+                  <Badge size="2" color="iris" variant="soft">
+                    {data.citation_count.toLocaleString()} citations
+                  </Badge>
+                )}
+                {data.journal &&
+                  (data.doi ? (
+                    <Badge size="2" color="blue" variant="soft" asChild>
+                      <a
+                        href={doiHref(data.doi)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ textDecoration: "none", color: "inherit" }}
+                      >
+                        {cleanJournalName(data.journal)} <ExternalLinkIcon />
+                      </a>
+                    </Badge>
+                  ) : (
+                    <Badge size="2" color="blue" variant="soft">
                       {cleanJournalName(data.journal)} <ExternalLinkIcon />
-                    </a>
+                    </Badge>
+                  ))}
+                {pubDate && (
+                  <Badge size="2" color="gray" variant="soft">
+                    {pubDate}
                   </Badge>
-                ) : (
-                  <Badge size="2" color="blue" variant="soft">
-                    {cleanJournalName(data.journal)} <ExternalLinkIcon />
+                )}
+                <Link
+                  href={pubmedHref(pmid)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open PMID ${pmid} in PubMed`}
+                  style={{ textDecoration: "none" }}
+                >
+                  <Badge
+                    size="2"
+                    color="gray"
+                    variant="soft"
+                    style={{ cursor: "pointer" }}
+                  >
+                    View on PubMed
+                    <ExternalLinkIcon />
                   </Badge>
-                ))}
-              {data.pub_date && (
-                <Badge size="2" color="gray" variant="soft">
-                  {data.pub_date}
-                </Badge>
-              )}
-              <Link
-                href={pubmedHref(pmid)}
-                target="_blank"
-                rel="noopener noreferrer"
-                size="2"
-              >
-                PubMed <ExternalLinkIcon style={{ verticalAlign: "middle" }} />
-              </Link>
+                </Link>
+                <CopyButton
+                  label="PMID"
+                  getText={() => pmid}
+                  toast="PMID copied"
+                />
+                {/* No BibTeX: that endpoint is keyed by project accession, and
+                    this page spans every project linked to the paper. */}
+                <CiteDialog
+                  label="Cite"
+                  title="Citation"
+                  getText={() => formatCellCitation(data)}
+                  toast="Citation copied"
+                />
+              </Flex>
             </Flex>
-          </Flex>
+          </Card>
         )}
 
         {data && (
           <Text color="gray" weight="light">
-            {projects.length.toLocaleString()} project
+            Found {projects.length.toLocaleString()} project
             {projects.length === 1 ? "" : "s"} in{" "}
             {(data.took_ms / 1000).toFixed(2)} seconds
           </Text>
@@ -188,8 +235,12 @@ export default function PublicationProjectsBody({ pmid }: { pmid: string }) {
               accession={p.accession}
               source={p.source}
               title={p.title}
+              summary={p.summary}
               updated_at={p.published_at}
-              via={p.via}
+              center_name={p.center_name}
+              country_code={p.country_code}
+              titleSize="4"
+              centerOnOwnRow
               href={getProjectShortUrl(p.accession)}
             />
           ))}

@@ -5,9 +5,45 @@ import {
   humanizeBytes,
   formatBytes,
   formatFirstLastAuthor,
+  formatPubDate,
   countryFlag,
   titleCaseCenter,
 } from "./format";
+
+describe("formatPubDate", () => {
+  it("formats a full date", () => {
+    expect(formatPubDate("2017-08-02")).toBe("2 Aug 2017");
+  });
+
+  it("does not shift the day across timezones", () => {
+    // Parsed as UTC; a naive `new Date("2017-08-02")` renders as 1 Aug
+    // for viewers west of Greenwich.
+    expect(formatPubDate("2017-01-01")).toBe("1 Jan 2017");
+  });
+
+  it("keeps a bare year as a year", () => {
+    // `new Date(2025)` is 1 Jan 1970 — the number must not reach the parser.
+    expect(formatPubDate(2025)).toBe("2025");
+    expect(formatPubDate("2025")).toBe("2025");
+  });
+
+  it("does not invent a day for year-month input", () => {
+    expect(formatPubDate("2017-08")).toBe("Aug 2017");
+  });
+
+  it("passes through shapes it does not recognise", () => {
+    // V8 would parse both of these into a real date and invent a day:
+    // "Spring 2017" -> 1 Jan 2017, "2017 Jun" -> 1 Jun 2017.
+    expect(formatPubDate("Spring 2017")).toBe("Spring 2017");
+    expect(formatPubDate("2017 Jun")).toBe("2017 Jun");
+    expect(formatPubDate("2015 Nov-Dec")).toBe("2015 Nov-Dec");
+  });
+
+  it("drops empties", () => {
+    expect(formatPubDate(null)).toBeNull();
+    expect(formatPubDate("  ")).toBeNull();
+  });
+});
 
 describe("cleanJournalName", () => {
   it("maps known aliases", () => {

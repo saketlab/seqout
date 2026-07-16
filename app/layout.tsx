@@ -8,10 +8,20 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 import "@radix-ui/themes/styles.css";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Source_Serif_4 } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
 const GA_TRACKING_ID = "G-XF18RH7984";
+
+// Serif accent for paper titles. Self-hosted at build time by next/font, so it
+// costs no request to Google. Variable font — no weight list needed.
+const sourceSerif = Source_Serif_4({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-source-serif",
+});
 
 export const viewport: Viewport = {
   themeColor: BRAND_BG,
@@ -266,7 +276,7 @@ export default function RootLayout({
     <html
       suppressHydrationWarning
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${sourceSerif.variable}`}
       data-gramm="false"
       data-gramm_editor="false"
       data-enable-grammarly="false"
@@ -348,6 +358,12 @@ export default function RootLayout({
             font-family: var(--code-font-family);
             font-feature-settings: "ss01" 1, "ss03" 1, "tnum" 1;
             letter-spacing: -0.005em;
+          }
+
+          /* Serif for paper titles, the way a journal would set them —
+             identifiers get mono above, prose from the literature gets this. */
+          .seqout-paper-title {
+            font-family: var(--font-source-serif), Georgia, serif;
           }
           /* Specificity bump so AG Grid's .ag-theme-quartz .ag-cell doesn't
              outrank .seqout-accession on grid cells. */

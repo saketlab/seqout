@@ -13,6 +13,47 @@ export function cleanJournalName(name: string): string {
   return cleaned.trimEnd();
 }
 
+/**
+ * Publication date -> "2 Aug 2017", formatting only shapes we recognise and
+ * passing anything else through untouched.
+ *
+ * Never hand an unrecognised string to `new Date`: V8 scavenges digits out of
+ * junk rather than rejecting it, so "Spring 2017" becomes 1 Jan 2017 and
+ * "2017 Jun" becomes 1 Jun 2017 — both invent a day PubMed never stated, and
+ * neither trips a NaN check. Same reason a bare year is returned as-is:
+ * `new Date(2017)` is 1 Jan 1970. Recognised dates are pinned to UTC so a
+ * date-only value doesn't slip back a day for viewers west of Greenwich.
+ */
+export function formatPubDate(value: string | number | null): string | null {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // "2017"
+  if (/^\d{4}$/.test(raw)) return raw;
+
+  // "2017-08" — month precision only; don't imply a day
+  if (/^\d{4}-\d{2}$/.test(raw)) {
+    return new Date(`${raw}-01T00:00:00Z`).toLocaleDateString("en-GB", {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  // "2017-08-02"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return new Date(`${raw}T00:00:00Z`).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  return raw;
+}
+
 /** Format a large number into a human-readable abbreviated string. */
 export function humanize(value: number): string {
   if (value >= 1_000_000_000)
@@ -42,7 +83,10 @@ export function formatBytes(bytes: number): string {
 /** Format an author list showing only the first and last author. */
 export function formatFirstLastAuthor(authors: string | null): string | null {
   if (!authors) return null;
-  const list = authors.split(",").map((a) => a.trim()).filter(Boolean);
+  const list = authors
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
   if (list.length === 0) return null;
   if (list.length === 1) return list[0];
   if (list.length === 2) return `${list[0]} and ${list[1]}`;
@@ -54,7 +98,7 @@ export function countryFlag(code: string | null | undefined): string {
   if (!code || code.length !== 2) return "";
   const upper = code.toUpperCase();
   return String.fromCodePoint(
-    ...([...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)),
+    ...[...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
   );
 }
 
@@ -62,7 +106,11 @@ export function countryFlag(code: string | null | undefined): string {
 export function titleCaseCenter(name: string): string {
   return name
     .split(" ")
-    .map((w) => (w === w.toUpperCase() ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .map((w) =>
+      w === w.toUpperCase()
+        ? w
+        : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+    )
     .join(" ");
 }
 

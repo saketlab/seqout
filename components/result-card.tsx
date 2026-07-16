@@ -4,7 +4,7 @@ import { DB_COLOR_MAP, dbForAccession, type DbSource } from "@/utils/db-colors";
 import { cleanJournalName, titleCaseCenter } from "@/utils/format";
 import { doiHref } from "@/utils/project";
 import { getProjectShortUrl } from "@/utils/shortUrl";
-import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import { ExternalLinkIcon, SewingPinIcon } from "@radix-ui/react-icons";
 import { Badge, Box, Flex, Popover, Text, Tooltip } from "@radix-ui/themes";
 import Link from "next/link";
 import { memo, useState } from "react";
@@ -22,9 +22,17 @@ type ResultCardProps = {
   country_code?: string | null;
   href?: string;
   single_cell_modality?: string | null;
-  via?: string | null;
   /** The record's archive, as the API reports it. */
   source?: string | null;
+  /** Title scale. Defaults to the search/author-page size. */
+  titleSize?: "3" | "4";
+  /**
+   * Show the submitting center on its own row under the summary, with a pin,
+   * instead of inline with the authors. For rows that carry no author line
+   * (the pmid page, where every row is the same paper) — the default keeps
+   * the search/author-page layout untouched.
+   */
+  centerOnOwnRow?: boolean;
 };
 
 // An ENA study keeps its NCBI PRJNA id, which dbForAccession reads as SRA — trust
@@ -32,6 +40,14 @@ type ResultCardProps = {
 function dbFor(accession: string, source?: string | null): DbSource | null {
   if (source && source in DB_COLOR_MAP) return source as DbSource;
   return dbForAccession(accession);
+}
+
+// Some records name the archive itself as the submitting center. That's not an
+// institution, so it tells the reader nothing worth a row.
+const ARCHIVE_CENTERS = new Set(["geo", "ncbi", "ncbi geo", "geo (ncbi)"]);
+
+function isArchiveCenter(name: string | null | undefined): boolean {
+  return !!name && ARCHIVE_CENTERS.has(name.trim().toLowerCase());
 }
 
 function parseAuthors(authors: string | null): string[] {
@@ -66,14 +82,26 @@ function ResultCard({
   country_code,
   href,
   single_cell_modality,
-  via,
   source,
+  titleSize = "3",
+  centerOnOwnRow = false,
 }: ResultCardProps) {
   const db = dbFor(accession, source);
   const authorList = parseAuthors(authors ?? null);
   const [authorsPopoverOpen, setAuthorsPopoverOpen] = useState(false);
 
   const formattedDate = formatDate(updated_at);
+  // Ingest sometimes files the org as the author string; don't say it twice.
+  const formattedCenter =
+    center_name && center_name !== authors
+      ? titleCaseCenter(center_name)
+      : null;
+  // Exactly one placement is live, so the center never renders twice.
+  const authorRowCenter = centerOnOwnRow ? null : formattedCenter;
+  const authorRowFlag = centerOnOwnRow ? null : country_code;
+  // No name worth showing means no row — a lone pin and flag say nothing.
+  const ownRowCenter =
+    centerOnOwnRow && !isArchiveCenter(center_name) ? formattedCenter : null;
   const cleanedJournal = journal ? cleanJournalName(journal) : null;
   const hasCitations = citation_count != null && citation_count > 0;
 
@@ -104,7 +132,7 @@ function ResultCard({
           flexBasis={{ initial: "auto", md: "16rem" }}
           style={{ minWidth: 0 }}
         >
-          <Text size={"3"} weight="bold" asChild>
+          <Text size={titleSize} weight="bold" asChild>
             <Link
               href={href ?? getProjectShortUrl(accession)}
               data-result-link="true"
@@ -155,12 +183,19 @@ function ResultCard({
       <Text size={"2"} truncate>
         {summary}
       </Text>
-      {(authors || center_name) &&
+      {ownRowCenter && (
+        <Flex align="center" gap="1" style={{ color: "var(--gray-11)" }}>
+          <SewingPinIcon style={{ flexShrink: 0 }} />
+          <Text size="2">{ownRowCenter}</Text>
+          {country_code && (
+            <CountryFlagIcon code={country_code} label={ownRowCenter} />
+          )}
+        </Flex>
+      )}
+      {(authors || authorRowCenter) &&
         (() => {
-          const formattedCenter =
-            center_name && center_name !== authors
-              ? titleCaseCenter(center_name)
-              : null;
+          const formattedCenter = authorRowCenter;
+          const country_code = authorRowFlag;
           return (
             <Flex
               direction="column"
@@ -271,11 +306,6 @@ function ResultCard({
               {single_cell_modality}
             </Badge>
           </Tooltip>
-        )}
-        {via && (
-          <Badge size={"2"} color="gray" variant="outline">
-            via {via}
-          </Badge>
         )}
       </Flex>
     </Flex>

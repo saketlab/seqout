@@ -75,7 +75,14 @@ function formatCellAuthors(authors: string): string {
   return formatted[0];
 }
 
-function formatCellCitation(pub: StudyPublication): string {
+/** Only the fields a citation string needs — lets callers with a partial
+ *  publication payload (e.g. the pmid page) reuse this. */
+type CitationFields = Pick<
+  StudyPublication,
+  "authors" | "pub_date" | "title" | "journal" | "doi"
+>;
+
+export function formatCellCitation(pub: CitationFields): string {
   const parts: string[] = [];
   if (pub.authors) {
     parts.push(formatCellAuthors(pub.authors));
@@ -115,7 +122,7 @@ const chipStyle: React.CSSProperties = {
   lineHeight: 1,
 };
 
-function CopyButton({
+export function CopyButton({
   label,
   getText,
   toast,
@@ -157,7 +164,7 @@ function CopyButton({
  * so the user sees what they're copying before it lands on the clipboard.
  * `getText` may be async (BibTeX is fetched); it runs on each open.
  */
-function CiteDialog({
+export function CiteDialog({
   label,
   title,
   getText,
@@ -319,6 +326,7 @@ export default function PublicationCard({
               size={{ initial: "2", md: "3" }}
               weight="bold"
               asChild
+              className="seqout-paper-title"
               style={{ flex: "1 1 16rem", minWidth: 0 }}
             >
               <Link
@@ -337,6 +345,7 @@ export default function PublicationCard({
             <Text
               size={{ initial: "2", md: "3" }}
               weight="bold"
+              className="seqout-paper-title"
               style={{ flex: "1 1 16rem", minWidth: 0 }}
             >
               {publication.title}
