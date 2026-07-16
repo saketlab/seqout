@@ -2252,14 +2252,12 @@ export default function ProjectPage() {
         width: 100,
         valueFormatter: (params) => toDisplayText(params.value),
       },
-      ...attributeKeys.map(
-        (key): ColDef<ExperimentGridRow> => ({
-          headerName: key,
-          width: 150,
-          valueGetter: (params: ValueGetterParams<ExperimentGridRow>) =>
-            params.data?.attributes[key] ?? "-",
-        }),
-      ),
+      ...attributeKeys.map((key): ColDef<ExperimentGridRow> => ({
+        headerName: key,
+        width: 150,
+        valueGetter: (params: ValueGetterParams<ExperimentGridRow>) =>
+          params.data?.attributes[key] ?? "-",
+      })),
     ],
     [attributeKeys],
   );
@@ -2821,29 +2819,24 @@ export default function ProjectPage() {
               />
             )}
 
-            {/* GSA has no similarity embeddings, so the graph would be empty. */}
-            {!isGsaAccession && (
-              <>
-                <Flex id="similar" align="center" gap="2">
-                  <Heading as="h2" weight="medium" size="6">
-                    Similar projects
-                  </Heading>
-                  <SectionAnchor id="similar" />
-                </Flex>
-                <LazyMount>
-                  <SimilarProjectsGraph
-                    accession={project.accession}
-                    source="sra"
-                    title={project.title}
-                    description={project.abstract}
-                    organisms={project.organisms}
-                    coords2d={project.coords_2d}
-                    coords3d={project.coords_3d}
-                    neighbors={project.neighbors}
-                  />
-                </LazyMount>
-              </>
-            )}
+            <Flex id="similar" align="center" gap="2">
+              <Heading as="h2" weight="medium" size="6">
+                Similar projects
+              </Heading>
+              <SectionAnchor id="similar" />
+            </Flex>
+            <LazyMount>
+              <SimilarProjectsGraph
+                accession={project.accession}
+                source={isGsaAccession ? "gsa" : "sra"}
+                title={project.title}
+                description={project.abstract}
+                organisms={project.organisms}
+                coords2d={project.coords_2d}
+                coords3d={project.coords_3d}
+                neighbors={project.neighbors}
+              />
+            </LazyMount>
             <LazyMount>
               <SubmittingOrgPanel center={project.center} />
             </LazyMount>
