@@ -1,11 +1,12 @@
 "use client";
 
+import ProjectAuthors from "@/components/project-authors";
 import { useToast } from "@/components/toast-provider";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
 import { cleanJournalName } from "@/utils/format";
-import { fetchPubmedSummary } from "@/utils/pubmed";
 import { doiHref, pmidHref, pubmedHref } from "@/utils/project";
+import { fetchPubmedSummary } from "@/utils/pubmed";
 import type { StudyPublication } from "@/utils/types";
 import {
   CheckIcon,
@@ -25,7 +26,6 @@ import {
   Tooltip,
 } from "@radix-ui/themes";
 import NextLink from "next/link";
-import ProjectAuthors from "@/components/project-authors";
 import { useEffect, useRef, useState } from "react";
 
 export type { StudyPublication };
@@ -322,25 +322,19 @@ export default function PublicationCard({
             title for one-glance scanning, not buried at the bottom. */}
         <Flex gap="3" justify="between" align="start" wrap="wrap">
           {titleLink ? (
-            <Text
-              size={{ initial: "2", md: "3" }}
-              weight="bold"
-              asChild
+            <Link
+              size={{ initial: "2", md: "4" }}
+              href={titleLink}
+              target="_blank"
               className="seqout-paper-title"
-              style={{ flex: "1 1 16rem", minWidth: 0 }}
+              weight={"bold"}
+              underline="hover"
+              wrap={"pretty"}
+              style={{ color: "inherit" }}
+              rel="noopener noreferrer"
             >
-              <Link
-                href={titleLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "inherit", textDecoration: "none" }}
-              >
-                {publication.title}{" "}
-                <ExternalLinkIcon
-                  style={{ verticalAlign: "middle", opacity: 0.6 }}
-                />
-              </Link>
-            </Text>
+              {publication.title}
+            </Link>
           ) : (
             <Text
               size={{ initial: "2", md: "3" }}
