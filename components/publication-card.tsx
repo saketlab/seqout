@@ -7,8 +7,23 @@ import { cleanJournalName } from "@/utils/format";
 import { fetchPubmedSummary } from "@/utils/pubmed";
 import { doiHref, pmidHref, pubmedHref } from "@/utils/project";
 import type { StudyPublication } from "@/utils/types";
-import { CheckIcon, CopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Badge, Card, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
+import {
+  CheckIcon,
+  CopyIcon,
+  ExternalLinkIcon,
+  FileTextIcon,
+  MagnifyingGlassIcon,
+} from "@radix-ui/react-icons";
+import {
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  Flex,
+  Link,
+  Text,
+  Tooltip,
+} from "@radix-ui/themes";
 import NextLink from "next/link";
 import ProjectAuthors from "@/components/project-authors";
 import { useEffect, useRef, useState } from "react";
@@ -24,7 +39,9 @@ function extractYear(pubDate: string | number | null): string | null {
   if (!pubDate) return null;
   // pub_date is usually a string ("2015-06-15") but can arrive as a bare
   // year number (2025) — coerce before matching so it never crashes.
-  const match = String(pubDate).trim().match(/^\d{4}/);
+  const match = String(pubDate)
+    .trim()
+    .match(/^\d{4}/);
   return match ? match[0] : null;
 }
 
@@ -135,6 +152,93 @@ function CopyButton({
   );
 }
 
+/**
+ * Chip that opens a dialog previewing the citation text with a copy action,
+ * so the user sees what they're copying before it lands on the clipboard.
+ * `getText` may be async (BibTeX is fetched); it runs on each open.
+ */
+function CiteDialog({
+  label,
+  title,
+  getText,
+  toast,
+}: {
+  label: string;
+  title: string;
+  getText: () => string | Promise<string | null> | null;
+  toast: string;
+}) {
+  const { showToast } = useToast();
+  // null = still loading; the copy button stays disabled until text lands.
+  const [text, setText] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), []);
+
+  const handleCopy = () => {
+    if (!text || !copyToClipboard(text)) return;
+    setCopied(true);
+    clearTimeout(timer.current ?? undefined);
+    timer.current = setTimeout(() => setCopied(false), 1500);
+    showToast(toast);
+  };
+
+  return (
+    <Dialog.Root
+      onOpenChange={(open) => {
+        if (!open) return;
+        setText(null);
+        setCopied(false);
+        Promise.resolve(getText()).then((t) => setText(t || "Unavailable"));
+      }}
+    >
+      <Dialog.Trigger>
+        <button type="button" style={chipStyle}>
+          <FileTextIcon width="12" height="12" />
+          {label}
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Content size="3">
+        <Flex justify="between" align="center" gap="3" mb="3">
+          <Dialog.Title mb="0">{title}</Dialog.Title>
+          <Button onClick={handleCopy} disabled={!text}>
+            {copied ? <CheckIcon /> : <CopyIcon />}
+            {copied ? "Copied!" : "Copy"}
+          </Button>
+        </Flex>
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "100%",
+            overflow: "hidden",
+            background: "var(--gray-3)",
+            border: "1px solid var(--gray-6)",
+            borderRadius: "8px",
+          }}
+        >
+          <pre
+            style={{
+              margin: 0,
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "0.875rem",
+              overflowY: "auto",
+              maxHeight: "24rem",
+              fontSize: "12px",
+              lineHeight: "1.5",
+              fontFamily: "var(--default-mono-font-family)",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {text ?? "Loading…"}
+          </pre>
+        </div>
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+}
+
 export default function PublicationCard({
   publication: incoming,
   accession,
@@ -148,7 +252,10 @@ export default function PublicationCard({
   } | null>(null);
   useEffect(() => {
     const needsDetails =
-      incoming.pmid && !incoming.title && !incoming.journal && !incoming.authors;
+      incoming.pmid &&
+      !incoming.title &&
+      !incoming.journal &&
+      !incoming.authors;
     if (!needsDetails) return;
     const controller = new AbortController();
     fetchPubmedSummary(incoming.pmid!, controller.signal).then((extra) =>
@@ -286,7 +393,7 @@ export default function PublicationCard({
         <Flex gap="2" align="center" wrap="wrap">
           {publication.pmid && (
             <>
-              <Tooltip content="See every project linked to this paper">
+              <Tooltip content="Search for linked projects">
                 <NextLink
                   href={pmidHref(publication.pmid)}
                   prefetch={false}
@@ -300,14 +407,10 @@ export default function PublicationCard({
                     style={{ cursor: "pointer" }}
                   >
                     PMID {publication.pmid}
+                    <MagnifyingGlassIcon />
                   </Badge>
                 </NextLink>
               </Tooltip>
-              <CopyButton
-                label="PMID"
-                getText={() => publication.pmid}
-                toast="PMID copied"
-              />
               <Tooltip content="Open in PubMed">
                 <Link
                   href={pubmedHref(publication.pmid)}
@@ -322,11 +425,16 @@ export default function PublicationCard({
                     variant="soft"
                     style={{ cursor: "pointer" }}
                   >
-                    PubMed
+                    View on PubMed
                     <ExternalLinkIcon />
                   </Badge>
                 </Link>
               </Tooltip>
+              <CopyButton
+                label="PMID"
+                getText={() => publication.pmid}
+                toast="PMID copied"
+              />
             </>
           )}
           {publication.doi && !cleanedJournal && (
@@ -347,14 +455,16 @@ export default function PublicationCard({
               </Badge>
             </Link>
           )}
-          <CopyButton
+          <CiteDialog
             label="Cite"
+            title="Citation"
             getText={() => formatCellCitation(publication)}
             toast="Citation copied"
           />
           {accession && (
-            <CopyButton
+            <CiteDialog
               label="BibTeX"
+              title="BibTeX"
               getText={fetchBibtex}
               toast="BibTeX copied"
             />
