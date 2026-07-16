@@ -1,16 +1,17 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
-import DbBadge from "@/components/db-badge";
+import BioProjectBadge from "@/components/bioproject-badge";
 import CountryFlagIcon from "@/components/country-flag-icon";
+import DbBadge from "@/components/db-badge";
+import LazyMount from "@/components/lazy-mount";
 import LinkedSraFastq from "@/components/linked-sra-fastq";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
+import ProjectAuthors from "@/components/project-authors";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
-import BioProjectBadge from "@/components/bioproject-badge";
-import LazyMount from "@/components/lazy-mount";
 import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
@@ -45,7 +46,6 @@ import {
   parsePostgresTextArray,
   toDisplayText,
 } from "@/utils/project";
-import ProjectAuthors from "@/components/project-authors";
 import {
   CheckIcon,
   CopyIcon,
@@ -396,6 +396,15 @@ const fetchSamples = async (
     `/geo/series/${accession}/samples?limit=${TABLE_PAGE_SIZE}&offset=${offset}`,
   );
 
+/** Every sample in one shot — the endpoint treats a missing `limit` as "all".
+ *  Only for exports; the grid pages through fetchSamples instead. */
+const fetchAllSamples = async (accession: string): Promise<GeoSample[]> => {
+  const { items } = await getJsonWithTotal<GeoSample[]>(
+    `/geo/series/${accession}/samples`,
+  );
+  return items;
+};
+
 const fetchProject = async (
   accession: string | null,
 ): Promise<Project | null> => {
@@ -471,6 +480,12 @@ export default function GeoProjectPage() {
   ] = useState<number | null>(null);
   const sampleSupplementaryGridRef =
     React.useRef<GridApi<SampleSupplementaryGroupRow> | null>(null);
+  // Every sample's supplementary files, fetched at most once per series.
+  const allSampleSupplementaryRef = React.useRef<
+    SupplementaryDataItem[] | null
+  >(null);
+  const [isPreparingSampleSupplementary, setIsPreparingSampleSupplementary] =
+    useState(false);
   const [
     selectedSampleSupplementaryCount,
     setSelectedSampleSupplementaryCount,
@@ -784,25 +799,65 @@ export default function GeoProjectPage() {
     [],
   );
 
+  /** Rebuild the sample script preview from the full item set (may re-fetch). */
+  const refreshSampleSupplementaryScript = async () => {
+    setIsPreparingSampleSupplementary(true);
+    try {
+      const items = await getSampleSupplementaryDownloadItems();
+      setSampleSupplementaryScriptPreview(
+        buildSupplementaryDownloadScript(items),
+      );
+    } finally {
+      setIsPreparingSampleSupplementary(false);
+    }
+  };
+
   const handleSampleSupplementarySelectionChanged = () => {
     const selectedGroups =
       sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
     const selectedItems = selectedGroups.flatMap((group) => group.items);
     setSelectedSampleSupplementaryCount(selectedItems.length);
     if (sampleSupplementaryScriptDialogOpen) {
-      const rows =
-        selectedItems.length > 0 ? selectedItems : sampleSupplementaryDataItems;
-      setSampleSupplementaryScriptPreview(
-        buildSupplementaryDownloadScript(rows),
-      );
+      void refreshSampleSupplementaryScript();
     }
   };
 
-  const getSampleSupplementaryDownloadItems = (): SupplementaryDataItem[] => {
+  /**
+   * Supplementary files across every sample in the series.
+   *
+   * `sampleSupplementaryDataItems` is derived from `samples`, a 20-per-page
+   * infinite query — so it only covers what the grid has scrolled through, and
+   * an export built from it would silently vary with scroll position. Fetch
+   * the samples unpaginated instead, once, then cache.
+   */
+  const getAllSampleSupplementaryItems = async (): Promise<
+    SupplementaryDataItem[]
+  > => {
+    if (!samplesAccession) return sampleSupplementaryDataItems;
+    if (samples && samples.length >= samplesTotal) {
+      return sampleSupplementaryDataItems;
+    }
+    if (!allSampleSupplementaryRef.current) {
+      const all = await fetchAllSamples(samplesAccession);
+      allSampleSupplementaryRef.current = all.flatMap((sample, sampleIndex) =>
+        buildSupplementaryItems({
+          rawValue: sample.supplementary_data,
+          idPrefix: `sample-supplementary-${sample.accession || sampleIndex}`,
+          sourceSampleAccession: sample.accession,
+        }),
+      );
+    }
+    return allSampleSupplementaryRef.current;
+  };
+
+  /** Ticked rows, else every sample's files — never just the loaded ones. */
+  const getSampleSupplementaryDownloadItems = async (): Promise<
+    SupplementaryDataItem[]
+  > => {
     const selectedGroups =
       sampleSupplementaryGridRef.current?.getSelectedRows() ?? [];
     if (selectedGroups.length === 0) {
-      return sampleSupplementaryDataItems;
+      return getAllSampleSupplementaryItems();
     }
     return selectedGroups.flatMap((group) => group.items);
   };
@@ -1048,14 +1103,12 @@ export default function GeoProjectPage() {
         field: "extractProtocol",
         width: 220,
       },
-      ...characteristicTags.map(
-        (tag): ColDef<GeoSampleGridRow> => ({
-          headerName: tag,
-          width: 140,
-          valueGetter: (params: ValueGetterParams<GeoSampleGridRow>) =>
-            params.data?.characteristics[tag] ?? "-",
-        }),
-      ),
+      ...characteristicTags.map((tag): ColDef<GeoSampleGridRow> => ({
+        headerName: tag,
+        width: 140,
+        valueGetter: (params: ValueGetterParams<GeoSampleGridRow>) =>
+          params.data?.characteristics[tag] ?? "-",
+      })),
       {
         headerName: "Hybridization Protocol",
         field: "hybridizationProtocol",
@@ -1292,16 +1345,16 @@ export default function GeoProjectPage() {
       : "Download all";
   const supplementaryScriptLabel =
     selectedSupplementaryCount > 0
-      ? `Copy download script (${selectedSupplementaryCount} selected)`
-      : "Copy download script";
+      ? `Download script (${selectedSupplementaryCount} selected)`
+      : "Download script";
   const sampleSupplementaryDownloadLabel =
     selectedSampleSupplementaryCount > 0
       ? `Download ${selectedSampleSupplementaryCount} selected`
       : "Download all";
   const sampleSupplementaryScriptLabel =
     selectedSampleSupplementaryCount > 0
-      ? `Copy download script (${selectedSampleSupplementaryCount} selected)`
-      : "Copy download script";
+      ? `Download script (${selectedSampleSupplementaryCount} selected)`
+      : "Download script";
 
   return (
     <>
@@ -1438,7 +1491,10 @@ export default function GeoProjectPage() {
                 </Flex>
               </DbBadge>
               {linkedBioProjectAliases.map((alias) => (
-                <BioProjectBadge key={`bioproject-${alias}`} accession={alias} />
+                <BioProjectBadge
+                  key={`bioproject-${alias}`}
+                  accession={alias}
+                />
               ))}
               {linkedSraAliases.map((alias) => (
                 <a key={`sra-${alias}`} href={`/p/${alias}`}>
@@ -1551,7 +1607,9 @@ export default function GeoProjectPage() {
             {projectAuthors.length > 0 &&
               projectAuthors.join(", ") !== project?.center_name && (
                 <Flex align="start" gap="2" style={{ minWidth: 0 }}>
-                  <PersonIcon style={{ flexShrink: 0, marginTop: "0.125rem" }} />
+                  <PersonIcon
+                    style={{ flexShrink: 0, marginTop: "0.125rem" }}
+                  />
                   <ProjectAuthors
                     authors={projectAuthors}
                     centerName={project?.center_name}
@@ -1957,7 +2015,9 @@ export default function GeoProjectPage() {
                     </Dialog.Trigger>
                     <Dialog.Content size="3">
                       <Flex justify="between" align="center" gap="3" mb="3">
-                        <Dialog.Title mb="0">Copy download script</Dialog.Title>
+                        <Dialog.Title mb="0">
+                          Script for downloading files
+                        </Dialog.Title>
                         <Button
                           size="2"
                           variant="soft"
@@ -2047,166 +2107,192 @@ export default function GeoProjectPage() {
               </Flex>
             )}
             {sampleSupplementaryDataItems.length > 0 && (
-            <>
-            <Flex justify="between" align="center" gap="3" wrap="wrap" mt="4">
-              <Flex align="center" gap="2" wrap="wrap">
-                <Text weight="medium" size="4">
-                  Sample supplementary files
-                </Text>
-                {sampleSupplementaryDataItems.length > 0 && (
-                  <>
-                    <Badge>
-                      {sampleSupplementaryDataItems.length.toLocaleString()}{" "}
-                      file
-                      {sampleSupplementaryDataItems.length !== 1 ? "s" : ""}
-                    </Badge>
-                    <Badge>
-                      {sampleSupplementaryGroupedRows.length.toLocaleString()}{" "}
-                      sample
-                      {sampleSupplementaryGroupedRows.length !== 1 ? "s" : ""}
-                    </Badge>
-                    {allSampleSupplementarySizeLabel && (
-                      <Badge size="2" variant="soft">
-                        {allSampleSupplementarySizeLabel} total
-                      </Badge>
-                    )}
-                  </>
-                )}
-              </Flex>
-              {sampleSupplementaryDataItems.length > 0 && (
-                <Flex gap="2" wrap="wrap">
-                  <Button
-                    size="2"
-                    variant="surface"
-                    disabled={isDownloadingAllSampleSupplementary}
-                    onClick={() => {
-                      const items = getSampleSupplementaryDownloadItems();
-                      if (items.length === 0) return;
-                      void handleDownloadAllSampleSupplementaryFiles(items);
-                    }}
-                  >
-                    {isDownloadingAllSampleSupplementary ? (
-                      <Flex align="center" gap="1">
-                        <Spinner size="1" />
-                        <Text size="1">
-                          {sampleDownloadAllProgressPercent !== null
-                            ? `${sampleDownloadAllProgressPercent}%`
-                            : "..."}
-                        </Text>
-                      </Flex>
-                    ) : (
+              <>
+                <Flex
+                  justify="between"
+                  align="center"
+                  gap="3"
+                  wrap="wrap"
+                  mt="4"
+                >
+                  <Flex align="center" gap="2" wrap="wrap">
+                    <Text weight="medium" size="4">
+                      Sample supplementary files
+                    </Text>
+                    {sampleSupplementaryDataItems.length > 0 && (
                       <>
-                        <DownloadIcon /> {sampleSupplementaryDownloadLabel}
+                        <Badge>
+                          {sampleSupplementaryDataItems.length.toLocaleString()}{" "}
+                          file
+                          {sampleSupplementaryDataItems.length !== 1 ? "s" : ""}
+                        </Badge>
+                        <Badge>
+                          {sampleSupplementaryGroupedRows.length.toLocaleString()}{" "}
+                          sample
+                          {sampleSupplementaryGroupedRows.length !== 1
+                            ? "s"
+                            : ""}
+                        </Badge>
+                        {allSampleSupplementarySizeLabel && (
+                          <Badge size="2" variant="soft">
+                            {allSampleSupplementarySizeLabel} total
+                          </Badge>
+                        )}
                       </>
                     )}
-                  </Button>
-                  <Dialog.Root
-                    open={sampleSupplementaryScriptDialogOpen}
-                    onOpenChange={(open) => {
-                      setSampleSupplementaryScriptDialogOpen(open);
-                      if (open) {
-                        const items = getSampleSupplementaryDownloadItems();
-                        setSampleSupplementaryScriptPreview(
-                          buildSupplementaryDownloadScript(items),
-                        );
-                        setSampleSupplementaryScriptCopied(false);
-                      }
-                    }}
-                  >
-                    <Dialog.Trigger>
-                      <Button size="2" variant="surface">
-                        <FileTextIcon /> {sampleSupplementaryScriptLabel}
-                      </Button>
-                    </Dialog.Trigger>
-                    <Dialog.Content size="3">
-                      <Flex justify="between" align="center" gap="3" mb="3">
-                        <Dialog.Title mb="0">
-                          Copy sample download script
-                        </Dialog.Title>
-                        <Button
-                          size="2"
-                          variant="soft"
-                          onClick={() => {
-                            void handleCopySampleSupplementaryScript();
-                          }}
-                          disabled={!sampleSupplementaryScriptPreview}
-                        >
-                          {sampleSupplementaryScriptCopied ? (
-                            <CheckIcon />
-                          ) : (
-                            <CopyIcon />
-                          )}
-                          {sampleSupplementaryScriptCopied ? "Copied!" : "Copy"}
-                        </Button>
-                      </Flex>
-                      <div
-                        style={{
-                          width: "100%",
-                          maxWidth: "100%",
-                          overflow: "hidden",
-                          background: "var(--gray-3)",
-                          border: "1px solid var(--gray-6)",
-                          borderRadius: "8px",
+                  </Flex>
+                  {sampleSupplementaryDataItems.length > 0 && (
+                    <Flex gap="2" wrap="wrap">
+                      <Button
+                        size="2"
+                        variant="surface"
+                        disabled={
+                          isDownloadingAllSampleSupplementary ||
+                          isPreparingSampleSupplementary
+                        }
+                        onClick={() => {
+                          void (async () => {
+                            setIsPreparingSampleSupplementary(true);
+                            let items: SupplementaryDataItem[];
+                            try {
+                              items =
+                                await getSampleSupplementaryDownloadItems();
+                            } finally {
+                              setIsPreparingSampleSupplementary(false);
+                            }
+                            if (items.length === 0) return;
+                            await handleDownloadAllSampleSupplementaryFiles(
+                              items,
+                            );
+                          })();
                         }}
                       >
-                        <pre
-                          style={{
-                            margin: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            padding: "0.875rem",
-                            overflowY: "auto",
-                            maxHeight: "24rem",
-                            fontSize: "12px",
-                            lineHeight: "1.5",
-                            fontFamily: "var(--default-mono-font-family)",
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-all",
-                          }}
-                        >
-                          <code>
-                            {sampleSupplementaryScriptPreview ||
-                              "# No sample supplementary files available"}
-                          </code>
-                        </pre>
-                      </div>
-                    </Dialog.Content>
-                  </Dialog.Root>
+                        {isDownloadingAllSampleSupplementary ? (
+                          <Flex align="center" gap="1">
+                            <Spinner size="1" />
+                            <Text size="1">
+                              {sampleDownloadAllProgressPercent !== null
+                                ? `${sampleDownloadAllProgressPercent}%`
+                                : "..."}
+                            </Text>
+                          </Flex>
+                        ) : (
+                          <>
+                            <DownloadIcon /> {sampleSupplementaryDownloadLabel}
+                          </>
+                        )}
+                      </Button>
+                      <Dialog.Root
+                        open={sampleSupplementaryScriptDialogOpen}
+                        onOpenChange={(open) => {
+                          setSampleSupplementaryScriptDialogOpen(open);
+                          if (open) {
+                            setSampleSupplementaryScriptCopied(false);
+                            void refreshSampleSupplementaryScript();
+                          }
+                        }}
+                      >
+                        <Dialog.Trigger>
+                          <Button size="2" variant="surface">
+                            <FileTextIcon /> {sampleSupplementaryScriptLabel}
+                          </Button>
+                        </Dialog.Trigger>
+                        <Dialog.Content size="3">
+                          <Flex justify="between" align="center" gap="3" mb="3">
+                            <Dialog.Title mb="0">
+                              Copy sample download script
+                            </Dialog.Title>
+                            <Button
+                              size="2"
+                              variant="soft"
+                              onClick={() => {
+                                void handleCopySampleSupplementaryScript();
+                              }}
+                              disabled={
+                                isPreparingSampleSupplementary ||
+                                !sampleSupplementaryScriptPreview
+                              }
+                            >
+                              {sampleSupplementaryScriptCopied ? (
+                                <CheckIcon />
+                              ) : (
+                                <CopyIcon />
+                              )}
+                              {sampleSupplementaryScriptCopied
+                                ? "Copied!"
+                                : "Copy"}
+                            </Button>
+                          </Flex>
+                          <div
+                            style={{
+                              width: "100%",
+                              maxWidth: "100%",
+                              overflow: "hidden",
+                              background: "var(--gray-3)",
+                              border: "1px solid var(--gray-6)",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <pre
+                              style={{
+                                margin: 0,
+                                width: "100%",
+                                boxSizing: "border-box",
+                                padding: "0.875rem",
+                                overflowY: "auto",
+                                maxHeight: "24rem",
+                                fontSize: "12px",
+                                lineHeight: "1.5",
+                                fontFamily: "var(--default-mono-font-family)",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-all",
+                              }}
+                            >
+                              <code>
+                                {isPreparingSampleSupplementary
+                                  ? `# Fetching files for all ${samplesTotal.toLocaleString()} samples…`
+                                  : sampleSupplementaryScriptPreview ||
+                                    "# No sample supplementary files available"}
+                              </code>
+                            </pre>
+                          </div>
+                        </Dialog.Content>
+                      </Dialog.Root>
+                    </Flex>
+                  )}
                 </Flex>
-              )}
-            </Flex>
-              <Flex direction="column" gap="2" style={{ width: "100%" }}>
-                <div
-                  className={agGridThemeClassName}
-                  style={{
-                    width: "100%",
-                    height: `${Math.min(
-                      500,
-                      48 + sampleSupplementaryGroupedRows.length * 72,
-                    )}px`,
-                  }}
-                >
-                  <AgGridReact<SampleSupplementaryGroupRow>
-                    columnDefs={sampleSupplementaryColDefs}
-                    defaultColDef={sampleSupplementaryDefaultColDef}
-                    enableCellTextSelection
-                    ensureDomOrder
-                    rowData={sampleSupplementaryGroupedRows}
-                    getRowId={(params) => params.data.id}
-                    rowSelection={{
-                      mode: "multiRow",
-                      checkboxes: true,
-                      headerCheckbox: true,
+                <Flex direction="column" gap="2" style={{ width: "100%" }}>
+                  <div
+                    className={agGridThemeClassName}
+                    style={{
+                      width: "100%",
+                      height: `${Math.min(
+                        500,
+                        48 + sampleSupplementaryGroupedRows.length * 72,
+                      )}px`,
                     }}
-                    onGridReady={handleSampleSupplementaryGridReady}
-                    onSelectionChanged={
-                      handleSampleSupplementarySelectionChanged
-                    }
-                    theme="legacy"
-                  />
-                </div>
-              </Flex>
-            </>
+                  >
+                    <AgGridReact<SampleSupplementaryGroupRow>
+                      columnDefs={sampleSupplementaryColDefs}
+                      defaultColDef={sampleSupplementaryDefaultColDef}
+                      enableCellTextSelection
+                      ensureDomOrder
+                      rowData={sampleSupplementaryGroupedRows}
+                      getRowId={(params) => params.data.id}
+                      rowSelection={{
+                        mode: "multiRow",
+                        checkboxes: true,
+                        headerCheckbox: true,
+                      }}
+                      onGridReady={handleSampleSupplementaryGridReady}
+                      onSelectionChanged={
+                        handleSampleSupplementarySelectionChanged
+                      }
+                      theme="legacy"
+                    />
+                  </div>
+                </Flex>
+              </>
             )}
 
             <Flex id="similar" align="center" gap="2">

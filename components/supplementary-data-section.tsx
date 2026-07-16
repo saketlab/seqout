@@ -4,7 +4,10 @@ import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
 import { ensureAgGridModules } from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
-import { buildCurlCommand, buildSupplementaryDownloadScript } from "@/utils/downloadScript";
+import {
+  buildCurlCommand,
+  buildSupplementaryDownloadScript,
+} from "@/utils/downloadScript";
 import {
   CheckIcon,
   CopyIcon,
@@ -116,7 +119,10 @@ const normalizeSupplementaryRecord = (
       typeof record["#text"] === "string" ? record["#text"] : null;
     const urlValue = typeof record.url === "string" ? record.url : null;
     const resolvedUrl = textValue ?? urlValue;
-    if (typeof resolvedUrl !== "string" || !isValidSupplementaryUrl(resolvedUrl)) {
+    if (
+      typeof resolvedUrl !== "string" ||
+      !isValidSupplementaryUrl(resolvedUrl)
+    ) {
       return null;
     }
     const rawType = record["@type"];
@@ -222,7 +228,11 @@ const getAppDownloadUrl = (url: string, fileName: string): string =>
   `/web-api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`;
 
 const formatFileSize = (sizeInBytes: number | null): string | null => {
-  if (sizeInBytes === null || !Number.isFinite(sizeInBytes) || sizeInBytes < 0) {
+  if (
+    sizeInBytes === null ||
+    !Number.isFinite(sizeInBytes) ||
+    sizeInBytes < 0
+  ) {
     return null;
   }
   if (sizeInBytes < 1024) return `${sizeInBytes} B`;
@@ -308,18 +318,14 @@ export function SupplementaryDataSection({
     return formatFileSize(totalSize);
   }, [supplementaryDataItems]);
 
-  const supplementaryColDefs = React.useMemo<
-    ColDef<SupplementaryDataItem>[]
-  >(
+  const supplementaryColDefs = React.useMemo<ColDef<SupplementaryDataItem>[]>(
     () => [
       {
         headerName: "File",
         field: "fileName",
         flex: 1,
         minWidth: 260,
-        cellRenderer: (
-          params: ICellRendererParams<SupplementaryDataItem>,
-        ) => {
+        cellRenderer: (params: ICellRendererParams<SupplementaryDataItem>) => {
           const row = params.data;
           if (!row) return "-";
           return (
@@ -444,8 +450,8 @@ export function SupplementaryDataSection({
       : "Download all";
   const supplementaryScriptLabel =
     selectedSupplementaryCount > 0
-      ? `Copy download script (${selectedSupplementaryCount} selected)`
-      : "Copy download script";
+      ? `Download script (${selectedSupplementaryCount} selected)`
+      : "Download script";
 
   if (supplementaryDataItems.length === 0) return null;
 
@@ -477,8 +483,9 @@ export function SupplementaryDataSection({
                 variant="surface"
                 disabled={isDownloadingAllSupplementary}
                 onClick={() => {
-                  const items =
-                    getSupplementaryDownloadItems(supplementaryDataItems);
+                  const items = getSupplementaryDownloadItems(
+                    supplementaryDataItems,
+                  );
                   if (items.length === 0) return;
                   void handleDownloadAllSupplementaryFiles(items);
                 }}
@@ -503,8 +510,9 @@ export function SupplementaryDataSection({
                 onOpenChange={(open) => {
                   setSupplementaryScriptDialogOpen(open);
                   if (open) {
-                    const items =
-                      getSupplementaryDownloadItems(supplementaryDataItems);
+                    const items = getSupplementaryDownloadItems(
+                      supplementaryDataItems,
+                    );
                     setSupplementaryScriptPreview(
                       computeSupplementaryScriptText(items),
                     );
@@ -519,7 +527,9 @@ export function SupplementaryDataSection({
                 </Dialog.Trigger>
                 <Dialog.Content size="3">
                   <Flex justify="between" align="center" gap="3" mb="3">
-                    <Dialog.Title mb="0">Copy download script</Dialog.Title>
+                    <Dialog.Title mb="0">
+                      Script for downloading files
+                    </Dialog.Title>
                     <Button
                       size="2"
                       variant="soft"

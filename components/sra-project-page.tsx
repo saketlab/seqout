@@ -1,16 +1,15 @@
 "use client";
 import AccessionLink from "@/components/accession-link";
-import DbBadge from "@/components/db-badge";
-import type { DbSource } from "@/utils/db-colors";
+import BioProjectBadge from "@/components/bioproject-badge";
 import CountryFlagIcon from "@/components/country-flag-icon";
+import DbBadge from "@/components/db-badge";
+import LazyMount from "@/components/lazy-mount";
 import MetadataTableTabs from "@/components/metadata-table-tabs";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
-import BioProjectBadge from "@/components/bioproject-badge";
-import LazyMount from "@/components/lazy-mount";
 import SectionAnchor from "@/components/section-anchor";
 import SimilarProjectsGraph, {
   SimilarNeighbor,
@@ -37,7 +36,9 @@ import {
 } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
+import type { DbSource } from "@/utils/db-colors";
 
+import ProjectAuthors from "@/components/project-authors";
 import { fileUrl } from "@/utils/fileUrl";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
@@ -45,7 +46,6 @@ import {
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
 import { normalizeAuthors, toDisplayText } from "@/utils/project";
-import ProjectAuthors from "@/components/project-authors";
 import {
   CheckIcon,
   CopyIcon,
@@ -356,9 +356,14 @@ const fetchSample = async (accession: string): Promise<Sample | null> => {
 
 const fetchRuns = async (
   accession: string | null,
+  full = false,
 ): Promise<RunsData | null> => {
   if (!accession) return null;
-  return getJsonOrNull<RunsData>(`/project/${accession}/runs`);
+  // Default is a 500-run preview — enough for the grid. `full` pulls every run
+  // for the TSV export, so it isn't silently cut off at 500.
+  return getJsonOrNull<RunsData>(
+    `/project/${accession}/runs${full ? "?full=true" : ""}`,
+  );
 };
 
 const fetchBams = async (
@@ -370,12 +375,18 @@ const fetchBams = async (
 
 type DownloadSource = "fastq" | "sra" | "sra_lite" | "s3" | "gcs";
 
+/**
+ * `<what you get> via <what you need installed>` — one axis, so the options
+ * compare. The tool implies the host (AWS CLI → S3, gsutil → GCS, wget →
+ * NCBI/ENA), and naming the format up front keeps it honest that s3/gcs serve
+ * the SRA Lite object rather than FASTQ.
+ */
 const DOWNLOAD_SOURCE_LABELS: Record<DownloadSource, string> = {
-  fastq: "FASTQ files (wget)",
-  sra: "SRA format (wget)",
-  sra_lite: "SRA Lite (wget)",
-  s3: "AWS S3 (aws cli)",
-  gcs: "Google Cloud (gsutil)",
+  fastq: "FASTQ via wget",
+  sra: "SRA via wget",
+  sra_lite: "SRA Lite via wget",
+  s3: "SRA Lite via AWS CLI",
+  gcs: "SRA Lite via gsutil",
 };
 
 const ABSTRACT_CHAR_LIMIT = 350;
@@ -525,7 +536,11 @@ export function DownloadFastqSection({
   const [downloadScriptPreview, setDownloadScriptPreview] = useState("");
   const [selectedSource, setSelectedSource] = useState<DownloadSource>("fastq");
   const [selectedCount, setSelectedCount] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [scriptLoading, setScriptLoading] = useState(false);
   const gridRef = useRef<GridApi<RunRow> | null>(null);
+  // Full run list for exports, fetched at most once per study.
+  const allRunsRef = useRef<RunRow[] | null>(null);
 
   /** Which download sources have URLs + whether any run lacks FASTQ. */
   const { availableSources, hasMissingFastq } = React.useMemo(() => {
@@ -554,9 +569,27 @@ export function DownloadFastqSection({
     gridRef.current = params.api;
   }, []);
 
-  const getDownloadRows = (): RunRow[] => {
+  /**
+   * Every run in the study. `runsData.runs` is only a 500-run preview, so a
+   * larger study is re-fetched in full — once, then cached, since the script
+   * preview rebuilds on every source/selection change.
+   */
+  const getAllRuns = async (): Promise<RunRow[]> => {
+    if (runsData.total_runs <= runsData.runs.length) return runsData.runs;
+    if (!allRunsRef.current) {
+      const full = await fetchRuns(accession ?? null, true);
+      allRunsRef.current = full?.runs ?? runsData.runs;
+    }
+    return allRunsRef.current;
+  };
+
+  /**
+   * Rows for an export: the ticked ones, else the whole study. Shared by the
+   * TSV and the download script so neither quietly stops at the first 500.
+   */
+  const getExportRows = async (): Promise<RunRow[]> => {
     const selected = gridRef.current?.getSelectedRows() ?? [];
-    return selected.length > 0 ? selected : runsData.runs;
+    return selected.length > 0 ? selected : getAllRuns();
   };
 
   const buildTsvContent = (runs: RunRow[]): string => {
@@ -639,8 +672,14 @@ export function DownloadFastqSection({
     return [header, ...lines].join("\n") + "\n";
   };
 
-  const downloadTsv = () => {
-    const runs = getDownloadRows();
+  const downloadTsv = async () => {
+    setIsExporting(true);
+    let runs: RunRow[];
+    try {
+      runs = await getExportRows();
+    } finally {
+      setIsExporting(false);
+    }
     const tsv = buildTsvContent(runs);
     const blob = new Blob([tsv], { type: "text/tab-separated-values" });
     const url = URL.createObjectURL(blob);
@@ -805,20 +844,23 @@ export function DownloadFastqSection({
     return lines.join("\n");
   };
 
-  const updateDownloadScriptPreview = (
+  /** Rebuild the script preview from the full export rows (may re-fetch). */
+  const refreshScriptPreview = async (
     source: DownloadSource = selectedSource,
   ) => {
-    if (!scriptDialogOpen) return;
-    setDownloadScriptPreview(buildDownloadScript(getDownloadRows(), source));
+    setScriptLoading(true);
+    try {
+      const rows = await getExportRows();
+      setDownloadScriptPreview(buildDownloadScript(rows, source));
+    } finally {
+      setScriptLoading(false);
+    }
   };
 
   const onSelectionChanged = () => {
     const selected = gridRef.current?.getSelectedRows() ?? [];
     setSelectedCount(selected.length);
-    if (scriptDialogOpen) {
-      const rows = selected.length > 0 ? selected : runsData.runs;
-      setDownloadScriptPreview(buildDownloadScript(rows, selectedSource));
-    }
+    if (scriptDialogOpen) void refreshScriptPreview();
   };
 
   const apiBase = SERVER_URL.startsWith("http")
@@ -1113,8 +1155,12 @@ export function DownloadFastqSection({
     [wrap],
   );
 
+  // "links", not "files": this saves a table of URLs, not the reads themselves
+  // — the script picker beside it is what actually fetches data.
   const downloadLabel =
-    selectedCount > 0 ? `Download ${selectedCount} selected` : "Download all";
+    selectedCount > 0
+      ? `Download ${selectedCount} selected links as TSV`
+      : "Download links as TSV";
 
   const handleCopyScript = async () => {
     if (!downloadScriptPreview) return;
@@ -1181,60 +1227,68 @@ export function DownloadFastqSection({
 
         <Flex gap="2" wrap="wrap" align="center">
           <WrapTextToggle scope="fastq" />
-          <Button size="2" variant="surface" onClick={downloadTsv}>
-            <DownloadIcon /> {downloadLabel} (TSV)
-          </Button>
-          <Select.Root
+          <Button
             size="2"
-            value={selectedSource}
-            onValueChange={(v) => {
-              const nextSource = v as DownloadSource;
-              setSelectedSource(nextSource);
-              updateDownloadScriptPreview(nextSource);
-            }}
+            variant="soft"
+            onClick={() => void downloadTsv()}
+            disabled={isExporting}
           >
-            <Select.Trigger variant="surface" />
-            <Select.Content>
-              {(Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[])
-                .filter((src) => availableSources.has(src))
-                .map((src) => (
-                  <Select.Item key={src} value={src}>
-                    {DOWNLOAD_SOURCE_LABELS[src]}
-                  </Select.Item>
-                ))}
-            </Select.Content>
-          </Select.Root>
+            <DownloadIcon /> {isExporting ? "Preparing…" : downloadLabel}
+          </Button>
           <Dialog.Root
             open={scriptDialogOpen}
             onOpenChange={(open) => {
               setScriptDialogOpen(open);
               if (open) {
-                setDownloadScriptPreview(
-                  buildDownloadScript(getDownloadRows(), selectedSource),
-                );
                 setScriptCopied(false);
+                void refreshScriptPreview(selectedSource);
               }
             }}
           >
             <Dialog.Trigger>
               <Button size="2" variant="surface">
-                <FileTextIcon /> Get download script
+                <FileTextIcon />
+                Download script
               </Button>
             </Dialog.Trigger>
             <Dialog.Content size="3">
-              <Flex justify="between" align="center" gap="3" mb="3">
-                <Dialog.Title mb="0">Copy download script</Dialog.Title>
-                <Button
-                  size="2"
-                  variant="soft"
-                  onClick={() => {
-                    void handleCopyScript();
-                  }}
-                  disabled={!downloadScriptPreview}
-                >
-                  {scriptCopied ? <CheckIcon /> : <CopyIcon />}
-                  {scriptCopied ? "Copied!" : "Copy"}
-                </Button>
+              <Flex justify="between" align="center" gap="3" mb="3" wrap="wrap">
+                <Dialog.Title mb="0">Script for downloading files</Dialog.Title>
+                {/* The source lives here, not in the toolbar: it only shapes
+                    this script, and here you watch the preview change. */}
+                <Flex align="center" gap="2">
+                  <Select.Root
+                    size="2"
+                    value={selectedSource}
+                    onValueChange={(v) => {
+                      const nextSource = v as DownloadSource;
+                      setSelectedSource(nextSource);
+                      void refreshScriptPreview(nextSource);
+                    }}
+                  >
+                    <Select.Trigger variant="surface" />
+                    <Select.Content>
+                      {(Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[])
+                        .filter((src) => availableSources.has(src))
+                        .map((src) => (
+                          <Select.Item key={src} value={src}>
+                            {DOWNLOAD_SOURCE_LABELS[src]}
+                          </Select.Item>
+                        ))}
+                    </Select.Content>
+                  </Select.Root>
+                  <Button
+                    size="2"
+                    variant="soft"
+                    onClick={() => {
+                      void handleCopyScript();
+                    }}
+                    disabled={scriptLoading || !downloadScriptPreview}
+                  >
+                    {scriptCopied ? <CheckIcon /> : <CopyIcon />}
+                    {scriptCopied ? "Copied!" : "Copy"}
+                  </Button>
+                </Flex>
               </Flex>
               <div
                 style={{
@@ -1261,8 +1315,10 @@ export function DownloadFastqSection({
                   }}
                 >
                   <code>
-                    {downloadScriptPreview ||
-                      "# No downloadable files available"}
+                    {scriptLoading
+                      ? `# Fetching all ${runsData.total_runs.toLocaleString()} runs…`
+                      : downloadScriptPreview ||
+                        "# No downloadable files available"}
                   </code>
                 </pre>
               </div>
@@ -2421,7 +2477,10 @@ export default function ProjectPage() {
                   const value = entry.value;
                   if (keyLower === "bioproject") {
                     return (
-                      <BioProjectBadge key={`${entry.key}:${value}`} accession={value} />
+                      <BioProjectBadge
+                        key={`${entry.key}:${value}`}
+                        accession={value}
+                      />
                     );
                   }
                   if (keyLower === "biosample") {
@@ -2505,7 +2564,9 @@ export default function ProjectPage() {
             {projectAuthors.length > 0 &&
               projectAuthors.join(", ") !== project?.center_name && (
                 <Flex align="start" gap="2" style={{ minWidth: 0 }}>
-                  <PersonIcon style={{ flexShrink: 0, marginTop: "0.125rem" }} />
+                  <PersonIcon
+                    style={{ flexShrink: 0, marginTop: "0.125rem" }}
+                  />
                   <ProjectAuthors
                     authors={projectAuthors}
                     centerName={project?.center_name}
