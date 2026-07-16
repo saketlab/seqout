@@ -5,9 +5,8 @@ import {
   ARCHIVE_FULL_NAMES,
   ARCHIVES,
 } from "@/utils/constants";
-import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Badge, Box, Flex, Heading, Link, Text } from "@radix-ui/themes";
 import Image from "next/image";
-import Link from "next/link";
 import { Fragment } from "react";
 import HeroSearchBar from "./hero-search-bar";
 
@@ -93,7 +92,7 @@ export default function HomeSearchBar() {
         align="center"
         style={{ maxWidth: "42rem" }}
       >
-        <Text size="1" align="center" style={{ color: "var(--gray-11)" }}>
+        <Text size="1" align="center" color="gray">
           Search by keyword &mdash;{" "}
           <Link href="/search?q=naked+mole+rat" className="seqout-inline-link">
             organism
@@ -113,7 +112,7 @@ export default function HomeSearchBar() {
           .
         </Text>
         <Flex gap="2" align="center" justify="center" wrap="wrap">
-          <Text size="1" style={{ color: "var(--gray-11)" }}>
+          <Text size="1" color="gray">
             Or try an accession:
           </Text>
           {EXAMPLE_ACCESSIONS.map(({ accession, href }) => (
@@ -133,6 +132,14 @@ export default function HomeSearchBar() {
               </Badge>
             </Link>
           ))}
+        </Flex>
+        <Flex gap="2" align="center" justify="center" wrap="wrap">
+          <Text size={"1"} color="gray">
+            or view an{" "}
+            <Link href={"https://seqout.org/p/GSE182365#samples=enriched"}>
+              enriched sample
+            </Link>
+          </Text>
         </Flex>
       </Flex>
 

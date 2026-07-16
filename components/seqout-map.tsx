@@ -1117,11 +1117,11 @@ export default function MapGraph() {
               F2LLM-v2-8B
             </Link>{" "}
             from the dataset metadata in the original embedding space. Cluster
-            labels were generated using the 8-bit quantized{" "}
+            labels were generated using{" "}
             <Link href="https://huggingface.co/unsloth/Qwen3.6-27B-GGUF">
-              Qwen 3.6 27B model
-            </Link>
-            .
+              Qwen 3.6 27B
+            </Link>{" "}
+            model.
           </Text>
           <Flex
             align="center"
