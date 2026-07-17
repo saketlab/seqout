@@ -2006,6 +2006,10 @@ export default function GeoProjectPage() {
                         checkboxes: true,
                         headerCheckbox: true,
                       }}
+                      // First column and pinned, like the FASTQ table: selection
+                      // drives the download, so the checkbox stays reachable when
+                      // the file columns scroll.
+                      selectionColumnDef={{ pinned: "left" }}
                       onGridReady={handleSampleSupplementaryGridReady}
                       onSelectionChanged={
                         handleSampleSupplementarySelectionChanged
