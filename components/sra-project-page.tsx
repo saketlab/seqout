@@ -924,18 +924,6 @@ export function DownloadFastqSection({
         pinned: "left",
       },
       {
-        headerName: "Run Alias",
-        field: "run_alias",
-        minWidth: 160,
-        maxWidth: 280,
-        tooltipField: "run_alias",
-        valueFormatter: (params) => params.value || "-",
-        cellStyle: {
-          fontFamily: "var(--code-font-family)",
-          fontSize: "0.8rem",
-        },
-      },
-      {
         headerName: "Experiment",
         field: "experiment_accession",
         minWidth: 110,
@@ -1179,6 +1167,20 @@ export function DownloadFastqSection({
         valueFormatter: (params) =>
           params.value > 0 ? formatBytes(params.value as number) : "-",
       },
+      // Last: the submitter's own label, rarely what you scan for, and often
+      // absent entirely.
+      {
+        headerName: "Run Alias",
+        field: "run_alias",
+        minWidth: 160,
+        maxWidth: 280,
+        tooltipField: "run_alias",
+        valueFormatter: (params) => params.value || "-",
+        cellStyle: {
+          fontFamily: "var(--code-font-family)",
+          fontSize: "0.8rem",
+        },
+      },
     ],
     [expTitleMap, hasCloudLinks],
   );
@@ -1384,6 +1386,10 @@ export function DownloadFastqSection({
             checkboxes: true,
             headerCheckbox: true,
           }}
+          // Pinned alongside Run: picking runs is what drives the download
+          // script, and the FASTQ/Cloud columns push the grid wide enough that
+          // an unpinned checkbox scrolls out of reach.
+          selectionColumnDef={{ pinned: "left" }}
           onGridReady={onGridReady}
           onSelectionChanged={onSelectionChanged}
           theme="legacy"
