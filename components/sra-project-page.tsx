@@ -39,7 +39,7 @@ import { SERVER_URL } from "@/utils/constants";
 import type { DbSource } from "@/utils/db-colors";
 
 import ProjectAuthors from "@/components/project-authors";
-import { fileUrl } from "@/utils/fileUrl";
+import { fastqFileNames, fileUrl } from "@/utils/fileUrl";
 import { formatBytes, titleCaseCenter } from "@/utils/format";
 import {
   makeOrganismPostSort,
@@ -193,6 +193,7 @@ type RunRow = {
   fastq_ftp: string | null;
   fastq_bytes: string | null;
   fastq_md5: string | null;
+  fastq_filenames: string | null;
   sra_ftp: string | null;
   sra_bytes: string | null;
   sra_md5: string | null;
@@ -621,8 +622,9 @@ export function DownloadFastqSection({
       const gsUrl = run.ncbi_sra_lite_gs_url || "";
 
       if (urls.length > 0) {
+        const names = fastqFileNames(run.fastq_ftp, run.fastq_filenames);
         return urls.map((url, i) => {
-          const filename = url.split("/").pop() || url;
+          const filename = names[i];
           return [
             run.run_accession,
             run.run_alias || "",
@@ -722,9 +724,10 @@ export function DownloadFastqSection({
         const sizes = run.fastq_bytes
           ? run.fastq_bytes.split(";").filter(Boolean)
           : [];
+        const names = fastqFileNames(run.fastq_ftp, run.fastq_filenames);
         return ftps.map((ftp, i) => ({
           url: fileUrl(ftp),
-          filename: ftp.split("/").pop() || ftp,
+          filename: names[i],
           dirpath,
           md5: md5s[i] || "",
           bytes: toInt(sizes[i]),
@@ -952,11 +955,12 @@ export function DownloadFastqSection({
             : [];
           const isInterleavedPaired =
             row.library_layout === "PAIRED" && urls.length === 1;
+          const names = fastqFileNames(row.fastq_ftp, row.fastq_filenames);
           if (urls.length > 0) {
             return (
               <Flex direction="column" gap="1" py="1">
                 {urls.map((ftp, i) => {
-                  const filename = ftp.split("/").pop() || ftp;
+                  const filename = names[i];
                   const size = parseInt(bytes[i], 10) || 0;
                   return (
                     <Flex key={ftp} align="center" gap="2">
