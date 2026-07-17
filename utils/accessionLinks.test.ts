@@ -92,6 +92,8 @@ describe("startsWithAccession", () => {
     expect(startsWithAccession("HRA007928 nasopharyngeal carcinoma")).toBe(
       true,
     );
+    // An underscore suffix (GEO supp-file prefix) is a valid boundary.
+    expect(startsWithAccession("GSE244832_Kim")).toBe(true);
   });
 });
 
@@ -132,6 +134,13 @@ describe("parseAccessions", () => {
       "/p/PRJNA333",
     ]);
     expect(accs.find((a) => a.raw === "PRJNA333")?.isPrj).toBe(true);
+  });
+
+  it("extracts an accession carrying an underscore suffix", () => {
+    // GEO supplementary-file prefixes glue the accession to a name with "_".
+    const accs = parseAccessions("GSE244832_Kim");
+    expect(accs.map((a) => a.raw)).toEqual(["GSE244832"]);
+    expect(accs[0].url).toBe("/p/GSE244832");
   });
 
   it("returns nothing for a plain text query", () => {

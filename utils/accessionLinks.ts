@@ -11,8 +11,12 @@ import {
 // extraction but routed via the async /prj resolver (see useSearchHistory).
 const ACC_BODY =
   "(?:GSE\\d+|GSM\\d+|[SED]RA\\d+|[SED]R[PXRS]\\d+|PRJ[A-Z]+\\d+|E-[A-Z]{4}-\\d+|(?:CRA|CRX|HRA|HRX|HRS)\\d+)";
-const ACC_GLOBAL = new RegExp(`\\b${ACC_BODY}\\b`, "gi");
-const ACC_ANCHORED = new RegExp(`^${ACC_BODY}\\b`, "i");
+// End boundary: any non-alphanumeric, underscore included. \b treats _ as a word
+// char, so it would reject "GSE244832_Kim" (a GEO supp-file prefix people paste);
+// this lookahead still rejects "GSE12345abc" since a letter can't follow.
+const ACC_END = "(?![0-9A-Za-z])";
+const ACC_GLOBAL = new RegExp(`\\b${ACC_BODY}${ACC_END}`, "gi");
+const ACC_ANCHORED = new RegExp(`^${ACC_BODY}${ACC_END}`, "i");
 
 type AccessionKind = "project" | "experiment" | "run" | "sample";
 
