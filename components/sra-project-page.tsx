@@ -536,27 +536,63 @@ export function DownloadFastqSection({
   const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
   const [downloadScriptPreview, setDownloadScriptPreview] = useState("");
   const [selectedSource, setSelectedSource] = useState<DownloadSource>("fastq");
-  const [selectedCount, setSelectedCount] = useState(0);
+  const [selectedRuns, setSelectedRuns] = useState<RunRow[]>([]);
+  const selectedCount = selectedRuns.length;
   const [isExporting, setIsExporting] = useState(false);
   const [scriptLoading, setScriptLoading] = useState(false);
   const gridRef = useRef<GridApi<RunRow> | null>(null);
   // Full run list for exports, fetched at most once per study.
   const allRunsRef = useRef<RunRow[] | null>(null);
 
-  /** Which download sources have URLs + whether any run lacks FASTQ. */
-  const { availableSources, hasMissingFastq } = React.useMemo(() => {
+  const sourceUrl = (r: RunRow, source: DownloadSource): string | null => {
+    if (source === "fastq") return r.fastq_ftp;
+    if (source === "sra") return r.ncbi_sra_normalized_url;
+    if (source === "sra_lite") return r.ncbi_sra_lite_url;
+    if (source === "s3") return r.ncbi_sra_lite_s3_url;
+    return r.ncbi_sra_lite_gs_url;
+  };
+
+  /**
+   * Sources every run in the script can actually use, over the selection when
+   * there is one and the whole study otherwise.
+   *
+   * Every run must have the source, not just one: a script offering "SRA" when a
+   * single run of 44 has an .sra object silently downloads 1/44 of the study.
+   * To fetch that one run's SRA, select it -- the option appears once the
+   * selection is only runs that have it.
+   */
+  const availableSources = React.useMemo(() => {
+    const runs = selectedRuns.length > 0 ? selectedRuns : runsData.runs;
     const sources = new Set<DownloadSource>();
-    let missing = false;
-    for (const r of runsData.runs) {
-      if (r.fastq_ftp) sources.add("fastq");
-      else missing = true;
-      if (r.ncbi_sra_normalized_url) sources.add("sra");
-      if (r.ncbi_sra_lite_url) sources.add("sra_lite");
-      if (r.ncbi_sra_lite_s3_url) sources.add("s3");
-      if (r.ncbi_sra_lite_gs_url) sources.add("gcs");
+    if (runs.length === 0) return sources;
+    for (const s of Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]) {
+      if (runs.every((r) => sourceUrl(r, s))) sources.add(s);
     }
-    return { availableSources: sources, hasMissingFastq: missing };
-  }, [runsData.runs]);
+    // ponytail: no source covers every run, so nothing is strictly correct --
+    // offer the partial ones rather than an empty dialog. The script header
+    // already reports "N files from M runs".
+    if (sources.size === 0) {
+      for (const s of Object.keys(DOWNLOAD_SOURCE_LABELS) as DownloadSource[]) {
+        if (runs.some((r) => sourceUrl(r, s))) sources.add(s);
+      }
+    }
+    return sources;
+  }, [selectedRuns, runsData.runs]);
+
+  /** Cloud/SRA-Lite links exist for at least one run, so the column has content. */
+  const hasCloudLinks = React.useMemo(
+    () =>
+      runsData.runs.some(
+        (r) =>
+          r.ncbi_sra_normalized_url ||
+          r.ncbi_sra_lite_url ||
+          r.ncbi_sra_lite_s3_url ||
+          r.ncbi_sra_lite_gs_url ||
+          r.ncbi_sra_url_aws ||
+          r.ncbi_sra_url,
+      ),
+    [runsData.runs],
+  );
 
   // Fall back to the first available source if the selected one disappears (adjust during render).
   if (!availableSources.has(selectedSource)) {
@@ -772,12 +808,9 @@ export function DownloadFastqSection({
     const entries = runs.flatMap((run) => resolveRunUrls(run, source));
     if (entries.length === 0) return "";
 
-    const totalBytes = runs.reduce((sum, r) => {
-      const bytes = r.fastq_bytes
-        ? r.fastq_bytes.split(";").filter(Boolean)
-        : [];
-      return sum + bytes.reduce((s, b) => s + (parseInt(b, 10) || 0), 0);
-    }, 0);
+    // Sum what this script downloads. Reading fastq_bytes here instead would
+    // print the FASTQ total above an .sra script.
+    const totalBytes = entries.reduce((sum, e) => sum + e.bytes, 0);
 
     type Entry = (typeof entries)[0];
     const method =
@@ -861,8 +894,7 @@ export function DownloadFastqSection({
   };
 
   const onSelectionChanged = () => {
-    const selected = gridRef.current?.getSelectedRows() ?? [];
-    setSelectedCount(selected.length);
+    setSelectedRuns(gridRef.current?.getSelectedRows() ?? []);
     if (scriptDialogOpen) void refreshScriptPreview();
   };
 
@@ -1003,7 +1035,9 @@ export function DownloadFastqSection({
           );
         },
       },
-      ...(hasMissingFastq
+      // Shown whenever any run has cloud links, not only when FASTQ is missing:
+      // they are the only route to a run's .sra object, and a study can have both.
+      ...(hasCloudLinks
         ? [
             {
               headerName: "Cloud / SRAlite",
@@ -1146,7 +1180,7 @@ export function DownloadFastqSection({
           params.value > 0 ? formatBytes(params.value as number) : "-",
       },
     ],
-    [expTitleMap, hasMissingFastq],
+    [expTitleMap, hasCloudLinks],
   );
 
   const defaultColDef = React.useMemo<ColDef<RunRow>>(
