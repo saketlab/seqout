@@ -544,6 +544,76 @@ export function DownloadFastqSection({
   // Full run list for exports, fetched at most once per study.
   const allRunsRef = useRef<RunRow[] | null>(null);
 
+  // The grid holds only a 500-run preview, so its client-side column filter is
+  // blind to runs past position 500. For studies bigger than the preview, a
+  // Run/Experiment filter is resolved server-side instead (see runsFind).
+  // findRows null → show the preview; otherwise show the server matches.
+  const needsServerFind = runsData.total_runs > runsData.runs.length;
+  const [findRows, setFindRows] = useState<RunRow[] | null>(null);
+  const [findCapped, setFindCapped] = useState(false);
+  // A failed lookup must read differently from an empty one: on a 100k-run
+  // study "no matching runs" would otherwise imply the run doesn't exist when
+  // the search merely errored out.
+  const [findError, setFindError] = useState(false);
+  const findSeqRef = useRef(0);
+  const findDebounceRef = useRef<number | null>(null);
+  const findAbortRef = useRef<AbortController | null>(null);
+
+  const runFilterFetch = React.useCallback(
+    (run: string, experiment: string) => {
+      const seq = ++findSeqRef.current;
+      findAbortRef.current?.abort();
+      const ac = new AbortController();
+      findAbortRef.current = ac;
+      setFindError(false);
+      const qs = `run=${encodeURIComponent(run)}&experiment=${encodeURIComponent(experiment)}`;
+      getJson<{ runs: RunRow[]; capped: boolean }>(
+        `/project/${encodeURIComponent(accession)}/runs/find?${qs}`,
+        ac.signal,
+      )
+        .then((data) => {
+          if (seq !== findSeqRef.current) return; // a newer filter superseded this
+          setFindRows(data.runs);
+          setFindCapped(data.capped);
+          setFindError(false);
+        })
+        .catch((error) => {
+          if (ac.signal.aborted || seq !== findSeqRef.current) return;
+          console.error("Run filter lookup failed:", error);
+          setFindRows([]);
+          setFindCapped(false);
+          setFindError(true);
+        });
+    },
+    [accession],
+  );
+
+  const onFilterChanged = React.useCallback(() => {
+    if (!needsServerFind) return; // preview is the whole study; client filter is correct
+    const model = gridRef.current?.getFilterModel() ?? {};
+    const run = String(model.run_accession?.filter ?? "")
+      .trim()
+      .toUpperCase();
+    const experiment = String(model.experiment_accession?.filter ?? "")
+      .trim()
+      .toUpperCase();
+    if (findDebounceRef.current) window.clearTimeout(findDebounceRef.current);
+    if (!run && !experiment) {
+      findSeqRef.current += 1; // drop any in-flight response
+      findAbortRef.current?.abort();
+      setFindRows(null);
+      setFindCapped(false);
+      setFindError(false);
+      return;
+    }
+    findDebounceRef.current = window.setTimeout(
+      () => runFilterFetch(run, experiment),
+      300,
+    );
+  }, [needsServerFind, runFilterFetch]);
+
+  const displayedRuns = findRows ?? runsData.runs;
+
   const sourceUrl = (r: RunRow, source: DownloadSource): string | null => {
     if (source === "fastq") return r.fastq_ftp;
     if (source === "sra") return r.ncbi_sra_normalized_url;
@@ -922,6 +992,11 @@ export function DownloadFastqSection({
         minWidth: 110,
         maxWidth: 140,
         pinned: "left",
+        // Exact match, not contains: on a study larger than the 500-run preview
+        // this filter is served by an indexed server lookup that only does
+        // equality (see onFilterChanged), and substring would seq-scan millions
+        // of rows. Accessions are opaque IDs, so equals is the natural search.
+        filterParams: { filterOptions: ["equals"], maxNumConditions: 1 },
       },
       {
         headerName: "Experiment",
@@ -929,6 +1004,7 @@ export function DownloadFastqSection({
         minWidth: 110,
         maxWidth: 140,
         valueFormatter: (params) => params.value || "-",
+        filterParams: { filterOptions: ["equals"], maxNumConditions: 1 },
       },
       {
         headerName: "Title",
@@ -1257,11 +1333,28 @@ export function DownloadFastqSection({
               {formatBytes(runsData.total_fastq_bytes)} total
             </Badge>
           )}
-          {runsData.total_runs > runsData.runs.length && (
-            <Badge size={{ initial: "2", md: "3" }} color="gray" variant="soft">
-              Showing first {runsData.runs.length} of{" "}
-              {runsData.total_runs.toLocaleString()}
+          {findError ? (
+            <Badge size={{ initial: "2", md: "3" }} color="red" variant="soft">
+              Search failed — try again
             </Badge>
+          ) : findRows !== null ? (
+            <Badge size={{ initial: "2", md: "3" }} color="gray" variant="soft">
+              {findRows.length === 0
+                ? "No matching runs"
+                : `${findRows.length.toLocaleString()} matching run${findRows.length === 1 ? "" : "s"}`}
+              {findCapped && "+"}
+            </Badge>
+          ) : (
+            runsData.total_runs > runsData.runs.length && (
+              <Badge
+                size={{ initial: "2", md: "3" }}
+                color="gray"
+                variant="soft"
+              >
+                Showing first {runsData.runs.length} of{" "}
+                {runsData.total_runs.toLocaleString()}
+              </Badge>
+            )
           )}
         </Flex>
 
@@ -1371,7 +1464,7 @@ export function DownloadFastqSection({
         className={agGridThemeClassName}
         style={{
           width: "100%",
-          height: `${Math.min(500, 48 + runsData.runs.length * 42)}px`,
+          height: `${Math.min(500, 48 + Math.max(displayedRuns.length, 1) * 42)}px`,
         }}
       >
         <AgGridReact<RunRow>
@@ -1379,7 +1472,7 @@ export function DownloadFastqSection({
           defaultColDef={defaultColDef}
           enableCellTextSelection
           ensureDomOrder
-          rowData={runsData.runs}
+          rowData={displayedRuns}
           getRowId={(params) => params.data.run_accession}
           rowSelection={{
             mode: "multiRow",
@@ -1390,6 +1483,7 @@ export function DownloadFastqSection({
           // script, and the FASTQ/Cloud columns push the grid wide enough that
           // an unpinned checkbox scrolls out of reach.
           selectionColumnDef={{ pinned: "left" }}
+          onFilterChanged={onFilterChanged}
           onGridReady={onGridReady}
           onSelectionChanged={onSelectionChanged}
           theme="legacy"
