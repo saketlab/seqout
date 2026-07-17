@@ -3,13 +3,14 @@ import {
   getProjectUrl,
   getRunUrl,
   getSampleUrl,
+  getSubmissionUrl,
 } from "./shortUrl";
 
 // One accession-shape pattern, shared by the single-token classifier and the
 // whole-string extractor so the two can never drift. PRJ* is recognized for
 // extraction but routed via the async /prj resolver (see useSearchHistory).
 const ACC_BODY =
-  "(?:GSE\\d+|GSM\\d+|[SED]R[PXRS]\\d+|PRJ[A-Z]+\\d+|E-[A-Z]{4}-\\d+|(?:CRA|CRX|HRA|HRX|HRS)\\d+)";
+  "(?:GSE\\d+|GSM\\d+|[SED]RA\\d+|[SED]R[PXRS]\\d+|PRJ[A-Z]+\\d+|E-[A-Z]{4}-\\d+|(?:CRA|CRX|HRA|HRX|HRS)\\d+)";
 const ACC_GLOBAL = new RegExp(`\\b${ACC_BODY}\\b`, "gi");
 const ACC_ANCHORED = new RegExp(`^${ACC_BODY}\\b`, "i");
 
@@ -44,11 +45,17 @@ export function getInternalUrl(accession: string): string | null {
   return kind ? URL_BY_KIND[kind](accession) : null;
 }
 
-export type ParsedAccession = { raw: string; url: string; isPrj: boolean };
+export type ParsedAccession = {
+  raw: string;
+  url: string;
+  isPrj: boolean;
+  isSubmission: boolean;
+};
 
 // Every accession mentioned in a free-form query, in order, deduped. Known
-// kinds route to their internal page; PRJ* gets a /p/ URL with isPrj set so the
-// caller can resolve it server-side before navigating in the primary tab.
+// kinds route to their internal page; PRJ* and submission accessions get a URL
+// with a flag set so the caller can resolve them server-side (one submission can
+// map to many studies) before navigating in the primary tab.
 export function parseAccessions(query: string): ParsedAccession[] {
   const out: ParsedAccession[] = [];
   const seen = new Set<string>();
@@ -57,11 +64,31 @@ export function parseAccessions(query: string): ParsedAccession[] {
     if (seen.has(raw)) continue;
     seen.add(raw);
     if (/^PRJ[A-Z]+\d+$/.test(raw)) {
-      out.push({ raw, url: getProjectUrl(raw), isPrj: true });
+      out.push({
+        raw,
+        url: getProjectUrl(raw),
+        isPrj: true,
+        isSubmission: false,
+      });
+      continue;
+    }
+    if (/^[SED]RA\d+$/.test(raw)) {
+      out.push({
+        raw,
+        url: getSubmissionUrl(raw),
+        isPrj: false,
+        isSubmission: true,
+      });
       continue;
     }
     const kind = accessionKind(raw);
-    if (kind) out.push({ raw, url: URL_BY_KIND[kind](raw), isPrj: false });
+    if (kind)
+      out.push({
+        raw,
+        url: URL_BY_KIND[kind](raw),
+        isPrj: false,
+        isSubmission: false,
+      });
   }
   return out;
 }
@@ -148,7 +175,12 @@ export function getExternalArchiveUrl(
         label: "View on ENA",
       };
     if (ns === "D") {
-      const resource = { P: "sra-study", X: "sra-experiment", R: "sra-run", S: "sra-sample" }[kind];
+      const resource = {
+        P: "sra-study",
+        X: "sra-experiment",
+        R: "sra-run",
+        S: "sra-sample",
+      }[kind];
       return {
         url: `https://ddbj.nig.ac.jp/resource/${resource}/${accession}`,
         archive: "DRA",

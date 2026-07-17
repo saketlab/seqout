@@ -23,3 +23,9 @@ export function getRunUrl(accession: string): string {
 export function getSampleUrl(accession: string): string {
   return `/s/${accession}`;
 }
+
+// Submission accession (SRA######/ERA######/DRA######) — the page resolves it to
+// its one-or-many studies.
+export function getSubmissionUrl(accession: string): string {
+  return `/submission/${accession}`;
+}

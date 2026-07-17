@@ -85,6 +85,35 @@ export function useSearchHistory() {
           return;
         }
 
+        if (first.isSubmission) {
+          // A submission accession maps to one or many studies. Resolve first so
+          // the common single-study case jumps straight to the study; only the
+          // rare multi-study submission loads the listing page.
+          try {
+            const res = await fetch(
+              `${SERVER_URL}/submission/${encodeURIComponent(first.raw)}`,
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const studies: { accession: string }[] = data.studies ?? [];
+              if (studies.length === 1) {
+                navigate(getProjectShortUrl(studies[0].accession));
+              } else if (studies.length > 1) {
+                navigate(first.url);
+              } else {
+                navigate(buildSearchUrl(trimmed, db));
+              }
+              return;
+            }
+            // 404 (no studies) or any error → full-text search still helps.
+            navigate(buildSearchUrl(trimmed, db));
+          } catch (error) {
+            console.error("Error resolving submission:", error);
+            navigate(buildSearchUrl(trimmed, db));
+          }
+          return;
+        }
+
         navigate(first.url);
         return;
       }

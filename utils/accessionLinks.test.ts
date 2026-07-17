@@ -89,7 +89,9 @@ describe("startsWithAccession", () => {
     expect(startsWithAccession("brain scrna")).toBe(false);
     expect(startsWithAccession("GSE12345abc")).toBe(false); // no boundary
     expect(startsWithAccession("CRA000004")).toBe(true);
-    expect(startsWithAccession("HRA007928 nasopharyngeal carcinoma")).toBe(true);
+    expect(startsWithAccession("HRA007928 nasopharyngeal carcinoma")).toBe(
+      true,
+    );
   });
 });
 
@@ -101,7 +103,24 @@ describe("parseAccessions", () => {
       raw: "E-MTAB-10381",
       url: "/p/E-MTAB-10381",
       isPrj: false,
+      isSubmission: false,
     });
+  });
+
+  it("flags a submission accession for async resolution", () => {
+    for (const raw of ["SRA788656", "ERA217948", "DRA000900"]) {
+      const accs = parseAccessions(raw);
+      expect(accs).toEqual([
+        { raw, url: `/submission/${raw}`, isPrj: false, isSubmission: true },
+      ]);
+    }
+  });
+
+  it("does not mistake a study/experiment accession for a submission", () => {
+    // SRA is submission; SRP/SRX/SRR/SRS are not.
+    expect(parseAccessions("SRP042645")[0].isSubmission).toBe(false);
+    expect(parseAccessions("SRX4795903")[0].isSubmission).toBe(false);
+    expect(startsWithAccession("SRA788656")).toBe(true);
   });
 
   it("extracts and dedupes multiple accessions, preserving order", () => {
