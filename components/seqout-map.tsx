@@ -389,6 +389,7 @@ export default function MapGraph() {
   const [clusterQuery, setClusterQuery] = useState("");
   const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
   const [clusterCardExpanded, setClusterCardExpanded] = useState(true);
+  const [countriesExpanded, setCountriesExpanded] = useState(true);
 
   // Enriched facets (organism/tissue/…), shown as bar charts in the lasso stats.
   const [facets, setFacets] = useState<Facet[]>([]);
@@ -1206,18 +1207,35 @@ export default function MapGraph() {
               <GlobeIcon />
               <Text size="2">Countries</Text>
             </Flex>
+            <Tooltip
+              content={countriesExpanded ? "Collapse countries" : "Expand countries"}
+            >
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                aria-label={countriesExpanded ? "Collapse" : "Expand"}
+                aria-expanded={countriesExpanded}
+                onClick={() => setCountriesExpanded((open) => !open)}
+              >
+                {countriesExpanded ? <ChevronDownIcon /> : <ChevronUpIcon />}
+              </IconButton>
+            </Tooltip>
           </Flex>
-          <TextField.Root
-            size={isMobile ? "2" : "1"}
-            value={countryFilter}
-            placeholder="Filter countries"
-            onChange={(e) => setCountryFilter(e.target.value)}
-            mb="2"
-          >
-            <TextField.Slot>
-              <MagnifyingGlassIcon height="12" width="12" />
-            </TextField.Slot>
-          </TextField.Root>
+          {countriesExpanded && (
+            <TextField.Root
+              size={isMobile ? "2" : "1"}
+              value={countryFilter}
+              placeholder="Filter countries"
+              onChange={(e) => setCountryFilter(e.target.value)}
+              mb="2"
+            >
+              <TextField.Slot>
+                <MagnifyingGlassIcon height="12" width="12" />
+              </TextField.Slot>
+            </TextField.Root>
+          )}
+          {countriesExpanded && (
           <ScrollArea
             type="auto"
             scrollbars="vertical"
@@ -1249,6 +1267,7 @@ export default function MapGraph() {
               ))}
             </Flex>
           </ScrollArea>
+          )}
         </Box>
 
         {!isMobile && (
