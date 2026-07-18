@@ -38,8 +38,9 @@ export function MetadataTable({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <Table.Root size="1" variant="surface">
       <Table.Body>
-        {shown.map(([label, value]) => (
-          <Table.Row key={label}>
+        {shown.map(([label, value], i) => (
+          // Index key: GEO characteristics can repeat a label.
+          <Table.Row key={`${label}-${i}`}>
             <Table.RowHeaderCell
               style={{ width: "200px", color: "var(--gray-11)" }}
             >

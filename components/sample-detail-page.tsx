@@ -11,7 +11,6 @@ import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
 import { SupplementaryDataSection } from "@/components/supplementary-data-section";
-import TextWithLineBreaks from "@/components/text-with-line-breaks";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
@@ -114,25 +113,6 @@ const fetchSampleDetail = async (
   if (!accession) return null;
   return getJson<SampleDetailResponse>(`/sample-detail/${accession}`);
 };
-
-// The gray attribute/metadata box repeated across the sample and experiment
-// sections.
-function InfoPanel({ children }: { children: React.ReactNode }) {
-  return (
-    <Flex
-      direction="column"
-      gap="2"
-      p="3"
-      style={{
-        background: "var(--gray-2)",
-        borderRadius: "var(--radius-3)",
-        border: "1px solid var(--gray-4)",
-      }}
-    >
-      {children}
-    </Flex>
-  );
-}
 
 type TaxonInfo = {
   commonName: string | null;
@@ -325,103 +305,51 @@ function ProjectBadge({
   );
 }
 
+// The sample's organism (name + NCBI taxid), from the SRA field or, for GEO
+// samples, the first channel's Organism.
+function sampleOrganism(
+  sample: Sample,
+): { name: string; taxonId: string | null } | null {
+  if (sample.scientific_name) {
+    return { name: sample.scientific_name, taxonId: sample.taxon_id ?? null };
+  }
+  const org = sample.channels?.[0]?.Organism;
+  if (org && typeof org === "object" && org["#text"]) {
+    return { name: org["#text"], taxonId: org["@taxid"] || null };
+  }
+  if (typeof org === "string" && org) return { name: org, taxonId: null };
+  return null;
+}
+
+// GEO sample metadata as a table, matching the SRA sample section. Title and
+// organism live in the page header, so they're flattened out here; channel
+// fields and characteristics become rows (prefixed by channel when there's
+// more than one).
 function GeoSampleDetail({ sample }: { sample: Sample }) {
   const channels = sample.channels || [];
+  const multi = channels.length > 1;
+  const rows: [string, string][] = [];
+  if (sample.description) rows.push(["Description", sample.description]);
+  if (sample.sample_type) rows.push(["Sample type", sample.sample_type]);
+  if (sample.platform_ref) rows.push(["Platform", sample.platform_ref]);
+  channels.forEach((ch, idx) => {
+    const prefix = multi ? `Ch${ch["@position"] || idx + 1} ` : "";
+    if (ch.Source) rows.push([`${prefix}Source`, ch.Source]);
+    if (ch.Molecule) rows.push([`${prefix}Molecule`, ch.Molecule]);
+    if (ch.Label) rows.push([`${prefix}Label`, ch.Label]);
+    for (const c of ch.Characteristics ?? []) {
+      rows.push([`${prefix}${c["@tag"]}`, c["#text"]]);
+    }
+  });
 
-  return (
-    <Flex direction="column" gap="3">
-      {sample.title && (
-        <Text size="3" weight="medium">
-          {sample.title}
-        </Text>
-      )}
-      {sample.description && (
-        <Text size="2" color="gray">
-          <TextWithLineBreaks text={sample.description} />
-        </Text>
-      )}
-      {sample.sample_type && (
-        <Flex gap="2" align="center">
-          <Text size="2" color="gray">
-            Type:
-          </Text>
-          <Badge size="2" variant="soft">
-            {sample.sample_type}
-          </Badge>
-        </Flex>
-      )}
-      {sample.platform_ref && (
-        <Flex gap="2" align="center">
-          <Text size="2" color="gray">
-            Platform:
-          </Text>
-          <Text size="2">{sample.platform_ref}</Text>
-        </Flex>
-      )}
-
-      {channels.map((ch, idx) => {
-        const org =
-          typeof ch.Organism === "object"
-            ? ch.Organism?.["#text"]
-            : ch.Organism;
-        const chars = ch.Characteristics || [];
-        return (
-          <InfoPanel key={idx}>
-            {channels.length > 1 && (
-              <Text size="2" weight="medium">
-                Channel {ch["@position"] || idx + 1}
-              </Text>
-            )}
-            {org && (
-              <Flex gap="2" align="center">
-                <Text size="2" color="gray">
-                  Organism:
-                </Text>
-                <Text size="2" style={{ fontStyle: "italic" }}>
-                  {org}
-                </Text>
-              </Flex>
-            )}
-            {ch.Source && (
-              <Flex gap="2" align="center">
-                <Text size="2" color="gray">
-                  Source:
-                </Text>
-                <Text size="2">{ch.Source}</Text>
-              </Flex>
-            )}
-            {ch.Molecule && (
-              <Flex gap="2" align="center">
-                <Text size="2" color="gray">
-                  Molecule:
-                </Text>
-                <Text size="2">{ch.Molecule}</Text>
-              </Flex>
-            )}
-            {chars.length > 0 && (
-              <Flex direction="column" gap="1" mt="1">
-                <Text size="2" weight="medium">
-                  Characteristics
-                </Text>
-                {chars.map((c, ci) => (
-                  <Flex key={ci} gap="2">
-                    <Text
-                      size="1"
-                      color="gray"
-                      style={{ minWidth: "120px", fontWeight: 500 }}
-                    >
-                      {c["@tag"]}:
-                    </Text>
-                    <Text size="1">{c["#text"]}</Text>
-                  </Flex>
-                ))}
-              </Flex>
-            )}
-          </InfoPanel>
-        );
-      })}
-    </Flex>
-  );
+  if (rows.length === 0) {
+    return (
+      <Text size="2" color="gray">
+        No sample metadata.
+      </Text>
+    );
+  }
+  return <MetadataTable rows={rows} />;
 }
 
 // The experiment's full metadata, shown as its own section (not a card) with a
@@ -546,6 +474,7 @@ export default function SampleDetailPage() {
 
   const publications = project?.publications ?? null;
   const projectDescription = project?.abstract || project?.summary || null;
+  const organism = sample ? sampleOrganism(sample) : null;
 
   return (
     <>
@@ -717,10 +646,10 @@ export default function SampleDetailPage() {
               id="sample"
               title="Sample metadata"
               right={
-                sample?.scientific_name ? (
+                organism ? (
                   <OrganismInfoButton
-                    name={sample.scientific_name}
-                    taxonId={sample.taxon_id ?? null}
+                    name={organism.name}
+                    taxonId={organism.taxonId}
                   />
                 ) : undefined
               }
