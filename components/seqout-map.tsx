@@ -376,6 +376,8 @@ export default function MapGraph() {
 
   const [colorByClusters, setColorByClusters] = useState(false);
   const [colorBySource, setColorBySource] = useState(false);
+  // Which archives are shown while coloring by source. All on = no filter.
+  const [enabledSources, setEnabledSources] = useState<string[]>(SOURCE_DOMAIN);
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
@@ -414,6 +416,10 @@ export default function MapGraph() {
   const colorBySourceRef = useRef(colorBySource);
   const selectedCountriesRef = useRef(selectedCountries);
   const selectedClustersRef = useRef(selectedClusters);
+  const enabledSourcesRef = useRef(enabledSources);
+  useEffect(() => {
+    enabledSourcesRef.current = enabledSources;
+  }, [enabledSources]);
   const clusterLevelRef = useRef<string | null>(null);
   useEffect(() => {
     colorByClustersRef.current = colorByClusters;
@@ -435,8 +441,13 @@ export default function MapGraph() {
       const sp = spRef.current;
       if (!sp) return;
       const level = clusterLevelRef.current;
+      // Source is a real tile column, so it rides the same facet-filter slot.
+      // All archives enabled == no filter, so pass [] to keep it inactive.
+      const src = enabledSourcesRef.current;
+      const sources = src.length === SOURCE_DOMAIN.length ? [] : src;
       engineRef.current?.applyFilters(sp, {
         countries,
+        source: sources,
         ...(level ? { [level]: clusterIds } : {}),
       });
     },
@@ -744,6 +755,18 @@ export default function MapGraph() {
       engineRef.current?.setColorBySource(sp, value);
     }
   }, []);
+
+  const onToggleSource = useCallback(
+    (db: string, checked: boolean) => {
+      const next = checked
+        ? [...enabledSourcesRef.current, db]
+        : enabledSourcesRef.current.filter((s) => s !== db);
+      enabledSourcesRef.current = next;
+      setEnabledSources(next);
+      applySelections(selectedCountriesRef.current, selectedClustersRef.current);
+    },
+    [applySelections],
+  );
 
   const onToggleCountry = useCallback(
     (country: string, checked: boolean) => {
@@ -1139,18 +1162,32 @@ export default function MapGraph() {
           {colorBySource && (
             <Flex wrap="wrap" gap="2" mt="1">
               {SOURCE_DOMAIN.map((db, i) => (
-                <Flex key={db} align="center" gap="1">
-                  <Box
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 2,
-                      backgroundColor: SOURCE_RANGE[i],
-                      flex: "0 0 auto",
-                    }}
-                  />
-                  <Text size="1">{DB_LABELS[db] ?? db}</Text>
-                </Flex>
+                <Text
+                  as="label"
+                  key={db}
+                  size="1"
+                  style={{ cursor: "pointer" }}
+                >
+                  <Flex align="center" gap="1">
+                    <Checkbox
+                      size="1"
+                      checked={enabledSources.includes(db)}
+                      onCheckedChange={(checked) =>
+                        onToggleSource(db, checked === true)
+                      }
+                    />
+                    <Box
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 2,
+                        backgroundColor: SOURCE_RANGE[i],
+                        flex: "0 0 auto",
+                      }}
+                    />
+                    <Text size="1">{DB_LABELS[db] ?? db}</Text>
+                  </Flex>
+                </Text>
               ))}
             </Flex>
           )}
