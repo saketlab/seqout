@@ -1,14 +1,15 @@
 "use client";
 import DbBadge from "@/components/db-badge";
+import { MetadataTable, SectionHeader } from "@/components/detail-ui";
 import ProjectSupplementary from "@/components/project-supplementary";
 import SearchBar from "@/components/search-bar";
-import SectionAnchor from "@/components/section-anchor";
 import { ScopedFastqSection, type RunRow } from "@/components/sra-project-page";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { dbForArchive } from "@/utils/db-colors";
+import { formatBytes } from "@/utils/format";
 import {
   CheckIcon,
   CopyIcon,
@@ -23,6 +24,7 @@ import {
   Button,
   Flex,
   Heading,
+  Link,
   Spinner,
   Text,
   Tooltip,
@@ -75,6 +77,10 @@ export default function RunDetailPage() {
   const badgeColor = externalLink
     ? dbForArchive(externalLink.archive)
     : undefined;
+  const runTotalBytes = (run?.fastq_bytes ?? "")
+    .split(";")
+    .filter(Boolean)
+    .reduce((sum, b) => sum + (parseInt(b, 10) || 0), 0);
 
   return (
     <>
@@ -250,12 +256,42 @@ export default function RunDetailPage() {
             )}
           </Flex>
 
-          <Flex id="downloads" align="center" gap="2">
-            <Heading as="h2" weight="medium" size="6">
-              Downloads
-            </Heading>
-            <SectionAnchor id="downloads" />
+          <Flex direction="column" gap="3">
+            <SectionHeader id="run" title="Run metadata" />
+            <MetadataTable
+              rows={[
+                ["Run alias", run.run_alias],
+                [
+                  "Experiment",
+                  run.experiment_accession ? (
+                    <Link href={`/e/${run.experiment_accession}`} size="2">
+                      {run.experiment_accession}
+                    </Link>
+                  ) : null,
+                ],
+                [
+                  "Study",
+                  run.study_accession ? (
+                    <Link href={`/p/${run.study_accession}`} size="2">
+                      {run.study_accession}
+                    </Link>
+                  ) : null,
+                ],
+                ["Library layout", run.library_layout],
+                [
+                  "FASTQ files",
+                  run.fastq_ftp
+                    ? String(run.fastq_ftp.split(";").filter(Boolean).length)
+                    : null,
+                ],
+                [
+                  "Total size",
+                  runTotalBytes ? formatBytes(runTotalBytes) : null,
+                ],
+              ]}
+            />
           </Flex>
+
           <ScopedFastqSection
             runs={[run]}
             studyAccession={run.study_accession ?? accession ?? ""}

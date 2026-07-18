@@ -1,8 +1,8 @@
 "use client";
 import DbBadge from "@/components/db-badge";
 import ProjectSupplementary from "@/components/project-supplementary";
+import { MetadataTable, SectionHeader } from "@/components/detail-ui";
 import SearchBar from "@/components/search-bar";
-import SectionAnchor from "@/components/section-anchor";
 import { ScopedFastqSection, type RunRow } from "@/components/sra-project-page";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
@@ -57,21 +57,6 @@ const fetchExperiment = async (
   return getJson<Experiment>(`/experiment/${accession}`);
 };
 
-function MetadataRow({ label, value }: { label: string; value: string }) {
-  return (
-    <Flex gap="2">
-      <Text
-        size="2"
-        color="gray"
-        style={{ minWidth: "140px", fontWeight: 500 }}
-      >
-        {label}
-      </Text>
-      <Text size="2">{value}</Text>
-    </Flex>
-  );
-}
-
 export default function ExperimentDetailPage() {
   const params = useParams();
   const { resolvedTheme } = useTheme();
@@ -122,9 +107,6 @@ export default function ExperimentDetailPage() {
         ["Instrument model", experiment.instrument_model],
       ]
     : [];
-  const metadata = fields
-    .filter((f): f is [string, string] => Boolean(f[1]))
-    .map(([label, value]) => ({ label, value }));
 
   return (
     <>
@@ -287,38 +269,29 @@ export default function ExperimentDetailPage() {
           </Flex>
 
           <Flex direction="column" gap="3">
-            <Flex id="experiment" align="center" gap="2">
-              <Heading as="h2" weight="medium" size="6">
-                Experiment metadata
-              </Heading>
-              <SectionAnchor id="experiment" />
-            </Flex>
+            <SectionHeader id="experiment" title="Experiment metadata" />
             {experiment.design_description && (
-              <Text size="2" color="gray">
-                {experiment.design_description}
-              </Text>
+              <Text>{experiment.design_description}</Text>
             )}
-            <Flex direction="column" gap="2">
-              {metadata.map((m) => (
-                <MetadataRow key={m.label} label={m.label} value={m.value} />
-              ))}
-            </Flex>
-            {samples.length > 0 && (
-              <Flex gap="2" align="center" wrap="wrap">
-                <Text
-                  size="2"
-                  color="gray"
-                  style={{ minWidth: "140px", fontWeight: 500 }}
-                >
-                  {samples.length > 1 ? "Samples" : "Sample"}
-                </Text>
-                {samples.map((s) => (
-                  <Link key={s} href={`/s/${s}`} size="2">
-                    {s}
-                  </Link>
-                ))}
-              </Flex>
-            )}
+            <MetadataTable
+              rows={[
+                ...fields,
+                [
+                  samples.length > 1
+                    ? "Associated samples"
+                    : "Associated sample",
+                  samples.length > 0 ? (
+                    <Flex gap="2" align="center" wrap="wrap">
+                      {samples.map((s) => (
+                        <Link key={s} href={`/s/${s}`} size="2">
+                          {s}
+                        </Link>
+                      ))}
+                    </Flex>
+                  ) : null,
+                ],
+              ]}
+            />
           </Flex>
 
           {runs.length > 0 && (

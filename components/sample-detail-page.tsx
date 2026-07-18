@@ -1,11 +1,11 @@
 "use client";
 import DbBadge from "@/components/db-badge";
+import { MetadataTable, SectionHeader } from "@/components/detail-ui";
 import ProjectSummary from "@/components/project-summary";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
-import SectionAnchor from "@/components/section-anchor";
 import { ScopedFastqSection, type RunRow } from "@/components/sra-project-page";
 import SubmittingOrgPanel, {
   CenterInfo,
@@ -37,7 +37,6 @@ import {
   Link,
   Popover,
   Spinner,
-  Table,
   Text,
   Tooltip,
 } from "@radix-ui/themes";
@@ -115,29 +114,6 @@ const fetchSampleDetail = async (
   if (!accession) return null;
   return getJson<SampleDetailResponse>(`/sample-detail/${accession}`);
 };
-
-function SectionHeader({
-  id,
-  title,
-  children,
-  right,
-}: {
-  id: string;
-  title: string;
-  children?: React.ReactNode;
-  right?: React.ReactNode;
-}) {
-  return (
-    <Flex id={id} align="center" gap="2">
-      <Heading as="h2" weight="medium" size="6">
-        {title}
-      </Heading>
-      <SectionAnchor id={id} />
-      {children}
-      {right && <Flex ml="auto">{right}</Flex>}
-    </Flex>
-  );
-}
 
 // The gray attribute/metadata box repeated across the sample and experiment
 // sections.
@@ -451,22 +427,6 @@ function GeoSampleDetail({ sample }: { sample: Sample }) {
 // The experiment's full metadata, shown as its own section (not a card) with a
 // badge linking to the dedicated /e page, mirroring what that page displays.
 function ExperimentSection({ experiment }: { experiment: Experiment }) {
-  // design_description is prose (sometimes a full paragraph), so it reads as a
-  // description above the table rather than a cramped cell — matching the /e page.
-  const rows = (
-    [
-      ["Title", experiment.title],
-      ["Library strategy", experiment.library_strategy],
-      ["Library source", experiment.library_source],
-      ["Library selection", experiment.library_selection],
-      ["Library layout", experiment.library_layout],
-      ["Library name", experiment.library_name],
-      ["Platform", experiment.platform],
-      ["Instrument model", experiment.instrument_model],
-      ["Submission", experiment.submission],
-    ] as [string, string | null][]
-  ).filter((f): f is [string, string] => Boolean(f[1]));
-
   return (
     <Flex direction="column" gap="3">
       <SectionHeader
@@ -486,25 +446,24 @@ function ExperimentSection({ experiment }: { experiment: Experiment }) {
           </a>
         }
       />
+      {/* design_description is prose, so it reads as a description above the
+          table rather than a cramped cell — matching the /e page. */}
       {experiment.design_description && (
         <Text>{experiment.design_description}</Text>
       )}
-      <Table.Root size="1" variant="surface">
-        <Table.Body>
-          {rows.map(([label, value]) => (
-            <Table.Row key={label}>
-              <Table.RowHeaderCell
-                style={{ width: "200px", color: "var(--gray-11)" }}
-              >
-                {label}
-              </Table.RowHeaderCell>
-              <Table.Cell>
-                <TextWithLineBreaks text={value} />
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+      <MetadataTable
+        rows={[
+          ["Title", experiment.title],
+          ["Library strategy", experiment.library_strategy],
+          ["Library source", experiment.library_source],
+          ["Library selection", experiment.library_selection],
+          ["Library layout", experiment.library_layout],
+          ["Library name", experiment.library_name],
+          ["Platform", experiment.platform],
+          ["Instrument model", experiment.instrument_model],
+          ["Submission", experiment.submission],
+        ]}
+      />
     </Flex>
   );
 }
@@ -535,24 +494,7 @@ function SraSampleDetail({ sample }: { sample: Sample | null }) {
     );
   }
 
-  return (
-    <Table.Root size="1" variant="surface">
-      <Table.Body>
-        {rows.map(([label, value]) => (
-          <Table.Row key={label}>
-            <Table.RowHeaderCell
-              style={{ width: "200px", color: "var(--gray-11)" }}
-            >
-              {label}
-            </Table.RowHeaderCell>
-            <Table.Cell>
-              <TextWithLineBreaks text={value} />
-            </Table.Cell>
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </Table.Root>
-  );
+  return <MetadataTable rows={rows} />;
 }
 
 function getDbBadgeColor(accession: string) {
