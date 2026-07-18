@@ -185,7 +185,7 @@ type ExperimentGridRow = {
   attributes: Record<string, string>;
 };
 
-type RunRow = {
+export type RunRow = {
   run_accession: string;
   run_alias: string | null;
   experiment_accession: string | null;
@@ -207,7 +207,7 @@ type RunRow = {
   ncbi_sra_lite_gs_url: string | null;
 };
 
-type RunsData = {
+export type RunsData = {
   total_runs: number;
   paired_runs: number;
   single_runs: number;
@@ -523,11 +523,16 @@ export function DownloadFastqSection({
   runsData,
   agGridThemeClassName,
   expTitleMap,
+  scoped = false,
 }: {
   accession: string;
   runsData: RunsData;
   agGridThemeClassName: string;
   expTitleMap: Map<string, string>;
+  // Rendered for a sub-scope (a single sample/experiment/run) rather than a
+  // whole study. Hides the "Download all runs" curl, which pulls the entire
+  // study — the grid's own buttons already cover the scoped run set.
+  scoped?: boolean;
 }) {
   const { showToast } = useToast();
   const wrap = useWrapText("fastq");
@@ -1490,49 +1495,93 @@ export function DownloadFastqSection({
         />
       </div>
 
-      <Flex direction="column" gap="2">
-        <Text size="4" weight="medium">
-          Download all runs
-        </Text>
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "100%",
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            background: "var(--gray-3)",
-            border: "1px solid var(--gray-6)",
-            borderRadius: "8px",
-          }}
-        >
-          <pre
+      {!scoped && (
+        <Flex direction="column" gap="2">
+          <Text size="4" weight="medium">
+            Download all runs
+          </Text>
+          <div
             style={{
-              margin: 0,
-              width: "calc(100% - 2.5rem)",
-              maxWidth: "calc(100% - 2.5rem)",
-              minWidth: 0,
-              boxSizing: "border-box",
-              padding: "0.875rem",
-              overflowX: "auto",
-              overflowY: "hidden",
-              fontSize: "12px",
-              lineHeight: "1.5",
-              fontFamily: "var(--default-mono-font-family)",
+              width: "100%",
+              maxWidth: "100%",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              background: "var(--gray-3)",
+              border: "1px solid var(--gray-6)",
+              borderRadius: "8px",
             }}
           >
-            <code>{wgetCmd}</code>
-          </pre>
-          <Button
-            size="2"
-            onClick={copyCommand}
-            aria-label="Copy download command"
-          >
-            {copied ? <CheckIcon /> : <CopyIcon />}
-          </Button>
-        </div>
-      </Flex>
+            <pre
+              style={{
+                margin: 0,
+                width: "calc(100% - 2.5rem)",
+                maxWidth: "calc(100% - 2.5rem)",
+                minWidth: 0,
+                boxSizing: "border-box",
+                padding: "0.875rem",
+                overflowX: "auto",
+                overflowY: "hidden",
+                fontSize: "12px",
+                lineHeight: "1.5",
+                fontFamily: "var(--default-mono-font-family)",
+              }}
+            >
+              <code>{wgetCmd}</code>
+            </pre>
+            <Button
+              size="2"
+              onClick={copyCommand}
+              aria-label="Copy download command"
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </Button>
+          </div>
+        </Flex>
+      )}
     </>
+  );
+}
+
+// Adapter for the sample/experiment/run detail pages: the same FASTQ section as
+// a study, but over a fixed set of already-loaded runs. total_runs === runs
+// length disables the server-side find and the full-study refetch, so the whole
+// section stays scoped to the runs passed in. `studyAccession` still names the
+// parent study for the download-script's metadata line and file paths.
+export function ScopedFastqSection({
+  runs,
+  studyAccession,
+  expTitleMap,
+  agGridThemeClassName,
+}: {
+  runs: RunRow[];
+  studyAccession: string;
+  expTitleMap?: Map<string, string>;
+  agGridThemeClassName: string;
+}) {
+  const runsData: RunsData = {
+    runs,
+    total_runs: runs.length,
+    paired_runs: runs.filter((r) => r.library_layout === "PAIRED").length,
+    single_runs: runs.filter((r) => r.library_layout === "SINGLE").length,
+    total_fastq_bytes: runs.reduce(
+      (sum, r) =>
+        sum +
+        (r.fastq_bytes ?? "")
+          .split(";")
+          .filter(Boolean)
+          .reduce((s, b) => s + (parseInt(b, 10) || 0), 0),
+      0,
+    ),
+  };
+  return (
+    <DownloadFastqSection
+      scoped
+      accession={studyAccession}
+      runsData={runsData}
+      expTitleMap={expTitleMap ?? new Map()}
+      agGridThemeClassName={agGridThemeClassName}
+    />
   );
 }
 

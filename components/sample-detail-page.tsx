@@ -1,29 +1,28 @@
 "use client";
+import DbBadge from "@/components/db-badge";
 import ProjectSummary from "@/components/project-summary";
-import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import PublicationCard, {
   StudyPublication,
 } from "@/components/publication-card";
 import SearchBar from "@/components/search-bar";
+import SectionAnchor from "@/components/section-anchor";
+import { ScopedFastqSection, type RunRow } from "@/components/sra-project-page";
 import SubmittingOrgPanel, {
   CenterInfo,
 } from "@/components/submitting-org-panel";
-import SectionAnchor from "@/components/section-anchor";
+import { SupplementaryDataSection } from "@/components/supplementary-data-section";
 import TextWithLineBreaks from "@/components/text-with-line-breaks";
-import { ensureAgGridModules } from "@/lib/ag-grid";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
 import { copyToClipboard } from "@/utils/clipboard";
 import { SERVER_URL } from "@/utils/constants";
-import DbBadge from "@/components/db-badge";
 import { dbForArchive } from "@/utils/db-colors";
-import { fastqFileNames, fileUrl } from "@/utils/fileUrl";
-import { formatBytes } from "@/utils/format";
 import {
   CheckIcon,
   CopyIcon,
   DownloadIcon,
+  EnterIcon,
   ExternalLinkIcon,
   HomeIcon,
   InfoCircledIcon,
@@ -36,22 +35,16 @@ import {
   Flex,
   Heading,
   Link,
+  Popover,
   Spinner,
+  Table,
   Text,
   Tooltip,
 } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
-import type {
-  ColDef,
-  ICellRendererParams,
-  ValueGetterParams,
-} from "ag-grid-community";
-import { AgGridReact } from "ag-grid-react";
 import { useTheme } from "next-themes";
 import { useParams } from "next/navigation";
 import React, { useState } from "react";
-
-ensureAgGridModules();
 
 type Project = {
   accession: string;
@@ -107,29 +100,6 @@ type GeoChannel = {
   Label?: string;
   "@position"?: string;
 };
-
-export type RunRow = {
-  run_accession: string;
-  run_alias: string | null;
-  experiment_accession: string | null;
-  library_layout: string | null;
-  fastq_ftp: string | null;
-  fastq_bytes: string | null;
-  fastq_md5: string | null;
-  fastq_filenames: string | null;
-  sra_ftp: string | null;
-  sra_bytes: string | null;
-  sra_md5: string | null;
-  ncbi_sra_url: string | null;
-  ncbi_sra_url_aws: string | null;
-  ncbi_sra_normalized_url: string | null;
-  ncbi_sra_normalized_bytes: string | null;
-  ncbi_sra_lite_url: string | null;
-  ncbi_sra_lite_bytes: string | null;
-  ncbi_sra_lite_s3_url: string | null;
-  ncbi_sra_lite_gs_url: string | null;
-};
-
 type SampleDetailResponse = {
   sample_type: "geo_sample" | "sra_experiment" | "sra_sample";
   project: Project | null;
@@ -145,6 +115,239 @@ const fetchSampleDetail = async (
   if (!accession) return null;
   return getJson<SampleDetailResponse>(`/sample-detail/${accession}`);
 };
+
+function SectionHeader({
+  id,
+  title,
+  children,
+  right,
+}: {
+  id: string;
+  title: string;
+  children?: React.ReactNode;
+  right?: React.ReactNode;
+}) {
+  return (
+    <Flex id={id} align="center" gap="2">
+      <Heading as="h2" weight="medium" size="6">
+        {title}
+      </Heading>
+      <SectionAnchor id={id} />
+      {children}
+      {right && <Flex ml="auto">{right}</Flex>}
+    </Flex>
+  );
+}
+
+// The gray attribute/metadata box repeated across the sample and experiment
+// sections.
+function InfoPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <Flex
+      direction="column"
+      gap="2"
+      p="3"
+      style={{
+        background: "var(--gray-2)",
+        borderRadius: "var(--radius-3)",
+        border: "1px solid var(--gray-4)",
+      }}
+    >
+      {children}
+    </Flex>
+  );
+}
+
+type TaxonInfo = {
+  commonName: string | null;
+  rank: string | null;
+  division: string | null;
+  image: string | null;
+  extract: string | null;
+  wikiUrl: string | null;
+};
+
+// Taxonomy details from NCBI (rank/common name), image + blurb from Wikipedia.
+// Both are best-effort: a failed leg just leaves its fields null. Both endpoints
+// send Access-Control-Allow-Origin, so this runs straight from the browser.
+const fetchTaxon = async (
+  name: string,
+  taxonId: string | null,
+): Promise<TaxonInfo> => {
+  const info: TaxonInfo = {
+    commonName: null,
+    rank: null,
+    division: null,
+    image: null,
+    extract: null,
+    wikiUrl: null,
+  };
+  if (taxonId) {
+    try {
+      const res = await fetch(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=taxonomy&id=${encodeURIComponent(taxonId)}&retmode=json`,
+      );
+      const rec = res.ok ? (await res.json())?.result?.[taxonId] : null;
+      if (rec) {
+        info.commonName = rec.commonname || null;
+        info.rank = rec.rank || null;
+        info.division = rec.division || rec.genbankdivision || null;
+      }
+    } catch {
+      /* NCBI unreachable — leave those fields null */
+    }
+  }
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name.replace(/ /g, "_"))}`,
+    );
+    if (res.ok) {
+      const data = await res.json();
+      info.image = data?.thumbnail?.source || null;
+      info.extract = data?.extract || null;
+      info.wikiUrl = data?.content_urls?.desktop?.page || null;
+    }
+  } catch {
+    /* no Wikipedia page — no image/blurb */
+  }
+  return info;
+};
+
+// Info button for the sample's organism, shown at the far end of the Sample
+// metadata section heading — the sample-side analog of the experiment section's
+// /e badge. Opens a popover with NCBI + Wikipedia details.
+function OrganismInfoButton({
+  name,
+  taxonId,
+}: {
+  name: string;
+  taxonId: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading } = useQuery({
+    queryKey: ["taxon", name, taxonId],
+    queryFn: () => fetchTaxon(name, taxonId),
+    enabled: open,
+    staleTime: Infinity,
+  });
+  const ncbiUrl = taxonId
+    ? `https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=${taxonId}`
+    : null;
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger>
+        <Button size={"2"} style={{ cursor: "pointer" }}>
+          <InfoCircledIcon />
+          <Text style={{ fontStyle: "italic" }}>{name}</Text>
+        </Button>
+      </Popover.Trigger>
+      <Popover.Content maxWidth="20rem" size={"1"}>
+        {isLoading && (
+          <Text size="2" color="gray">
+            Loading…
+          </Text>
+        )}
+        {data && (
+          <Flex direction="column" gap="2">
+            {data.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={data.image}
+                alt={name}
+                style={{
+                  width: "100%",
+                  maxHeight: "10rem",
+                  objectFit: "cover",
+                  borderRadius: "var(--radius-2)",
+                }}
+              />
+            )}
+            <Text size="3" weight="bold" style={{ fontStyle: "italic" }}>
+              {name}
+            </Text>
+            {data.commonName && (
+              <Text size="2" color="gray">
+                {data.commonName?.charAt(0).toUpperCase() +
+                  data.commonName?.slice(1)}
+              </Text>
+            )}
+            <Flex gap="2" wrap="wrap">
+              {data.rank && (
+                <Badge size="1" variant="soft">
+                  {data.rank}
+                </Badge>
+              )}
+              {data.division && (
+                <Badge size="1" color="gray" variant="soft">
+                  {data.division}
+                </Badge>
+              )}
+              {taxonId && (
+                <Badge size="1" color="gray" variant="soft">
+                  ID{" "}
+                  <span style={{ fontFamily: "var(--font-geist-mono)" }}>
+                    {taxonId}
+                  </span>
+                </Badge>
+              )}
+            </Flex>
+            {data.extract && (
+              <Text size="1" color="gray">
+                {data.extract}
+                {data.wikiUrl && (
+                  <>
+                    {" "}
+                    <Link
+                      href={data.wikiUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="1"
+                      underline="hover"
+                    >
+                      Read more on Wikipedia.
+                    </Link>
+                  </>
+                )}
+              </Text>
+            )}
+            {ncbiUrl && (
+              <Link
+                href={ncbiUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="1"
+              >
+                View on NCBI Taxonomy <ExternalLinkIcon />
+              </Link>
+            )}
+          </Flex>
+        )}
+      </Popover.Content>
+    </Popover.Root>
+  );
+}
+
+function ProjectBadge({
+  accession,
+  size = { initial: "2", md: "3" },
+}: {
+  accession: string;
+  size?: React.ComponentProps<typeof Badge>["size"];
+}) {
+  return (
+    <a href={`/p/${accession}`}>
+      <Badge
+        size={size}
+        color="green"
+        style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+      >
+        {accession}
+        <EnterIcon />
+      </Badge>
+    </a>
+  );
+}
 
 function GeoSampleDetail({ sample }: { sample: Sample }) {
   const channels = sample.channels || [];
@@ -187,17 +390,7 @@ function GeoSampleDetail({ sample }: { sample: Sample }) {
             : ch.Organism;
         const chars = ch.Characteristics || [];
         return (
-          <Flex
-            key={idx}
-            direction="column"
-            gap="2"
-            p="3"
-            style={{
-              background: "var(--gray-2)",
-              borderRadius: "var(--radius-3)",
-              border: "1px solid var(--gray-4)",
-            }}
-          >
+          <InfoPanel key={idx}>
             {channels.length > 1 && (
               <Text size="2" weight="medium">
                 Channel {ch["@position"] || idx + 1}
@@ -248,454 +441,117 @@ function GeoSampleDetail({ sample }: { sample: Sample }) {
                 ))}
               </Flex>
             )}
-          </Flex>
+          </InfoPanel>
         );
       })}
     </Flex>
   );
 }
 
-function SraSampleDetail({
-  sample,
-  experiment,
-}: {
-  sample: Sample | null;
-  experiment: Experiment | null;
-}) {
-  // Parse attributes if string
-  let attributes: Record<string, string> = {};
-  if (sample?.attributes_json) {
-    if (typeof sample.attributes_json === "string") {
-      try {
-        const parsed = JSON.parse(sample.attributes_json);
-        if (Array.isArray(parsed)) {
-          for (const attr of parsed) {
-            const key = attr.tag || attr.key || "";
-            if (key) attributes[key] = attr.value || "";
-          }
-        } else if (typeof parsed === "object") {
-          attributes = parsed;
-        }
-      } catch {
-        /* ignore */
-      }
-    } else if (typeof sample.attributes_json === "object") {
-      if (Array.isArray(sample.attributes_json)) {
-        for (const attr of sample.attributes_json as unknown as {
-          tag?: string;
-          key?: string;
-          value?: string;
-        }[]) {
-          const key = attr.tag || attr.key || "";
-          if (key) attributes[key] = attr.value || "";
-        }
-      } else {
-        attributes = sample.attributes_json;
-      }
-    }
-  }
+// The experiment's full metadata, shown as its own section (not a card) with a
+// badge linking to the dedicated /e page, mirroring what that page displays.
+function ExperimentSection({ experiment }: { experiment: Experiment }) {
+  // design_description is prose (sometimes a full paragraph), so it reads as a
+  // description above the table rather than a cramped cell — matching the /e page.
+  const rows = (
+    [
+      ["Title", experiment.title],
+      ["Library strategy", experiment.library_strategy],
+      ["Library source", experiment.library_source],
+      ["Library selection", experiment.library_selection],
+      ["Library layout", experiment.library_layout],
+      ["Library name", experiment.library_name],
+      ["Platform", experiment.platform],
+      ["Instrument model", experiment.instrument_model],
+      ["Submission", experiment.submission],
+    ] as [string, string | null][]
+  ).filter((f): f is [string, string] => Boolean(f[1]));
 
   return (
     <Flex direction="column" gap="3">
-      {experiment && (
-        <Flex
-          direction="column"
-          gap="2"
-          p="3"
-          style={{
-            background: "var(--gray-2)",
-            borderRadius: "var(--radius-3)",
-            border: "1px solid var(--gray-4)",
-          }}
-        >
-          <Text size="2" weight="medium">
-            Experiment
-          </Text>
-          <Flex gap="2" wrap="wrap">
-            <Badge size="2" variant="outline">
+      <SectionHeader
+        id="experiment"
+        title="Experiment"
+        right={
+          <a href={`/e/${experiment.accession}`}>
+            <DbBadge
+              size={{ initial: "2", md: "3" }}
+              db={getDbBadgeColor(experiment.accession)}
+              variant="soft"
+              style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+            >
               {experiment.accession}
-            </Badge>
-            {experiment.library_strategy && (
-              <Badge size="2" color="blue" variant="soft">
-                {experiment.library_strategy}
-              </Badge>
-            )}
-            {experiment.library_layout && (
-              <Badge
-                size="2"
-                color={
-                  experiment.library_layout === "PAIRED" ? "blue" : "gray"
-                }
-                variant="soft"
+              <EnterIcon />
+            </DbBadge>
+          </a>
+        }
+      />
+      {experiment.design_description && (
+        <Text>{experiment.design_description}</Text>
+      )}
+      <Table.Root size="1" variant="surface">
+        <Table.Body>
+          {rows.map(([label, value]) => (
+            <Table.Row key={label}>
+              <Table.RowHeaderCell
+                style={{ width: "200px", color: "var(--gray-11)" }}
               >
-                {experiment.library_layout}
-              </Badge>
-            )}
-            {experiment.platform && (
-              <Badge size="2" variant="soft">
-                {experiment.platform}
-              </Badge>
-            )}
-            {experiment.instrument_model && (
-              <Badge size="2" color="gray" variant="soft">
-                {experiment.instrument_model}
-              </Badge>
-            )}
-          </Flex>
-          {experiment.title && (
-            <Text size="2" color="gray">
-              {experiment.title}
-            </Text>
-          )}
-          {experiment.design_description && (
-            <Text size="1" color="gray">
-              <TextWithLineBreaks text={experiment.design_description} />
-            </Text>
-          )}
-        </Flex>
-      )}
-
-      {sample && (
-        <Flex
-          direction="column"
-          gap="2"
-          p="3"
-          style={{
-            background: "var(--gray-2)",
-            borderRadius: "var(--radius-3)",
-            border: "1px solid var(--gray-4)",
-          }}
-        >
-          <Flex justify="between" align="center">
-            <Text size="2" weight="medium">
-              Sample
-            </Text>
-            <Badge size="1" variant="outline">
-              {sample.accession}
-            </Badge>
-          </Flex>
-          {sample.title && <Text size="2">{sample.title}</Text>}
-          {sample.description && (
-            <Text size="1" color="gray">
-              <TextWithLineBreaks text={sample.description} />
-            </Text>
-          )}
-          {sample.scientific_name && (
-            <Flex gap="2" align="center">
-              <Text size="2" color="gray">
-                Organism:
-              </Text>
-              <Text size="2" style={{ fontStyle: "italic" }}>
-                {sample.scientific_name}
-              </Text>
-              {sample.taxon_id && (
-                <Text size="1" color="gray">
-                  (taxid: {sample.taxon_id})
-                </Text>
-              )}
-            </Flex>
-          )}
-
-          {Object.keys(attributes).length > 0 && (
-            <Flex direction="column" gap="1" mt="1">
-              <Text size="2" weight="medium">
-                Attributes
-              </Text>
-              {Object.entries(attributes).map(([key, value]) => (
-                <Flex key={key} gap="2">
-                  <Text
-                    size="1"
-                    color="gray"
-                    style={{ minWidth: "140px", fontWeight: 500 }}
-                  >
-                    {key}:
-                  </Text>
-                  <Text size="1">{value || "-"}</Text>
-                </Flex>
-              ))}
-            </Flex>
-          )}
-        </Flex>
-      )}
+                {label}
+              </Table.RowHeaderCell>
+              <Table.Cell>
+                <TextWithLineBreaks text={value} />
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table.Root>
     </Flex>
   );
 }
 
-export function RunsSection({
-  runs,
-  agGridThemeClassName,
-}: {
-  runs: RunRow[];
-  agGridThemeClassName: string;
-}) {
-  const hasMissingFastq = runs.some((r) => !r.fastq_ftp);
-  const pairedCount = runs.filter(
-    (r) => r.library_layout === "PAIRED",
-  ).length;
-  const singleCount = runs.filter(
-    (r) => r.library_layout === "SINGLE",
-  ).length;
-  const totalBytes = runs.reduce((sum, r) => {
-    const bytes = r.fastq_bytes
-      ? r.fastq_bytes
-          .split(";")
-          .filter(Boolean)
-          .reduce((s, b) => s + (parseInt(b, 10) || 0), 0)
-      : 0;
-    return sum + bytes;
-  }, 0);
+// Sample metadata as a table, mirroring the experiment section. Title and
+// organism live in the page header, so they're not repeated here.
+function SraSampleDetail({ sample }: { sample: Sample | null }) {
+  if (!sample) return null;
+  // ponytail: the API builds attributes_json server-side as a jsonb object
+  // (jsonb_object_agg / to_jsonb), so it arrives as a plain object — no need to
+  // parse strings or fold {tag,value} arrays.
+  const attributes: Record<string, string> =
+    sample.attributes_json && !Array.isArray(sample.attributes_json)
+      ? sample.attributes_json
+      : {};
 
-  const colDefs = React.useMemo<ColDef<RunRow>[]>(
-    () => [
-      {
-        headerName: "Run",
-        field: "run_accession",
-        minWidth: 110,
-        maxWidth: 140,
-        pinned: "left",
-      },
-      {
-        headerName: "Run Alias",
-        field: "run_alias",
-        minWidth: 160,
-        maxWidth: 280,
-        tooltipField: "run_alias",
-        valueFormatter: (params) => params.value || "-",
-        cellStyle: { fontFamily: "var(--code-font-family)", fontSize: "0.8rem" },
-      },
-      {
-        headerName: "Layout",
-        field: "library_layout",
-        minWidth: 80,
-        maxWidth: 110,
-        cellRenderer: (params: ICellRendererParams<RunRow>) => {
-          const layout = params.value;
-          if (!layout) return "-";
-          return (
-            <Badge
-              size="1"
-              color={layout === "PAIRED" ? "blue" : "gray"}
-              variant="soft"
-            >
-              {layout}
-            </Badge>
-          );
-        },
-      },
-      {
-        headerName: "FASTQ Files",
-        field: "fastq_ftp",
-        minWidth: 280,
-        autoHeight: true,
-        wrapText: true,
-        cellRenderer: (params: ICellRendererParams<RunRow>) => {
-          const row = params.data;
-          if (!row) return "-";
-          const urls = row.fastq_ftp
-            ? row.fastq_ftp.split(";").filter(Boolean)
-            : [];
-          const bytes = row.fastq_bytes
-            ? row.fastq_bytes.split(";").filter(Boolean)
-            : [];
-          const isInterleavedPaired =
-            row.library_layout === "PAIRED" && urls.length === 1;
-          const names = fastqFileNames(row.fastq_ftp, row.fastq_filenames);
-          if (urls.length > 0) {
-            return (
-              <Flex direction="column" gap="1" py="1">
-                {urls.map((ftp, i) => {
-                  const filename = names[i];
-                  const size = parseInt(bytes[i], 10) || 0;
-                  return (
-                    <Flex key={ftp} align="center" gap="2">
-                      <Link
-                        href={fileUrl(ftp)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        size="1"
-                        style={{ fontFamily: "var(--code-font-family)" }}
-                      >
-                        {filename}
-                      </Link>
-                      {size > 0 && (
-                        <Text size="1" color="gray">
-                          {formatBytes(size)}
-                        </Text>
-                      )}
-                    </Flex>
-                  );
-                })}
-                {isInterleavedPaired && (
-                  <Tooltip content="Paired-end reads are in a single interleaved file. Use fasterq-dump --split-3 to extract R1/R2.">
-                    <Badge size="1" color="amber" variant="soft" style={{ cursor: "help", width: "fit-content" }}>
-                      <InfoCircledIcon /> Interleaved PE
-                    </Badge>
-                  </Tooltip>
-                )}
-              </Flex>
-            );
-          }
-          return (
-            <Text size="1" color="gray">
-              -
-            </Text>
-          );
-        },
-      },
-      ...(hasMissingFastq
-        ? [
-            {
-              headerName: "Cloud / SRAlite",
-              minWidth: 260,
-              autoHeight: true,
-              wrapText: true,
-              cellRenderer: (params: ICellRendererParams<RunRow>) => {
-                const row = params.data;
-                if (!row) return "-";
-                const entries: {
-                  url: string;
-                  bytes: string | null;
-                  badge: string;
-                  color: "orange" | "blue" | "gray" | "violet";
-                }[] = [];
-                if (row.ncbi_sra_normalized_url)
-                  entries.push({
-                    url: row.ncbi_sra_normalized_url,
-                    bytes: row.ncbi_sra_normalized_bytes,
-                    badge: "SRA",
-                    color: "orange",
-                  });
-                if (row.ncbi_sra_lite_url)
-                  entries.push({
-                    url: row.ncbi_sra_lite_url,
-                    bytes: row.ncbi_sra_lite_bytes,
-                    badge: "Lite",
-                    color: "blue",
-                  });
-                if (row.ncbi_sra_lite_s3_url)
-                  entries.push({
-                    url: row.ncbi_sra_lite_s3_url,
-                    bytes: null,
-                    badge: "S3",
-                    color: "violet",
-                  });
-                if (row.ncbi_sra_lite_gs_url)
-                  entries.push({
-                    url: row.ncbi_sra_lite_gs_url,
-                    bytes: null,
-                    badge: "GCS",
-                    color: "gray",
-                  });
-                if (entries.length === 0) {
-                  return (
-                    <Text size="1" color="gray">
-                      -
-                    </Text>
-                  );
-                }
-                return (
-                  <Flex direction="column" gap="1" py="1">
-                    {entries.map((e) => {
-                      const label =
-                        e.url.split("/").pop() || row.run_accession;
-                      const size = e.bytes ? parseInt(e.bytes, 10) : 0;
-                      return (
-                        <Flex key={e.url} align="center" gap="2">
-                          <Link
-                            href={e.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            size="1"
-                            style={{ fontFamily: "var(--code-font-family)" }}
-                          >
-                            {label}
-                          </Link>
-                          {size > 0 && (
-                            <Text size="1" color="gray">
-                              {formatBytes(size)}
-                            </Text>
-                          )}
-                          <Badge size="1" color={e.color} variant="soft">
-                            {e.badge}
-                          </Badge>
-                        </Flex>
-                      );
-                    })}
-                  </Flex>
-                );
-              },
-            } satisfies ColDef<RunRow>,
-          ]
-        : []),
-      {
-        headerName: "Size",
-        minWidth: 70,
-        maxWidth: 100,
-        valueGetter: (params: ValueGetterParams<RunRow>) => {
-          const bytes = params.data?.fastq_bytes
-            ? params.data.fastq_bytes.split(";").filter(Boolean)
-            : [];
-          return bytes.reduce((sum, b) => sum + (parseInt(b, 10) || 0), 0);
-        },
-        valueFormatter: (params) =>
-          params.value > 0 ? formatBytes(params.value as number) : "-",
-      },
-    ],
-    [hasMissingFastq],
-  );
+  const rows: [string, string][] = [];
+  if (sample.description) rows.push(["Description", sample.description]);
+  for (const [key, value] of Object.entries(attributes)) {
+    rows.push([key, value || "-"]);
+  }
 
-  const defaultColDef = React.useMemo<ColDef<RunRow>>(
-    () => ({ filter: true, resizable: true, sortable: true }),
-    [],
-  );
-
-  const gridHeight = Math.min(400, 48 + runs.length * 42);
+  if (rows.length === 0) {
+    return (
+      <Text size="2" color="gray">
+        No sample metadata.
+      </Text>
+    );
+  }
 
   return (
-    <>
-      <Flex id="runs" align="center" gap="2">
-        <Heading as="h2" weight="medium" size="5">
-          Runs
-        </Heading>
-        <SectionAnchor id="runs" />
-        <Badge size="2" color="gray">
-          {runs.length} run{runs.length !== 1 ? "s" : ""}
-        </Badge>
-      </Flex>
-
-      <Flex gap="2" wrap="wrap">
-        {pairedCount > 0 && (
-          <Badge size="2" color="blue" variant="soft">
-            {pairedCount} paired-end
-          </Badge>
-        )}
-        {singleCount > 0 && (
-          <Badge size="2" variant="soft">
-            {singleCount} single-end
-          </Badge>
-        )}
-        {totalBytes > 0 && (
-          <Badge size="2" variant="soft">
-            {formatBytes(totalBytes)} total
-          </Badge>
-        )}
-      </Flex>
-
-      <div
-        className={agGridThemeClassName}
-        style={{ width: "100%", height: `${gridHeight}px` }}
-      >
-        <AgGridReact<RunRow>
-          columnDefs={colDefs}
-          defaultColDef={defaultColDef}
-          enableCellTextSelection
-          ensureDomOrder
-          rowData={runs}
-          getRowId={(params) => params.data.run_accession}
-          theme="legacy"
-        />
-      </div>
-    </>
+    <Table.Root size="1" variant="surface">
+      <Table.Body>
+        {rows.map(([label, value]) => (
+          <Table.Row key={label}>
+            <Table.RowHeaderCell
+              style={{ width: "200px", color: "var(--gray-11)" }}
+            >
+              {label}
+            </Table.RowHeaderCell>
+            <Table.Cell>
+              <TextWithLineBreaks text={value} />
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
   );
 }
 
@@ -743,31 +599,11 @@ export default function SampleDetailPage() {
   const projectAccession = detail?.project_accession;
   const sampleType = detail?.sample_type;
 
-  const externalLink = accession
-    ? getExternalArchiveUrl(accession)
-    : null;
+  const externalLink = accession ? getExternalArchiveUrl(accession) : null;
   const badgeColor = accession ? getDbBadgeColor(accession) : undefined;
 
   const publications = project?.publications ?? null;
-  const projectDescription =
-    project?.abstract || project?.summary || null;
-
-  const rawOrganisms = project?.organisms;
-  const organisms = React.useMemo(() => {
-    if (!rawOrganisms) return [];
-    if (Array.isArray(rawOrganisms)) return rawOrganisms;
-    if (typeof rawOrganisms === "string") {
-      try {
-        return JSON.parse(rawOrganisms) as string[];
-      } catch {
-        return rawOrganisms
-          .split(/[;,|]/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
-    }
-    return [];
-  }, [rawOrganisms]);
+  const projectDescription = project?.abstract || project?.summary || null;
 
   return (
     <>
@@ -866,7 +702,7 @@ export default function SampleDetailPage() {
         >
           {/* Sample header */}
           <Flex justify="between" style={{ width: "100%" }} align="center">
-            <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
+            <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
               {sample?.title || accession}
             </Heading>
           </Flex>
@@ -901,30 +737,7 @@ export default function SampleDetailPage() {
               </Flex>
             </DbBadge>
 
-            {projectAccession && (
-              <a href={`/p/${projectAccession}`}>
-                <Badge
-                  size={{ initial: "2", md: "3" }}
-                  color="green"
-                  style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  {projectAccession}
-                  <ExternalLinkIcon />
-                </Badge>
-              </a>
-            )}
-
-            {organisms.map((org) => (
-              <Badge
-                key={org}
-                size={{ initial: "2", md: "3" }}
-                color="gray"
-                variant="soft"
-                style={{ fontStyle: "italic" }}
-              >
-                {org}
-              </Badge>
-            ))}
+            {projectAccession && <ProjectBadge accession={projectAccession} />}
 
             {externalLink && (
               <a
@@ -935,7 +748,6 @@ export default function SampleDetailPage() {
                 <DbBadge
                   size={{ initial: "2", md: "3" }}
                   db={badgeColor}
-                  variant="outline"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {externalLink.label}
@@ -950,7 +762,6 @@ export default function SampleDetailPage() {
             >
               <Badge
                 size={{ initial: "2", md: "3" }}
-                variant="outline"
                 style={{ cursor: "pointer", whiteSpace: "nowrap" }}
               >
                 <DownloadIcon /> Download metadata
@@ -960,23 +771,40 @@ export default function SampleDetailPage() {
 
           {/* Sample detail */}
           <Flex direction="column" gap="3">
-            <Flex id="sample" align="center" gap="2">
-              <Heading as="h2" weight="medium" size="5">
-                Sample metadata
-              </Heading>
-              <SectionAnchor id="sample" />
-            </Flex>
+            <SectionHeader
+              id="sample"
+              title="Sample metadata"
+              right={
+                sample?.scientific_name ? (
+                  <OrganismInfoButton
+                    name={sample.scientific_name}
+                    taxonId={sample.taxon_id ?? null}
+                  />
+                ) : undefined
+              }
+            />
             {sampleType === "geo_sample" && sample ? (
               <GeoSampleDetail sample={sample} />
             ) : (
-              <SraSampleDetail sample={sample ?? null} experiment={experiment ?? null} />
+              <SraSampleDetail sample={sample ?? null} />
             )}
           </Flex>
 
+          {/* Experiment (SRA/ENA/DDBJ samples only) */}
+          {sampleType !== "geo_sample" && experiment && (
+            <ExperimentSection experiment={experiment} />
+          )}
+
           {/* Runs */}
           {runs && runs.length > 0 && (
-            <RunsSection
+            <ScopedFastqSection
               runs={runs}
+              studyAccession={projectAccession ?? accession ?? ""}
+              expTitleMap={
+                experiment
+                  ? new Map([[experiment.accession, experiment.title ?? ""]])
+                  : undefined
+              }
               agGridThemeClassName={agGridThemeClassName}
             />
           )}
@@ -1005,24 +833,15 @@ export default function SampleDetailPage() {
           {/* Project context */}
           {project && (
             <Flex direction="column" gap="3">
-              <Flex id="project" align="center" gap="2">
-                <Heading as="h2" weight="medium" size="5">
-                  Parent project
-                </Heading>
-                <SectionAnchor id="project" />
-                {projectAccession && (
-                  <a href={`/p/${projectAccession}`}>
-                    <Badge
-                      size="2"
-                      color="green"
-                      style={{ cursor: "pointer" }}
-                    >
-                      {projectAccession}
-                      <ExternalLinkIcon />
-                    </Badge>
-                  </a>
-                )}
-              </Flex>
+              <SectionHeader
+                id="project"
+                title="Parent project"
+                right={
+                  projectAccession ? (
+                    <ProjectBadge accession={projectAccession} />
+                  ) : undefined
+                }
+              />
 
               <Flex justify="between" align="center">
                 <Text size="3" weight="medium">
@@ -1033,22 +852,13 @@ export default function SampleDetailPage() {
               {projectDescription && (
                 <ProjectSummary text={projectDescription} charLimit={350} />
               )}
-
-              {project.center && (
-                <SubmittingOrgPanel center={project.center} />
-              )}
             </Flex>
           )}
 
-          {/* Publications */}
+          {/* Linked publications — before the submitting-org map below. */}
           {publications && publications.length > 0 && (
             <Flex direction="column" gap="3">
-              <Flex id="publications" align="center" gap="2">
-                <Heading as="h2" weight="medium" size="5">
-                  Publications
-                </Heading>
-                <SectionAnchor id="publications" />
-              </Flex>
+              <SectionHeader id="publications" title="Linked publications" />
               {publications.map((pub, i) => (
                 <PublicationCard
                   key={pub.pmid || i}
@@ -1058,6 +868,8 @@ export default function SampleDetailPage() {
               ))}
             </Flex>
           )}
+
+          {project?.center && <SubmittingOrgPanel center={project.center} />}
         </Flex>
       )}
     </>

@@ -1,17 +1,18 @@
 "use client";
+import DbBadge from "@/components/db-badge";
+import ProjectSupplementary from "@/components/project-supplementary";
 import SearchBar from "@/components/search-bar";
 import SectionAnchor from "@/components/section-anchor";
-import ProjectSupplementary from "@/components/project-supplementary";
-import { RunsSection, type RunRow } from "@/components/sample-detail-page";
+import { ScopedFastqSection, type RunRow } from "@/components/sra-project-page";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
-import DbBadge from "@/components/db-badge";
-import { dbForArchive } from "@/utils/db-colors";
 import { copyToClipboard } from "@/utils/clipboard";
+import { dbForArchive } from "@/utils/db-colors";
 import {
   CheckIcon,
   CopyIcon,
+  EnterIcon,
   ExternalLinkIcon,
   HomeIcon,
   MagnifyingGlassIcon,
@@ -151,7 +152,10 @@ export default function RunDetailPage() {
             <Button variant="surface" onClick={() => refetch()}>
               <ReloadIcon /> Retry
             </Button>
-            <Button variant="ghost" onClick={() => (window.location.href = "/")}>
+            <Button
+              variant="ghost"
+              onClick={() => (window.location.href = "/")}
+            >
               <MagnifyingGlassIcon /> Search instead
             </Button>
           </Flex>
@@ -167,7 +171,7 @@ export default function RunDetailPage() {
           direction="column"
           gap="4"
         >
-          <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
+          <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
             {run.run_alias || accession}
           </Heading>
 
@@ -210,7 +214,7 @@ export default function RunDetailPage() {
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {run.experiment_accession}
-                  <ExternalLinkIcon />
+                  <EnterIcon />
                 </DbBadge>
               </a>
             )}
@@ -223,7 +227,7 @@ export default function RunDetailPage() {
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {run.study_accession}
-                  <ExternalLinkIcon />
+                  <EnterIcon />
                 </Badge>
               </a>
             )}
@@ -237,7 +241,6 @@ export default function RunDetailPage() {
                 <DbBadge
                   size={{ initial: "2", md: "3" }}
                   db={badgeColor}
-                  variant="outline"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {externalLink.label}
@@ -248,12 +251,16 @@ export default function RunDetailPage() {
           </Flex>
 
           <Flex id="downloads" align="center" gap="2">
-            <Heading as="h2" weight="medium" size="5">
+            <Heading as="h2" weight="medium" size="6">
               Downloads
             </Heading>
             <SectionAnchor id="downloads" />
           </Flex>
-          <RunsSection runs={[run]} agGridThemeClassName={agGridThemeClassName} />
+          <ScopedFastqSection
+            runs={[run]}
+            studyAccession={run.study_accession ?? accession ?? ""}
+            agGridThemeClassName={agGridThemeClassName}
+          />
 
           <ProjectSupplementary accession={run.study_accession} />
         </Flex>

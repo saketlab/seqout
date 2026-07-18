@@ -1,17 +1,18 @@
 "use client";
+import DbBadge from "@/components/db-badge";
+import ProjectSupplementary from "@/components/project-supplementary";
 import SearchBar from "@/components/search-bar";
 import SectionAnchor from "@/components/section-anchor";
-import ProjectSupplementary from "@/components/project-supplementary";
-import { RunsSection, type RunRow } from "@/components/sample-detail-page";
+import { ScopedFastqSection, type RunRow } from "@/components/sra-project-page";
 import { useToast } from "@/components/toast-provider";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson } from "@/utils/api";
-import DbBadge from "@/components/db-badge";
-import { dbForArchive } from "@/utils/db-colors";
 import { copyToClipboard } from "@/utils/clipboard";
+import { dbForArchive } from "@/utils/db-colors";
 import {
   CheckIcon,
   CopyIcon,
+  EnterIcon,
   ExternalLinkIcon,
   HomeIcon,
   MagnifyingGlassIcon,
@@ -59,7 +60,11 @@ const fetchExperiment = async (
 function MetadataRow({ label, value }: { label: string; value: string }) {
   return (
     <Flex gap="2">
-      <Text size="2" color="gray" style={{ minWidth: "140px", fontWeight: 500 }}>
+      <Text
+        size="2"
+        color="gray"
+        style={{ minWidth: "140px", fontWeight: 500 }}
+      >
         {label}
       </Text>
       <Text size="2">{value}</Text>
@@ -197,7 +202,10 @@ export default function ExperimentDetailPage() {
             <Button variant="surface" onClick={() => refetch()}>
               <ReloadIcon /> Retry
             </Button>
-            <Button variant="ghost" onClick={() => (window.location.href = "/")}>
+            <Button
+              variant="ghost"
+              onClick={() => (window.location.href = "/")}
+            >
               <MagnifyingGlassIcon /> Search instead
             </Button>
           </Flex>
@@ -213,7 +221,7 @@ export default function ExperimentDetailPage() {
           direction="column"
           gap="4"
         >
-          <Heading as="h1" size={{ initial: "4", md: "6" }} weight="bold">
+          <Heading as="h1" size={{ initial: "6", md: "8" }} weight="bold">
             {experiment.title || accession}
           </Heading>
 
@@ -255,7 +263,7 @@ export default function ExperimentDetailPage() {
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {experiment.study}
-                  <ExternalLinkIcon />
+                  <EnterIcon />
                 </Badge>
               </a>
             )}
@@ -269,7 +277,6 @@ export default function ExperimentDetailPage() {
                 <DbBadge
                   size={{ initial: "2", md: "3" }}
                   db={badgeColor}
-                  variant="outline"
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   {externalLink.label}
@@ -281,7 +288,7 @@ export default function ExperimentDetailPage() {
 
           <Flex direction="column" gap="3">
             <Flex id="experiment" align="center" gap="2">
-              <Heading as="h2" weight="medium" size="5">
+              <Heading as="h2" weight="medium" size="6">
                 Experiment metadata
               </Heading>
               <SectionAnchor id="experiment" />
@@ -315,7 +322,14 @@ export default function ExperimentDetailPage() {
           </Flex>
 
           {runs.length > 0 && (
-            <RunsSection runs={runs} agGridThemeClassName={agGridThemeClassName} />
+            <ScopedFastqSection
+              runs={runs}
+              studyAccession={experiment.study ?? accession ?? ""}
+              expTitleMap={
+                new Map([[experiment.accession, experiment.title ?? ""]])
+              }
+              agGridThemeClassName={agGridThemeClassName}
+            />
           )}
 
           <ProjectSupplementary accession={experiment.study} />
