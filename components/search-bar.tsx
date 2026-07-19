@@ -9,6 +9,7 @@ import { useSearchHistory } from "@/utils/useSearchHistory";
 import {
   GitHubLogoIcon,
   HamburgerMenuIcon,
+  InfoCircledIcon,
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import {
@@ -18,6 +19,7 @@ import {
   IconButton,
   Link,
   TextField,
+  Tooltip,
 } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -305,6 +307,16 @@ function SearchBarContent({
         align={"center"}
         display={{ initial: "none", md: "flex" }}
       >
+        <Tooltip content="How search works">
+          <IconButton
+            variant="outline"
+            color="gray"
+            aria-label="How search works"
+            onClick={() => router.push("/howsearchworks")}
+          >
+            <InfoCircledIcon />
+          </IconButton>
+        </Tooltip>
         <GitHubButton />
         <ThemeToggle />
       </Flex>

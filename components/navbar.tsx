@@ -4,8 +4,16 @@ import { NAV_ITEMS, type NavItem } from "@/utils/nav";
 import {
   GitHubLogoIcon,
   HamburgerMenuIcon,
+  InfoCircledIcon,
 } from "@radix-ui/react-icons";
-import { Box, DropdownMenu, Flex, IconButton, Link } from "@radix-ui/themes";
+import {
+  Box,
+  Button,
+  DropdownMenu,
+  Flex,
+  IconButton,
+  Link,
+} from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
 import BulkMetaDialog from "./bulk-meta-dialog";
 import GitHubButton from "./github-button";
@@ -84,6 +92,13 @@ export default function Navabar() {
         gap={"4"}
         align={"center"}
       >
+        <Button
+          variant="outline"
+          color="gray"
+          onClick={() => router.push("/howsearchworks")}
+        >
+          <InfoCircledIcon /> How search works
+        </Button>
         <GitHubButton />
         <ThemeToggle />
       </Flex>
