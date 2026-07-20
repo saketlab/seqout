@@ -1467,8 +1467,32 @@ export default function GeoProjectPage() {
                   </Badge>
                 ) : undefined
               }
-              onExportOriginalCsv={() => {
-                if (!samples || samples.length === 0) return;
+              onExportOriginalCsv={async () => {
+                // Export every sample, not just the rows scrolled into view.
+                // Reuse the loaded set only when it's already complete.
+                const all =
+                  samples && samples.length >= samplesTotal
+                    ? samples
+                    : samplesAccession
+                      ? await fetchAllSamples(samplesAccession)
+                      : samples;
+                if (!all || all.length === 0) return;
+
+                // Characteristic columns must cover the full export, so derive
+                // the tag set from every sample rather than the loaded ones.
+                const tagSet = new Set<string>();
+                for (const sample of all) {
+                  for (const channel of sample.channels ?? []) {
+                    const chars = channel.Characteristics;
+                    if (Array.isArray(chars)) {
+                      for (const c of chars) if (c["@tag"]) tagSet.add(c["@tag"]);
+                    } else if (chars && typeof chars === "object" && chars["@tag"]) {
+                      tagSet.add(chars["@tag"]);
+                    }
+                  }
+                }
+                const allTags = Array.from(tagSet);
+
                 // Build CSV headers
                 const headers = [
                   "Sample",
@@ -1484,13 +1508,13 @@ export default function GeoProjectPage() {
                   "Organism",
                   "Label Protocol",
                   "Extract Protocol",
-                  ...characteristicTags,
+                  ...allTags,
                   "Hybridization Protocol",
                   "Scan Protocol",
                 ];
 
                 // Build CSV rows
-                const rows = samples.flatMap((sample) => {
+                const rows = all.flatMap((sample) => {
                   const channels = sample.channels ?? [];
                   if (channels.length === 0) {
                     return [
@@ -1508,7 +1532,7 @@ export default function GeoProjectPage() {
                         "-",
                         "-",
                         "-",
-                        ...characteristicTags.map(() => "-"),
+                        ...allTags.map(() => "-"),
                         sample.hybridization_protocol ?? "-",
                         sample.scan_protocol ?? "-",
                       ],
@@ -1545,9 +1569,7 @@ export default function GeoProjectPage() {
                       channel.Organism?.["#text"] ?? "-",
                       channel["Label-Protocol"] ?? "-",
                       channel["Extract-Protocol"] ?? "-",
-                      ...characteristicTags.map(
-                        (tag) => charMap.get(tag) ?? "-",
-                      ),
+                      ...allTags.map((tag) => charMap.get(tag) ?? "-"),
                       sample.hybridization_protocol ?? "-",
                       sample.scan_protocol ?? "-",
                     ];

@@ -337,6 +337,17 @@ const fetchExperiments = async (
   );
 };
 
+/** Every experiment in one shot — the endpoint treats a missing `limit` as
+ *  "all". Only for CSV export; the grid pages through fetchExperiments. */
+const fetchAllExperiments = async (
+  accession: string,
+): Promise<Experiment[]> => {
+  const { items } = await getJsonWithTotal<Experiment[]>(
+    `/project/${accession}/experiments`,
+  );
+  return items;
+};
+
 // Stable empty-map identity so the derived samplesMap doesn't churn effects.
 const EMPTY_SAMPLES_MAP: Map<string, Sample> = new Map();
 
@@ -2815,8 +2826,44 @@ export default function ProjectPage() {
                       : formatExperimentCount(experimentsTotal)}
                 </Badge>
               }
-              onExportOriginalCsv={() => {
-                if (!experiments || !samplesMap) return;
+              onExportOriginalCsv={async () => {
+                // Export every experiment, not just the rows scrolled into
+                // view. Fetch all experiments, then enrich the samples the
+                // loaded map is missing so sample/attribute columns are complete.
+                // ponytail: one /sample request per missing sample; fine for
+                // typical studies. Add a bulk endpoint if huge studies lag.
+                const allExps =
+                  experiments && experimentsTotal
+                    ? experiments.length >= experimentsTotal
+                      ? experiments
+                      : accession
+                        ? await fetchAllExperiments(accession)
+                        : experiments
+                    : experiments;
+                if (!allExps || allExps.length === 0) return;
+
+                const map = new Map(samplesMap);
+                const missing = [
+                  ...new Set(
+                    allExps
+                      .map((e) => e.samples[0])
+                      .filter((a): a is string => !!a && !map.has(a)),
+                  ),
+                ];
+                if (missing.length > 0) {
+                  const fetched = await Promise.all(missing.map(fetchSample));
+                  for (const s of fetched) if (s) map.set(s.accession, s);
+                }
+
+                // Attribute columns must cover every exported sample, so derive
+                // the key set from the full map rather than the loaded one.
+                const keySet = new Set<string>();
+                map.forEach((s) => {
+                  if (s.attributes_json)
+                    Object.keys(s.attributes_json).forEach((k) => keySet.add(k));
+                });
+                const allKeys = Array.from(keySet);
+
                 const baseHeaders = [
                   "Accession",
                   "Title",
@@ -2832,11 +2879,10 @@ export default function ProjectPage() {
                   "Scientific Name",
                   "Taxon ID",
                 ];
-                const allHeaders = baseHeaders.concat(attributeKeys);
-                const rows = experiments.map((e) => {
+                const allHeaders = baseHeaders.concat(allKeys);
+                const rows = allExps.map((e) => {
                   const sampleAcc = e.samples[0];
-                  const sample =
-                    sampleAcc && samplesMap ? samplesMap.get(sampleAcc) : null;
+                  const sample = sampleAcc ? map.get(sampleAcc) : null;
                   const baseRow = [
                     e.accession,
                     e.title ?? "-",
@@ -2852,7 +2898,7 @@ export default function ProjectPage() {
                     sample?.scientific_name ?? "-",
                     sample?.taxon_id ?? "-",
                   ];
-                  const attrRow = attributeKeys.map(
+                  const attrRow = allKeys.map(
                     (key) => sample?.attributes_json?.[key] ?? "-",
                   );
                   return [...baseRow, ...attrRow];
