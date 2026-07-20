@@ -91,7 +91,9 @@ type Sample = {
 };
 
 type GeoChannel = {
-  Characteristics?: { "@tag": string; "#text": string }[];
+  Characteristics?:
+    | { "@tag": string; "#text": string }
+    | { "@tag": string; "#text": string }[];
   Source?: string;
   Organism?: { "#text": string; "@taxid": string } | string;
   Molecule?: string;
@@ -337,7 +339,9 @@ function GeoSampleDetail({ sample }: { sample: Sample }) {
     if (ch.Source) rows.push([`${prefix}Source`, ch.Source]);
     if (ch.Molecule) rows.push([`${prefix}Molecule`, ch.Molecule]);
     if (ch.Label) rows.push([`${prefix}Label`, ch.Label]);
-    for (const c of ch.Characteristics ?? []) {
+    // ponytail: GEO gives a lone object when there's one characteristic, an array otherwise.
+    const chars = ch.Characteristics;
+    for (const c of Array.isArray(chars) ? chars : chars ? [chars] : []) {
       rows.push([`${prefix}${c["@tag"]}`, c["#text"]]);
     }
   });
