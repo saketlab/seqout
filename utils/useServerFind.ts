@@ -15,7 +15,15 @@ export type FindResult<T> = { rows: T[]; capped: boolean };
  */
 export function useServerFind<T>(
   enabled: boolean,
-  fetchRows: (needle: string, signal: AbortSignal) => Promise<FindResult<T>>,
+  /**
+   * Resolve null when the server could not narrow on any supplied column —
+   * an empty result then means "no answer", not "no matches", and the grid
+   * keeps filtering its loaded rows instead of blanking.
+   */
+  fetchRows: (
+    needle: string,
+    signal: AbortSignal,
+  ) => Promise<FindResult<T> | null>,
 ) {
   const [rows, setRows] = React.useState<T[] | null>(null);
   const [capped, setCapped] = React.useState(false);
@@ -24,6 +32,7 @@ export function useServerFind<T>(
   // the search merely errored out.
   const [error, setError] = React.useState(false);
   const seqRef = React.useRef(0);
+  const lastNeedleRef = React.useRef<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const debounceRef = React.useRef<number | null>(null);
   // Kept in a ref so callers can pass an inline closure without re-arming.
@@ -46,9 +55,15 @@ export function useServerFind<T>(
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
       const value = needle.trim();
       if (!value) {
+        lastNeedleRef.current = null;
         reset();
         return;
       }
+      // An unrelated client-side filter (a number range, say) fires
+      // onFilterChanged too; re-issuing an identical lookup would abort the
+      // in-flight request and ask the same question again.
+      if (value === lastNeedleRef.current) return;
+      lastNeedleRef.current = value;
       debounceRef.current = window.setTimeout(() => {
         const seq = ++seqRef.current;
         abortRef.current?.abort();
@@ -59,6 +74,13 @@ export function useServerFind<T>(
           .current(value, ac.signal)
           .then((data) => {
             if (seq !== seqRef.current) return; // a newer filter superseded this
+            if (data === null) {
+              // Server had nothing to say about these columns.
+              setRows(null);
+              setCapped(false);
+              setError(false);
+              return;
+            }
             setRows(data.rows);
             setCapped(data.capped);
             setError(false);

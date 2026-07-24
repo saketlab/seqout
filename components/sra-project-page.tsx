@@ -50,7 +50,11 @@ import {
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
 import { toServerFilters } from "@/utils/gridFilters";
-import { normalizeAuthors, toDisplayText } from "@/utils/project";
+import {
+  normalizeAliases,
+  normalizeAuthors,
+  toDisplayText,
+} from "@/utils/project";
 import { useServerFind } from "@/utils/useServerFind";
 import {
   CheckIcon,
@@ -113,6 +117,8 @@ type Project = {
   abstract: string;
   authors?: string[] | string | null;
   organisms?: string[] | string | null;
+  /** Names paired with their NCBI taxon id, from the organism_taxa lookup. */
+  organisms_with_taxa?: { name: string; taxon_id: string | null }[] | null;
   coords_2d?: number[] | null;
   coords_3d?: number[] | null;
   neighbors?: SimilarNeighbor[] | null;
@@ -536,6 +542,11 @@ const buildResumeStatusLines = (
   ];
 };
 
+const FASTQ_GRID_HEADER_PX = 48;
+const FASTQ_GRID_MAX_PX = 500;
+/** Only used until the grid reports real heights. */
+const FASTQ_ROW_FALLBACK_PX = 42;
+
 export function DownloadFastqSection({
   accession,
   runsData,
@@ -572,10 +583,12 @@ export function DownloadFastqSection({
   // are resolved server-side instead.
   const needsServerFind = runsData.total_runs > runsData.runs.length;
   const runFind = useServerFind<RunRow>(needsServerFind, (filters, signal) =>
-    getJson<{ runs: RunRow[]; capped: boolean }>(
+    getJson<{ runs: RunRow[]; capped: boolean; filtered?: boolean }>(
       `/project/${encodeURIComponent(accession)}/runs/find?filters=${encodeURIComponent(filters)}`,
       signal,
-    ).then((d) => ({ rows: d.runs, capped: d.capped })),
+    ).then((d) =>
+      d.filtered === false ? null : { rows: d.runs, capped: d.capped },
+    ),
   );
 
   const onFilterChanged = React.useCallback(
@@ -586,6 +599,53 @@ export function DownloadFastqSection({
   );
 
   const displayedRuns = runFind.rows ?? runsData.runs;
+
+  // The height has to cover the rows *and* the grid's own chrome. A row-count
+  // estimate covered neither: rows are autoHeight/wrapText so a run with four
+  // FASTQ files is far taller than the assumed 42px, and the table is wide
+  // enough to always carry a horizontal scrollbar. On a one-run table that left
+  // 48 + 42 = 90px with a 14px scrollbar inside it, so 26px of viewport showed
+  // a 42px row — the run's files were reachable only by scrolling a sliver.
+  // Measure all three parts instead of assuming any of them.
+  const gridBoxRef = React.useRef<HTMLDivElement | null>(null);
+  const [gridHeight, setGridHeight] = useState(
+    Math.min(
+      FASTQ_GRID_MAX_PX,
+      FASTQ_GRID_HEADER_PX +
+        Math.max(displayedRuns.length, 1) * FASTQ_ROW_FALLBACK_PX,
+    ),
+  );
+
+  const measureGridHeight = React.useCallback((api: GridApi<RunRow>) => {
+    let rows = 0;
+    api.forEachNode((node) => {
+      rows += node.rowHeight ?? FASTQ_ROW_FALLBACK_PX;
+    });
+    if (rows <= 0) return;
+
+    const box = gridBoxRef.current;
+    const pxOf = (selector: string, fallback: number) => {
+      const el = box?.querySelector(selector);
+      if (!el || el.classList.contains("ag-invisible")) return 0;
+      return el.getBoundingClientRect().height || fallback;
+    };
+    const header = pxOf(".ag-header", FASTQ_GRID_HEADER_PX);
+    const scrollbar = pxOf(".ag-body-horizontal-scroll", 0);
+    // The wrapper's own 1px top/bottom border sits inside the height we set,
+    // so without it the viewport lands 2px short and the row still clips.
+    const root = box?.querySelector<HTMLElement>(".ag-root-wrapper");
+    const border = root ? root.offsetHeight - root.clientHeight : 0;
+
+    // Re-setting the same value is a no-op in React, so the resize this
+    // triggers settles instead of looping.
+    setGridHeight(
+      Math.min(
+        FASTQ_GRID_MAX_PX,
+        (header || FASTQ_GRID_HEADER_PX) + rows + scrollbar + border,
+      ),
+    );
+  }, []);
+
 
   const sourceUrl = (r: RunRow, source: DownloadSource): string | null => {
     if (source === "fastq") return r.fastq_ftp;
@@ -1438,10 +1498,8 @@ export function DownloadFastqSection({
 
       <div
         className={agGridThemeClassName}
-        style={{
-          width: "100%",
-          height: `${Math.min(500, 48 + Math.max(displayedRuns.length, 1) * 42)}px`,
-        }}
+        ref={gridBoxRef}
+        style={{ width: "100%", height: `${gridHeight}px` }}
       >
         <AgGridReact<RunRow>
           columnDefs={runColDefs}
@@ -1462,6 +1520,10 @@ export function DownloadFastqSection({
           onFilterChanged={onFilterChanged}
           onGridReady={onGridReady}
           onSelectionChanged={onSelectionChanged}
+          // autoHeight rows are measured after the first paint, so the model
+          // updates again once real heights are known — remeasure on both.
+          onFirstDataRendered={(e) => measureGridHeight(e.api)}
+          onModelUpdated={(e) => measureGridHeight(e.api)}
           theme="legacy"
         />
       </div>
@@ -2106,15 +2168,19 @@ export default function ProjectPage() {
   const experimentFind = useServerFind<Experiment>(
     experimentsTotal > (pagedExperiments?.length ?? 0),
     (filters, signal) =>
-      getJson<{ experiments: Experiment[]; capped: boolean }>(
+      getJson<{ experiments: Experiment[]; capped: boolean; filtered?: boolean }>(
         `/project/${encodeURIComponent(accession ?? "")}/experiments/find?filters=${encodeURIComponent(filters)}`,
         signal,
-      ).then((d) => ({ rows: d.experiments, capped: d.capped })),
+      ).then((d) =>
+        d.filtered === false ? null : { rows: d.experiments, capped: d.capped },
+      ),
   );
-  // findRows null → show the loaded pages; otherwise show the server matches.
-  // Feeding it in here means the row mapping, sample lookups and derived
-  // columns below all work on found rows unchanged.
-  const experiments = experimentFind.rows ?? pagedExperiments;
+  // Grid rows only. Rebinding `experiments` itself would shrink everything
+  // derived from it while a filter is active — expTitleMap feeds the Title
+  // column of the FASTQ and BAM tables, so runs whose experiment fell outside
+  // the match set would lose their titles as the user typed in another grid.
+  const experiments = pagedExperiments;
+  const gridExperiments = experimentFind.rows ?? pagedExperiments;
 
   const onExperimentFilterChanged = React.useCallback(
     (e: FilterChangedEvent<ExperimentGridRow>) => {
@@ -2219,11 +2285,29 @@ export default function ProjectPage() {
   const projectOrganisms = React.useMemo<
     { name: string; taxonId: string | null }[]
   >(() => {
-    if (!samplesMap) return [];
-    // Keyed by name: the taxid rides along so the popover can query NCBI, but
-    // one organism should not appear twice because a sample omitted its id.
+    // Union of the study-level organisms column and what the loaded samples
+    // say. Neither is complete on its own: measured over 40k SRA studies, the
+    // column misses an organism the samples have 4.7% of the time, and has one
+    // the samples lack 7.9% of the time. The column also shows immediately,
+    // whereas samples are fetched per experiment page — on its own the list
+    // would grow as you scroll. Taxids only exist on the sample side.
     const byName = new Map<string, string | null>();
-    samplesMap.forEach((sample) => {
+    // organisms_with_taxa carries the taxid; organisms is the older names-only
+    // shape, kept as a fallback until the lookup table is populated.
+    for (const entry of project?.organisms_with_taxa ?? []) {
+      const name = entry?.name?.trim();
+      if (name && name !== "-") byName.set(name, entry.taxon_id || null);
+    }
+    // normalizeAliases handles the declared `string[] | string | null` shape;
+    // this page, unlike the GEO one, does not normalize it at fetch time, so an
+    // Array.isArray check alone would silently drop a string-form list.
+    for (const name of normalizeAliases(project?.organisms ?? null)) {
+      const trimmed = name.trim();
+      if (trimmed && trimmed !== "-" && !byName.has(trimmed)) {
+        byName.set(trimmed, null);
+      }
+    }
+    samplesMap?.forEach((sample) => {
       const name = sample.scientific_name?.trim();
       if (!name) return;
       const taxonId = sample.taxon_id ? String(sample.taxon_id).trim() : null;
@@ -2232,7 +2316,7 @@ export default function ProjectPage() {
     return Array.from(byName, ([name, taxonId]) => ({ name, taxonId })).sort(
       (a, b) => a.name.localeCompare(b.name),
     );
-  }, [samplesMap]);
+  }, [samplesMap, project]);
 
   // Prefer top-level center_name/country_code; fall back to nested center.
   const headerCenter = React.useMemo<{
@@ -2293,9 +2377,9 @@ export default function ProjectPage() {
   }, [samplesMap]);
 
   const experimentRows = React.useMemo<ExperimentGridRow[]>(() => {
-    if (!experiments) return [];
+    if (!gridExperiments) return [];
 
-    return experiments.map((experiment) => {
+    return gridExperiments.map((experiment) => {
       const sampleAccession = experiment.samples[0] ?? null;
       const sample =
         sampleAccession && samplesMap ? samplesMap.get(sampleAccession) : null;
@@ -2319,7 +2403,7 @@ export default function ProjectPage() {
         attributes: sample?.attributes_json ?? {},
       };
     });
-  }, [experiments, samplesMap]);
+  }, [gridExperiments, samplesMap]);
 
   const experimentsGridHeight = React.useMemo(() => {
     const headerHeight = 48;

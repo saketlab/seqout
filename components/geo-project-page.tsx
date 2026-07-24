@@ -100,6 +100,8 @@ type Project = {
   overall_design: string | string[] | null;
   authors?: string[] | string | null;
   organisms?: string[] | string | null;
+  /** Names paired with their NCBI taxon id, from the organism_taxa lookup. */
+  organisms_with_taxa?: { name: string; taxon_id: string | null }[] | null;
   coords_2d?: number[] | null;
   coords_3d?: number[] | null;
   neighbors?: SimilarNeighbor[] | null;
@@ -419,10 +421,12 @@ export default function GeoProjectPage() {
   const sampleFind = useServerFind<GeoSample>(
     samplesTotal > (samples?.length ?? 0),
     (filters, signal) =>
-      getJson<{ samples: GeoSample[]; capped: boolean }>(
+      getJson<{ samples: GeoSample[]; capped: boolean; filtered?: boolean }>(
         `/geo/series/${encodeURIComponent(samplesAccession ?? "")}/samples/find?filters=${encodeURIComponent(filters)}`,
         signal,
-      ).then((d) => ({ rows: d.samples, capped: d.capped })),
+      ).then((d) =>
+        d.filtered === false ? null : { rows: d.samples, capped: d.capped },
+      ),
   );
   // Grid rows only: the organism list, characteristic columns and CSV export
   // stay on the paged set so a lookup doesn't shrink them.
@@ -438,11 +442,25 @@ export default function GeoProjectPage() {
   const projectOrganisms = React.useMemo<
     { name: string; taxonId: string | null }[]
   >(() => {
-    if (!samples) return [];
-    // Keyed by name: the taxid rides along so the popover can query NCBI, but
-    // one organism should not appear twice because a channel omitted its id.
+    // Union of the study-level organisms column and what the loaded samples
+    // say. Neither is complete on its own: measured over 40k SRA studies, the
+    // column misses an organism the samples have 4.7% of the time, and has one
+    // the samples lack 7.9% of the time. The column also shows immediately,
+    // whereas samples page in 20 at a time — on its own the list would grow as
+    // you scroll. Taxids only exist on the sample side.
     const byName = new Map<string, string | null>();
-    for (const sample of samples) {
+    // organisms_with_taxa carries the taxid; organisms is the older names-only
+    // shape, kept as a fallback until the lookup table is populated.
+    for (const entry of project?.organisms_with_taxa ?? []) {
+      const name = entry?.name?.trim();
+      if (name && name !== "-") byName.set(name, entry.taxon_id || null);
+    }
+    const declared = Array.isArray(project?.organisms) ? project.organisms : [];
+    for (const raw of declared) {
+      const name = typeof raw === "string" ? raw.trim() : "";
+      if (name && name !== "-" && !byName.has(name)) byName.set(name, null);
+    }
+    for (const sample of samples ?? []) {
       for (const channel of sample.channels ?? []) {
         const name = channel.Organism?.["#text"]?.trim();
         if (!name || name === "-") continue;
@@ -453,7 +471,7 @@ export default function GeoProjectPage() {
     return Array.from(byName, ([name, taxonId]) => ({ name, taxonId })).sort(
       (a, b) => a.name.localeCompare(b.name),
     );
-  }, [samples]);
+  }, [samples, project]);
 
   // Prefer top-level center_name/country_code; fall back to nested center[].
   const headerCenter = React.useMemo<{
