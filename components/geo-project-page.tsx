@@ -31,6 +31,7 @@ import {
   truncatableColDef,
 } from "@/lib/ag-grid";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
+import { OrganismInfoButton } from "@/components/organism-info-button";
 import { getJson, getJsonWithTotal } from "@/utils/api";
 import { toServerFilters } from "@/utils/gridFilters";
 import { useServerFind } from "@/utils/useServerFind";
@@ -434,17 +435,24 @@ export default function GeoProjectPage() {
     [sampleFind],
   );
 
-  const projectOrganisms = React.useMemo<string[]>(() => {
+  const projectOrganisms = React.useMemo<
+    { name: string; taxonId: string | null }[]
+  >(() => {
     if (!samples) return [];
-    const set = new Set<string>();
+    // Keyed by name: the taxid rides along so the popover can query NCBI, but
+    // one organism should not appear twice because a channel omitted its id.
+    const byName = new Map<string, string | null>();
     for (const sample of samples) {
-      const channels = sample.channels ?? [];
-      for (const channel of channels) {
+      for (const channel of sample.channels ?? []) {
         const name = channel.Organism?.["#text"]?.trim();
-        if (name && name !== "-") set.add(name);
+        if (!name || name === "-") continue;
+        const taxonId = channel.Organism?.["@taxid"]?.trim() || null;
+        if (!byName.get(name)) byName.set(name, taxonId);
       }
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(byName, ([name, taxonId]) => ({ name, taxonId })).sort(
+      (a, b) => a.name.localeCompare(b.name),
+    );
   }, [samples]);
 
   // Prefer top-level center_name/country_code; fall back to nested center[].
@@ -1418,21 +1426,18 @@ export default function GeoProjectPage() {
               </Flex>
             )}
             {projectOrganisms.length > 0 && (
-              <Flex align="start" gap="2" wrap="wrap">
+              <Flex align="center" gap="2" wrap="wrap">
                 <Text size="2" color="gray" style={{ flexShrink: 0 }}>
                   {projectOrganisms.length === 1 ? "Organism:" : "Organisms:"}
                 </Text>
                 <Flex gap="2" align="center" wrap="wrap">
-                  {projectOrganisms.map((name) => (
-                    <Badge
+                  {projectOrganisms.map(({ name, taxonId }) => (
+                    <OrganismInfoButton
                       key={name}
-                      size="2"
-                      color="green"
-                      variant="soft"
-                      style={{ fontStyle: "italic" }}
-                    >
-                      {name}
-                    </Badge>
+                      name={name}
+                      taxonId={taxonId}
+                      size="1"
+                    />
                   ))}
                 </Flex>
               </Flex>

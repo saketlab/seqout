@@ -30,6 +30,7 @@ import {
   truncatableColDef,
   wrapColDef,
 } from "@/lib/ag-grid";
+import { OrganismInfoButton } from "@/components/organism-info-button";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import {
   getJson,
@@ -2215,14 +2216,22 @@ export default function ProjectPage() {
     [project?.authors],
   );
 
-  const projectOrganisms = React.useMemo<string[]>(() => {
+  const projectOrganisms = React.useMemo<
+    { name: string; taxonId: string | null }[]
+  >(() => {
     if (!samplesMap) return [];
-    const set = new Set<string>();
+    // Keyed by name: the taxid rides along so the popover can query NCBI, but
+    // one organism should not appear twice because a sample omitted its id.
+    const byName = new Map<string, string | null>();
     samplesMap.forEach((sample) => {
       const name = sample.scientific_name?.trim();
-      if (name) set.add(name);
+      if (!name) return;
+      const taxonId = sample.taxon_id ? String(sample.taxon_id).trim() : null;
+      if (!byName.get(name)) byName.set(name, taxonId || null);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(byName, ([name, taxonId]) => ({ name, taxonId })).sort(
+      (a, b) => a.name.localeCompare(b.name),
+    );
   }, [samplesMap]);
 
   // Prefer top-level center_name/country_code; fall back to nested center.
@@ -2785,21 +2794,18 @@ export default function ProjectPage() {
               </Flex>
             )}
             {projectOrganisms.length > 0 && (
-              <Flex align="start" gap="2" wrap="wrap">
+              <Flex align="center" gap="2" wrap="wrap">
                 <Text size="2" color="gray" style={{ flexShrink: 0 }}>
                   {projectOrganisms.length === 1 ? "Organism:" : "Organisms:"}
                 </Text>
                 <Flex gap="2" align="center" wrap="wrap">
-                  {projectOrganisms.map((name) => (
-                    <Badge
+                  {projectOrganisms.map(({ name, taxonId }) => (
+                    <OrganismInfoButton
                       key={name}
-                      size="2"
-                      color="green"
-                      variant="soft"
-                      style={{ fontStyle: "italic" }}
-                    >
-                      {name}
-                    </Badge>
+                      name={name}
+                      taxonId={taxonId}
+                      size="1"
+                    />
                   ))}
                 </Flex>
               </Flex>
