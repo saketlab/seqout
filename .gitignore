@@ -35,3 +35,4 @@ tests/testthat/Rplots.pdf
 # Python related
 .venv/
 __pycache__
+.DS_Store
