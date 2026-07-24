@@ -643,9 +643,10 @@ export default function GeoProjectPage() {
     SupplementaryDataItem[]
   > => {
     if (!samplesAccession) return sampleSupplementaryDataItems;
-    if (samples && samples.length >= samplesTotal) {
-      return sampleSupplementaryDataItems;
-    }
+    // No "the loaded set is already complete" shortcut: that test leans on
+    // samplesTotal, which silently degrades to the loaded count when
+    // X-Total-Count cannot be read — reintroducing exactly the scroll-dependent
+    // export this function exists to avoid. The ref below caches the fetch.
     if (!allSampleSupplementaryRef.current) {
       const all = await fetchAllSamples(samplesAccession);
       allSampleSupplementaryRef.current = all.flatMap((sample, sampleIndex) =>
@@ -1512,6 +1513,14 @@ export default function GeoProjectPage() {
               sectionId="samples"
               sectionTitle="Samples"
               hasEnriched={project?.has_enriched}
+              combinedExport={{
+                noun: "sample",
+                sraAccessions: linkedSraAliases,
+                geoAccession: dataAccession ?? null,
+                hasSupplementary:
+                  supplementaryDataItems.length > 0 ||
+                  sampleSupplementaryGroupedRows.length > 0,
+              }}
               titleBadge={
                 samplesTotal > 0 ? (
                   <Badge size={"3"} style={{ whiteSpace: "nowrap" }}>
@@ -1523,13 +1532,15 @@ export default function GeoProjectPage() {
               }
               onExportOriginalCsv={async () => {
                 // Export every sample, not just the rows scrolled into view.
-                // Reuse the loaded set only when it's already complete.
-                const all =
-                  samples && samples.length >= samplesTotal
-                    ? samples
-                    : samplesAccession
-                      ? await fetchAllSamples(samplesAccession)
-                      : samples;
+                // Always re-fetch rather than reusing the loaded set when it
+                // looks complete: "complete" was judged against samplesTotal,
+                // which falls back to the loaded count whenever X-Total-Count
+                // is unreadable (it is not CORS-exposed, so any cross-origin
+                // host sees null) — and the export then silently shrank to
+                // whatever had been scrolled into view.
+                const all = samplesAccession
+                  ? await fetchAllSamples(samplesAccession)
+                  : samples;
                 if (!all || all.length === 0) return;
 
                 // Characteristic columns must cover the full export, so derive

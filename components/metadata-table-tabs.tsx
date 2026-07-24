@@ -9,6 +9,8 @@ import { FirstVisitPing, useFirstVisit } from "@/components/first-visit-ping";
 import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
 import { WrapTextToggle } from "@/components/wrap-text-toggle";
+import { buildCombinedRows, combinedHeaders } from "@/utils/combinedCsv";
+import { downloadCsv } from "@/utils/exportCsv";
 import { buildSectionHash, parseSectionHash } from "@/utils/sectionHash";
 import { copySectionLink } from "@/utils/shareSectionLink";
 import {
@@ -17,7 +19,15 @@ import {
   Link2Icon,
   MagicWandIcon,
 } from "@radix-ui/react-icons";
-import { Button, Flex, Heading, Spinner, Tabs, Text } from "@radix-ui/themes";
+import {
+  AlertDialog,
+  Button,
+  Flex,
+  Heading,
+  Spinner,
+  Tabs,
+  Text,
+} from "@radix-ui/themes";
 import { useEffect, useState, type ReactNode } from "react";
 
 type TabValue = "original" | "enriched";
@@ -107,6 +117,7 @@ export default function MetadataTableTabs({
   hasEnriched,
   originalContent,
   onExportOriginalCsv,
+  combinedExport,
 }: {
   accession: string;
   sectionId: string;
@@ -117,6 +128,18 @@ export default function MetadataTableTabs({
   hasEnriched?: boolean;
   originalContent: ReactNode;
   onExportOriginalCsv: () => void;
+  /**
+   * Sources to fold into the combined export. Omitted (or with nothing to join
+   * to) the CSV button downloads this table alone, with no dialog.
+   */
+  combinedExport?: {
+    /** "sample" or "experiment" — names the table in the dialog's opt-out. */
+    noun: string;
+    sraAccessions: string[];
+    geoAccession: string | null;
+    /** Whether either level of supplementary file exists for this project. */
+    hasSupplementary: boolean;
+  };
 }) {
   // Restore the tab from the URL hash (e.g. a shared `#samples=enriched` link).
   // Safe to read at init without a hydration mismatch: `activeTab` below is
@@ -154,6 +177,43 @@ export default function MetadataTableTabs({
 
   // No enriched data → there's nothing to switch to, so pin to the original tab.
   const activeTab: TabValue = hasEnriched ? tab : "original";
+
+  const [askCombined, setAskCombined] = useState(false);
+  const [combining, setCombining] = useState(false);
+  const { showToast } = useToast();
+
+  // Nothing to join to (no FASTQ side, no supplementary) — the dialog would
+  // offer a combined export identical to the plain one, so skip it.
+  const canCombine =
+    !!combinedExport &&
+    (combinedExport.sraAccessions.length > 0 || combinedExport.hasSupplementary);
+
+  const downloadCombined = async () => {
+    if (!combinedExport) return;
+    setCombining(true);
+    try {
+      const { rows, truncated } = await buildCombinedRows({
+        accession,
+        sraAccessions: combinedExport.sraAccessions,
+        geoAccession: combinedExport.geoAccession,
+      });
+      if (rows.length === 0) {
+        showToast("No combined metadata to download");
+        return;
+      }
+      downloadCsv(rows, combinedHeaders(rows), `${accession}_combined.csv`);
+      // Silence here would present a partial export as complete.
+      if (truncated) {
+        showToast("Export hit the server row limit — some rows are missing");
+      }
+    } catch (error) {
+      console.error("Combined metadata export failed:", error);
+      showToast("Couldn't build the combined CSV");
+    } finally {
+      setCombining(false);
+      setAskCombined(false);
+    }
+  };
 
   return (
     <>
@@ -222,6 +282,8 @@ export default function MetadataTableTabs({
               onClick={() => {
                 if (showEnriched && enriched) {
                   void exportEnrichedCsv(accession);
+                } else if (canCombine) {
+                  setAskCombined(true);
                 } else {
                   onExportOriginalCsv();
                 }
@@ -232,6 +294,41 @@ export default function MetadataTableTabs({
           )}
         </Flex>
       </Flex>
+      <AlertDialog.Root open={askCombined} onOpenChange={setAskCombined}>
+        <AlertDialog.Content maxWidth="480px">
+          <AlertDialog.Title>
+            Download combined metadata from all sources?
+          </AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            Joins {combinedExport?.noun} metadata with FASTQ links and
+            supplementary files into one CSV, at one row per run.
+          </AlertDialog.Description>
+          <Flex gap="3" mt="4" justify="end" wrap="wrap">
+            <AlertDialog.Cancel>
+              <Button
+                variant="soft"
+                color="gray"
+                disabled={combining}
+                onClick={() => onExportOriginalCsv()}
+              >
+                Only download {combinedExport?.noun} metadata
+              </Button>
+            </AlertDialog.Cancel>
+            <Button
+              onClick={(e) => {
+                // Keep the dialog up while the sources are fetched — the join
+                // can take a few seconds on a large study.
+                e.preventDefault();
+                void downloadCombined();
+              }}
+              disabled={combining}
+            >
+              {combining ? <Spinner size="1" /> : <DownloadIcon />}
+              {combining ? "Building CSV…" : "Yes"}
+            </Button>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
       {!showEnriched && originalContent}
       {showEnriched && enriched && (
         <EnrichedMetadataGrid

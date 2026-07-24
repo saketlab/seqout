@@ -2815,6 +2815,12 @@ export default function ProjectPage() {
               accession={accession}
               sectionId="experiments"
               sectionTitle="Experiments"
+              combinedExport={{
+                noun: "experiment",
+                sraAccessions: [accession],
+                geoAccession: linkedGeoAliases[0] ?? null,
+                hasSupplementary: linkedGeoAliases.length > 0,
+              }}
               hasEnriched={project?.has_enriched}
               titleBadge={
                 <Badge style={{ whiteSpace: "nowrap" }}>
@@ -2831,14 +2837,15 @@ export default function ProjectPage() {
                 // loaded map is missing so sample/attribute columns are complete.
                 // ponytail: one /sample request per missing sample; fine for
                 // typical studies. Add a bulk endpoint if huge studies lag.
-                const allExps =
-                  experiments && experimentsTotal
-                    ? experiments.length >= experimentsTotal
-                      ? experiments
-                      : accession
-                        ? await fetchAllExperiments(accession)
-                        : experiments
-                    : experiments;
+                // Always re-fetch rather than reusing the loaded set when it
+                // looks complete: "complete" was judged against
+                // experimentsTotal, which falls back to the loaded count
+                // whenever X-Total-Count is unreadable (it is not CORS-exposed,
+                // so any cross-origin host sees null) — and the export then
+                // silently shrank to whatever had been scrolled into view.
+                const allExps = accession
+                  ? await fetchAllExperiments(accession)
+                  : experiments;
                 if (!allExps || allExps.length === 0) return;
 
                 const map = new Map(samplesMap);
