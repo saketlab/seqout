@@ -5,6 +5,7 @@ import {
   ARCHIVE_FULL_NAMES,
   ARCHIVES,
 } from "@/utils/constants";
+import { authorHref } from "@/utils/project";
 import { Badge, Box, Flex, Heading, Link, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import { Fragment } from "react";
@@ -142,7 +143,7 @@ export default function HomeSearchBar() {
           </Text> */}
           <Text size={"1"} color="gray">
             Search by — <Link href={"/pmid"}>PubMed ID</Link> or{" "}
-            <Link href={"/authors"}>author name</Link>
+            <Link href={authorHref("Aviv Regev")}>author name</Link>
           </Text>
         </Flex>
       </Flex>

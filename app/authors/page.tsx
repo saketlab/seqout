@@ -53,7 +53,7 @@ export default function AuthorsIndexPage() {
               size="3"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Author name"
+              placeholder="e.g. Aviv Regev"
               autoFocus
               aria-label="Author name"
               style={{ flex: 1 }}
