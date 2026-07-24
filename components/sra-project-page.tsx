@@ -23,6 +23,9 @@ import { useWrapText, WrapTextToggle } from "@/components/wrap-text-toggle";
 import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
+  lookupColDef,
+  numberColDef,
+  searchColDef,
   TABLE_PAGE_SIZE,
   truncatableColDef,
   wrapColDef,
@@ -45,7 +48,9 @@ import {
   makeOrganismPostSort,
   makeOrganismRowStyle,
 } from "@/utils/organism-highlight";
+import { toServerFilters } from "@/utils/gridFilters";
 import { normalizeAuthors, toDisplayText } from "@/utils/project";
+import { useServerFind } from "@/utils/useServerFind";
 import {
   CheckIcon,
   CopyIcon,
@@ -76,6 +81,7 @@ import {
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type {
   ColDef,
+  FilterChangedEvent,
   GridApi,
   ICellRendererParams,
   ValueGetterParams,
@@ -560,75 +566,25 @@ export function DownloadFastqSection({
   // Full run list for exports, fetched at most once per study.
   const allRunsRef = useRef<RunRow[] | null>(null);
 
-  // The grid holds only a 500-run preview, so its client-side column filter is
-  // blind to runs past position 500. For studies bigger than the preview, a
-  // Run/Experiment filter is resolved server-side instead (see runsFind).
-  // findRows null → show the preview; otherwise show the server matches.
+  // The grid holds only a 500-run preview, so its client-side column filters are
+  // blind to runs past position 500. For studies bigger than the preview they
+  // are resolved server-side instead.
   const needsServerFind = runsData.total_runs > runsData.runs.length;
-  const [findRows, setFindRows] = useState<RunRow[] | null>(null);
-  const [findCapped, setFindCapped] = useState(false);
-  // A failed lookup must read differently from an empty one: on a 100k-run
-  // study "no matching runs" would otherwise imply the run doesn't exist when
-  // the search merely errored out.
-  const [findError, setFindError] = useState(false);
-  const findSeqRef = useRef(0);
-  const findDebounceRef = useRef<number | null>(null);
-  const findAbortRef = useRef<AbortController | null>(null);
-
-  const runFilterFetch = React.useCallback(
-    (run: string, experiment: string) => {
-      const seq = ++findSeqRef.current;
-      findAbortRef.current?.abort();
-      const ac = new AbortController();
-      findAbortRef.current = ac;
-      setFindError(false);
-      const qs = `run=${encodeURIComponent(run)}&experiment=${encodeURIComponent(experiment)}`;
-      getJson<{ runs: RunRow[]; capped: boolean }>(
-        `/project/${encodeURIComponent(accession)}/runs/find?${qs}`,
-        ac.signal,
-      )
-        .then((data) => {
-          if (seq !== findSeqRef.current) return; // a newer filter superseded this
-          setFindRows(data.runs);
-          setFindCapped(data.capped);
-          setFindError(false);
-        })
-        .catch((error) => {
-          if (ac.signal.aborted || seq !== findSeqRef.current) return;
-          console.error("Run filter lookup failed:", error);
-          setFindRows([]);
-          setFindCapped(false);
-          setFindError(true);
-        });
-    },
-    [accession],
+  const runFind = useServerFind<RunRow>(needsServerFind, (filters, signal) =>
+    getJson<{ runs: RunRow[]; capped: boolean }>(
+      `/project/${encodeURIComponent(accession)}/runs/find?filters=${encodeURIComponent(filters)}`,
+      signal,
+    ).then((d) => ({ rows: d.runs, capped: d.capped })),
   );
 
-  const onFilterChanged = React.useCallback(() => {
-    if (!needsServerFind) return; // preview is the whole study; client filter is correct
-    const model = gridRef.current?.getFilterModel() ?? {};
-    const run = String(model.run_accession?.filter ?? "")
-      .trim()
-      .toUpperCase();
-    const experiment = String(model.experiment_accession?.filter ?? "")
-      .trim()
-      .toUpperCase();
-    if (findDebounceRef.current) window.clearTimeout(findDebounceRef.current);
-    if (!run && !experiment) {
-      findSeqRef.current += 1; // drop any in-flight response
-      findAbortRef.current?.abort();
-      setFindRows(null);
-      setFindCapped(false);
-      setFindError(false);
-      return;
-    }
-    findDebounceRef.current = window.setTimeout(
-      () => runFilterFetch(run, experiment),
-      300,
-    );
-  }, [needsServerFind, runFilterFetch]);
+  const onFilterChanged = React.useCallback(
+    (e: FilterChangedEvent<RunRow>) => {
+      runFind.search(toServerFilters(e.api.getFilterModel()));
+    },
+    [runFind],
+  );
 
-  const displayedRuns = findRows ?? runsData.runs;
+  const displayedRuns = runFind.rows ?? runsData.runs;
 
   const sourceUrl = (r: RunRow, source: DownloadSource): string | null => {
     if (source === "fastq") return r.fastq_ftp;
@@ -1012,7 +968,7 @@ export function DownloadFastqSection({
         // this filter is served by an indexed server lookup that only does
         // equality (see onFilterChanged), and substring would seq-scan millions
         // of rows. Accessions are opaque IDs, so equals is the natural search.
-        filterParams: { filterOptions: ["equals"], maxNumConditions: 1 },
+        ...lookupColDef<RunRow>(),
       },
       {
         headerName: "Experiment",
@@ -1020,7 +976,7 @@ export function DownloadFastqSection({
         minWidth: 110,
         maxWidth: 140,
         valueFormatter: (params) => params.value || "-",
-        filterParams: { filterOptions: ["equals"], maxNumConditions: 1 },
+        ...lookupColDef<RunRow>(),
       },
       {
         headerName: "Title",
@@ -1036,6 +992,7 @@ export function DownloadFastqSection({
         field: "library_layout",
         minWidth: 80,
         maxWidth: 110,
+        ...lookupColDef<RunRow>(),
         cellRenderer: (params: ICellRendererParams<RunRow>) => {
           const layout = params.value;
           if (!layout) return "-";
@@ -1250,6 +1207,7 @@ export function DownloadFastqSection({
         headerName: "Size",
         minWidth: 70,
         maxWidth: 100,
+        ...numberColDef<RunRow>(),
         valueGetter: (params: ValueGetterParams<RunRow>) => {
           const bytes = params.data?.fastq_bytes
             ? params.data.fastq_bytes.split(";").filter(Boolean)
@@ -1282,6 +1240,7 @@ export function DownloadFastqSection({
       filter: true,
       resizable: true,
       sortable: true,
+      ...searchColDef<RunRow>(),
       ...wrapColDef<RunRow>(wrap),
     }),
     [wrap],
@@ -1349,16 +1308,16 @@ export function DownloadFastqSection({
               {formatBytes(runsData.total_fastq_bytes)} total
             </Badge>
           )}
-          {findError ? (
+          {runFind.error ? (
             <Badge size={{ initial: "2", md: "3" }} color="red" variant="soft">
               Search failed — try again
             </Badge>
-          ) : findRows !== null ? (
+          ) : runFind.rows !== null ? (
             <Badge size={{ initial: "2", md: "3" }} color="gray" variant="soft">
-              {findRows.length === 0
+              {runFind.rows.length === 0
                 ? "No matching runs"
-                : `${findRows.length.toLocaleString()} matching run${findRows.length === 1 ? "" : "s"}`}
-              {findCapped && "+"}
+                : `${runFind.rows.length.toLocaleString()} matching run${runFind.rows.length === 1 ? "" : "s"}`}
+              {runFind.capped && "+"}
             </Badge>
           ) : (
             runsData.total_runs > runsData.runs.length && (
@@ -1745,6 +1704,7 @@ function BamFilesSection({
         minWidth: 110,
         maxWidth: 140,
         pinned: "left",
+        ...lookupColDef<BamRow>(),
       },
       {
         headerName: "Experiment",
@@ -1752,6 +1712,7 @@ function BamFilesSection({
         minWidth: 110,
         maxWidth: 140,
         valueFormatter: (params) => params.value || "-",
+        ...lookupColDef<BamRow>(),
       },
       {
         headerName: "Title",
@@ -1805,6 +1766,7 @@ function BamFilesSection({
         field: "size",
         minWidth: 80,
         maxWidth: 110,
+        ...numberColDef<BamRow>(),
         valueGetter: (params: ValueGetterParams<BamRow>) =>
           parseInt(params.data?.size || "0", 10) || 0,
         valueFormatter: (params) =>
@@ -1830,7 +1792,12 @@ function BamFilesSection({
   );
 
   const defaultColDef = React.useMemo<ColDef<BamRow>>(
-    () => ({ filter: true, resizable: true, sortable: true }),
+    () => ({
+      filter: true,
+      resizable: true,
+      sortable: true,
+      ...searchColDef<BamRow>(),
+    }),
     [],
   );
 
@@ -2124,14 +2091,36 @@ export default function ProjectPage() {
         : undefined,
     enabled: !!accession,
   });
-  const experiments = React.useMemo(
+  const pagedExperiments = React.useMemo(
     () => experimentsQuery.data?.pages.flatMap((p) => p.items),
     [experimentsQuery.data],
   );
   // Full count from the X-Total-Count header so the badge shows the real total,
   // not just the rows loaded so far.
   const experimentsTotal =
-    experimentsQuery.data?.pages[0]?.total ?? experiments?.length ?? 0;
+    experimentsQuery.data?.pages[0]?.total ?? pagedExperiments?.length ?? 0;
+
+  // The grid holds only the pages scrolled so far, so its client-side Accession
+  // filter is blind to the rest of the study; resolve that one server-side.
+  const experimentFind = useServerFind<Experiment>(
+    experimentsTotal > (pagedExperiments?.length ?? 0),
+    (filters, signal) =>
+      getJson<{ experiments: Experiment[]; capped: boolean }>(
+        `/project/${encodeURIComponent(accession ?? "")}/experiments/find?filters=${encodeURIComponent(filters)}`,
+        signal,
+      ).then((d) => ({ rows: d.experiments, capped: d.capped })),
+  );
+  // findRows null → show the loaded pages; otherwise show the server matches.
+  // Feeding it in here means the row mapping, sample lookups and derived
+  // columns below all work on found rows unchanged.
+  const experiments = experimentFind.rows ?? pagedExperiments;
+
+  const onExperimentFilterChanged = React.useCallback(
+    (e: FilterChangedEvent<ExperimentGridRow>) => {
+      experimentFind.search(toServerFilters(e.api.getFilterModel()));
+    },
+    [experimentFind],
+  );
   const isExperimentsLoading = experimentsQuery.isLoading;
   const isExperimentsError = experimentsQuery.isError;
 
@@ -2343,6 +2332,7 @@ export default function ProjectPage() {
       sortable: true,
       minWidth: 20,
       width: 150,
+      ...searchColDef<ExperimentGridRow>(),
       ...truncatableColDef<ExperimentGridRow>(wrap),
       valueFormatter: (params) => toDisplayText(params.value),
       tooltipValueGetter: (params) => toDisplayText(params.value),
@@ -2358,6 +2348,9 @@ export default function ProjectPage() {
         width: 130,
         pinned: "left",
         cellClass: "seqout-accession",
+        // Resolved server-side (see onExperimentFilterChanged) so the lookup
+        // covers the whole study, not just the loaded pages.
+        ...lookupColDef<ExperimentGridRow>(),
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const experimentAccession = toDisplayText(params.value);
           if (experimentAccession === "-") return "-";
@@ -2392,6 +2385,7 @@ export default function ProjectPage() {
         headerName: "Layout",
         field: "layout",
         width: 100,
+        ...lookupColDef<ExperimentGridRow>(),
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
@@ -2411,6 +2405,7 @@ export default function ProjectPage() {
         field: "sample",
         width: 120,
         cellClass: "seqout-accession",
+        ...lookupColDef<ExperimentGridRow>(),
         cellRenderer: (params: ICellRendererParams<ExperimentGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
           if (sampleAccession === "-") return "-";
@@ -2448,10 +2443,14 @@ export default function ProjectPage() {
         headerName: "Taxon ID",
         field: "taxonId",
         width: 100,
+        ...numberColDef<ExperimentGridRow>(),
         valueFormatter: (params) => toDisplayText(params.value),
       },
       ...attributeKeys.map((key): ColDef<ExperimentGridRow> => ({
         headerName: key,
+        // Without a field these would get an index-derived colId, which the
+        // filter model can't be read back from reliably.
+        colId: `attr:${key}`,
         width: 150,
         valueGetter: (params: ValueGetterParams<ExperimentGridRow>) =>
           params.data?.attributes[key] ?? "-",
@@ -2938,16 +2937,32 @@ export default function ProjectPage() {
                     <Text color="red">Failed to load experiments</Text>
                   )}
                   {!isExperimentsLoading &&
-                    experiments &&
-                    experiments.length === 0 && (
+                    pagedExperiments &&
+                    pagedExperiments.length === 0 && (
                       <Text size="2" color="gray">
                         No experiments found
                       </Text>
                     )}
                   {!isExperimentsLoading &&
-                    experiments &&
-                    experiments.length > 0 && (
+                    pagedExperiments &&
+                    pagedExperiments.length > 0 && (
                       <>
+                        {/* An empty lookup must keep the grid mounted, or the
+                            filter it came from becomes unreachable. */}
+                        {experimentFind.error ? (
+                          <Badge color="red" variant="soft">
+                            Search failed — try again
+                          </Badge>
+                        ) : (
+                          experimentFind.rows !== null && (
+                            <Badge color="gray" variant="soft">
+                              {experimentFind.rows.length === 0
+                                ? "No matching experiments"
+                                : `${experimentFind.rows.length.toLocaleString()} matching experiment${experimentFind.rows.length === 1 ? "" : "s"}`}
+                              {experimentFind.capped && "+"}
+                            </Badge>
+                          )
+                        )}
                         {highlightOrganism && (
                           <Callout.Root size={"1"}>
                             <Callout.Icon>
@@ -2982,9 +2997,14 @@ export default function ProjectPage() {
                             theme="legacy"
                             getRowStyle={organismRowStyle}
                             postSortRows={organismPostSort}
+                            onFilterChanged={onExperimentFilterChanged}
                             onBodyScroll={infiniteScrollOnBodyScroll({
                               loadedCount: experimentRows.length,
-                              hasNextPage: experimentsQuery.hasNextPage,
+                              // Paging in more rows underneath a server lookup
+                              // would append non-matching experiments to it.
+                              hasNextPage:
+                                experimentsQuery.hasNextPage &&
+                                experimentFind.rows === null,
                               isFetchingNextPage:
                                 experimentsQuery.isFetchingNextPage,
                               fetchNextPage: experimentsQuery.fetchNextPage,

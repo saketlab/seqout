@@ -24,11 +24,16 @@ import { useWrapText } from "@/components/wrap-text-toggle";
 import {
   ensureAgGridModules,
   infiniteScrollOnBodyScroll,
+  lookupColDef,
+  numberColDef,
+  searchColDef,
   TABLE_PAGE_SIZE,
   truncatableColDef,
 } from "@/lib/ag-grid";
 import { getExternalArchiveUrl } from "@/utils/accessionLinks";
 import { getJson, getJsonWithTotal } from "@/utils/api";
+import { toServerFilters } from "@/utils/gridFilters";
+import { useServerFind } from "@/utils/useServerFind";
 import { copyToClipboard } from "@/utils/clipboard";
 import { dbForAccession } from "@/utils/db-colors";
 import { buildSupplementaryDownloadScript } from "@/utils/downloadScript";
@@ -75,6 +80,7 @@ import {
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type {
   ColDef,
+  FilterChangedEvent,
   GridApi,
   ICellRendererParams,
   ValueGetterParams,
@@ -407,6 +413,27 @@ export default function GeoProjectPage() {
     samplesQuery.data?.pages[0]?.total ?? samples?.length ?? 0;
   const isSamplesLoading = samplesQuery.isLoading;
 
+  // The grid holds only the pages scrolled so far, so its client-side Sample
+  // filter is blind to the rest of the series; resolve that one server-side.
+  const sampleFind = useServerFind<GeoSample>(
+    samplesTotal > (samples?.length ?? 0),
+    (filters, signal) =>
+      getJson<{ samples: GeoSample[]; capped: boolean }>(
+        `/geo/series/${encodeURIComponent(samplesAccession ?? "")}/samples/find?filters=${encodeURIComponent(filters)}`,
+        signal,
+      ).then((d) => ({ rows: d.samples, capped: d.capped })),
+  );
+  // Grid rows only: the organism list, characteristic columns and CSV export
+  // stay on the paged set so a lookup doesn't shrink them.
+  const gridSamples = sampleFind.rows ?? samples;
+
+  const onSampleFilterChanged = React.useCallback(
+    (e: FilterChangedEvent<GeoSampleGridRow>) => {
+      sampleFind.search(toServerFilters(e.api.getFilterModel()));
+    },
+    [sampleFind],
+  );
+
   const projectOrganisms = React.useMemo<string[]>(() => {
     if (!samples) return [];
     const set = new Set<string>();
@@ -686,9 +713,9 @@ export default function GeoProjectPage() {
   }, [samples]);
 
   const sampleRows = React.useMemo<GeoSampleGridRow[]>(() => {
-    if (!samples) return [];
+    if (!gridSamples) return [];
 
-    return samples.flatMap((sample) => {
+    return gridSamples.flatMap((sample) => {
       const sampleRowKey = String(sample.id ?? sample.accession);
       const channels = sample.channels ?? [];
 
@@ -755,7 +782,7 @@ export default function GeoProjectPage() {
         };
       });
     });
-  }, [samples]);
+  }, [gridSamples]);
 
   const sampleGridHeight = React.useMemo(() => {
     const headerHeight = 48;
@@ -774,6 +801,7 @@ export default function GeoProjectPage() {
       sortable: true,
       minWidth: 20,
       width: 150,
+      ...searchColDef<GeoSampleGridRow>(),
       ...truncatableColDef<GeoSampleGridRow>(wrap),
       valueFormatter: (params) => toDisplayText(params.value),
       tooltipValueGetter: (params) => toDisplayText(params.value),
@@ -789,6 +817,9 @@ export default function GeoProjectPage() {
         width: 160,
         pinned: "left",
         cellClass: "seqout-accession",
+        // Resolved server-side (see onSampleFilterChanged) so the lookup covers
+        // the whole series, not just the loaded pages.
+        ...lookupColDef<GeoSampleGridRow>(),
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
           const sampleAccession = toDisplayText(params.value);
           if (sampleAccession === "-") return "-";
@@ -820,6 +851,7 @@ export default function GeoProjectPage() {
         headerName: "Channel Count",
         field: "channelCount",
         width: 120,
+        ...numberColDef<GeoSampleGridRow>(),
         valueFormatter: (params) => toDisplayText(params.value),
       },
       {
@@ -832,6 +864,7 @@ export default function GeoProjectPage() {
         headerName: "Platform",
         field: "platform",
         width: 120,
+        ...lookupColDef<GeoSampleGridRow>(),
         cellRenderer: (params: ICellRendererParams<GeoSampleGridRow>) => {
           const platform = toDisplayText(params.value);
           if (platform === "-") return "-";
@@ -887,6 +920,9 @@ export default function GeoProjectPage() {
       },
       ...characteristicTags.map((tag): ColDef<GeoSampleGridRow> => ({
         headerName: tag,
+        // Without a field these would get an index-derived colId, which the
+        // filter model can't be read back from reliably.
+        colId: `char:${tag}`,
         width: 140,
         valueGetter: (params: ValueGetterParams<GeoSampleGridRow>) =>
           params.data?.characteristics[tag] ?? "-",
@@ -1000,6 +1036,7 @@ export default function GeoProjectPage() {
         minWidth: 160,
         maxWidth: 220,
         pinned: "left",
+        ...lookupColDef<SampleSupplementaryGroupRow>(),
         cellRenderer: (
           params: ICellRendererParams<SampleSupplementaryGroupRow>,
         ) => {
@@ -1057,6 +1094,7 @@ export default function GeoProjectPage() {
         field: "fileCount",
         minWidth: 90,
         maxWidth: 110,
+        ...numberColDef<SampleSupplementaryGroupRow>(),
       },
     ],
     [],
@@ -1064,10 +1102,26 @@ export default function GeoProjectPage() {
 
   const supplementaryDefaultColDef = React.useMemo<
     ColDef<SupplementaryDataItem>
-  >(() => ({ filter: true, resizable: true, sortable: true }), []);
+  >(
+    () => ({
+      filter: true,
+      resizable: true,
+      sortable: true,
+      ...searchColDef<SupplementaryDataItem>(),
+    }),
+    [],
+  );
   const sampleSupplementaryDefaultColDef = React.useMemo<
     ColDef<SampleSupplementaryGroupRow>
-  >(() => ({ filter: true, resizable: true, sortable: true }), []);
+  >(
+    () => ({
+      filter: true,
+      resizable: true,
+      sortable: true,
+      ...searchColDef<SampleSupplementaryGroupRow>(),
+    }),
+    [],
+  );
 
   const supplementaryDownloadLabel =
     selectedSupplementaryCount > 0
@@ -1612,6 +1666,22 @@ export default function GeoProjectPage() {
                   )}
                   {!isSamplesLoading && samples && samples.length > 0 && (
                     <>
+                      {/* An empty lookup must keep the grid mounted, or the
+                          filter it came from becomes unreachable. */}
+                      {sampleFind.error ? (
+                        <Badge color="red" variant="soft">
+                          Search failed — try again
+                        </Badge>
+                      ) : (
+                        sampleFind.rows !== null && (
+                          <Badge color="gray" variant="soft">
+                            {sampleFind.rows.length === 0
+                              ? "No matching samples"
+                              : `${sampleFind.rows.length.toLocaleString()} matching sample${sampleFind.rows.length === 1 ? "" : "s"}`}
+                            {sampleFind.capped && "+"}
+                          </Badge>
+                        )
+                      )}
                       {highlightOrganism && (
                         <Callout.Root size={"1"}>
                           <Callout.Icon>
@@ -1646,9 +1716,14 @@ export default function GeoProjectPage() {
                           theme="legacy"
                           getRowStyle={organismRowStyle}
                           postSortRows={organismPostSort}
+                          onFilterChanged={onSampleFilterChanged}
                           onBodyScroll={infiniteScrollOnBodyScroll({
                             loadedCount: sampleRows.length,
-                            hasNextPage: samplesQuery.hasNextPage,
+                            // Paging in more rows underneath a server lookup
+                            // would append non-matching samples to it.
+                            hasNextPage:
+                              samplesQuery.hasNextPage &&
+                              sampleFind.rows === null,
                             isFetchingNextPage: samplesQuery.isFetchingNextPage,
                             fetchNextPage: samplesQuery.fetchNextPage,
                           })}

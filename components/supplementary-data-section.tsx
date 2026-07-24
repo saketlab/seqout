@@ -2,7 +2,10 @@
 
 import SectionAnchor from "@/components/section-anchor";
 import { useToast } from "@/components/toast-provider";
-import { ensureAgGridModules } from "@/lib/ag-grid";
+import {
+  ensureAgGridModules,
+  searchColDef,
+} from "@/lib/ag-grid";
 import { copyToClipboard } from "@/utils/clipboard";
 import { buildSupplementaryDownloadScript } from "@/utils/downloadScript";
 import {
@@ -103,7 +106,15 @@ export function SupplementaryDataSection({
 
   const supplementaryDefaultColDef = React.useMemo<
     ColDef<SupplementaryDataItem>
-  >(() => ({ filter: true, resizable: true, sortable: true }), []);
+  >(
+    () => ({
+      filter: true,
+      resizable: true,
+      sortable: true,
+      ...searchColDef<SupplementaryDataItem>(),
+    }),
+    [],
+  );
 
   const handleDownloadAllSupplementaryFiles = async (
     items: SupplementaryDataItem[],
