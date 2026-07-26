@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import io
+import itertools
 import json
 import sys
 from pathlib import Path
@@ -63,6 +65,40 @@ def _accession(value: str) -> str:
             f"{', '.join(VALID_PREFIXES)} (e.g. GSE12345)"
         )
     return accession
+
+
+DateRange = tuple[datetime.date | None, datetime.date | None]
+
+
+def _date_bound(s: str, *, is_end: bool) -> datetime.date | None:
+    """Parse one bound: 'dd-mm-yyyy' -> that day; 'yyyy' -> Jan 1 (start) or
+    Dec 31 (end) of that year; '' -> None (open-ended)."""
+    s = s.strip()
+    if not s:
+        return None
+    try:
+        return datetime.datetime.strptime(s, "%d-%m-%Y").date()
+    except ValueError:
+        pass
+    if s.isdigit() and len(s) == 4:
+        y = int(s)
+        return datetime.date(y, 12, 31) if is_end else datetime.date(y, 1, 1)
+    raise argparse.ArgumentTypeError(f"invalid date '{s}': use dd-mm-yyyy or yyyy")
+
+
+def _date_range(value: str) -> DateRange:
+    """Parse a date/range -> (from, to) as dates. Colon marks a range.
+
+    '2020' -> whole of 2020; '15-08-2020' -> that single day;
+    '2018:2022', '01-06-2018:', ':31-12-2022' -> open/closed ranges.
+    """
+    lo, sep, hi = value.partition(":")
+    if not sep:  # bare token spans its full granularity (a year, or one day)
+        return (_date_bound(lo, is_end=False), _date_bound(lo, is_end=True))
+    lo_d, hi_d = _date_bound(lo, is_end=False), _date_bound(hi, is_end=True)
+    if lo_d and hi_d and lo_d > hi_d:
+        raise argparse.ArgumentTypeError(f"date range start {lo_d} is after end {hi_d}")
+    return (lo_d, hi_d)
 
 
 def main() -> None:
@@ -193,6 +229,15 @@ def main() -> None:
         help="results per page in interactive mode (default: 20)",
     )
     p_search.add_argument(
+        "-d",
+        "--date",
+        dest="date_range",
+        type=_date_range,
+        metavar="DATE[:DATE]",
+        help="filter by date (dd-mm-yyyy or yyyy), e.g. 2020, "
+        "15-08-2020, 2018:2022, 01-06-2018:31-12-2022, :2022",
+    )
+    p_search.add_argument(
         "-m",
         "--max",
         dest="max_results",
@@ -316,7 +361,14 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "search":
-        cmd_search(args.query, args.db, args.limit, args.sortby, args.max_results)
+        cmd_search(
+            args.query,
+            args.db,
+            args.limit,
+            args.sortby,
+            args.max_results,
+            args.date_range,
+        )
         return
 
     if args.command == "show":
@@ -545,15 +597,8 @@ def _read_key() -> str:
     return {"\x1b[C": "right", "\x1b[D": "left"}.get(ch, ch)
 
 
-def _paged_search(
-    console: Console,
-    sq,
-    params: SearchParams,
-    page_size: int,
-    max_results: int | None,
-) -> None:
+def _paged_search(console: Console, query: str, it, page_size: int) -> None:
     buffer: list = []
-    it = sq.iter_search(params, limit=max_results)  # lazy cursor walk, capped
     exhausted = False
 
     def ensure(n: int) -> None:
@@ -568,7 +613,7 @@ def _paged_search(
         ensure(page_size)
 
     if not buffer:
-        console.print(f"[yellow]No results for[/] {params.q!r}.")
+        console.print(f"[yellow]No results for[/] {query!r}.")
         return
 
     page = 0
@@ -577,7 +622,7 @@ def _paged_search(
         rows = buffer[page * page_size : (page + 1) * page_size]
         pages = f"/{-(-len(buffer) // page_size)}" if exhausted else "+"
         console.clear()
-        console.print(_results_table(f"{params.q!r} — page {page + 1}{pages}", rows))
+        console.print(_results_table(f"{query!r} — page {page + 1}{pages}", rows))
         console.print(
             "[dim]← prev · → next · q quit — "
             "`seqoutdb show <accession>` to inspect[/]",
@@ -599,23 +644,32 @@ def cmd_search(
     limit: int,
     sortby: Literal["citations", "journal", "year"] | None,
     max_results: int | None = None,
+    date_range: DateRange | None = None,
 ) -> None:
     console = Console()
+    date_from, date_to = date_range or (None, None)
     try:
-        params = SearchParams(q=query, db=db, sortby=sortby)
+        params = SearchParams(
+            q=query,
+            db=db,
+            sortby=sortby,
+            date_from=date_from.isoformat() if date_from else None,
+            date_to=date_to.isoformat() if date_to else None,
+        )
     except Exception as e:
         console.print(f"[red]Invalid query:[/] {e}")
         raise SystemExit(1) from e
 
     try:
         with connect_to_seqout(backend="api") as sq:
+            it = sq.iter_search(params)  # server applies db+date filters
             if sys.stdin.isatty() and sys.stdout.isatty():
-                _paged_search(console, sq, params, limit, max_results)
+                if max_results is not None:
+                    it = itertools.islice(it, max_results)
+                _paged_search(console, query, it, limit)
                 return
             with console.status("[bold]Searching…[/]"):
-                results = list(
-                    sq.iter_search(params, limit=max_results or limit),
-                )
+                results = list(itertools.islice(it, max_results or limit))
     except Exception as e:
         console.print(f"[red]Search failed:[/] {e}")
         raise SystemExit(1) from e

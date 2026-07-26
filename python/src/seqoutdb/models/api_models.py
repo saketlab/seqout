@@ -22,6 +22,8 @@ class SearchParams(BaseModel):
     db: Literal["geo", "sra", "arrayexpress", "ena"] | None = None
     sortby: Literal["citations", "journal", "year"] | None = None
     order: Literal["asc", "desc"] | None = "desc"
+    date_from: str | None = None  # ISO yyyy-mm-dd; server filters on updated_at
+    date_to: str | None = None
     cursor_rank: float | None = None
     cursor_acc: str | None = None
     cursor_sort: str | None = None
@@ -78,6 +80,11 @@ class Publication(BaseModel):
     journal_works_count: int | None = None
     journal_cited_by_count: int | None = None
     journal_2yr_mean_citedness: float | None = None
+
+    @field_validator("pub_date", mode="before")
+    @classmethod
+    def _pub_date_to_str(cls, v: object) -> str | None:
+        return str(v) if v is not None else None  # API sends a bare int year sometimes
 
 
 class SearchResult(BaseModel):
