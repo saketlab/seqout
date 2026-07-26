@@ -410,15 +410,16 @@ class StudyExperimentsResult(BaseModel):
     accession: str
     title: str
     design_description: str | None = None
-    library_layout: str
+    # library/platform fields are null for some archives (e.g. GSA experiments)
+    library_layout: str | None = None
     library_name: str | None = None
-    library_selection: str
-    library_source: str
-    library_strategy: str
-    samples: list[str]
-    platform: str
-    instrument_model: str
-    submission: str
+    library_selection: str | None = None
+    library_source: str | None = None
+    library_strategy: str | None = None
+    samples: list[str] = []
+    platform: str | None = None
+    instrument_model: str | None = None
+    submission: str | None = None
 
 
 class StudyExperimentsResults(BaseContainer[StudyExperimentsResult]):

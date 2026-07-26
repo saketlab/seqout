@@ -237,9 +237,14 @@ class SeqoutAPIClient:
             response_model=StudyExperimentsResults,
         )
 
-    def fetch_study_runs(self, study_id: str) -> StudyRunsResults:
+    def fetch_study_runs(
+        self, study_id: str, *, full: bool = False
+    ) -> StudyRunsResults:
+        # default returns the backend's 500-run preview; full=True gets every run
+        # (needed for complete downloads and accession conversions).
         response = self._sender(
             url=f"{self._base_url}/project/{study_id}/runs",
+            params={"full": "true"} if full else None,
             response_model=StudyRunsResponse,
         )
 

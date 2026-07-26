@@ -7,6 +7,7 @@ import io
 import itertools
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -305,6 +306,34 @@ def main() -> None:
         help="stop after this many results total (default: unlimited)",
     )
 
+    # Generic conversion: convert <acc>... --to <kind> (works for every source,
+    # including ArrayExpress/GEA whose E-* accessions have no clean a-to-b name).
+    p_conv = sub.add_parser(
+        "convert",
+        help="convert accessions to a related kind (any source)",
+        description="Map accessions to related ones using seqout's metadata.",
+    )
+    p_conv.add_argument("accession", nargs="+", help="one or more accessions")
+    p_conv.add_argument(
+        "--to", dest="to_kind", required=True, choices=_CONVERT_TO_CHOICES,
+        help="target kind: study/experiment/sample/run or srp/srx/srs/srr/gsm/gse",
+    )
+    p_conv.add_argument(
+        "-o", "--saveto", dest="save_to", metavar="FILE", help="write results to FILE"
+    )
+
+    # pysradb-style accession conversion subcommands (a-to-b), plus per-archive
+    # ENA/DDBJ/GSA names. The source in the name is a hint; the actual source is
+    # auto-detected, so any matching-target accession flows through.
+    for name in _CONVERT_COMMANDS:
+        tgt = name.split("-to-")[1].upper()
+        p_c = sub.add_parser(name, help=f"get {tgt} accessions")
+        p_c.add_argument("accession", nargs="+", help="one or more accessions")
+        p_c.add_argument(
+            "-o", "--saveto", dest="save_to", metavar="FILE",
+            help="write results to FILE",
+        )
+
     # parquet backend subcommand
     p_pq = sub.add_parser(
         "parquet",
@@ -436,6 +465,14 @@ def main() -> None:
 
     if args.command == "show":
         cmd_show(args.accession)
+        return
+
+    if args.command == "convert":
+        cmd_convert(args.accession, args.to_kind, args.save_to)
+        return
+
+    if args.command in _CONVERT_COMMANDS:
+        cmd_convert(args.accession, args.command.split("-to-")[1], args.save_to)
         return
 
     if args.command == "download":
@@ -916,6 +953,10 @@ SAMPLE_PREFIXES = (
 )
 
 
+# Study/project accession prefixes across SRA, ENA, DDBJ, GSA and BioProjects.
+_STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
+
+
 def _resolve_accession(sq: SeqoutAPIClient, acc: str, want: str) -> str | None:
     """
     Resolve a project to its sibling of the kind needed via cross-references.
@@ -925,7 +966,7 @@ def _resolve_accession(sq: SeqoutAPIClient, acc: str, want: str) -> str | None:
     Returns acc unchanged if it's already the right kind, else the linked
     accession, else None.
     """
-    targets = ("SRP", "ERP", "DRP", "PRJ") if want == "runs" else ("GSE", "E-")
+    targets = _STUDY_PREFIXES if want == "runs" else ("GSE", "E-")
     if acc.upper().startswith(targets):
         return acc
     try:
@@ -1063,7 +1104,7 @@ def _resolve_run_study(sq: SeqoutAPIClient, run_acc: str) -> str | None:
     except Exception:
         return None
     for r in res:
-        if r.accession.upper().startswith(("SRP", "ERP", "DRP", "PRJ")):
+        if r.accession.upper().startswith(_STUDY_PREFIXES):
             return r.accession
     return None
 
@@ -1142,7 +1183,7 @@ def cmd_download_runs(
                             f"[yellow]Couldn't find the study for run {acc}.[/]"
                         )
                         raise SystemExit(1)
-                    runs = sq.fetch_study_runs(study)
+                    runs = sq.fetch_study_runs(study, full=True)
                 run = next((r for r in runs if r.run_accession.upper() == up), None)
                 if run is None:
                     console.print(f"[yellow]Run {acc} not found in {study}.[/]")
@@ -1162,7 +1203,7 @@ def cmd_download_runs(
                         raise SystemExit(1)
                     if study != acc:
                         console.print(f"[dim]{acc} → {study} (linked SRA study)[/]")
-                    runs = sq.fetch_study_runs(study)
+                    runs = sq.fetch_study_runs(study, full=True)
                 if not runs:
                     console.print(f"[yellow]No runs found for {study}.[/]")
                     return
@@ -1257,7 +1298,11 @@ def _single_run(
         if not study:
             return None
         run = next(
-            (r for r in sq.fetch_study_runs(study) if r.run_accession.upper() == up),
+            (
+                r
+                for r in sq.fetch_study_runs(study, full=True)
+                if r.run_accession.upper() == up
+            ),
             None,
         )
     except Exception:
@@ -1346,7 +1391,7 @@ def cmd_download_interactive(accession: str, out: str | None) -> None:
                         runs = None
                         if study:
                             try:
-                                runs = sq.fetch_study_runs(study)
+                                runs = sq.fetch_study_runs(study, full=True)
                             except Exception:
                                 runs = None
                         if runs:
@@ -1398,6 +1443,204 @@ def cmd_download_interactive(accession: str, out: str | None) -> None:
         cmd_download(acc, out)
     elif g["kind"] == "project_supp":
         cmd_download_supplementary(acc, out)
+
+
+# accession prefix -> its column in the study mesh built by _sra_mesh.
+# Covers SRA (SR*), ENA (ER*), DDBJ/DRA (DR*), GSA (CR*/HR*), BioProjects, and
+# GEO samples (GSM, linked via the GEO-derived SRA experiment title prefix).
+_MESH_ENTITY = {
+    ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ"): "study",
+    ("SRR", "ERR", "DRR", "CRR", "HRR"): "srr",
+    ("SRX", "ERX", "DRX", "CRX", "HRX"): "srx",
+    ("SRS", "ERS", "DRS", "CRS", "HRS", "SAM"): "srs",
+    ("GSM",): "gsm",
+}
+# GEO-derived SRA experiment titles start "GSM123: ..." — the GSM<->SRX link.
+_GSM_TITLE = re.compile(r"^(GSM\d+)\s*:")
+# conversion targets (semantic + pysradb aliases + per-archive) -> mesh column.
+_TARGET_COL = {
+    "study": "study", "srp": "study", "erp": "study", "drp": "study",
+    "cra": "study", "hra": "study",
+    "run": "srr", "srr": "srr", "err": "srr", "drr": "srr", "crr": "srr",
+    "experiment": "srx", "srx": "srx", "erx": "srx", "drx": "srx", "crx": "srx",
+    "sample": "srs", "srs": "srs", "ers": "srs", "drs": "srs", "crs": "srs",
+    "gsm": "gsm",
+}
+# --to choices for the generic `convert` command (clean semantic + pysradb set).
+_CONVERT_TO_CHOICES = (
+    "study", "experiment", "sample", "run",
+    "srp", "srx", "srs", "srr", "gsm", "gse",
+)
+
+# Per-archive entity prefixes (study, experiment, run, sample) for a-to-b names.
+_ARCHIVE_ENTITIES = {
+    "ena": ("erp", "erx", "err", "ers"),
+    "dra": ("drp", "drx", "drr", "drs"),
+    "gsa": ("cra", "crx", "crr", "crs"),
+}
+
+
+def _archive_convert_commands() -> tuple[str, ...]:
+    """All intra-archive a-to-b command names for ENA/DDBJ/GSA."""
+    cmds: list[str] = []
+    for tokens in _ARCHIVE_ENTITIES.values():
+        cmds += [f"{a}-to-{b}" for a in tokens for b in tokens if a != b]
+    return tuple(cmds)
+
+
+# pysradb-parity conversion subcommands; the target is the part after "-to-".
+_CONVERT_COMMANDS = (
+    "gse-to-gsm", "gse-to-srp",
+    "gsm-to-gse", "gsm-to-srp", "gsm-to-srr", "gsm-to-srs", "gsm-to-srx",
+    "srp-to-gse", "srp-to-srr", "srp-to-srs", "srp-to-srx",
+    "srr-to-gsm", "srr-to-srp", "srr-to-srs", "srr-to-srx",
+    "srs-to-gsm", "srs-to-srx",
+    "srx-to-srp", "srx-to-srr", "srx-to-srs",
+    *_archive_convert_commands(),
+)
+_SAMPLE_SOURCES = ("GSE", "E-")  # series/experiments queried via fetch_samples
+
+
+def _mesh_column(up: str) -> str | None:
+    for prefixes, col in _MESH_ENTITY.items():
+        if up.startswith(prefixes):
+            return col
+    return None
+
+
+def _mesh_project(
+    sq: SeqoutAPIClient, study: str, col: str, up: str, target: str
+) -> list[str]:
+    rows = _sra_mesh(sq, study)
+    if col != "study":
+        rows = [r for r in rows if r[col] and r[col].upper() == up]
+    return list(dict.fromkeys(r[target] for r in rows if r[target]))  # ordered dedup
+
+
+def _sra_mesh(sq: SeqoutAPIClient, srp: str) -> list[dict]:
+    """study<->run<->experiment<->sample<->gsm rows for one SRA study."""
+    runs = sq.fetch_study_runs(srp, full=True)
+    exps = sq.fetch_study_experiments(srp)
+    srx_samples = {e.accession: (list(e.samples or []) or [None]) for e in exps}
+    srx_gsm = {
+        e.accession: (m.group(1) if (m := _GSM_TITLE.match(e.title or "")) else None)
+        for e in exps
+    }
+    seen_srx: set[str] = set()
+    rows: list[dict] = []
+    for r in runs:
+        srx = r.experiment_accession
+        seen_srx.add(srx)
+        rows.extend(
+            {
+                "study": r.study_accession or srp,
+                "srx": srx,
+                "srr": r.run_accession,
+                "srs": srs,
+                "gsm": srx_gsm.get(srx),
+            }
+            for srs in srx_samples.get(srx, [None])
+        )
+    for e in exps:  # experiments/samples that carry no runs still map
+        if e.accession not in seen_srx:
+            rows.extend(
+                {
+                    "study": srp,
+                    "srx": e.accession,
+                    "srr": None,
+                    "srs": srs,
+                    "gsm": srx_gsm.get(e.accession),
+                }
+                for srs in srx_samples[e.accession]
+            )
+    return rows
+
+
+def _gsm_series(sq: SeqoutAPIClient, gsm: str) -> str | None:
+    """Return the GEO series (GSE) a GEO sample belongs to."""
+    try:
+        detail = sq.fetch_geo_sample_detailed_metadata(gsm)
+    except Exception:
+        return None
+    return detail.project.accession if detail.project else None
+
+
+def _study_of(sq: SeqoutAPIClient, acc: str, col: str) -> str | None:
+    """Resolve a mesh-source accession to its study root."""
+    if col == "study":
+        return acc
+    if col == "gsm":  # GSM -> its GEO series -> linked SRA study
+        gse = _gsm_series(sq, acc)
+        return _resolve_accession(sq, gse, "runs") if gse else None
+    return _resolve_run_study(sq, acc)  # SRA/ENA/DDBJ/GSA child -> study via search
+
+
+def _convert_one(
+    sq: SeqoutAPIClient, acc: str, up: str, to_kind: str, console: Console
+) -> list[str]:
+    # series/experiment (GEO, ArrayExpress, GEA) -> its own samples
+    if to_kind in ("sample", "gsm") and up.startswith(_SAMPLE_SOURCES):
+        return [s.accession for s in sq.fetch_samples(acc)]
+    # -> the linked GEO series (cross-archive resolve)
+    if to_kind == "gse":
+        geo = _gsm_series(sq, acc) if up.startswith("GSM") else _resolve_accession(
+            sq, acc, "geo"
+        )
+        return [geo] if geo else []
+
+    target = _TARGET_COL.get(to_kind)
+    col = _mesh_column(up) if target else None
+    result = None
+    if target and col is not None:
+        # study-mesh source: SRA/ENA/DDBJ/GSA study, child, or GEO sample
+        study = _study_of(sq, acc, col)
+        if not study:
+            console.print(f"[yellow]{acc}: couldn't resolve to a study.[/]")
+            return []
+        result = _mesh_project(sq, study, col, up, target)
+    elif target and up.startswith(_SAMPLE_SOURCES):
+        # cross-archive: GEO/ArrayExpress/GEA series -> linked SRA study
+        study = _resolve_accession(sq, acc, "runs")
+        if study and target == "study":
+            result = [study]  # the linked project itself, no mesh needed
+        elif study:
+            result = _mesh_project(sq, study, "study", up, target)
+
+    if result is None:
+        console.print(f"[yellow]{acc}: → {to_kind} not supported for this source.[/]")
+        return []
+    return result
+
+
+def cmd_convert(accessions: list[str], to_kind: str, save_to: str | None) -> None:
+    console = Console()
+    pairs: list[tuple[str, str]] = []
+    try:
+        with (
+            connect_to_seqout(backend="api") as sq,
+            console.status("[bold]Resolving…[/]"),
+        ):
+            for raw in accessions:
+                acc = raw.strip()
+                results = _convert_one(sq, acc, acc.upper(), to_kind, console)
+                pairs.extend((acc, r) for r in results)
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
+
+    if not pairs:
+        console.print("[yellow]No results.[/]")
+        return
+    if save_to:
+        Path(save_to).write_text("\n".join(f"{a}\t{b}" for a, b in pairs) + "\n")
+        console.print(f"[green]✓[/] wrote {len(pairs)} row(s) → [bold]{save_to}[/]")
+        return
+    table = Table(box=None)
+    table.add_column("input", style="dim")
+    table.add_column(to_kind)
+    for a, b in pairs:
+        table.add_row(a, b)
+    console.print(table)
 
 
 def run_norm(
