@@ -39,6 +39,7 @@ from seqoutdb.clients.parquet import (
 from seqoutdb.models.api_models import (
     ExperimentSample,
     SearchParams,
+    SearchResult,
     StudyExperimentsResult,
     StudyRunsResult,
     StudyRunsResults,
@@ -52,6 +53,8 @@ from seqoutdb.utils import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from seqoutdb.clients.api import SeqoutAPIClient
 
 VALID_PREFIXES = ("GSE", "GSM", "SRP", "SRS", "SRX")
@@ -68,26 +71,31 @@ def _accession(value: str) -> str:
 
 
 DateRange = tuple[datetime.date | None, datetime.date | None]
+_YEAR_DIGITS = 4
 
 
 def _date_bound(s: str, *, is_end: bool) -> datetime.date | None:
-    """Parse one bound: 'dd-mm-yyyy' -> that day; 'yyyy' -> Jan 1 (start) or
-    Dec 31 (end) of that year; '' -> None (open-ended)."""
+    """
+    Parse one date bound to a date, or None.
+
+    'dd-mm-yyyy' -> that day; 'yyyy' -> Jan 1 (start) or Dec 31 (end); '' -> None.
+    """
     s = s.strip()
     if not s:
         return None
     try:
-        return datetime.datetime.strptime(s, "%d-%m-%Y").date()
+        return datetime.datetime.strptime(s, "%d-%m-%Y").date()  # noqa: DTZ007
     except ValueError:
         pass
-    if s.isdigit() and len(s) == 4:
+    if s.isdigit() and len(s) == _YEAR_DIGITS:
         y = int(s)
         return datetime.date(y, 12, 31) if is_end else datetime.date(y, 1, 1)
     raise argparse.ArgumentTypeError(f"invalid date '{s}': use dd-mm-yyyy or yyyy")
 
 
 def _date_range(value: str) -> DateRange:
-    """Parse a date/range -> (from, to) as dates. Colon marks a range.
+    """
+    Parse a date/range to (from, to) dates; a colon marks a range.
 
     '2020' -> whole of 2020; '15-08-2020' -> that single day;
     '2018:2022', '01-06-2018:', ':31-12-2022' -> open/closed ranges.
@@ -647,15 +655,17 @@ def _save_results(results: list, path: Path) -> None:
 
 
 def _read_key() -> str:
-    """Read one keypress, decoding arrow keys. POSIX only.
+    """
+    Read one keypress, decoding arrow keys. POSIX only.
 
     Returns "left"/"right" for arrows, else the raw char ("q", esc, ctrl-c).
     """
-    # ponytail: POSIX termios getch; add a Windows msvcrt branch if asked.
-    import os
-    import select
-    import termios
-    import tty
+    # ponytail: POSIX termios getch, imported lazily so the module still imports
+    # on Windows (termios/tty are POSIX-only); add a msvcrt branch if asked.
+    import os  # noqa: PLC0415
+    import select  # noqa: PLC0415
+    import termios  # noqa: PLC0415
+    import tty  # noqa: PLC0415
 
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -671,7 +681,12 @@ def _read_key() -> str:
     return {"\x1b[C": "right", "\x1b[D": "left"}.get(ch, ch)
 
 
-def _paged_search(console: Console, query: str, it, page_size: int) -> None:
+def _paged_search(
+    console: Console,
+    query: str,
+    it: Iterator[SearchResult],
+    page_size: int,
+) -> None:
     buffer: list = []
     exhausted = False
 
