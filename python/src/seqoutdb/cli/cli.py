@@ -214,6 +214,12 @@ def main() -> None:
         help="restrict to one source (default: all)",
     )
     p_search.add_argument(
+        "-O",
+        "--organism",
+        metavar="NAME",
+        help='filter by exact scientific name, e.g. "Homo sapiens"',
+    )
+    p_search.add_argument(
         "--sort",
         dest="sortby",
         choices=["citations", "journal", "year"],
@@ -368,6 +374,7 @@ def main() -> None:
             args.sortby,
             args.max_results,
             args.date_range,
+            args.organism,
         )
         return
 
@@ -645,6 +652,7 @@ def cmd_search(
     sortby: Literal["citations", "journal", "year"] | None,
     max_results: int | None = None,
     date_range: DateRange | None = None,
+    organism: str | None = None,
 ) -> None:
     console = Console()
     date_from, date_to = date_range or (None, None)
@@ -652,6 +660,7 @@ def cmd_search(
         params = SearchParams(
             q=query,
             db=db,
+            organism=organism,
             sortby=sortby,
             date_from=date_from.isoformat() if date_from else None,
             date_to=date_to.isoformat() if date_to else None,
