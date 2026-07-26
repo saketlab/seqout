@@ -193,6 +193,12 @@ def main() -> None:
         action="store_true",
         help="download the project's supplementary files instead of metadata",
     )
+    g.add_argument(
+        "--sample-supplementary",
+        dest="sample_supplementary",
+        action="store_true",
+        help="download per-sample supplementary files (GEO series or GSM sample)",
+    )
     for flag, mode in [
         ("--fastq", "fastq"),
         ("--sra", "sra"),
@@ -435,9 +441,13 @@ def main() -> None:
     if args.command == "download":
         if args.supplementary:
             cmd_download_supplementary(args.accession, args.out)
+        elif args.sample_supplementary:
+            cmd_download_sample_supplementary(args.accession, args.out)
         elif args.runs_mode:
             cmd_download_runs(args.accession, args.out, args.runs_mode)
-        else:
+        elif sys.stdin.isatty() and sys.stdout.isatty():
+            cmd_download_interactive(args.accession, args.out)
+        else:  # non-interactive: keep the scriptable metadata-JSON default
             cmd_download(args.accession, args.out)
         return
 
@@ -1030,6 +1040,23 @@ def _fmt_bytes(b: str) -> str:
     return f"{n:.1f} TB"
 
 
+def _sum_run_bytes(runs: StudyRunsResults, mode: str) -> int:
+    """Total bytes across runs for a download mode (fields are ';'-joined per run)."""
+    field = _MODE_FIELDS[mode][1]
+    total = 0
+    for r in runs:
+        raw = getattr(r, field, None)
+        for part in str(raw or "").split(";"):
+            if part.strip().isdigit():
+                total += int(part)
+    return total
+
+
+def _mode_available(runs: StudyRunsResults, mode: str) -> bool:
+    url_field = _MODE_FIELDS[mode][0]
+    return any(getattr(r, url_field, None) for r in runs)
+
+
 def _resolve_run_study(sq: SeqoutAPIClient, run_acc: str) -> str | None:
     try:
         res = sq.search(SearchParams(q=run_acc))
@@ -1155,6 +1182,222 @@ def cmd_download_runs(
         console.print(f"[red]Failed:[/] {e}")
         raise SystemExit(1) from e
     console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
+
+
+_PLAIN_QSTYLE = questionary.Style(
+    [("highlighted", "noreverse"), ("selected", "noreverse")]
+)
+
+
+def _sample_supplementary_urls(sq: SeqoutAPIClient, acc: str) -> list[str]:
+    """
+    Per-sample supplementary file URLs.
+
+    One GSM's own, or every sample's in a GEO series / ArrayExpress experiment.
+    Empty for SRA (no such concept).
+    """
+    up = acc.upper()
+    try:
+        if up.startswith("GSM"):
+            detail = sq.fetch_geo_sample_detailed_metadata(acc)
+            return list(detail.sample.supplementary_data or [])
+        if up.startswith(("GSE", "E-")):
+            return [
+                u
+                for s in sq.fetch_samples(acc)
+                for u in (s.supplementary_data or [])
+            ]
+    except Exception:  # best-effort inventory; absence just hides the option
+        return []
+    return []
+
+
+def cmd_download_sample_supplementary(accession: str, out: str | None) -> None:
+    console = Console()
+    acc = accession.strip()
+    out_dir = Path(out) if out else Path(acc)
+    try:
+        with connect_to_seqout(backend="api") as sq:
+            with console.status(f"[bold]Looking up samples for {acc}…[/]"):
+                urls = _sample_supplementary_urls(sq, acc)
+            if not urls:
+                console.print(
+                    f"[yellow]No per-sample supplementary files for {acc}.[/]"
+                )
+                return
+            console.print(
+                f"Downloading [bold]{len(urls)}[/] sample file(s) → [bold]{out_dir}/[/]"
+            )
+            sq.download_files(urls, out_dir)
+    except RuntimeError as e:  # partial-failure summary from the client
+        console.print(f"[red]{e}[/]")
+        raise SystemExit(1) from e
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
+    console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
+
+
+def _runs_label(label: str, runs: StudyRunsResults) -> str:
+    """Append known fastq/sra-lite totals to a run-group menu label."""
+    sizes = " · ".join(
+        f"{m} {_fmt_bytes(str(_sum_run_bytes(runs, m)))}"
+        for m in ("fastq", "sra_lite")
+        if _sum_run_bytes(runs, m)
+    )
+    return f"{label}  ({sizes})" if sizes else label
+
+
+def _single_run(
+    sq: SeqoutAPIClient, acc: str, up: str
+) -> StudyRunsResults | None:
+    """Resolve a pasted run accession to its study and return just that run."""
+    try:
+        study = _resolve_run_study(sq, acc)
+        if not study:
+            return None
+        run = next(
+            (r for r in sq.fetch_study_runs(study) if r.run_accession.upper() == up),
+            None,
+        )
+    except Exception:
+        return None
+    return StudyRunsResults([run]) if run is not None else None
+
+
+def _download_run_group(
+    console: Console, sq: SeqoutAPIClient, runs: StudyRunsResults, out_dir: Path
+) -> None:
+    """Interactive run download: pick a format, confirm the size, then fetch."""
+    modes = [m for m in _MODE_FIELDS if _mode_available(runs, m)]
+    if not modes:
+        console.print("[yellow]No downloadable run files found.[/]")
+        return
+    mode = questionary.select(
+        "Format?",
+        choices=modes,
+        default="fastq" if "fastq" in modes else modes[0],
+        style=_PLAIN_QSTYLE,
+    ).ask()
+    if mode is None:
+        return
+    total = _sum_run_bytes(runs, mode)
+    size = f" ({_fmt_bytes(str(total))})" if total else ""
+    if not questionary.confirm(
+        f"Download {len(runs)} run(s) as {mode}{size} into {out_dir}/?",
+        default=False,
+        style=_PLAIN_QSTYLE,
+    ).ask():
+        console.print("[yellow]Cancelled.[/]")
+        return
+    console.print(f"Downloading [bold]{len(runs)}[/] run(s) as [bold]{mode}[/]…")
+    sq.download_study_runs_data(runs, out_dir, mode=mode)
+    console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
+
+
+def cmd_download_interactive(accession: str, out: str | None) -> None:
+    """
+    Interactive picker for `download <acc>` with no mode flag on a TTY.
+
+    Inventory what's available for the accession, let the user pick one group,
+    then fetch it.
+    """
+    console = Console()
+    acc = accession.strip()
+    up = acc.upper()
+    out_dir = Path(out) if out else Path(acc)
+    groups: list[dict] = []
+
+    try:
+        with connect_to_seqout(backend="api") as sq:
+            with console.status(f"[bold]Inspecting {acc}…[/]"):
+                if up.startswith(RUN_PREFIXES):
+                    # a pasted run accession: offer just that single run
+                    runs = _single_run(sq, acc, up)
+                    if runs:
+                        groups.append({
+                            "kind": "runs",
+                            "label": _runs_label(f"Run {acc}", runs),
+                            "runs": runs,
+                        })
+                else:
+                    groups.append({"kind": "metadata", "label": "Metadata (JSON)"})
+                    geo = _resolve_accession(sq, acc, "geo")
+                    if geo:
+                        try:
+                            meta = sq.fetch_project_metadata(geo)
+                        except Exception:
+                            meta = None
+                        if meta and meta.supplementary_data:
+                            groups.append({
+                                "kind": "project_supp",
+                                "label": "Project supplementary"
+                                f" — {len(meta.supplementary_data)} file(s)",
+                            })
+                    supp = _sample_supplementary_urls(sq, acc)
+                    if supp:
+                        groups.append({
+                            "kind": "sample_supp",
+                            "label": f"Sample supplementary — {len(supp)} file(s)",
+                            "urls": supp,
+                        })
+                    if not up.startswith(SAMPLE_PREFIXES):
+                        study = _resolve_accession(sq, acc, "runs")
+                        runs = None
+                        if study:
+                            try:
+                                runs = sq.fetch_study_runs(study)
+                            except Exception:
+                                runs = None
+                        if runs:
+                            label = f"Run data — {len(runs)} run(s)"
+                            groups.append({
+                                "kind": "runs",
+                                "label": _runs_label(label, runs),
+                                "runs": runs,
+                            })
+
+            if not groups:
+                console.print(f"[yellow]Nothing downloadable found for {acc}.[/]")
+                return
+            if len(groups) == 1 and groups[0]["kind"] == "metadata":
+                console.print(f"[dim]Only metadata is available for {acc}.[/]")
+            choice = questionary.select(
+                f"{acc}: what do you want to download?",
+                choices=[
+                    questionary.Choice(g["label"], value=i)
+                    for i, g in enumerate(groups)
+                ],
+                style=_PLAIN_QSTYLE,
+            ).ask()
+            if choice is None:
+                console.print("[yellow]Cancelled.[/]")
+                return
+            g = groups[choice]
+
+            if g["kind"] == "sample_supp":
+                console.print(
+                    f"Downloading [bold]{len(g['urls'])}[/] file(s) →"
+                    f" [bold]{out_dir}/[/]"
+                )
+                sq.download_files(g["urls"], out_dir)
+                console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
+                return
+            if g["kind"] == "runs":
+                _download_run_group(console, sq, g["runs"], out_dir)
+                return
+    except RuntimeError as e:  # partial-failure summary from the client
+        console.print(f"[red]{e}[/]")
+        raise SystemExit(1) from e
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
+
+    # metadata / project-supplementary reuse the existing single-purpose commands.
+    if g["kind"] == "metadata":
+        cmd_download(acc, out)
+    elif g["kind"] == "project_supp":
+        cmd_download_supplementary(acc, out)
 
 
 def run_norm(

@@ -310,6 +310,44 @@ class SeqoutAPIClient:
             for f in as_completed(futures):
                 f.result()
 
+    def download_files(
+        self,
+        urls: list[str],
+        out_dir: Path,
+        *,
+        num_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        with_pbar: bool = False,
+    ) -> None:
+        """
+        Download a bare list of URLs into out_dir.
+
+        For e.g. per-sample supplementary files; same threaded fetch as the
+        supplementary/run downloaders.
+        """
+        num_workers = _normalize_num_workers(num_workers)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        url_to_dest: dict[str, Path] = {}
+        for url in urls:
+            normalized_url = _normalize_url(url)
+            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
+
+        with ThreadPoolExecutor(num_workers) as pool:
+            futures = {
+                pool.submit(
+                    self._downloader,
+                    url=url,
+                    dest_path=dest_path,
+                    chunk_size=chunk_size,
+                    with_pbar=with_pbar,
+                ): url
+                for url, dest_path in url_to_dest.items()
+            }
+
+            for f in as_completed(futures):
+                f.result()
+
     def download_study_runs_data(
         self,
         runs: StudyRunsResults,
