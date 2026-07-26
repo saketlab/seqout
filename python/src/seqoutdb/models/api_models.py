@@ -140,7 +140,7 @@ class NextCursor(BaseModel):
 
 class SearchResponse(BaseModel):
     results: list[SearchResult]
-    total: int
+    total: int | None = None  # null when the backend skips the count on broad queries
     took_ms: float
     next_cursor: NextCursor | None = None
 

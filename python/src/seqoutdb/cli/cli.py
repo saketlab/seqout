@@ -522,7 +522,6 @@ def cmd_search(
         title=f"{query!r} — {len(results)} result(s)",
         title_style="bold",
         header_style="bold green",
-        row_styles=["", "dim"],
     )
     table.add_column("accession", style="bold cyan", no_wrap=True)
     table.add_column("src", no_wrap=True)
