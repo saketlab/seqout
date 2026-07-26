@@ -188,7 +188,16 @@ def main() -> None:
         "--limit",
         type=int,
         default=20,
-        help="max results to show (default: 20)",
+        help="results per page in interactive mode (default: 20)",
+    )
+    p_search.add_argument(
+        "-m",
+        "--max",
+        dest="max_results",
+        type=int,
+        default=None,
+        metavar="N",
+        help="stop after this many results total (default: unlimited)",
     )
 
     # parquet backend subcommand
@@ -305,7 +314,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "search":
-        cmd_search(args.query, args.db, args.limit, args.sortby)
+        cmd_search(args.query, args.db, args.limit, args.sortby, args.max_results)
         return
 
     if args.command == "show":
@@ -534,9 +543,15 @@ def _read_key() -> str:
     return {"\x1b[C": "right", "\x1b[D": "left"}.get(ch, ch)
 
 
-def _paged_search(console: Console, sq, params: SearchParams, page_size: int) -> None:
+def _paged_search(
+    console: Console,
+    sq,
+    params: SearchParams,
+    page_size: int,
+    max_results: int | None,
+) -> None:
     buffer: list = []
-    it = sq.iter_search(params)  # lazy cursor walk over all results
+    it = sq.iter_search(params, limit=max_results)  # lazy cursor walk, capped
     exhausted = False
 
     def ensure(n: int) -> None:
@@ -581,6 +596,7 @@ def cmd_search(
     db: Literal["geo", "sra", "arrayexpress", "ena"] | None,
     limit: int,
     sortby: Literal["citations", "journal", "year"] | None,
+    max_results: int | None = None,
 ) -> None:
     console = Console()
     try:
@@ -592,10 +608,12 @@ def cmd_search(
     try:
         with connect_to_seqout(backend="api") as sq:
             if sys.stdin.isatty() and sys.stdout.isatty():
-                _paged_search(console, sq, params, page_size=limit)
+                _paged_search(console, sq, params, limit, max_results)
                 return
             with console.status("[bold]Searching…[/]"):
-                results = list(sq.iter_search(params, limit=limit))
+                results = list(
+                    sq.iter_search(params, limit=max_results or limit),
+                )
     except Exception as e:
         console.print(f"[red]Search failed:[/] {e}")
         raise SystemExit(1) from e
