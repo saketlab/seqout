@@ -207,7 +207,12 @@ def main() -> None:
         help="full-text search for projects",
         description="Full-text search across GEO, SRA, ArrayExpress and ENA.",
     )
-    p_search.add_argument("query", help='search text, e.g. "lung cancer single cell"')
+    p_search.add_argument(
+        "query",
+        nargs="?",
+        help='search text, e.g. "lung cancer single cell". Optional if at least '
+        "one filter (-O/-S/-P/-C/-d/--db) is given",
+    )
     p_search.add_argument(
         "--db",
         choices=["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"],
@@ -672,7 +677,7 @@ def _paged_search(console: Console, query: str, it, page_size: int) -> None:
 
 
 def cmd_search(
-    query: str,
+    query: str | None,
     db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None,
     limit: int,
     sortby: Literal["citations", "journal", "year"] | None,
@@ -685,6 +690,15 @@ def cmd_search(
 ) -> None:
     console = Console()
     date_from, date_to = date_range or (None, None)
+    if not query and not any(
+        [db, organism, library_strategy, platform, library_source, date_range],
+    ):
+        console.print(
+            "[red]Provide a search query or at least one filter[/] "
+            "(-O/-S/-P/-C/-d/--db).",
+        )
+        raise SystemExit(1)
+    label = query or "(filter-only)"  # query is optional in query-less search
     try:
         params = SearchParams(
             q=query,
@@ -707,7 +721,7 @@ def cmd_search(
             if sys.stdin.isatty() and sys.stdout.isatty():
                 if max_results is not None:
                     it = itertools.islice(it, max_results)
-                _paged_search(console, query, it, limit)
+                _paged_search(console, label, it, limit)
                 return
             with console.status("[bold]Searching…[/]"):
                 results = list(itertools.islice(it, max_results or limit))
@@ -716,9 +730,9 @@ def cmd_search(
         raise SystemExit(1) from e
 
     if not results:
-        console.print(f"[yellow]No results for[/] {query!r}.")
+        console.print(f"[yellow]No results for[/] {label}.")
         return
-    console.print(_results_table(f"{query!r} — {len(results)} result(s)", results))
+    console.print(_results_table(f"{label} — {len(results)} result(s)", results))
     console.print("[dim]Tip: `seqoutdb show <accession>` to inspect a result.[/]")
 
 

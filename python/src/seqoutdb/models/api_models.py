@@ -18,7 +18,7 @@ _MAX_QUERY_LENGTH = 500
 
 # full-text search
 class SearchParams(BaseModel):
-    q: str
+    q: str | None = None  # optional when at least one filter is set (query-less)
     db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None = None
     organism: str | None = None  # exact scientific name, e.g. "Homo sapiens"
     library_strategy: list[str] | None = None  # GEO/SRA only; NULL elsewhere
@@ -34,7 +34,9 @@ class SearchParams(BaseModel):
 
     @field_validator("q")
     @classmethod
-    def _query_must_be_valid(cls, v: str) -> str:
+    def _query_must_be_valid(cls, v: str | None) -> str | None:
+        if v is None:  # query-less filter search
+            return None
         v = v.strip()
 
         if not v:
