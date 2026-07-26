@@ -220,6 +220,29 @@ def main() -> None:
         help='filter by exact scientific name, e.g. "Homo sapiens"',
     )
     p_search.add_argument(
+        "-S",
+        "--strategy",
+        dest="library_strategy",
+        nargs="+",
+        metavar="STRATEGY",
+        help="filter by library strategy, e.g. RNA-Seq ATAC-seq (GEO/SRA only)",
+    )
+    p_search.add_argument(
+        "-P",
+        "--platform",
+        nargs="+",
+        metavar="PLATFORM",
+        help="filter by sequencing platform, e.g. ILLUMINA (GEO/SRA only)",
+    )
+    p_search.add_argument(
+        "-C",
+        "--source",
+        dest="library_source",
+        nargs="+",
+        metavar="SOURCE",
+        help="filter by library source, e.g. GENOMIC TRANSCRIPTOMIC (SRA only)",
+    )
+    p_search.add_argument(
         "--sort",
         dest="sortby",
         choices=["citations", "journal", "year"],
@@ -375,6 +398,9 @@ def main() -> None:
             args.max_results,
             args.date_range,
             args.organism,
+            args.library_strategy,
+            args.platform,
+            args.library_source,
         )
         return
 
@@ -653,6 +679,9 @@ def cmd_search(
     max_results: int | None = None,
     date_range: DateRange | None = None,
     organism: str | None = None,
+    library_strategy: list[str] | None = None,
+    platform: list[str] | None = None,
+    library_source: list[str] | None = None,
 ) -> None:
     console = Console()
     date_from, date_to = date_range or (None, None)
@@ -661,6 +690,9 @@ def cmd_search(
             q=query,
             db=db,
             organism=organism,
+            library_strategy=library_strategy,
+            library_source=library_source,
+            platform=platform,
             sortby=sortby,
             date_from=date_from.isoformat() if date_from else None,
             date_to=date_to.isoformat() if date_to else None,

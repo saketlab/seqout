@@ -21,6 +21,9 @@ class SearchParams(BaseModel):
     q: str
     db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None = None
     organism: str | None = None  # exact scientific name, e.g. "Homo sapiens"
+    library_strategy: list[str] | None = None  # GEO/SRA only; NULL elsewhere
+    library_source: list[str] | None = None  # SRA only; NULL elsewhere
+    platform: list[str] | None = None  # GEO/SRA only; NULL elsewhere
     sortby: Literal["citations", "journal", "year"] | None = None
     order: Literal["asc", "desc"] | None = "desc"
     date_from: str | None = None  # ISO yyyy-mm-dd; server filters on updated_at
