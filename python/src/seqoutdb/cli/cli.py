@@ -258,7 +258,7 @@ def main() -> None:
     )
     p_search.add_argument(
         "-o",
-        "--save-to",
+        "--saveto",
         dest="save_to",
         type=Path,
         metavar="FILE",

@@ -101,7 +101,7 @@ class SearchResult(BaseModel):
     updated_at: str | None = None
     organisms: list[str] = []
     countries: list[str] = []
-    rank: float
+    rank: float | None = None  # NULL on query-less (filter-only) search: no FTS score
     source: str
     total_count: int | None = None
     instrument_models: list[str] = []
