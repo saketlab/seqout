@@ -38,6 +38,7 @@ from seqoutdb.clients.parquet import (
     _ALL_PARQUET_FILES,
     SeqoutParquetClient,
 )
+from seqoutdb.constants import PARQUET_DUMP_BASE_URL
 from seqoutdb.models.api_models import (
     ExperimentSample,
     SearchParams,
@@ -374,8 +375,8 @@ def main() -> None:
 
     pq_dl = pq_sub.add_parser(
         "download",
-        help="download parquet data files from S3",
-        description="Download the seqout parquet dumps from S3 to a local directory.",
+        help="download parquet data files to a local directory",
+        description="Download the seqout parquet dumps to a local directory.",
     )
     pq_dl.add_argument(
         "output_dir",
@@ -400,6 +401,11 @@ def main() -> None:
         default=None,
         help="number of parallel download workers",
     )
+    pq_dl.add_argument(
+        "--source",
+        default=None,
+        help="base URL to download from (default: the configured/seqout source)",
+    )
 
     pq_query = pq_sub.add_parser(
         "query",
@@ -411,9 +417,9 @@ def main() -> None:
     )
     pq_query.add_argument(
         "--source",
-        type=Path,
-        default=Path(),
-        help="directory containing the parquet files (default: current dir)",
+        default=None,
+        help="URL or local dir with the parquet files "
+        "(default: configured source, else seqout's hosted dump)",
     )
     pq_query.add_argument(
         "sql",
@@ -442,9 +448,9 @@ def main() -> None:
     )
     pq_show.add_argument(
         "--source",
-        type=Path,
-        default=Path(),
-        help="directory containing the parquet files (default: current dir)",
+        default=None,
+        help="URL or local dir with the parquet files "
+        "(default: configured source, else seqout's hosted dump)",
     )
     pq_show.add_argument(
         "accession",
@@ -463,13 +469,12 @@ def main() -> None:
 
     pq_source = pq_sub.add_parser(
         "set-source",
-        help="set the parquet source directory (used by subsequent commands)",
-        description="Persist the source directory for parquet files.",
+        help="set the default parquet source (a URL or local directory)",
+        description="Persist the parquet source used by query/show/download.",
     )
     pq_source.add_argument(
-        "source_dir",
-        type=Path,
-        help="path to the directory containing parquet files",
+        "source",
+        help="a URL (https://host/path) or a local directory with the parquet files",
     )
 
     args = parser.parse_args()
@@ -1962,6 +1967,43 @@ def run_norm(
         invalid_panel(sample, raw)
 
 
+# Persisted parquet source (a URL or a local dir), set via `parquet set-source`.
+_PARQUET_SOURCE_FILE = Path.home() / ".config" / "seqoutdb" / "parquet_source"
+
+
+def _is_url(s: str) -> bool:
+    return s.startswith(("http://", "https://"))
+
+
+def _normalize_source(source: str) -> str:
+    """Strip a URL's trailing slash; expand a local path to absolute."""
+    if _is_url(source):
+        return source.rstrip("/")
+    return str(Path(source).expanduser().resolve())
+
+
+def _load_parquet_source() -> str | None:
+    try:
+        return _PARQUET_SOURCE_FILE.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def _save_parquet_source(source: str) -> None:
+    _PARQUET_SOURCE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _PARQUET_SOURCE_FILE.write_text(source + "\n", encoding="utf-8")
+
+
+def _resolve_parquet_source(arg: str | None) -> str:
+    """Resolve the parquet source: --source flag > env > persisted > default URL."""
+    if arg:
+        return _normalize_source(arg)
+    env = os.environ.get("SEQOUT_PARQUET_SOURCE")
+    if env:
+        return _normalize_source(env)
+    return _load_parquet_source() or PARQUET_DUMP_BASE_URL
+
+
 def cmd_parquet(args: argparse.Namespace) -> None:
     console = Console()
 
@@ -1982,12 +2024,13 @@ def cmd_parquet(args: argparse.Namespace) -> None:
 def cmd_pq_download(args: argparse.Namespace, console: Console) -> None:
     output_dir = args.output_dir
     files = args.files or _ALL_PARQUET_FILES
+    source = _resolve_parquet_source(args.source)
+    if not _is_url(source):  # can't download from a local directory
+        source = PARQUET_DUMP_BASE_URL
+        console.print(f"[dim]Source is a local dir; downloading from {source}[/]")
     try:
-        with (
-            connect_to_seqout(backend="parquet") as sq,
-            console.status(f"[bold]Downloading {len(files)} parquet file(s)…[/]"),
-        ):
-            sq.download_parquet_files(
+        with console.status(f"[bold]Downloading {len(files)} parquet file(s)…[/]"):
+            SeqoutParquetClient(base_url=source).download_parquet_files(
                 output_dir=output_dir,
                 files=files,
                 num_workers=args.num_workers,
@@ -2003,7 +2046,7 @@ def cmd_pq_download(args: argparse.Namespace, console: Console) -> None:
 
 
 def cmd_pq_query(args: argparse.Namespace, console: Console) -> None:
-    source = args.source
+    source = _resolve_parquet_source(args.source)
     sql = args.sql
     limit = args.limit
     try:
@@ -2043,7 +2086,7 @@ def cmd_pq_query(args: argparse.Namespace, console: Console) -> None:
 
 
 def cmd_pq_show(args: argparse.Namespace, console: Console) -> None:
-    source = args.source
+    source = _resolve_parquet_source(args.source)
     accession = args.accession
     try:
         sq = SeqoutParquetClient()
@@ -2109,16 +2152,16 @@ def cmd_pq_show(args: argparse.Namespace, console: Console) -> None:
 
 
 def cmd_pq_set_source(args: argparse.Namespace, console: Console) -> None:
-    source_dir = args.source_dir
-    if not source_dir.exists():
-        console.print(f"[red]Directory not found:[/] {source_dir}")
+    source = _normalize_source(args.source)
+    if not _is_url(source) and not Path(source).is_dir():
+        console.print(f"[red]Not a URL or an existing directory:[/] {args.source}")
         raise SystemExit(1)
-    console.print(f"[green]✓[/] parquet source set to [bold]{source_dir.resolve()}[/]")
-    tip = (
-        "[dim]Tip: pass --source <dir> to 'parquet query' "
-        "and 'parquet show' commands.[/]"
+    _save_parquet_source(source)
+    console.print(f"[green]✓[/] parquet source set to [bold]{source}[/]")
+    console.print(
+        "[dim]Used by 'parquet query/show/download'. "
+        "Override per-command with --source.[/]"
     )
-    console.print(tip)
 
 
 if __name__ == "__main__":

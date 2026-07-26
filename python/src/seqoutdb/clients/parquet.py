@@ -13,7 +13,7 @@ from seqoutdb.constants import (
     DEFAULT_MAX_WAIT,
     DEFAULT_NUM_RETRIES,
     DEFAULT_REQ_TIMEOUT,
-    PARQUET_S3_DUMP_BASE_URL,
+    PARQUET_DUMP_BASE_URL,
 )
 from seqoutdb.exception import SeqoutError
 from seqoutdb.helpers import _download_file
@@ -47,6 +47,18 @@ ParquetFile = Literal[
     "geo_samples",
     "sra_experiments",
     "sra_submissions",
+    # newer sources: GSA, DRA and GEA
+    "gsa_studies",
+    "gsa_experiments",
+    "gsa_samples",
+    "gsa_projects",
+    "dra_studies",
+    "dra_experiments",
+    "dra_samples",
+    "dra_runs",
+    "dra_submissions",
+    "gea_experiments",
+    "gea_samples",
 ]
 
 _ALL_PARQUET_FILES: list[ParquetFile] = list(get_args(ParquetFile))
@@ -63,7 +75,7 @@ class _Datasource(StrEnum):
 class SeqoutParquetClient:
     def __init__(
         self,
-        base_url: str = PARQUET_S3_DUMP_BASE_URL,
+        base_url: str = PARQUET_DUMP_BASE_URL,
         timeout: int = DEFAULT_REQ_TIMEOUT,
         num_retries: int = DEFAULT_NUM_RETRIES,
         max_wait: int = DEFAULT_MAX_WAIT,
@@ -99,9 +111,7 @@ class SeqoutParquetClient:
         num_workers = _normalize_num_workers(num_workers)
         url_to_dest: dict[str, Path] = {}
         for f in files:
-            url_to_dest[f"{PARQUET_S3_DUMP_BASE_URL}/{f}.parquet"] = (
-                output_dir / f"{f}.parquet"
-            )
+            url_to_dest[f"{self._base_url}/{f}.parquet"] = output_dir / f"{f}.parquet"
 
         with ThreadPoolExecutor(num_workers) as pool:
             futures = {
