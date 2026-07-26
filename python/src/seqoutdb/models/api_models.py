@@ -19,7 +19,7 @@ _MAX_QUERY_LENGTH = 500
 # full-text search
 class SearchParams(BaseModel):
     q: str
-    db: Literal["geo", "sra", "arrayexpress", "ena"] | None = None
+    db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None = None
     sortby: Literal["citations", "journal", "year"] | None = None
     order: Literal["asc", "desc"] | None = "desc"
     date_from: str | None = None  # ISO yyyy-mm-dd; server filters on updated_at

@@ -210,7 +210,7 @@ def main() -> None:
     p_search.add_argument("query", help='search text, e.g. "lung cancer single cell"')
     p_search.add_argument(
         "--db",
-        choices=["geo", "sra", "arrayexpress", "ena"],
+        choices=["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"],
         help="restrict to one source (default: all)",
     )
     p_search.add_argument(
@@ -640,7 +640,7 @@ def _paged_search(console: Console, query: str, it, page_size: int) -> None:
 
 def cmd_search(
     query: str,
-    db: Literal["geo", "sra", "arrayexpress", "ena"] | None,
+    db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None,
     limit: int,
     sortby: Literal["citations", "journal", "year"] | None,
     max_results: int | None = None,
