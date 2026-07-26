@@ -396,7 +396,7 @@ def cmd_show(accession: str) -> None:
             console.print(f"[yellow]No samples found for {acc}.[/]")
             return
         table = Table(
-            show_lines=False, header_style="bold green", row_styles=["", "dim"]
+            show_lines=False, header_style="bold green"
         )
         table.add_column("accession", style="bold cyan", no_wrap=True)
         table.add_column("title", overflow="fold")
@@ -411,7 +411,7 @@ def cmd_show(accession: str) -> None:
             console.print(f"[yellow]No experiments found for {acc}.[/]")
             return
         table = Table(
-            show_lines=False, header_style="bold green", row_styles=["", "dim"]
+            show_lines=False, header_style="bold green"
         )
         table.add_column("accession", style="bold cyan", no_wrap=True)
         table.add_column("title", overflow="fold")
@@ -1033,7 +1033,6 @@ def cmd_pq_query(args: argparse.Namespace, console: Console) -> None:
             table = Table(
                 title=f"Query result ({len(rows)} row(s))",
                 header_style="bold green",
-                row_styles=["", "dim"],
             )
             for col in cols:
                 table.add_column(str(col), overflow="fold")
@@ -1066,7 +1065,6 @@ def cmd_pq_show(args: argparse.Namespace, console: Console) -> None:
             table = Table(
                 title=f"Samples for {accession}",
                 header_style="bold green",
-                row_styles=["", "dim"],
             )
             table.add_column("accession", style="bold cyan", no_wrap=True)
             table.add_column("title", overflow="fold")
@@ -1086,7 +1084,6 @@ def cmd_pq_show(args: argparse.Namespace, console: Console) -> None:
             table = Table(
                 title=f"Experiments for {accession}",
                 header_style="bold green",
-                row_styles=["", "dim"],
             )
             table.add_column("accession", style="bold cyan", no_wrap=True)
             table.add_column("strategy", no_wrap=True)
