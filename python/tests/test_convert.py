@@ -14,6 +14,8 @@ from seqoutdb.cli.cli import (
     _CONVERT_COMMANDS,
     _TARGET_COL,
     _convert_one,
+    _is_doi,
+    _is_pmid,
     _mesh_column,
 )
 
@@ -57,6 +59,21 @@ class FakeSq:
     def fetch_cross_references(self, _acc):  # GSE1 -> SRP1
         return [SimpleNamespace(accession="SRP1")]
 
+    def fetch_project_metadata(self, _acc):  # forward: accession -> pubs
+        return SimpleNamespace(
+            pmid="111", doi="10.1/x",
+            publications=[
+                SimpleNamespace(pmid="111", doi="10.1/x"),
+                SimpleNamespace(pmid="222", doi="10.2/y"),
+            ],
+        )
+
+    def find_publication(self, *, pmid=None, doi=None):  # noqa: ARG002
+        return SimpleNamespace(projects=[
+            SimpleNamespace(accession="GSE1", source="geo"),
+            SimpleNamespace(accession="SRP1", source="sra"),
+        ])
+
 
 def conv(acc, to_kind):
     return _convert_one(FakeSq(), acc, acc.upper(), to_kind, _QUIET)
@@ -88,6 +105,15 @@ def conv(acc, to_kind):
         ("GSM10", "srp", ["SRP1"]),
         # GEO series -> its samples
         ("GSE1", "gsm", ["GSM10", "GSM20"]),
+        # literature forward: accession -> pmid/doi (flat id first, deduped)
+        ("SRP1", "pmid", ["111", "222"]),
+        ("SRP1", "doi", ["10.1/x", "10.2/y"]),
+        ("SRR1", "pmid", ["111", "222"]),  # child resolves to study first
+        # literature reverse: pmid/doi -> projects, filtered by target
+        ("34764296", "srp", ["SRP1"]),
+        ("34764296", "gse", ["GSE1"]),
+        ("34764296", "study", ["GSE1", "SRP1"]),  # no prefix filter -> all
+        ("10.1/x", "gse", ["GSE1"]),  # doi source
     ],
 )
 def test_convert_directions(acc, to_kind, expected):
@@ -107,15 +133,28 @@ def test_archive_prefixes_route_to_mesh_columns():
 
 
 def test_every_command_target_is_known():
-    # a command whose target isn't in _TARGET_COL (or gse) would silently no-op
+    # a command whose target isn't handled would silently no-op
+    special = {"gse", "pmid", "doi"}  # handled outside _TARGET_COL
     for name in _CONVERT_COMMANDS:
         target = name.split("-to-")[1]
-        assert target in _TARGET_COL or target == "gse", name
+        assert target in _TARGET_COL or target in special, name
 
 
 def test_archive_native_commands_registered():
     for name in ("cra-to-crr", "crr-to-cra", "drp-to-drx", "erp-to-err"):
         assert name in _CONVERT_COMMANDS, name
+
+
+def test_literature_commands_registered():
+    for name in ("srp-to-pmid", "gse-to-pmid", "pmid-to-srp", "doi-to-gse"):
+        assert name in _CONVERT_COMMANDS, name
+
+
+def test_pmid_and_doi_detection():
+    assert _is_pmid("34764296")
+    assert not _is_pmid("SRP311850")
+    assert _is_doi("10.1038/s41467-021-26864-x")
+    assert not _is_doi("SRP311850")
 
 
 @pytest.mark.network

@@ -51,6 +51,15 @@ def test_client_has_methods_cli_calls(method):
     assert callable(getattr(Seqout, method, None)), f"Seqout.{method} missing"
 
 
+@pytest.mark.parametrize(
+    "method", ["find_publication", "search_author_projects", "fetch_study_runs"]
+)
+def test_client_has_lookup_methods(method):
+    from seqoutdb import Seqout
+
+    assert callable(getattr(Seqout, method, None)), f"Seqout.{method} missing"
+
+
 @pytest.mark.network
 @pytest.mark.parametrize("kind", list(KINDS))
 def test_fetch_each_accession_kind(kind):

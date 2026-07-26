@@ -94,6 +94,34 @@ class Publication(BaseModel):
         return str(v) if v is not None else None  # API sends a bare int year sometimes
 
 
+class LinkedProject(BaseModel):
+    accession: str
+    source: str | None = None
+    title: str | None = None
+    via: str | None = None  # the table the publication link came from
+
+
+class InstituteFacet(BaseModel):
+    name: str
+    count: int = 0
+
+
+class PublicationLookupResult(BaseModel):
+    """Reverse lookup: a publication (pmid/doi) -> its linked projects."""
+
+    pmid: str | None = None
+    doi: str | None = None
+    title: str | None = None
+    journal: str | None = None
+    projects: list[LinkedProject] = []
+    total_projects: int = 0
+
+    @field_validator("pmid", mode="before")
+    @classmethod
+    def _pmid_to_str(cls, v: object) -> str | None:
+        return str(v) if v is not None else None
+
+
 class SearchResult(BaseModel):
     accession: str
     title: str
@@ -102,7 +130,7 @@ class SearchResult(BaseModel):
     organisms: list[str] = []
     countries: list[str] = []
     rank: float | None = None  # NULL on query-less (filter-only) search: no FTS score
-    source: str
+    source: str | None = None  # absent on /author/projects rows (derive from prefix)
     total_count: int | None = None
     instrument_models: list[str] = []
     publications: list[Publication] = []
@@ -228,6 +256,15 @@ class SearchResults(BaseContainer[SearchResult]):
 
     def most_recent(self, n: int = 10) -> SearchResults:
         return self.sort_by("updated_at", reverse=True).limit(n)
+
+
+class AuthorProjectsResponse(BaseModel):
+    """All datasets linked to an author (search-card-compatible rows)."""
+
+    q: str | None = None
+    total: int = 0
+    results: list[SearchResult] = []
+    institutes: list[InstituteFacet] = []
 
 
 # project summary

@@ -111,6 +111,19 @@ def _date_range(value: str) -> DateRange:
     return (lo_d, hi_d)
 
 
+def _run_download(args: argparse.Namespace) -> None:
+    if args.supplementary:
+        cmd_download_supplementary(args.accession, args.out)
+    elif args.sample_supplementary:
+        cmd_download_sample_supplementary(args.accession, args.out)
+    elif args.runs_mode:
+        cmd_download_runs(args.accession, args.out, args.runs_mode)
+    elif sys.stdin.isatty() and sys.stdout.isatty():
+        cmd_download_interactive(args.accession, args.out)
+    else:  # non-interactive: keep the scriptable metadata-JSON default
+        cmd_download(args.accession, args.out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="seqoutdb",
@@ -175,6 +188,20 @@ def main() -> None:
         "accession",
         help="project accession, e.g. GSE12345, SRP123456, E-MTAB-1234",
     )
+
+    p_pmid = sub.add_parser(
+        "pmid",
+        help="show all datasets linked to a publication (PMID or DOI)",
+        description="List every dataset linked to a PubMed ID or DOI.",
+    )
+    p_pmid.add_argument("id", help="a PubMed ID (e.g. 34764296) or DOI (10.xxxx/...)")
+
+    p_author = sub.add_parser(
+        "author",
+        help="show all datasets linked to an author",
+        description="List every dataset an author is linked to via its publication.",
+    )
+    p_author.add_argument("name", help="author name, e.g. 'Saket Choudhary'")
 
     p_dl = sub.add_parser(
         "download",
@@ -447,61 +474,35 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "search":
-        cmd_search(
-            args.query,
-            args.db,
-            args.limit,
-            args.sortby,
-            args.max_results,
-            args.date_range,
-            args.organism,
-            args.library_strategy,
-            args.platform,
-            args.library_source,
-            args.save_to,
-        )
+    subcommands = {
+        "search": lambda: cmd_search(
+            args.query, args.db, args.limit, args.sortby, args.max_results,
+            args.date_range, args.organism, args.library_strategy, args.platform,
+            args.library_source, args.save_to,
+        ),
+        "show": lambda: cmd_show(args.accession),
+        "pmid": lambda: cmd_pmid(args.id),
+        "author": lambda: cmd_author(args.name),
+        "convert": lambda: cmd_convert(args.accession, args.to_kind, args.save_to),
+        "download": lambda: _run_download(args),
+        "parquet": lambda: cmd_parquet(args),
+    }
+    handler = subcommands.get(args.command)
+    if handler is not None:
+        handler()
         return
-
-    if args.command == "show":
-        cmd_show(args.accession)
-        return
-
-    if args.command == "convert":
-        cmd_convert(args.accession, args.to_kind, args.save_to)
-        return
-
     if args.command in _CONVERT_COMMANDS:
         cmd_convert(args.accession, args.command.split("-to-")[1], args.save_to)
         return
 
-    if args.command == "download":
-        if args.supplementary:
-            cmd_download_supplementary(args.accession, args.out)
-        elif args.sample_supplementary:
-            cmd_download_sample_supplementary(args.accession, args.out)
-        elif args.runs_mode:
-            cmd_download_runs(args.accession, args.out, args.runs_mode)
-        elif sys.stdin.isatty() and sys.stdout.isatty():
-            cmd_download_interactive(args.accession, args.out)
-        else:  # non-interactive: keep the scriptable metadata-JSON default
-            cmd_download(args.accession, args.out)
-        return
-
-    if args.command == "parquet":
-        cmd_parquet(args)
-        return
-
+    # no subcommand: the --enriched / --norm top-level flags
     if args.enriched is None and args.norm is None:
         raise SystemExit(1)
-
     if args.norm is not None:
         run_norm(args.norm, args.model, port=args.port, base_url=args.base_url)
-
     if args.enriched is not None:
         with connect_to_seqout(backend="api") as sq:
             result = sq.fetch_project_enriched_metadata(args.enriched)
-
         if not result:
             raise SystemExit(1)
 
@@ -726,12 +727,23 @@ def _results_table(title: str, rows: list) -> Table:
     for r in rows:
         table.add_row(
             r.accession,
-            r.source,
+            r.source or _source_from_prefix(r.accession) or "—",
             r.title,
             ", ".join(r.organisms) or "—",
             str(r.citation_count) if r.citation_count else "—",
         )
     return table
+
+
+def _source_from_prefix(acc: str) -> str | None:
+    """Best-effort source label from an accession prefix (author rows omit it)."""
+    up = acc.upper()
+    if up.startswith("E-GEAD"):
+        return "gea"
+    for prefixes, _entity, database in _PREFIX_ENTITY:
+        if up.startswith(prefixes):
+            return database
+    return None
 
 
 _SAVE_COLS = [
@@ -1469,7 +1481,7 @@ _TARGET_COL = {
 # --to choices for the generic `convert` command (clean semantic + pysradb set).
 _CONVERT_TO_CHOICES = (
     "study", "experiment", "sample", "run",
-    "srp", "srx", "srs", "srr", "gsm", "gse",
+    "srp", "srx", "srs", "srr", "gsm", "gse", "pmid", "doi",
 )
 
 # Per-archive entity prefixes (study, experiment, run, sample) for a-to-b names.
@@ -1496,6 +1508,10 @@ _CONVERT_COMMANDS = (
     "srr-to-gsm", "srr-to-srp", "srr-to-srs", "srr-to-srx",
     "srs-to-gsm", "srs-to-srx",
     "srx-to-srp", "srx-to-srr", "srx-to-srs",
+    # literature (forward: accession -> pmid/doi; reverse: pmid/doi -> accession)
+    "srp-to-pmid", "gse-to-pmid", "ae-to-pmid", "ena-to-pmid",
+    "srp-to-doi", "gse-to-doi",
+    "pmid-to-gse", "pmid-to-srp", "doi-to-gse", "doi-to-srp",
     *_archive_convert_commands(),
 )
 _SAMPLE_SOURCES = ("GSE", "E-")  # series/experiments queried via fetch_samples
@@ -1575,18 +1591,89 @@ def _study_of(sq: SeqoutAPIClient, acc: str, col: str) -> str | None:
     return _resolve_run_study(sq, acc)  # SRA/ENA/DDBJ/GSA child -> study via search
 
 
+# reverse literature targets -> the accession prefix(es) to keep (None = all).
+_PUB_TARGET_PREFIX = {"gse": ("GSE",), "srp": ("SRP",)}
+
+
+def _is_pmid(up: str) -> bool:
+    return up.isdigit()
+
+
+def _is_doi(acc: str) -> bool:
+    return acc.startswith("10.") and "/" in acc
+
+
+def _project_of(sq: SeqoutAPIClient, acc: str, up: str) -> str | None:
+    """Return the project/series accession that carries an accession's pubs."""
+    if up.startswith(("GSE", "E-")) or _mesh_column(up) == "study":
+        return acc
+    if up.startswith("GSM"):
+        return _gsm_series(sq, acc)
+    return _resolve_run_study(sq, acc)
+
+
+def _accession_pubs(sq: SeqoutAPIClient, acc: str, up: str, kind: str) -> list[str]:
+    """Forward: accession -> its publication ids (kind = 'pmid' or 'doi')."""
+    proj = _project_of(sq, acc, up)
+    if not proj:
+        return []
+    try:
+        meta = sq.fetch_project_metadata(proj)
+    except Exception:
+        return []
+    ordered = [getattr(meta, kind, None)]  # flat id first, then per-publication
+    ordered += [getattr(p, kind, None) for p in (meta.publications or [])]
+    return list(dict.fromkeys(v for v in ordered if v))
+
+
+def _publication_projects(
+    sq: SeqoutAPIClient, acc: str, up: str, target: str
+) -> list[str]:
+    """Reverse: a publication id -> linked project accessions, filtered by target."""
+    res = (
+        sq.find_publication(pmid=acc)
+        if up.isdigit()
+        else sq.find_publication(doi=acc)
+    )
+    prefixes = _PUB_TARGET_PREFIX.get(target)
+    accs = [
+        p.accession
+        for p in res.projects
+        if not prefixes or p.accession.upper().startswith(prefixes)
+    ]
+    return list(dict.fromkeys(accs))
+
+
+def _convert_special(
+    sq: SeqoutAPIClient, acc: str, up: str, to_kind: str
+) -> list[str] | None:
+    """
+    Non-mesh conversions (literature, GEO-family samples, GEO-series resolve).
+
+    Returns the result list, or None to fall through to the study mesh.
+    """
+    if _is_pmid(up) or _is_doi(acc):  # reverse: publication id -> projects
+        return _publication_projects(sq, acc, up, to_kind)
+    if to_kind in ("pmid", "doi"):  # forward: accession -> publication ids
+        return _accession_pubs(sq, acc, up, to_kind)
+    if to_kind in ("sample", "gsm") and up.startswith(_SAMPLE_SOURCES):
+        return [s.accession for s in sq.fetch_samples(acc)]  # series -> its samples
+    if to_kind == "gse":  # -> the linked GEO series
+        geo = (
+            _gsm_series(sq, acc)
+            if up.startswith("GSM")
+            else _resolve_accession(sq, acc, "geo")
+        )
+        return [geo] if geo else []
+    return None
+
+
 def _convert_one(
     sq: SeqoutAPIClient, acc: str, up: str, to_kind: str, console: Console
 ) -> list[str]:
-    # series/experiment (GEO, ArrayExpress, GEA) -> its own samples
-    if to_kind in ("sample", "gsm") and up.startswith(_SAMPLE_SOURCES):
-        return [s.accession for s in sq.fetch_samples(acc)]
-    # -> the linked GEO series (cross-archive resolve)
-    if to_kind == "gse":
-        geo = _gsm_series(sq, acc) if up.startswith("GSM") else _resolve_accession(
-            sq, acc, "geo"
-        )
-        return [geo] if geo else []
+    special = _convert_special(sq, acc, up, to_kind)
+    if special is not None:
+        return special
 
     target = _TARGET_COL.get(to_kind)
     col = _mesh_column(up) if target else None
@@ -1641,6 +1728,74 @@ def cmd_convert(accessions: list[str], to_kind: str, save_to: str | None) -> Non
     for a, b in pairs:
         table.add_row(a, b)
     console.print(table)
+
+
+def cmd_pmid(ident: str) -> None:
+    console = Console()
+    ident = ident.strip()
+    is_doi = _is_doi(ident)
+    try:
+        with (
+            connect_to_seqout(backend="api") as sq,
+            console.status(f"[bold]Looking up {ident}…[/]"),
+        ):
+            res = (
+                sq.find_publication(doi=ident)
+                if is_doi
+                else sq.find_publication(pmid=ident)
+            )
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
+
+    if not res.pmid and not res.projects:
+        console.print(f"[yellow]No publication found for {ident}.[/]")
+        return
+
+    body = f"[bold]{res.title or '(title unavailable)'}[/]"
+    meta = [b for b in (res.journal, f"PMID {res.pmid}" if res.pmid else None,
+                        f"doi:{res.doi}" if res.doi else None) if b]
+    if meta:
+        body += "\n[dim]" + "  ·  ".join(meta) + "[/]"
+    panel = Panel(body, title="publication", border_style="green", expand=False)
+
+    table = Table(
+        title=f"{res.total_projects} linked dataset(s)",
+        title_style="bold", header_style="bold green",
+    )
+    table.add_column("accession", style="bold cyan", no_wrap=True)
+    table.add_column("src", no_wrap=True)
+    table.add_column("title", overflow="fold")
+    for p in res.projects:
+        table.add_row(p.accession, p.source or "—", p.title or "—")
+    _page(console, panel, table)
+
+
+def cmd_author(name: str) -> None:
+    console = Console()
+    name = name.strip()
+    try:
+        with (
+            connect_to_seqout(backend="api") as sq,
+            console.status(f"[bold]Finding datasets by {name}…[/]"),
+        ):
+            resp = sq.search_author_projects(name)
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
+
+    if not resp.results:
+        console.print(f"[yellow]No datasets found for author '{name}'.[/]")
+        return
+
+    renderables: list[object] = []
+    if resp.institutes:
+        top = "  ·  ".join(f"{i.name} ({i.count})" for i in resp.institutes[:8])
+        renderables.append(Panel(top, title="institutes", border_style="dim"))
+    renderables.append(
+        _results_table(f"{resp.total} dataset(s) linked to '{name}'", resp.results)
+    )
+    _page(console, *renderables)
 
 
 def run_norm(

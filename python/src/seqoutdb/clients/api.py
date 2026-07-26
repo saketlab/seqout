@@ -24,6 +24,7 @@ from seqoutdb.helpers import (
 )
 from seqoutdb.models.api_models import (
     AccessionClassification,
+    AuthorProjectsResponse,
     ExperimentSampleList,
     GeoSampleDetailedMetadata,
     ProjectCrossReferenceList,
@@ -33,6 +34,7 @@ from seqoutdb.models.api_models import (
     ProjectMetadataResult,
     ProjectSummaryResult,
     ProjectSummaryResultList,
+    PublicationLookupResult,
     SampleDetailedMetadata,
     SampleMetadataResult,
     SearchParams,
@@ -261,6 +263,32 @@ class SeqoutAPIClient:
             url=f"{self._base_url}/run/{run_id}",
             response_model=StudyRunsResult,
         )
+
+    def search_author_projects(
+        self, name: str, limit: int = 200
+    ) -> AuthorProjectsResponse:
+        # all datasets linked to an author across GEO/SRA/ArrayExpress/ENA.
+        return self._sender(
+            url=f"{self._base_url}/author/projects",
+            params={"q": name, "limit": limit},
+            response_model=AuthorProjectsResponse,
+        )
+
+    def find_publication(
+        self, *, pmid: str | None = None, doi: str | None = None
+    ) -> PublicationLookupResult:
+        # reverse lookup: publication -> linked projects across all sources.
+        params = {"pmid": pmid} if pmid else {"doi": doi}
+        try:
+            return self._sender(
+                url=f"{self._base_url}/publication",
+                params=params,
+                response_model=PublicationLookupResult,
+            )
+        except requests.exceptions.HTTPError as exc:
+            if exc.response and exc.response.status_code == _NOT_FOUND:
+                return PublicationLookupResult()
+            raise
 
     def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
         return self._sender(
