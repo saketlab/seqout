@@ -248,6 +248,15 @@ def main() -> None:
         help="filter by library source, e.g. GENOMIC TRANSCRIPTOMIC (SRA only)",
     )
     p_search.add_argument(
+        "-o",
+        "--save-to",
+        dest="save_to",
+        type=Path,
+        metavar="FILE",
+        help="write results to FILE instead of paging; format from extension "
+        "(.json, .tsv, else csv)",
+    )
+    p_search.add_argument(
         "--sort",
         dest="sortby",
         choices=["citations", "journal", "year"],
@@ -406,6 +415,7 @@ def main() -> None:
             args.library_strategy,
             args.platform,
             args.library_source,
+            args.save_to,
         )
         return
 
@@ -610,6 +620,32 @@ def _results_table(title: str, rows: list) -> Table:
     return table
 
 
+_SAVE_COLS = [
+    "accession", "source", "title", "organisms", "countries",
+    "citation_count", "journal", "doi", "pmid", "updated_at",
+]
+
+
+def _save_results(results: list, path: Path) -> None:
+    """Write results to path; format from extension (.json, .tsv, else csv)."""
+    if path.suffix.lower() == ".json":
+        path.write_text(
+            json.dumps([r.model_dump(mode="json") for r in results], indent=2),
+        )
+        return
+    delimiter = "\t" if path.suffix.lower() == ".tsv" else ","
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter=delimiter)
+        writer.writerow(_SAVE_COLS)
+        for r in results:
+            writer.writerow([
+                r.accession, r.source, r.title,
+                "; ".join(r.organisms), "; ".join(r.countries),
+                r.citation_count, r.journal or "", r.doi or "",
+                r.pmid or "", r.updated_at or "",
+            ])
+
+
 def _read_key() -> str:
     """Read one keypress, decoding arrow keys. POSIX only.
 
@@ -687,6 +723,7 @@ def cmd_search(
     library_strategy: list[str] | None = None,
     platform: list[str] | None = None,
     library_source: list[str] | None = None,
+    save_to: Path | None = None,
 ) -> None:
     console = Console()
     date_from, date_to = date_range or (None, None)
@@ -718,7 +755,8 @@ def cmd_search(
     try:
         with connect_to_seqout(backend="api") as sq:
             it = sq.iter_search(params)  # server applies db+date filters
-            if sys.stdin.isatty() and sys.stdout.isatty():
+            # --save-to is non-interactive: skip the pager, collect and write.
+            if save_to is None and sys.stdin.isatty() and sys.stdout.isatty():
                 if max_results is not None:
                     it = itertools.islice(it, max_results)
                 _paged_search(console, label, it, limit)
@@ -731,6 +769,10 @@ def cmd_search(
 
     if not results:
         console.print(f"[yellow]No results for[/] {label}.")
+        return
+    if save_to is not None:
+        _save_results(results, save_to)
+        console.print(f"[green]Saved {len(results)} result(s) to[/] {save_to}")
         return
     console.print(_results_table(f"{label} — {len(results)} result(s)", results))
     console.print("[dim]Tip: `seqoutdb show <accession>` to inspect a result.[/]")
