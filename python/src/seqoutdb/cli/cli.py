@@ -184,10 +184,12 @@ def main() -> None:
         help="sort results by this field",
     )
     p_search.add_argument(
-        "-n",
-        "--limit",
+        "-p",
+        "--page-size",
+        dest="limit",
         type=int,
         default=20,
+        metavar="N",
         help="results per page in interactive mode (default: 20)",
     )
     p_search.add_argument(
