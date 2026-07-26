@@ -23,6 +23,7 @@ from seqoutdb.helpers import (
     _send_req,
 )
 from seqoutdb.models.api_models import (
+    AccessionClassification,
     ExperimentSampleList,
     GeoSampleDetailedMetadata,
     ProjectCrossReferenceList,
@@ -41,6 +42,7 @@ from seqoutdb.models.api_models import (
     StructuredSearchParams,
     StudyExperimentsResults,
     StudyRunsResponse,
+    StudyRunsResult,
     StudyRunsResults,
 )
 from seqoutdb.utils import (
@@ -242,6 +244,18 @@ class SeqoutAPIClient:
         )
 
         return response.runs
+
+    def classify_accession(self, accession_id: str) -> AccessionClassification:
+        return self._sender(
+            url=f"{self._base_url}/accession/{accession_id}/classify",
+            response_model=AccessionClassification,
+        )
+
+    def fetch_run(self, run_id: str) -> StudyRunsResult:
+        return self._sender(
+            url=f"{self._base_url}/run/{run_id}",
+            response_model=StudyRunsResult,
+        )
 
     def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
         return self._sender(

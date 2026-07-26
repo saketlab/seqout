@@ -6,6 +6,7 @@ import datetime
 import io
 import itertools
 import json
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -458,65 +459,135 @@ def main() -> None:
             raise SystemExit(1)
 
 
-def cmd_show(accession: str) -> None:
-    console = Console()
-    acc = accession.strip()
-    up = acc.upper()
-    sample_prefixes = (
-        "GSM",
-        "SRS",
-        "SRX",
-        "SRR",
-        "ERS",
-        "ERX",
-        "ERR",
-        "DRS",
-        "DRX",
-        "DRR",
-        "SAM",
-    )
-    if up.startswith(sample_prefixes):
-        cmd_show_sample(acc, console)
-        return
-    is_geo = up.startswith(("GSE", "E-"))
+# Fallback (entity, database) map, mirroring the backend classifier, used only
+# when the /accession/{acc}/classify call is unreachable (offline / old backend).
+_PREFIX_ENTITY: list[tuple[tuple[str, ...], str, str]] = [
+    (("GSE",), "series", "geo"),
+    (("E-",), "experiment", "arrayexpress"),  # ArrayExpress / GEA (project-level)
+    (("PRJ", "CRA", "HRA"), "bioproject", "bioproject"),
+    (("SRP", "ERP", "DRP"), "study", "sra"),
+    (("SRX", "ERX", "DRX", "CRX", "HRX"), "experiment", "sra"),
+    (("SRR", "ERR", "DRR", "CRR", "HRR"), "run", "sra"),
+    (("GSM",), "sample", "geo"),
+    (("SRS", "ERS", "DRS", "HRS", "SAM"), "sample", "sra"),
+]
 
-    samples: list[ExperimentSample] = []
-    experiments: list[StudyExperimentsResult] = []
+
+def _classify(sq: SeqoutAPIClient, acc: str) -> tuple[str | None, str | None]:
+    """Ask the backend (entity, database) for an accession; fall back to prefixes."""
     try:
-        with (
-            connect_to_seqout(backend="api") as sq,
-            console.status(f"[bold]Fetching {acc}…[/]"),
-        ):
-            try:
-                meta = sq.fetch_project_metadata(acc)
-            except Exception:
-                meta = None
-            if is_geo:
-                samples = list(sq.fetch_samples(acc))
-                keys = "samples"
-            else:
-                experiments = list(sq.fetch_study_experiments(acc))
-                keys = "experiments"
+        info = sq.classify_accession(acc)
+        if info.valid and info.entity:
+            return info.entity, info.database
+    except Exception:  # noqa: S110 -- any failure just falls back to prefixes
+        pass
+    up = acc.upper()
+    for prefixes, entity, database in _PREFIX_ENTITY:
+        if up.startswith(prefixes):
+            return entity, database
+    return None, None
+
+
+def cmd_show_run(sq: SeqoutAPIClient, acc: str, console: Console) -> None:
+    try:
+        with console.status(f"[bold]Fetching {acc}…[/]"):
+            run = sq.fetch_run(acc)
     except Exception as e:
         console.print(f"[red]Failed to fetch {acc}:[/] {e}")
         raise SystemExit(1) from e
 
-    if meta is not None:
-        organisms = ", ".join(meta.organisms or []) or "[dim]—[/]"
-        n = len(samples) if is_geo else len(experiments)
-        body = (
-            f"[bold]{meta.title}[/]\n[dim]{meta.accession}[/]  •  "
-            f"organisms: {organisms}  •  {n} {keys}"
+    parent = " · ".join(
+        p
+        for p in (
+            f"study {run.study_accession}" if run.study_accession else "",
+            f"experiment {run.experiment_accession}"
+            if run.experiment_accession
+            else "",
         )
-        console.print(Panel(body, border_style="cyan", expand=False))
+        if p
+    )
+    table = Table(
+        title=run.run_accession, title_style="bold", header_style="bold green",
+    )
+    table.add_column("field", style="cyan", no_wrap=True)
+    table.add_column("value", overflow="fold")
+    for field, value in (
+        ("library_layout", run.library_layout),
+        ("fastq_ftp", run.fastq_ftp),
+        ("fastq_bytes", run.fastq_bytes),
+        ("fastq_md5", run.fastq_md5),
+        ("sra_ftp", run.sra_ftp),
+        ("ncbi_sra_url", run.ncbi_sra_url),
+        ("ncbi_sra_lite_url", run.ncbi_sra_lite_url),
+    ):
+        if value not in (None, "", []):
+            table.add_row(field, str(value))
+    renderables = [table]
+    if parent:
+        renderables.insert(
+            0, Panel(f"[dim]part of[/] {parent}", border_style="cyan", expand=False),
+        )
+    _page(console, *renderables)
 
-    if is_geo:
-        if not samples:
-            console.print(f"[yellow]No samples found for {acc}.[/]")
-            return
-        table = Table(
-            show_lines=False, header_style="bold green"
-        )
+
+def cmd_show(accession: str) -> None:
+    console = Console()
+    acc = accession.strip()
+
+    show_samples = False
+    title: str | None = None
+    description: str | None = None
+    organisms: list[str] = []
+    keys = "experiments"
+    samples: list[ExperimentSample] = []
+    experiments: list[StudyExperimentsResult] = []
+    try:
+        with connect_to_seqout(backend="api") as sq:
+            with console.status(f"[bold]Identifying {acc}…[/]"):
+                entity, database = _classify(sq, acc)
+            # AE/GEA E-* accessions classify as "experiment" but are project-level
+            # in our data model, so treat the arrayexpress family as a project.
+            is_project = (
+                entity in ("series", "study", "bioproject")
+                or database == "arrayexpress"
+            )
+            if not is_project:
+                if entity == "run":
+                    cmd_show_run(sq, acc, console)
+                    return
+                cmd_show_sample(sq, acc, console)  # SRA sample/experiment/biosample
+                return
+            # project view: samples for GEO series & AE/GEA, experiments otherwise
+            show_samples = entity == "series" or database == "arrayexpress"
+            with console.status(f"[bold]Fetching {acc}…[/]"):
+                title, description, organisms = _project_header(sq, acc)
+                if show_samples:
+                    samples = list(sq.fetch_samples(acc))
+                    keys = "samples"
+                else:
+                    experiments = list(sq.fetch_study_experiments(acc))
+                    keys = "experiments"
+    except Exception as e:
+        console.print(f"[red]Failed to fetch {acc}:[/] {e}")
+        raise SystemExit(1) from e
+
+    n = len(samples) if show_samples else len(experiments)
+    orgs = ", ".join(organisms) or "[dim]—[/]"
+    body = (
+        f"[bold]{title or acc}[/]\n[dim]{acc}[/]  •  "
+        f"organisms: {orgs}  •  {n} {keys}"
+    )
+    if description:
+        body += f"\n\n{description.strip()}"
+    panel = Panel(body, border_style="cyan", expand=False)
+
+    if not (samples or experiments):
+        console.print(panel)
+        console.print(f"[yellow]No {keys} found for {acc}.[/]")
+        return
+
+    table = Table(show_lines=False, header_style="bold green")
+    if show_samples:
         table.add_column("accession", style="bold cyan", no_wrap=True)
         table.add_column("title", overflow="fold")
         table.add_column("type", no_wrap=True)
@@ -524,14 +595,7 @@ def cmd_show(accession: str) -> None:
         for s in samples:
             org = s.channels[0].organism.text if s.channels[0].organism else "—"
             table.add_row(s.accession, s.title or "—", s.sample_type or "—", org)
-        console.print(table)
     else:
-        if not experiments:
-            console.print(f"[yellow]No experiments found for {acc}.[/]")
-            return
-        table = Table(
-            show_lines=False, header_style="bold green"
-        )
         table.add_column("accession", style="bold cyan", no_wrap=True)
         table.add_column("title", overflow="fold")
         table.add_column("strategy", no_wrap=True)
@@ -547,15 +611,12 @@ def cmd_show(accession: str) -> None:
                 e.instrument_model,
                 str(len(e.samples)),
             )
-        console.print(table)
+    _page(console, panel, table)
 
 
-def cmd_show_sample(acc: str, console: Console) -> None:
+def cmd_show_sample(sq: SeqoutAPIClient, acc: str, console: Console) -> None:
     try:
-        with (
-            connect_to_seqout(backend="api") as sq,
-            console.status(f"[bold]Fetching {acc}…[/]"),
-        ):
+        with console.status(f"[bold]Fetching {acc}…[/]"):
             if acc.upper().startswith("GSM"):
                 detail = sq.fetch_geo_sample_detailed_metadata(acc)
             else:
@@ -566,12 +627,10 @@ def cmd_show_sample(acc: str, console: Console) -> None:
 
     s = detail.sample
     proj = detail.project
-    console.print(
-        Panel(
-            f"[dim]part of[/] [bold]{proj.accession}[/]: {proj.title}",
-            border_style="cyan",
-            expand=False,
-        )
+    panel = Panel(
+        f"[dim]part of[/] [bold]{proj.accession}[/]: {proj.title}",
+        border_style="cyan",
+        expand=False,
     )
 
     table = Table(
@@ -607,7 +666,7 @@ def cmd_show_sample(acc: str, console: Console) -> None:
         for k, v in attrs.items():
             row(k, v)
 
-    console.print(table)
+    _page(console, panel, table)
 
 
 def _results_table(title: str, rows: list) -> Table:
@@ -654,6 +713,46 @@ def _save_results(results: list, path: Path) -> None:
             ])
 
 
+def _page(console: Console, *renderables: object) -> None:
+    """
+    Show renderables in a scrollable pager on a TTY (arrows + mouse), else print.
+
+    Uses the system pager (less): -R keeps colors, -S enables left/right scroll
+    for wide tables, -F skips paging when the output already fits on one screen.
+    """
+    if not sys.stdout.isatty():
+        for r in renderables:
+            console.print(r)
+        return
+    os.environ.setdefault("LESS", "-R -S -F -X")
+    with console.pager(styles=True):
+        for r in renderables:
+            console.print(r)
+
+
+def _project_header(
+    sq: SeqoutAPIClient, acc: str,
+) -> tuple[str | None, str | None, list[str]]:
+    """
+    Return (title, description, organisms) for a project.
+
+    The full-metadata model is fragile across GEA/GSA field quirks, so fall back
+    to the light summary endpoint (title+description) when it chokes.
+    """
+    try:
+        m = sq.fetch_project_metadata(acc)
+    except Exception:  # noqa: S110 -- try the light summary endpoint instead
+        pass
+    else:
+        return m.title, (m.summary or None), (m.organisms or [])
+    try:
+        s = sq.fetch_project_summary(acc)
+    except Exception:
+        return None, None, []
+    else:
+        return s.title, (s.description or None), (s.organisms or [])
+
+
 def _read_key() -> str:
     """
     Read one keypress, decoding arrow keys. POSIX only.
@@ -662,7 +761,6 @@ def _read_key() -> str:
     """
     # ponytail: POSIX termios getch, imported lazily so the module still imports
     # on Windows (termios/tty are POSIX-only); add a msvcrt branch if asked.
-    import os  # noqa: PLC0415
     import select  # noqa: PLC0415
     import termios  # noqa: PLC0415
     import tty  # noqa: PLC0415

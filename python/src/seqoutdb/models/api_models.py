@@ -5,6 +5,7 @@ from collections import Counter
 from typing import Any, Literal
 
 from pydantic import (
+    AliasChoices,
     BaseModel,
     Field,
     field_validator,
@@ -261,8 +262,12 @@ class ProjectMetadataResult(BaseModel):
     accession: str
     alias: list[str] | str | None = None
     title: str
-    summary: str | None = None
-    overall_design: str | None = None
+    # description field: GEO/GEA send `summary`, SRA sends `abstract` (matches the
+    # frontend's summary ?? abstract fallback in similar-projects-graph.tsx).
+    summary: str | None = Field(
+        default=None, validation_alias=AliasChoices("summary", "abstract"),
+    )
+    overall_design: str | list[str] | None = None  # GEA sends a list of protocols
     pubmed_ids: list[str] = Field(alias="pubmed_id", default=[])
     publications: list[Publication] | None = None
     samples_ref: list[str] = []
@@ -287,7 +292,15 @@ class ProjectMetadataResult(BaseModel):
     @field_validator("supplementary_data", mode="before")
     @classmethod
     def _flatten_supplementary_data(cls, v: Any) -> list[tuple[str, str]]:
-        return [(item["#text"], item["@type"]) for item in v]
+        # GEO uses {"#text": url, "@type": kind}; DDBJ/GEA uses {"url", "name"}.
+        out: list[tuple[str, str]] = []
+        for item in v or []:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("#text") or item.get("url")
+            if url:
+                out.append((url, item.get("@type") or item.get("name") or ""))
+        return out
 
     @field_validator(
         "relations",
@@ -300,7 +313,16 @@ class ProjectMetadataResult(BaseModel):
     )
     @classmethod
     def _null_to_empty_list(cls, v: Any) -> list:
-        return v or []
+        if not v:
+            return []
+        if isinstance(v, str):  # GEA sends some list fields as a bare string
+            return [v]
+        return v
+
+    @field_validator("citation_count", mode="before")
+    @classmethod
+    def _citation_count_or_zero(cls, v: Any) -> int:
+        return v or 0  # GEA/GSA send null
 
     @field_validator("relations", mode="before")
     @classmethod
@@ -404,11 +426,21 @@ class StudyExperimentsResults(BaseContainer[StudyExperimentsResult]):
 
 
 # study runs
+class AccessionClassification(BaseModel):
+    accession: str
+    valid: bool
+    kind: str | None = None
+    entity: str | None = None  # series/study/experiment/sample/run/biosample/bioproject
+    database: str | None = None
+    archive: str | None = None
+
+
 class StudyRunsResult(BaseModel):
     run_accession: str
     experiment_accession: str
-    library_layout: str
-    run_alias: str
+    study_accession: str | None = None
+    library_layout: str | None = None  # null for some ENA/DDBJ runs
+    run_alias: str | None = None
     fastq_ftp: str | None = None
     fastq_bytes: str | None = None
     fastq_md5: str | None = None
