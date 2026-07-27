@@ -272,7 +272,7 @@ class SeqoutParquetClient:
             cols = [desc[0] for desc in rel.description]
             experiments: list[SraExperiment] = []
 
-            for r in rel.fetchmany():
+            for r in rel.fetchall():
                 d = dict(zip(cols, r, strict=False))
                 d["samples"] = json.loads(d["samples"])
                 experiments.append(SraExperiment.model_validate(d))
@@ -292,7 +292,7 @@ class SeqoutParquetClient:
         cols = [desc[0] for desc in rel.description if desc[0]]
         experiments: list[EnaExperiment] = []
 
-        for r in rel.fetchmany():
+        for r in rel.fetchall():
             d = dict(zip(cols, r, strict=False))
             experiments.append(EnaExperiment.model_validate(d))
         return BaseContainer(experiments)
@@ -343,7 +343,7 @@ class SeqoutParquetClient:
             cols = [desc[0] for desc in rel.description if desc[0]]
             geo_samples: list[GeoSample] = []
 
-            for r in rel.fetchmany():
+            for r in rel.fetchall():
                 d = dict(zip(cols, r, strict=False))
                 channels: list[dict] = json.loads(d["channels_json"])
                 d["channels"] = [
