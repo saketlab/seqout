@@ -56,6 +56,8 @@ from seqoutdb.utils import (
 
 SearchParamsType = SearchParams | StructuredSearchParams
 _NOT_FOUND = 404
+# study/project accession prefixes across SRA, ENA, DDBJ, GSA and BioProjects.
+_STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 
 
 class SeqoutAPIClient:
@@ -263,6 +265,57 @@ class SeqoutAPIClient:
             url=f"{self._base_url}/run/{run_id}",
             response_model=StudyRunsResult,
         )
+
+    # --- resolvers: same names as SeqoutParquetClient so the CLI's shared
+    # conversion/download helpers are backend-agnostic (call sq.<method>). ---
+
+    def resolve_study(self, accession: str) -> str | None:
+        """Resolve a child accession (run/experiment/sample) to its study root."""
+        if accession.upper().startswith(_STUDY_PREFIXES):
+            return accession
+        try:
+            res = self.search(SearchParams(q=accession))
+        except Exception:
+            return None
+        for r in res:
+            if r.accession.upper().startswith(_STUDY_PREFIXES):
+                return r.accession
+        return None
+
+    def linked_study(self, accession: str) -> str | None:
+        """Return a GEO/AE series' linked SRA (preferred) or other study, via xref."""
+        try:
+            cands = [
+                r.accession
+                for r in self.fetch_cross_references(accession)
+                if r.accession.upper().startswith(_STUDY_PREFIXES)
+            ]
+        except Exception:
+            return None
+        for c in cands:  # prefer a real study accession over a BioProject
+            if c.upper().startswith(("SRP", "ERP", "DRP")):
+                return c
+        return cands[0] if cands else None
+
+    def linked_geo(self, accession: str) -> str | None:
+        """Return an SRA/ENA study's linked GEO series / ArrayExpress, via xref."""
+        try:
+            cands = [
+                r.accession
+                for r in self.fetch_cross_references(accession)
+                if r.accession.upper().startswith(("GSE", "E-"))
+            ]
+        except Exception:
+            return None
+        return cands[0] if cands else None
+
+    def gsm_series(self, gsm: str) -> str | None:
+        """Return the GEO series (GSE) a GEO sample (GSM) belongs to."""
+        try:
+            detail = self.fetch_geo_sample_detailed_metadata(gsm)
+        except Exception:
+            return None
+        return detail.project.accession if detail.project else None
 
     def search_author_projects(
         self, name: str, limit: int = 200

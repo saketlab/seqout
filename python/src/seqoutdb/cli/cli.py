@@ -113,16 +113,45 @@ def _date_range(value: str) -> DateRange:
 
 
 def _run_download(args: argparse.Namespace) -> None:
+    parquet = args.parquet is not None
+    source = args.parquet or None
     if args.supplementary:
-        cmd_download_supplementary(args.accession, args.out)
+        cmd_download_supplementary(
+            args.accession, args.out, parquet=parquet, source=source
+        )
     elif args.sample_supplementary:
-        cmd_download_sample_supplementary(args.accession, args.out)
+        cmd_download_sample_supplementary(
+            args.accession, args.out, parquet=parquet, source=source
+        )
     elif args.runs_mode:
-        cmd_download_runs(args.accession, args.out, args.runs_mode)
+        cmd_download_runs(
+            args.accession, args.out, args.runs_mode, parquet=parquet, source=source
+        )
     elif sys.stdin.isatty() and sys.stdout.isatty():
-        cmd_download_interactive(args.accession, args.out)
+        cmd_download_interactive(
+            args.accession, args.out, parquet=parquet, source=source
+        )
     else:  # non-interactive: keep the scriptable metadata-JSON default
-        cmd_download(args.accession, args.out)
+        cmd_download(args.accession, args.out, parquet=parquet, source=source)
+
+
+def _add_parquet_flag(p: argparse.ArgumentParser) -> None:
+    """
+    Add the shared `--parquet` backend switch to a subcommand.
+
+    Bare `--parquet` uses the configured/default parquet source; an optional
+    value overrides it with a URL or local dir for this run. Fully local — no
+    call to the API.
+    """
+    p.add_argument(
+        "--parquet",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="SRC",
+        help="use the local/remote parquet backend instead of the API; "
+        "optionally pass a URL or local dir (default: configured source)",
+    )
 
 
 def main() -> None:
@@ -189,6 +218,7 @@ def main() -> None:
         "accession",
         help="project accession, e.g. GSE12345, SRP123456, E-MTAB-1234",
     )
+    _add_parquet_flag(p_show)
 
     p_pmid = sub.add_parser(
         "pmid",
@@ -196,6 +226,7 @@ def main() -> None:
         description="List every dataset linked to a PubMed ID or DOI.",
     )
     p_pmid.add_argument("id", help="a PubMed ID (e.g. 34764296) or DOI (10.xxxx/...)")
+    _add_parquet_flag(p_pmid)
 
     p_author = sub.add_parser(
         "author",
@@ -203,6 +234,7 @@ def main() -> None:
         description="List every dataset an author is linked to via its publication.",
     )
     p_author.add_argument("name", help="author name, e.g. 'Saket Choudhary'")
+    _add_parquet_flag(p_author)
 
     p_dl = sub.add_parser(
         "download",
@@ -245,6 +277,7 @@ def main() -> None:
                 f" {mode} format (study accession, e.g. SRP/PRJ)"
             ),
         )
+    _add_parquet_flag(p_dl)
 
     p_search = sub.add_parser(
         "search",
@@ -349,6 +382,7 @@ def main() -> None:
     p_conv.add_argument(
         "-o", "--saveto", dest="save_to", metavar="FILE", help="write results to FILE"
     )
+    _add_parquet_flag(p_conv)
 
     # pysradb-style accession conversion subcommands (a-to-b), plus per-archive
     # ENA/DDBJ/GSA names. The source in the name is a hint; the actual source is
@@ -361,6 +395,7 @@ def main() -> None:
             "-o", "--saveto", dest="save_to", metavar="FILE",
             help="write results to FILE",
         )
+        _add_parquet_flag(p_c)
 
     # parquet backend subcommand
     p_pq = sub.add_parser(
@@ -485,10 +520,21 @@ def main() -> None:
             args.date_range, args.organism, args.library_strategy, args.platform,
             args.library_source, args.save_to,
         ),
-        "show": lambda: cmd_show(args.accession),
-        "pmid": lambda: cmd_pmid(args.id),
-        "author": lambda: cmd_author(args.name),
-        "convert": lambda: cmd_convert(args.accession, args.to_kind, args.save_to),
+        "show": lambda: cmd_show(
+            args.accession,
+            parquet=args.parquet is not None,
+            source=args.parquet or None,
+        ),
+        "pmid": lambda: cmd_pmid(
+            args.id, parquet=args.parquet is not None, source=args.parquet or None
+        ),
+        "author": lambda: cmd_author(
+            args.name, parquet=args.parquet is not None, source=args.parquet or None
+        ),
+        "convert": lambda: cmd_convert(
+            args.accession, args.to_kind, args.save_to,
+            parquet=args.parquet is not None, source=args.parquet or None,
+        ),
         "download": lambda: _run_download(args),
         "parquet": lambda: cmd_parquet(args),
     }
@@ -497,7 +543,10 @@ def main() -> None:
         handler()
         return
     if args.command in _CONVERT_COMMANDS:
-        cmd_convert(args.accession, args.command.split("-to-")[1], args.save_to)
+        cmd_convert(
+            args.accession, args.command.split("-to-")[1], args.save_to,
+            parquet=args.parquet is not None, source=args.parquet or None,
+        )
         return
 
     # no subcommand: the --enriched / --norm top-level flags
@@ -583,7 +632,13 @@ def cmd_show_run(sq: SeqoutAPIClient, acc: str, console: Console) -> None:
     _page(console, *renderables)
 
 
-def cmd_show(accession: str) -> None:
+def cmd_show(
+    accession: str, *, parquet: bool = False, source: str | None = None
+) -> None:
+    if parquet:
+        _cmd_show_parquet(accession.strip(), source)
+        return
+
     console = Console()
     acc = accession.strip()
 
@@ -665,6 +720,77 @@ def cmd_show(accession: str) -> None:
                 str(len(e.samples)),
             )
     _page(console, panel, table)
+
+
+def _cmd_show_parquet(acc: str, source: str | None) -> None:
+    """`show --parquet`: study/experiments/samples/run straight from parquet."""
+    console = Console()
+    up = acc.upper()
+    client = _open_backend(parquet=True, source=source)
+
+    if up.startswith(RUN_PREFIXES):
+        cmd_show_run(client, acc, console)  # parquet.fetch_run returns StudyRunsResult
+        return
+
+    is_geo_ae = up.startswith(("GSE", "E-"))
+    if not (is_geo_ae or up.startswith(_STUDY_PREFIXES)):
+        console.print(
+            f"[yellow]{acc}: sample-level detail isn't available on the parquet "
+            "backend.[/] Show its study/series, or drop --parquet for the API."
+        )
+        return
+
+    try:
+        study = client.fetch_study(acc)
+        orgs = ", ".join(study.organisms or []) or "[dim]—[/]"
+        console.print(
+            Panel(
+                f"[bold]{study.title}[/]\n[dim]{study.accession}[/]  •  "
+                f"organisms: {orgs}  •  {study.num_experiments} experiments, "
+                f"{study.num_samples} samples",
+                border_style="cyan",
+                expand=False,
+            )
+        )
+    except Exception:
+        console.print(Panel(f"[bold]{acc}[/]", border_style="cyan", expand=False))
+
+    try:
+        if is_geo_ae:
+            samples = client.fetch_samples(acc)
+            if not samples:
+                console.print(f"[yellow]No samples found for {acc}.[/]")
+                return
+            table = Table(show_lines=False, header_style="bold green")
+            table.add_column("accession", style="bold cyan", no_wrap=True)
+            table.add_column("title", overflow="fold")
+            table.add_column("organism", overflow="fold")
+            for s in samples:
+                org = s.channels[0].organism if s.channels else None
+                table.add_row(s.accession, s.title or "—", org or "—")
+        else:
+            experiments = client.fetch_experiments(acc)
+            if not experiments:
+                console.print(f"[yellow]No experiments found for {acc}.[/]")
+                return
+            table = Table(show_lines=False, header_style="bold green")
+            table.add_column("accession", style="bold cyan", no_wrap=True)
+            table.add_column("title", overflow="fold")
+            table.add_column("strategy", no_wrap=True)
+            table.add_column("platform", no_wrap=True)
+            table.add_column("instrument", overflow="fold")
+            for e in experiments:
+                table.add_row(
+                    e.accession, e.title or "—", e.library_strategy,
+                    e.platform, e.instrument_model,
+                )
+    except Exception as e:
+        console.print(
+            f"[yellow]No per-sample/experiment detail for {acc} on parquet[/] "
+            f"[dim]({e})[/]"
+        )
+        return
+    _page(console, table)
 
 
 def cmd_show_sample(sq: SeqoutAPIClient, acc: str, console: Console) -> None:
@@ -986,29 +1112,28 @@ def _resolve_accession(sq: SeqoutAPIClient, acc: str, want: str) -> str | None:
     targets = _STUDY_PREFIXES if want == "runs" else ("GSE", "E-")
     if acc.upper().startswith(targets):
         return acc
-    try:
-        cands = [
-            r.accession
-            for r in sq.fetch_cross_references(acc)
-            if r.accession.upper().startswith(targets)
-        ]
-    except Exception:
-        return None
-    if want == "runs":  # prefer a real study accession over a BioProject
-        for c in cands:
-            if c.upper().startswith(("SRP", "ERP", "DRP")):
-                return c
-    return cands[0] if cands else None
+    # the actual cross-source lookup lives on the client (API xref vs parquet
+    # aliases) so this stays backend-agnostic.
+    return sq.linked_study(acc) if want == "runs" else sq.linked_geo(acc)
 
 
-def cmd_download(accession: str, out: str | None) -> None:
+def cmd_download(
+    accession: str, out: str | None, *, parquet: bool = False, source: str | None = None
+) -> None:
     console = Console()
     acc = accession.strip()
     up = acc.upper()
 
+    if parquet and up.startswith(SAMPLE_PREFIXES):
+        console.print(
+            f"[yellow]Sample metadata JSON for {acc} isn't available on the "
+            "parquet backend.[/] Use a project accession, or drop --parquet."
+        )
+        raise SystemExit(1)
+
     try:
         with (
-            connect_to_seqout(backend="api") as sq,
+            _open_backend(parquet=parquet, source=source) as sq,
             console.status(f"[bold]Fetching {acc}…[/]"),
         ):
             if up.startswith(SAMPLE_PREFIXES):
@@ -1042,12 +1167,14 @@ def cmd_download(accession: str, out: str | None) -> None:
     )
 
 
-def cmd_download_supplementary(accession: str, out: str | None) -> None:
+def cmd_download_supplementary(
+    accession: str, out: str | None, *, parquet: bool = False, source: str | None = None
+) -> None:
     console = Console()
     acc = accession.strip()
     out_dir = Path(out) if out else Path(acc)
     try:
-        with connect_to_seqout(backend="api") as sq:
+        with _open_backend(parquet=parquet, source=source) as sq:
             with console.status(f"[bold]Looking up {acc}…[/]"):
                 geo = _resolve_accession(sq, acc, "geo") or acc
                 if geo != acc:
@@ -1116,14 +1243,7 @@ def _mode_available(runs: StudyRunsResults, mode: str) -> bool:
 
 
 def _resolve_run_study(sq: SeqoutAPIClient, run_acc: str) -> str | None:
-    try:
-        res = sq.search(SearchParams(q=run_acc))
-    except Exception:
-        return None
-    for r in res:
-        if r.accession.upper().startswith(_STUDY_PREFIXES):
-            return r.accession
-    return None
+    return sq.resolve_study(run_acc)
 
 
 def _select_run_files(
@@ -1183,14 +1303,19 @@ def _select_run_files(
 
 
 def cmd_download_runs(
-    accession: str, out: str | None, mode: StudyRunDownloadMode
+    accession: str,
+    out: str | None,
+    mode: StudyRunDownloadMode,
+    *,
+    parquet: bool = False,
+    source: str | None = None,
 ) -> None:
     console = Console()
     acc = accession.strip()
     up = acc.upper()
     out_dir = Path(out) if out else Path(acc)
     try:
-        with connect_to_seqout(backend="api") as sq:
+        with _open_backend(parquet=parquet, source=source) as sq:
             if up.startswith(RUN_PREFIXES):
                 # a single run: resolve to its study, grab that run, pick files
                 with console.status(f"[bold]Resolving {acc}…[/]"):
@@ -1270,12 +1395,14 @@ def _sample_supplementary_urls(sq: SeqoutAPIClient, acc: str) -> list[str]:
     return []
 
 
-def cmd_download_sample_supplementary(accession: str, out: str | None) -> None:
+def cmd_download_sample_supplementary(
+    accession: str, out: str | None, *, parquet: bool = False, source: str | None = None
+) -> None:
     console = Console()
     acc = accession.strip()
     out_dir = Path(out) if out else Path(acc)
     try:
-        with connect_to_seqout(backend="api") as sq:
+        with _open_backend(parquet=parquet, source=source) as sq:
             with console.status(f"[bold]Looking up samples for {acc}…[/]"):
                 urls = _sample_supplementary_urls(sq, acc)
             if not urls:
@@ -1357,7 +1484,9 @@ def _download_run_group(
     console.print(f"[green]✓[/] done → [bold]{out_dir}/[/]")
 
 
-def cmd_download_interactive(accession: str, out: str | None) -> None:
+def cmd_download_interactive(
+    accession: str, out: str | None, *, parquet: bool = False, source: str | None = None
+) -> None:
     """
     Interactive picker for `download <acc>` with no mode flag on a TTY.
 
@@ -1371,7 +1500,7 @@ def cmd_download_interactive(accession: str, out: str | None) -> None:
     groups: list[dict] = []
 
     try:
-        with connect_to_seqout(backend="api") as sq:
+        with _open_backend(parquet=parquet, source=source) as sq:
             with console.status(f"[bold]Inspecting {acc}…[/]"):
                 if up.startswith(RUN_PREFIXES):
                     # a pasted run accession: offer just that single run
@@ -1457,9 +1586,9 @@ def cmd_download_interactive(accession: str, out: str | None) -> None:
 
     # metadata / project-supplementary reuse the existing single-purpose commands.
     if g["kind"] == "metadata":
-        cmd_download(acc, out)
+        cmd_download(acc, out, parquet=parquet, source=source)
     elif g["kind"] == "project_supp":
-        cmd_download_supplementary(acc, out)
+        cmd_download_supplementary(acc, out, parquet=parquet, source=source)
 
 
 # accession prefix -> its column in the study mesh built by _sra_mesh.
@@ -1579,11 +1708,7 @@ def _sra_mesh(sq: SeqoutAPIClient, srp: str) -> list[dict]:
 
 def _gsm_series(sq: SeqoutAPIClient, gsm: str) -> str | None:
     """Return the GEO series (GSE) a GEO sample belongs to."""
-    try:
-        detail = sq.fetch_geo_sample_detailed_metadata(gsm)
-    except Exception:
-        return None
-    return detail.project.accession if detail.project else None
+    return sq.gsm_series(gsm)
 
 
 def _study_of(sq: SeqoutAPIClient, acc: str, col: str) -> str | None:
@@ -1704,12 +1829,19 @@ def _convert_one(
     return result
 
 
-def cmd_convert(accessions: list[str], to_kind: str, save_to: str | None) -> None:
+def cmd_convert(
+    accessions: list[str],
+    to_kind: str,
+    save_to: str | None,
+    *,
+    parquet: bool = False,
+    source: str | None = None,
+) -> None:
     console = Console()
     pairs: list[tuple[str, str]] = []
     try:
         with (
-            connect_to_seqout(backend="api") as sq,
+            _open_backend(parquet=parquet, source=source) as sq,
             console.status("[bold]Resolving…[/]"),
         ):
             for raw in accessions:
@@ -1735,13 +1867,15 @@ def cmd_convert(accessions: list[str], to_kind: str, save_to: str | None) -> Non
     console.print(table)
 
 
-def cmd_pmid(ident: str) -> None:
+def cmd_pmid(
+    ident: str, *, parquet: bool = False, source: str | None = None
+) -> None:
     console = Console()
     ident = ident.strip()
     is_doi = _is_doi(ident)
     try:
         with (
-            connect_to_seqout(backend="api") as sq,
+            _open_backend(parquet=parquet, source=source) as sq,
             console.status(f"[bold]Looking up {ident}…[/]"),
         ):
             res = (
@@ -1776,12 +1910,14 @@ def cmd_pmid(ident: str) -> None:
     _page(console, panel, table)
 
 
-def cmd_author(name: str) -> None:
+def cmd_author(
+    name: str, *, parquet: bool = False, source: str | None = None
+) -> None:
     console = Console()
     name = name.strip()
     try:
         with (
-            connect_to_seqout(backend="api") as sq,
+            _open_backend(parquet=parquet, source=source) as sq,
             console.status(f"[bold]Finding datasets by {name}…[/]"),
         ):
             resp = sq.search_author_projects(name)
@@ -2002,6 +2138,23 @@ def _resolve_parquet_source(arg: str | None) -> str:
     if env:
         return _normalize_source(env)
     return _load_parquet_source() or PARQUET_DUMP_BASE_URL
+
+
+def _open_backend(
+    *, parquet: bool = False, source: str | None = None
+) -> SeqoutAPIClient | SeqoutParquetClient:
+    """
+    Open the backend a command runs against.
+
+    Default is the API; `--parquet` switches to a fully local/remote DuckDB
+    backend (no network to the API), honouring the same source resolution as
+    the `parquet` subcommand.
+    """
+    if parquet:
+        client = SeqoutParquetClient()
+        client.set_source(_resolve_parquet_source(source))
+        return client
+    return connect_to_seqout(backend="api")
 
 
 def cmd_parquet(args: argparse.Namespace) -> None:

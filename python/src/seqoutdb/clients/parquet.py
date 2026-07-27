@@ -17,6 +17,18 @@ from seqoutdb.constants import (
 )
 from seqoutdb.exception import SeqoutError
 from seqoutdb.helpers import _download_file
+from seqoutdb.models.api_models import (
+    AuthorProjectsResponse,
+    InstituteFacet,
+    LinkedProject,
+    ProjectMetadataResult,
+    PublicationLookupResult,
+    SearchResult,
+    StudyExperimentsResult,
+    StudyExperimentsResults,
+    StudyRunsResult,
+    StudyRunsResults,
+)
 from seqoutdb.models.models import BaseContainer
 from seqoutdb.models.parquet_models import (
     AeSample,
@@ -26,7 +38,29 @@ from seqoutdb.models.parquet_models import (
     Study,
     _Channel,
 )
-from seqoutdb.utils import _normalize_num_workers
+from seqoutdb.utils import (
+    StudyRunDownloadMode,
+    _extract_download_info_for_study_run,
+    _normalize_num_workers,
+    _normalize_url,
+    _validate_study_runs_data,
+)
+
+# Study/run/experiment/sample accession prefixes across SRA, ENA, DDBJ and GSA,
+# used by the parquet-native resolvers (mirrors the CLI's mesh classifier).
+_STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
+_RUN_PREFIXES = ("SRR", "ERR", "DRR", "CRR", "HRR")
+_EXP_PREFIXES = ("SRX", "ERX", "DRX", "CRX", "HRX")
+_SAMPLE_PREFIXES = ("SRS", "ERS", "DRS", "CRS", "HRS", "SAM")
+
+# columns of run_download_links that map onto StudyRunsResult.
+_RUN_COLS = (
+    "run_accession, study_accession, experiment_accession, library_layout, "
+    "fastq_ftp, fastq_bytes, fastq_md5, sra_ftp, sra_bytes, sra_md5, "
+    "ncbi_sra_url, ncbi_sra_url_aws, ncbi_sra_normalized_url, "
+    "ncbi_sra_normalized_bytes, ncbi_sra_lite_url, ncbi_sra_lite_bytes, "
+    "ncbi_sra_lite_s3_url, ncbi_sra_lite_gs_url"
+)
 
 ParquetFile = Literal[
     "arrayexpress_experiments",
@@ -289,7 +323,12 @@ class SeqoutParquetClient:
                     f"failed to fetch samples for {study_accession} study"
                 )
 
-            samples = [str(v["@ref"]) for v in json.loads(result[0])]
+            # samples_ref is either a plain ["GSM..."] list or [{"@ref": "GSM..."}]
+            # depending on the export; tolerate both.
+            samples = [
+                str(v["@ref"] if isinstance(v, dict) else v)
+                for v in json.loads(result[0])
+            ]
             placeholders = ", ".join(["?"] * len(samples))
 
             rel = self.execute_query(
@@ -344,6 +383,335 @@ class SeqoutParquetClient:
 
         datasource_str = "geo" if datasource == datasource.Geo else "ae"
         return self._fetch_samples_helper(study_accession, datasource_str)
+
+    # --- shared-engine surface: same method names/models as SeqoutAPIClient, so
+    # the CLI's conversion/download/pmid handlers run over parquet unchanged. ---
+
+    def _query_rows(self, sql: str, params: list | None = None) -> list[dict]:
+        rel = self.execute_query(sql, params)
+        cols = [d[0] for d in rel.description]
+        return [dict(zip(cols, r, strict=False)) for r in rel.fetchall()]
+
+    def _row_to_run(self, d: dict) -> StudyRunsResult:
+        nb = d.get("ncbi_sra_normalized_bytes")
+        d["ncbi_sra_normalized_bytes"] = int(nb) if nb not in (None, "") else None
+        return StudyRunsResult.model_validate(d)
+
+    def fetch_study_runs(
+        self, study_id: str, *, full: bool = False
+    ) -> StudyRunsResults:
+        # `full` is accepted for API parity; parquet always returns every run.
+        _ = full
+        rows = self._query_rows(
+            f"SELECT {_RUN_COLS} FROM run_download_links WHERE study_accession = ?",  # noqa: S608
+            [study_id],
+        )
+        return StudyRunsResults([self._row_to_run(r) for r in rows])
+
+    def fetch_run(self, run_id: str) -> StudyRunsResult:
+        rows = self._query_rows(
+            f"SELECT {_RUN_COLS} FROM run_download_links "  # noqa: S608
+            "WHERE run_accession = ? LIMIT 1",
+            [run_id],
+        )
+        if not rows:
+            raise SeqoutError(f"run {run_id} not found in the parquet dump")
+        return self._row_to_run(rows[0])
+
+    def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
+        rows = self._query_rows(
+            "SELECT accession, title, design_description, library_layout, "
+            "library_name, library_selection, library_source, library_strategy, "
+            "samples, platform, instrument_model, submission "
+            "FROM sra_experiments WHERE study = ?",
+            [study_id],
+        )
+        exps: list[StudyExperimentsResult] = []
+        for d in rows:
+            d["samples"] = json.loads(d["samples"]) if d.get("samples") else []
+            exps.append(StudyExperimentsResult.model_validate(d))
+        return StudyExperimentsResults(exps)
+
+    def find_publication(
+        self, *, pmid: str | None = None, doi: str | None = None
+    ) -> PublicationLookupResult:
+        if doi and not pmid:
+            rows = self._query_rows(
+                "SELECT pmid, title, journal, doi FROM pubmed_metadata "
+                "WHERE doi = ? LIMIT 1",
+                [doi],
+            )
+        else:
+            rows = self._query_rows(
+                "SELECT pmid, title, journal, doi FROM pubmed_metadata "
+                "WHERE pmid = ? LIMIT 1",
+                [pmid],
+            )
+        pub = rows[0] if rows else {}
+        resolved_pmid = pub.get("pmid") or pmid
+        projects: list[LinkedProject] = []
+        if resolved_pmid:
+            prows = self._query_rows(
+                "SELECT canonical_accession, source, title FROM unified_metadata "
+                "WHERE pmid = ?",
+                [str(resolved_pmid)],
+            )
+            projects = [
+                LinkedProject(
+                    accession=r["canonical_accession"],
+                    source=r.get("source"),
+                    title=r.get("title"),
+                )
+                for r in prows
+            ]
+        return PublicationLookupResult(
+            pmid=resolved_pmid,
+            doi=pub.get("doi") or doi,
+            title=pub.get("title"),
+            journal=pub.get("journal"),
+            projects=projects,
+            total_projects=len(projects),
+        )
+
+    def search_author_projects(
+        self, name: str, limit: int = 200
+    ) -> AuthorProjectsResponse:
+        # parquet only carries author names for GEO (geo_contributors), so this is
+        # a GEO-only substring match — narrower than the API's cross-source FTS.
+        rows = self._query_rows(
+            "SELECT c.accession AS accession, u.title AS title, "
+            "u.dominant_scientific_name AS organism, "
+            "c.organization AS organization "
+            "FROM geo_contributors c "
+            "LEFT JOIN unified_metadata u ON u.canonical_accession = c.accession "
+            "WHERE c.person ILIKE '%' || ? || '%' LIMIT ?",
+            [name, limit],
+        )
+        seen: set[str] = set()
+        results: list[SearchResult] = []
+        inst: dict[str, int] = {}
+        for r in rows:
+            org = r.get("organization")
+            if org:
+                inst[org] = inst.get(org, 0) + 1
+            acc = r["accession"]
+            if acc in seen:
+                continue
+            seen.add(acc)
+            results.append(
+                SearchResult(
+                    accession=acc,
+                    title=r.get("title") or acc,
+                    source="geo",
+                    organisms=[r["organism"]] if r.get("organism") else [],
+                )
+            )
+        institutes = [
+            InstituteFacet(name=k, count=v)
+            for k, v in sorted(inst.items(), key=lambda kv: -kv[1])
+        ]
+        return AuthorProjectsResponse(
+            q=name, total=len(results), results=results, institutes=institutes
+        )
+
+    def fetch_project_metadata(self, accession: str) -> ProjectMetadataResult:
+        rows = self._query_rows(
+            "SELECT canonical_accession, source, title, description, "
+            "organism_counts, pmid, journal, citation_count "
+            "FROM unified_metadata WHERE canonical_accession = ?",
+            [accession],
+        )
+        if not rows:
+            raise SeqoutError(f"project {accession} not found in the parquet dump")
+        r = rows[0]
+        organisms = (
+            list(json.loads(r["organism_counts"]).keys())
+            if r.get("organism_counts")
+            else []
+        )
+        pmid = r.get("pmid")
+        doi = None
+        if pmid:
+            drows = self._query_rows(
+                "SELECT doi FROM pubmed_metadata WHERE pmid = ? LIMIT 1", [str(pmid)]
+            )
+            doi = drows[0].get("doi") if drows else None
+        supp: list = []
+        if r.get("source") == "geo":
+            srows = self._query_rows(
+                "SELECT supplementary_data FROM geo_series "
+                "WHERE accession = ? LIMIT 1",
+                [accession],
+            )
+            if srows and srows[0].get("supplementary_data"):
+                supp = json.loads(srows[0]["supplementary_data"])
+        pubs = (
+            [{"pmid": str(pmid), "doi": doi, "journal": r.get("journal")}]
+            if pmid
+            else []
+        )
+        return ProjectMetadataResult.model_validate({
+            "accession": accession,
+            "title": r.get("title") or accession,
+            "summary": r.get("description"),
+            "organisms": organisms,
+            "pmid": str(pmid) if pmid else None,
+            "doi": doi,
+            "journal": r.get("journal"),
+            "citation_count": r.get("citation_count") or 0,
+            "supplementary_data": supp,
+            "publications": pubs,
+        })
+
+    # --- parquet-native resolvers (same names as the API client) ---
+
+    def resolve_study(self, accession: str) -> str | None:
+        """Resolve a child accession (run/experiment/sample) to its study root."""
+        up = accession.upper()
+        if up.startswith(_STUDY_PREFIXES):
+            return accession
+        if up.startswith(_RUN_PREFIXES):
+            rows = self._query_rows(
+                "SELECT study_accession FROM run_download_links "
+                "WHERE run_accession = ? LIMIT 1",
+                [accession],
+            )
+            return rows[0].get("study_accession") if rows else None
+        if up.startswith(_EXP_PREFIXES):
+            rows = self._query_rows(
+                "SELECT study FROM sra_experiments WHERE accession = ? LIMIT 1",
+                [accession],
+            )
+            return rows[0].get("study") if rows else None
+        if up.startswith(_SAMPLE_PREFIXES):
+            rows = self._query_rows(
+                "SELECT study FROM sra_experiments "
+                "WHERE samples LIKE '%' || ? || '%' LIMIT 1",
+                [accession],
+            )
+            return rows[0].get("study") if rows else None
+        return None
+
+    def linked_study(self, accession: str) -> str | None:
+        """Return a GEO/AE series' linked SRA (preferred) or ENA study, via aliases."""
+        rows = self._query_rows(
+            "SELECT aliases FROM unified_metadata "
+            "WHERE canonical_accession = ? LIMIT 1",
+            [accession],
+        )
+        if not rows or not rows[0].get("aliases"):
+            return None
+        aliases = json.loads(rows[0]["aliases"])
+        return aliases.get("sra") or aliases.get("ena") or None
+
+    def linked_geo(self, accession: str) -> str | None:
+        """Return the GEO series whose aliases point back at an SRA/ENA study."""
+        rows = self._query_rows(
+            "SELECT canonical_accession FROM unified_metadata "
+            "WHERE source = 'geo' AND aliases LIKE '%' || ? || '%' LIMIT 1",
+            [accession],
+        )
+        return rows[0].get("canonical_accession") if rows else None
+
+    def gsm_series(self, gsm: str) -> str | None:
+        """Return the GEO series (GSE) a GEO sample (GSM) belongs to."""
+        rows = self._query_rows(
+            "SELECT accession FROM geo_series "
+            "WHERE samples_ref LIKE '%' || ? || '%' LIMIT 1",
+            [gsm],
+        )
+        return rows[0].get("accession") if rows else None
+
+    # --- downloaders (same names/signatures as the API client) ---
+    # ponytail: mirrors SeqoutAPIClient's threaded fetch; kept separate so the
+    # parquet backend has no API-client dependency. Fold into a shared mixin only
+    # if a third backend appears.
+
+    def _download_many(
+        self,
+        url_to_dest: dict[str, Path],
+        num_workers: int | None,
+        chunk_size: int,
+        *,
+        with_pbar: bool,
+    ) -> None:
+        num_workers = _normalize_num_workers(num_workers)
+        with ThreadPoolExecutor(num_workers) as pool:
+            futures = {
+                pool.submit(
+                    _download_file,
+                    url=url,
+                    dest_path=dest_path,
+                    chunk_size=chunk_size,
+                    num_retries=self._num_retries,
+                    timeout=self._timeout,
+                    max_wait=self._max_wait,
+                    with_pbar=with_pbar,
+                ): url
+                for url, dest_path in url_to_dest.items()
+            }
+            for f in as_completed(futures):
+                f.result()
+
+    def download_files(
+        self,
+        urls: list[str],
+        out_dir: Path,
+        *,
+        num_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        with_pbar: bool = False,
+    ) -> None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        url_to_dest: dict[str, Path] = {}
+        for url in urls:
+            normalized_url = _normalize_url(url)
+            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
+        self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
+
+    def download_project_supplementary_data(
+        self,
+        metadata: ProjectMetadataResult,
+        out_dir: Path,
+        *,
+        num_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        with_pbar: bool = False,
+    ) -> None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        url_to_dest: dict[str, Path] = {}
+        for url, _ in metadata.supplementary_data:
+            normalized_url = _normalize_url(url)
+            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
+        self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
+
+    def download_study_runs_data(
+        self,
+        runs: StudyRunsResults,
+        out_dir: Path,
+        mode: StudyRunDownloadMode,
+        *,
+        num_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        with_pbar: bool = True,
+    ) -> None:
+        _validate_study_runs_data(runs, mode)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        url_to_dest: dict[str, Path] = {}
+        for r in runs:
+            run_urls, run_bytes, run_md5s = _extract_download_info_for_study_run(
+                r, mode
+            )
+            if not run_urls or not run_bytes or not run_md5s:
+                raise ValueError(
+                    f"failed to extract download info for {r.run_accession}"
+                )
+            for url in run_urls:
+                normalized_url = _normalize_url(url)
+                url_to_dest[normalized_url] = out_dir / Path(
+                    normalized_url.split("/")[-1]
+                )
+        self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
     def close(self) -> None:
         pass
