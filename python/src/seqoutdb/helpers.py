@@ -1,11 +1,17 @@
 import logging
 import time
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, TypeVar
 
 import requests
 from pydantic import BaseModel
 from tqdm import tqdm
+
+try:
+    _USER_AGENT = f"seqout-lib/{version('seqoutdb')}"
+except PackageNotFoundError:  # editable/uninstalled tree
+    _USER_AGENT = "seqout-lib"
 
 # accepts the class itself and not an instance of it
 T = TypeVar("T", bound=BaseModel)
@@ -53,7 +59,7 @@ def _send_req[T: BaseModel](
                 method,
                 url,
                 params=params,
-                headers=headers,
+                headers={"User-Agent": _USER_AGENT, **(headers or {})},
                 json=json,
                 timeout=timeout,
                 stream=stream,
