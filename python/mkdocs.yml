@@ -1,11 +1,20 @@
 site_name: seqoutdb
 site_description: Python library and command-line client for seqout.org
 docs_dir: docs
+repo_url: https://github.com/saketlab/seqoutdb 
+repo_name: saketlab/seqoutdb
+
+# The .py files are the editable source of the example notebooks (jupytext
+# percent format). The committed .ipynb (with outputs) are what the site renders.
+exclude_docs: |
+  examples/*.py
 
 theme:
   name: material
   logo: assets/favicon.svg
   favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
   font:
     text: Geist
     code: Geist Mono
@@ -31,6 +40,17 @@ theme:
     - content.code.copy
     - toc.follow
 
+plugins:
+  - search
+  - mkdocs-jupyter:
+      execute: false
+
+extra:
+  social:
+    - icon: fontawesome/regular/building
+      link: https://saketlab.org
+      name: Saket Lab 
+
 markdown_extensions:
   - admonition
   - toc:
@@ -46,6 +66,13 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Command line: cli.md
-  - Enriched metadata: metadata-ai.md
+  - Metadata normalization: normalization.md
   - Python library: library.md
   - Parquet backend: parquet.md
+  - Examples:
+      - Overview: examples/index.md
+      - Command-line examples: examples/command-line.md
+      - Getting started: examples/01_getting_started.ipynb
+      - Search and filter: examples/02_search_and_filter.ipynb
+      - Accessions and publications: examples/03_accessions_and_publications.ipynb
+      - Offline with Parquet: examples/04_offline_with_parquet.ipynb

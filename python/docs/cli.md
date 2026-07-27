@@ -1,0 +1,174 @@
+# Command line
+
+The `seqoutdb` command has one subcommand for each task. This page describes
+each subcommand.
+
+To see the help for any subcommand, add `--help`:
+
+```bash
+seqoutdb search --help
+```
+
+## search
+
+`search` does a full-text search for projects across all seven repositories.
+
+```bash
+seqoutdb search "lung cancer single cell"
+```
+
+You can search with filters only. In this case, you give no query text:
+
+```bash
+seqoutdb search --organism "Homo sapiens" --db geo -d 2020:2023
+```
+
+Common options:
+
+| Option | Effect |
+| --- | --- |
+| `--db` | Limit the search to one source: `geo`, `sra`, `arrayexpress`, `ena`, `gsa`, `dra`, or `gea`. |
+| `-O`, `--organism` | Filter by an exact scientific name, such as `"Homo sapiens"`. |
+| `-S`, `--strategy` | Filter by library strategy, such as `RNA-Seq` (GEO and SRA only). |
+| `-P`, `--platform` | Filter by platform, such as `ILLUMINA` (GEO and SRA only). |
+| `-d`, `--date` | Filter by date. Use `2020`, `15-08-2020`, or a range like `2018:2022`. |
+| `--sort` | Sort by `citations`, `journal`, or `year`. |
+| `-m`, `--max` | Stop after this many results. |
+| `-o`, `--saveto` | Write the results to a file. The format comes from the file extension: `.json`, `.tsv`, or `.csv`. |
+
+On a terminal, the search shows one page of results. Use the left and right
+arrow keys to change the page. Push `q` to quit.
+
+## show
+
+`show` displays the samples or the experiments of a project as a table.
+
+```bash
+seqoutdb show GSE12345
+```
+
+The command finds the type of the accession first. Then it shows the correct
+view:
+
+- For a GEO series or an ArrayExpress experiment, it shows the samples.
+- For an SRA or ENA study, it shows the experiments.
+- For a single run or a single sample, it shows the details of that record.
+
+## download
+
+`download` saves data to your computer. The default output is the metadata as a
+JSON file.
+
+```bash
+seqoutdb download GSE12345
+```
+
+To download data files, add one option:
+
+| Option | What it downloads |
+| --- | --- |
+| `--fastq` | The run files in FASTQ format. |
+| `--sra` | The run files in SRA format. |
+| `--sra-lite` | The run files in SRA Lite format. |
+| `--s3` | The run files from the AWS S3 mirror. |
+| `--gcs` | The run files from the Google Cloud mirror. |
+| `--supplementary` | The supplementary files of the project. |
+| `--sample-supplementary` | The supplementary files of each sample. |
+
+Set the output location with `-o` or `--out`.
+
+If you give a run accession (for example `SRR13711483`), the command finds its
+study first. Then it downloads that run.
+
+On a terminal with no option, the command shows a menu. The menu lists all data
+that is available for the accession. You select one item.
+
+## convert
+
+`convert` maps an accession to a related accession. It uses the metadata in
+seqout.
+
+There are two ways to convert.
+
+### The generic form
+
+The generic `convert` command works for every source. Give one or more
+accessions and a target kind with `--to`:
+
+```bash
+seqoutdb convert GSE12345 --to srp
+seqoutdb convert SRP123456 SRP123457 --to gsm
+```
+
+The target kinds are `study`, `experiment`, `sample`, `run`, and the aliases
+`srp`, `srx`, `srs`, `srr`, `gsm`, `gse`, `pmid`, and `doi`.
+
+### The a-to-b form
+
+There is also a short subcommand for each direction, like the `pysradb` tool.
+The name shows the source kind and the target kind:
+
+```bash
+seqoutdb gse-to-srp GSE12345
+seqoutdb srr-to-srp SRR13711483
+seqoutdb srp-to-gsm SRP123456
+```
+
+The client has subcommands for GEO, SRA, ENA (`er*`), DDBJ (`dr*`), and GSA
+(`cr*`). It also has literature subcommands, such as `srp-to-pmid`,
+`pmid-to-srp`, and `doi-to-gse`.
+
+To save the result to a file, add `-o` or `--saveto`.
+
+## pmid
+
+`pmid` lists every dataset that is linked to a publication. Give a PubMed ID or
+a DOI:
+
+```bash
+seqoutdb pmid 34764296
+seqoutdb pmid 10.1038/ng.2214
+```
+
+## author
+
+`author` lists every dataset that is linked to an author:
+
+```bash
+seqoutdb author "Aviv Regev"
+```
+
+The command also shows the institutes of the author.
+
+## The `--parquet` option
+
+The subcommands `show`, `download`, `pmid`, `author`, and all `convert`
+commands accept the `--parquet` option. This option makes the command read
+Parquet data with DuckDB instead of the API. The command then needs no network
+to the API.
+
+```bash
+# use the configured or default Parquet source
+seqoutdb gse-to-srp GSE12345 --parquet
+
+# use a specific local directory for this command
+seqoutdb show SRP123456 --parquet /data/seqout
+
+# use a specific URL for this command
+seqoutdb pmid 34764296 --parquet https://seqout.org/data
+```
+
+For more information about Parquet sources, see
+[Parquet backend](parquet.md).
+
+## parquet
+
+The `parquet` subcommand manages the Parquet data dump. It has four commands:
+`download`, `query`, `show`, and `set-source`. See
+[Parquet backend](parquet.md).
+
+## Normalize sample metadata
+
+The `--norm` top-level option turns a project's raw sample metadata into
+structured labels with a local model. See
+[Metadata normalization](normalization.md).

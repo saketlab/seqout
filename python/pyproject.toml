@@ -62,7 +62,9 @@ markers = ["network: hits the live seqout.org API; skips when unreachable"]
 [dependency-groups]
 dev = [
     "ipykernel>=7.2.0",
+    "jupytext>=1.19.5",
     "mkdocs>=1.6.1",
+    "mkdocs-jupyter>=0.26.3",
     "mkdocs-material>=9.7.7",
     "pytest>=9.0.3",
     "pytest-httpx>=0.36.2",
