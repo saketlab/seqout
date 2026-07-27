@@ -53,11 +53,28 @@ class FakeSq:
     def fetch_geo_sample_detailed_metadata(self, _gsm):
         return SimpleNamespace(project=SimpleNamespace(accession="GSE1"))
 
+    def gsm_series(self, gsm):  # GSM -> its GEO series (via the detail lookup)
+        detail = self.fetch_geo_sample_detailed_metadata(gsm)
+        return detail.project.accession if detail.project else None
+
     def search(self, _params):  # SRR/SRX/SRS resolve back to the study
         return [SimpleNamespace(accession="SRP1")]
 
+    def resolve_study(self, accession):  # child accession -> study root (via search)
+        if accession.upper().startswith(("SRP", "ERP", "DRP", "GSE", "PRJ")):
+            return accession
+        return self.search(None)[0].accession
+
     def fetch_cross_references(self, _acc):  # GSE1 -> SRP1
         return [SimpleNamespace(accession="SRP1")]
+
+    def linked_study(self, acc):  # series -> linked SRA study (via xref)
+        cands = [r.accession for r in self.fetch_cross_references(acc)
+                 if r.accession.upper().startswith(("SRP", "ERP", "DRP", "PRJ"))]
+        for c in cands:  # prefer a real study accession over a BioProject
+            if c.upper().startswith(("SRP", "ERP", "DRP")):
+                return c
+        return cands[0] if cands else None
 
     def fetch_project_metadata(self, _acc):  # forward: accession -> pubs
         return SimpleNamespace(
