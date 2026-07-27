@@ -1678,7 +1678,7 @@ wheels = [
 ]
 
 [[package]]
-name = "seqoutdb"
+name = "seqout"
 version = "0.1.2"
 source = { editable = "." }
 dependencies = [

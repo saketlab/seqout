@@ -1,5 +1,5 @@
 """
-`seqoutdb --norm`: build per-sample prompts and run through a GGUF model.
+`seqout --norm`: build per-sample prompts and run through a GGUF model.
 
 Only the *user* turn is built here (raw project details -> the model produces the
 enriched labels). The prompt-construction mirrors the offline dataset builder in
@@ -23,10 +23,10 @@ import httpx
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from seqoutdb.clients.api import SeqoutAPIClient
-    from seqoutdb.models.api_models import ProjectMetadataResult
+    from seqout.clients.api import SeqoutAPIClient
+    from seqout.models.api_models import ProjectMetadataResult
 
-from seqoutdb.models.api_models import ExperimentSample, SampleMetadataResult
+from seqout.models.api_models import ExperimentSample, SampleMetadataResult
 
 logger = logging.getLogger(__name__)
 

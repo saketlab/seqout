@@ -1,5 +1,5 @@
 [project]
-name = "seqoutdb"
+name = "seqout"
 version = "0.1.2"
 description = "Python API and CLI client to interact with seqout.org"
 readme = "README.md"
@@ -20,17 +20,17 @@ dependencies = [
 ]
 
 [project.scripts]
-seqoutdb = "seqoutdb.cli.cli:main"
+seqout = "seqout.cli.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.10.12,<0.11.0"]
 build-backend = "uv_build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/seqoutdb"]
+packages = ["src/seqout"]
 
 [tool.setuptools.package-data]
-seqoutdb = ["py.typed"]
+seqout = ["py.typed"]
 
 [tool.ruff]
 target-version = "py313"

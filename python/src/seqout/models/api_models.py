@@ -12,7 +12,7 @@ from pydantic import (
     model_validator,
 )
 
-from seqoutdb.models.models import BaseContainer
+from seqout.models.models import BaseContainer
 
 _MAX_QUERY_LENGTH = 500
 

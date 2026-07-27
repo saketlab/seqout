@@ -7,7 +7,7 @@ model on your own computer.
 `--norm` is a top-level option, not a subcommand.
 
 ```bash
-seqoutdb --norm GSE12345
+seqout --norm GSE12345
 ```
 
 !!! note "You need a local model server"
@@ -24,7 +24,7 @@ consistent labels than a general-purpose model of the same size.
 To use a different model, pass it as `engine/model`:
 
 ```bash
-seqoutdb --norm GSE12345 --model ollama/llama3.2
+seqout --norm GSE12345 --model ollama/llama3.2
 ```
 
 The engine is `ollama`, `llamacpp`, or `lmstudio`.
@@ -35,14 +35,14 @@ The client reuses a server that already runs on the target port. If none runs,
 it starts one. Set the port with `--port`:
 
 ```bash
-seqoutdb --norm GSE12345 --port 11434
+seqout --norm GSE12345 --port 11434
 ```
 
 To send the work to a server that already runs, use `--base-url`. This never
 starts a server, and it overrides `--model` and `--port`:
 
 ```bash
-seqoutdb --norm GSE12345 --base-url http://localhost:8080/v1
+seqout --norm GSE12345 --base-url http://localhost:8080/v1
 ```
 
 ## Private models on Hugging Face

@@ -1,7 +1,7 @@
 from typing import Any, Literal, overload
 
-from seqoutdb.clients.api import SeqoutAPIClient
-from seqoutdb.clients.parquet import SeqoutParquetClient
+from seqout.clients.api import SeqoutAPIClient
+from seqout.clients.parquet import SeqoutParquetClient
 
 # ponytail: back-compat alias — cli.py/norm.py still import the old name.
 Seqout = SeqoutAPIClient

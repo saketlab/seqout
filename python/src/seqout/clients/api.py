@@ -11,18 +11,18 @@ from typing import Literal, Self
 
 import requests
 
-from seqoutdb.constants import (
+from seqout.constants import (
     API_BASE_URL,
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
     DEFAULT_MAX_WAIT,
     DEFAULT_NUM_RETRIES,
     DEFAULT_REQ_TIMEOUT,
 )
-from seqoutdb.helpers import (
+from seqout.helpers import (
     _download_file,
     _send_req,
 )
-from seqoutdb.models.api_models import (
+from seqout.models.api_models import (
     AccessionClassification,
     AuthorProjectsResponse,
     ExperimentSampleList,
@@ -47,7 +47,7 @@ from seqoutdb.models.api_models import (
     StudyRunsResult,
     StudyRunsResults,
 )
-from seqoutdb.utils import (
+from seqout.utils import (
     _extract_download_info_for_study_run,
     _normalize_num_workers,
     _normalize_url,

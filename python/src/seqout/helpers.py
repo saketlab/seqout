@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 try:
-    _USER_AGENT = f"seqout-lib/{version('seqoutdb')}"
+    _USER_AGENT = f"seqout-lib/{version('seqout')}"
 except PackageNotFoundError:  # editable/uninstalled tree
     _USER_AGENT = "seqout-lib"
 

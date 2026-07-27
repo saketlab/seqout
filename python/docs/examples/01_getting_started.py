@@ -1,11 +1,11 @@
 # %% [markdown]
 # # Getting started
 #
-# `seqoutdb` gets sequencing dataset metadata from seqout.org. This notebook
+# `seqout` gets sequencing dataset metadata from seqout.org. This notebook
 # covers the first steps: connect, search, and open a project.
 
 # %%
-from seqoutdb import SearchParams, connect_to_seqout
+from seqout import SearchParams, connect_to_seqout
 
 sq = connect_to_seqout(backend="api")
 

@@ -2,7 +2,7 @@ import re
 import shutil
 from pathlib import Path
 
-from seqoutdb import SearchParams, connect_to_seqout, country_code_to_name
+from seqout import SearchParams, connect_to_seqout, country_code_to_name
 
 output_dir = Path("./output")
 shutil.rmtree(output_dir, ignore_errors=True)

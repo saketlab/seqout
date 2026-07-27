@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from seqoutdb import connect_to_seqout
+from seqout import connect_to_seqout
 
 output_dir = Path("./output/parquet")
 output_dir.mkdir(exist_ok=True, parents=True)

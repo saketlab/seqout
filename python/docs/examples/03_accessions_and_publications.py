@@ -3,10 +3,10 @@
 #
 # Move between related accessions, and find the publications and authors of a
 # dataset. For a one-shot conversion on the command line, use the short
-# subcommands instead, such as `seqoutdb gse-to-srp GSE12345`.
+# subcommands instead, such as `seqout gse-to-srp GSE12345`.
 
 # %%
-from seqoutdb import connect_to_seqout
+from seqout import connect_to_seqout
 
 sq = connect_to_seqout(backend="api")
 

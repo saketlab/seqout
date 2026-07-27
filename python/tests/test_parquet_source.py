@@ -1,8 +1,8 @@
 """Parquet source resolution: --source (URL or dir) > env > persisted > default."""
 
-from seqoutdb.cli import cli
-from seqoutdb.cli.cli import _is_url, _normalize_source, _resolve_parquet_source
-from seqoutdb.constants import PARQUET_DUMP_BASE_URL
+from seqout.cli import cli
+from seqout.cli.cli import _is_url, _normalize_source, _resolve_parquet_source
+from seqout.constants import PARQUET_DUMP_BASE_URL
 
 
 def test_is_url():

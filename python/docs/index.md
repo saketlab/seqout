@@ -1,19 +1,19 @@
-# seqoutdb
+# seqout
 
-`seqoutdb` is a Python client for [seqout.org](https://seqout.org). It gets
+`seqout` is a Python client for [seqout.org](https://seqout.org). It gets
 metadata about high-throughput sequencing datasets from seven public
 repositories: GEO, SRA, ArrayExpress, ENA, GSA, DRA, and GEA.
 
 The client has two parts:
 
-- A **command-line tool** (`seqoutdb`). Use it to search, to show a dataset, to
+- A **command-line tool** (`seqout`). Use it to search, to show a dataset, to
   convert accessions, and to download data.
-- A **Python library** (`import seqoutdb`). Use it to do the same tasks in your
+- A **Python library** (`import seqout`). Use it to do the same tasks in your
   own code.
 
 ## Two backends
 
-`seqoutdb` can get data in two ways:
+`seqout` can get data in two ways:
 
 | Backend | How it works | When to use it |
 | --- | --- | --- |
@@ -29,13 +29,13 @@ information, see [Parquet backend](parquet.md).
 Search for datasets from the command line:
 
 ```bash
-seqoutdb search "lung cancer single cell" --db geo
+seqout search "lung cancer single cell" --db geo
 ```
 
 Or do the same task in Python:
 
 ```python
-from seqoutdb import connect_to_seqout, SearchParams
+from seqout import connect_to_seqout, SearchParams
 
 with connect_to_seqout(backend="api") as sq:
     results = sq.search(SearchParams(q="lung cancer single cell", db="geo"))

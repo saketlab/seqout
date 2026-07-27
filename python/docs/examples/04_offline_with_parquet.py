@@ -5,7 +5,7 @@
 # Use it for offline work, large batch jobs, and your own SQL.
 
 # %%
-from seqoutdb import connect_to_seqout
+from seqout import connect_to_seqout
 
 pq = connect_to_seqout(backend="parquet")
 
@@ -49,7 +49,7 @@ pq.execute_query(
 # once, then query them from disk:
 #
 # ```bash
-# seqoutdb parquet download /data/seqout
+# seqout parquet download /data/seqout
 # ```
 
 # %%

@@ -44,8 +44,8 @@ finds:
 To save a default source, use `set-source`. Give a URL or a local directory:
 
 ```bash
-seqoutdb parquet set-source /data/seqout
-seqoutdb parquet set-source https://example.org/seqout-data
+seqout parquet set-source /data/seqout
+seqout parquet set-source https://example.org/seqout-data
 ```
 
 After this command, all Parquet commands use that source. You do not need to
@@ -56,13 +56,13 @@ give `--source` each time.
 To get a local copy, use `download`. Give the output directory:
 
 ```bash
-seqoutdb parquet download /data/seqout
+seqout parquet download /data/seqout
 ```
 
 To download only some files, use `--files`:
 
 ```bash
-seqoutdb parquet download /data/seqout --files geo_series geo_samples
+seqout parquet download /data/seqout --files geo_series geo_samples
 ```
 
 To show a progress bar, add `--with-pbar`.
@@ -77,8 +77,8 @@ To run your own SQL, use `query`. The command replaces each table name with the
 correct file automatically:
 
 ```bash
-seqoutdb parquet query "SELECT COUNT(*) AS n FROM geo_series"
-seqoutdb parquet query "SELECT accession, title FROM sra_studies LIMIT 5"
+seqout parquet query "SELECT COUNT(*) AS n FROM geo_series"
+seqout parquet query "SELECT accession, title FROM sra_studies LIMIT 5"
 ```
 
 Options:
@@ -97,8 +97,8 @@ Options:
 The `parquet show` command shows a study, its samples, or its experiments:
 
 ```bash
-seqoutdb parquet show GSE12345 --samples
-seqoutdb parquet show SRP123456 --experiments
+seqout parquet show GSE12345 --samples
+seqout parquet show SRP123456 --experiments
 ```
 
 ## Use Parquet with the normal commands
@@ -107,9 +107,9 @@ Most commands accept the `--parquet` option. With this option, the command
 reads Parquet data instead of the API:
 
 ```bash
-seqoutdb show GSE12345 --parquet
-seqoutdb gse-to-srp GSE12345 --parquet
-seqoutdb pmid 34764296 --parquet /data/seqout
+seqout show GSE12345 --parquet
+seqout gse-to-srp GSE12345 --parquet
+seqout pmid 34764296 --parquet /data/seqout
 ```
 
 The `--parquet` option follows the same source order as above. A value after
@@ -123,7 +123,7 @@ range requests. Most static servers, such as nginx, support them.
 To use your own server, give its URL as the source:
 
 ```bash
-seqoutdb parquet set-source https://my-server.example.org/seqout
+seqout parquet set-source https://my-server.example.org/seqout
 ```
 
 ## Performance

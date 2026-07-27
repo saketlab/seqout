@@ -1,4 +1,4 @@
-# seqoutDB
+# seqout
 
 A Python client and command-line tool for [seqout.org](https://seqout.org) — search and explore
 genomic study metadata from **GEO**, **SRA**, **ArrayExpress**, and **ENA**, and download both
@@ -6,8 +6,8 @@ metadata and raw data files from a single, consistent interface.
 
 It comes in two parts that share the same engine:
 
-- **`seqoutdb`** — a friendly command-line tool for everyday lookups and downloads.
-- **`seqoutdb` (the library)** — a typed Python API for use in scripts, notebooks, and pipelines.
+- **`seqout`** — a friendly command-line tool for everyday lookups and downloads.
+- **`seqout` (the library)** — a typed Python API for use in scripts, notebooks, and pipelines.
 
 ---
 
@@ -18,29 +18,29 @@ All you need is [uv](https://docs.astral.sh/uv/).
 **As a command-line tool** — install it globally with `uv tool`:
 
 ```bash
-uv tool install seqoutdb
-seqoutdb --help
+uv tool install seqout
+seqout --help
 ```
 
-This puts `seqoutdb` on your PATH, isolated from your projects. Upgrade with
-`uv tool upgrade seqoutdb`. You can also run it without installing via `uvx seqoutdb …`.
+This puts `seqout` on your PATH, isolated from your projects. Upgrade with
+`uv tool upgrade seqout`. You can also run it without installing via `uvx seqout …`.
 
 **As a library** in your own project:
 
 ```bash
-uv add seqoutdb
+uv add seqout
 ```
 
 **From source** (for development):
 
 ```bash
-git clone https://github.com/your-org/seqoutDB.git
-cd seqoutDB/python
+git clone https://github.com/saketlab/seqout.git
+cd seqout/python
 uv sync
-uv run seqoutdb --help
+uv run seqout --help
 ```
 
-From a source checkout, anything shown below as `seqoutdb …` can be run as `uv run seqoutdb …`.
+From a source checkout, anything shown below as `seqout …` can be run as `uv run seqout …`.
 
 Requires Python 3.13 or newer.
 
@@ -48,23 +48,23 @@ Requires Python 3.13 or newer.
 
 ## Command-line tool
 
-The CLI is organized around a few clear verbs. Run `seqoutdb --help` (or `seqoutdb <command> --help`)
+The CLI is organized around a few clear verbs. Run `seqout --help` (or `seqout <command> --help`)
 at any time.
 
 | Command | Purpose |
 | --- | --- |
-| `seqoutdb search <query>` | Full-text search across all sources |
-| `seqoutdb show <accession>` | Inspect a project (table) or a sample (detail view) |
-| `seqoutdb download <accession>` | Download metadata, supplementary files, or sequencing reads |
+| `seqout search <query>` | Full-text search across all sources |
+| `seqout show <accession>` | Inspect a project (table) or a sample (detail view) |
+| `seqout download <accession>` | Download metadata, supplementary files, or sequencing reads |
 
 ### Search
 
 ```bash
 # Search everything
-seqoutdb search "lung cancer single cell"
+seqout search "lung cancer single cell"
 
 # Narrow to one source, sort by citations, cap the results
-seqoutdb search "covid intestine" --db geo --sort citations -n 5
+seqout search "covid intestine" --db geo --sort citations -n 5
 ```
 
 | Option | Description |
@@ -82,13 +82,13 @@ straight to `show` or `download`.
 
 ```bash
 # A project → a table of its samples (GEO/ArrayExpress) or experiments (SRA/ENA)
-seqoutdb show GSE149312
-seqoutdb show SRP324458
-seqoutdb show E-GEOD-18544
+seqout show GSE149312
+seqout show SRP324458
+seqout show E-GEOD-18544
 
 # A sample → a detailed field-by-field view, including its characteristics/attributes
-seqoutdb show GSM8241457
-seqoutdb show SRX11169657
+seqout show GSM8241457
+seqout show SRX11169657
 ```
 
 ### Download
@@ -97,29 +97,29 @@ By default `download` saves **metadata** as JSON. Flags switch it to downloading
 
 ```bash
 # Metadata → ./GSE149312.json   (project + all of its samples)
-seqoutdb download GSE149312
+seqout download GSE149312
 
 # Sample metadata → ./GSM8241457.json
-seqoutdb download GSM8241457
+seqout download GSM8241457
 
 # Choose the destination (file or directory)
-seqoutdb download SRP324458 -o ./study/
+seqout download SRP324458 -o ./study/
 ```
 
 **Supplementary files** (processed data, matrices, archives):
 
 ```bash
-seqoutdb download GSE149312 --supplementary
+seqout download GSE149312 --supplementary
 ```
 
 **Sequencing reads** (`--fastq`, plus `--sra`, `--sra-lite`, `--s3`, `--gcs`):
 
 ```bash
 # Every run in a study
-seqoutdb download SRP324458 --fastq
+seqout download SRP324458 --fastq
 
 # A single run — pick exactly which files to download, interactively
-seqoutdb download SRR14851096 --fastq
+seqout download SRR14851096 --fastq
 ```
 
 A few conveniences worth knowing:
@@ -141,7 +141,7 @@ Downloaded files default to `./<accession>/`; override with `-o <dir>`.
 Fetch precomputed, LLM-enriched sample metadata that seqout.org has already prepared for a project:
 
 ```bash
-seqoutdb --enriched GSE12345
+seqout --enriched GSE12345
 ```
 
 This is a simple online lookup — no local model required.
@@ -153,7 +153,7 @@ structured labels using a language model that runs **entirely on your own machin
 your query leaves your computer except the original metadata fetch from seqout.org.
 
 ```bash
-seqoutdb --norm GSE149312
+seqout --norm GSE149312
 ```
 
 For every sample it extracts these 16 fields:
@@ -177,11 +177,11 @@ You need **one** local inference engine installed and able to serve GGUF models:
 - **[llama.cpp](https://github.com/ggerganov/llama.cpp)** (`llama-server`) — default port `8080`
 - **[LM Studio](https://lmstudio.ai)** — default port `1234`
 
-If none are installed, `seqoutdb` tells you what's missing rather than failing cryptically.
+If none are installed, `seqout` tells you what's missing rather than failing cryptically.
 
 #### How the model is chosen
 
-`seqoutdb` resolves the model in this order:
+`seqout` resolves the model in this order:
 
 1. **`--base-url`** — if given, it talks to that already-running OpenAI-compatible server and never
    starts anything itself.
@@ -199,14 +199,14 @@ When it has to start a server and download a model, that happens automatically o
 
 ```bash
 # Ollama with the default seqoutlm model (pulled from Hugging Face on first run)
-seqoutdb --norm GSE149312 --model ollama/hf.co/saketlab/seqoutlm-1B-GGUF
+seqout --norm GSE149312 --model ollama/hf.co/saketlab/seqoutlm-1B-GGUF
 
 # Ollama with any model you already have
-seqoutdb --norm GSE149312 --model ollama/llama3
+seqout --norm GSE149312 --model ollama/llama3
 
 # llama.cpp or LM Studio — here the model is a Hugging Face GGUF repo
-seqoutdb --norm GSE149312 --model llamacpp/saketlab/seqoutlm-1B-GGUF
-seqoutdb --norm GSE149312 --model lmstudio/saketlab/seqoutlm-1B-GGUF
+seqout --norm GSE149312 --model llamacpp/saketlab/seqoutlm-1B-GGUF
+seqout --norm GSE149312 --model lmstudio/saketlab/seqoutlm-1B-GGUF
 ```
 
 A bare engine name (`--model ollama`) uses that engine with the default model. If you omit the
@@ -216,23 +216,23 @@ engine prefix entirely, Ollama is assumed.
 
 ```bash
 # Use whatever model is already loaded on a given port
-seqoutdb --norm GSE149312 --port 8080
+seqout --norm GSE149312 --port 8080
 
 # Talk to an already-running OpenAI-compatible server directly (never starts one)
-seqoutdb --norm GSE149312 --base-url http://localhost:8080/v1
+seqout --norm GSE149312 --base-url http://localhost:8080/v1
 ```
 
 This is the simplest path if you already run your own server, e.g.:
 
 ```bash
 llama-server -hf saketlab/seqoutlm-1B-GGUF --port 8080 --jinja
-seqoutdb --norm GSE149312 --base-url http://localhost:8080/v1
+seqout --norm GSE149312 --base-url http://localhost:8080/v1
 ```
 
 #### Gated or private models
 
 The default `saketlab/seqoutlm-1B-GGUF` repo may be gated on Hugging Face. If a download is needed
-and the repo is private, `seqoutdb` prompts you for an access token
+and the repo is private, `seqout` prompts you for an access token
 ([create one here](https://huggingface.co/settings/tokens)). You can also set it in the environment
 to skip the prompt:
 
@@ -242,7 +242,7 @@ export HF_TOKEN=hf_xxxxxxxx   # or HUGGING_FACE_HUB_TOKEN / HUGGINGFACE_TOKEN
 
 No token is needed when the model is public, already downloaded, or already being served.
 
-Run `seqoutdb --help` for the complete list of options.
+Run `seqout --help` for the complete list of options.
 
 ---
 
@@ -252,7 +252,7 @@ The library mirrors the CLI and returns fully typed Pydantic models. The entry p
 `Seqout` client, usable as a context manager.
 
 ```python
-from seqoutdb import Seqout, SearchParams
+from seqout import Seqout, SearchParams
 
 with Seqout() as sq:
     # Search
@@ -271,7 +271,7 @@ with Seqout() as sq:
 ### Searching
 
 ```python
-from seqoutdb import Seqout, SearchParams
+from seqout import Seqout, SearchParams
 
 with Seqout() as sq:
     params = SearchParams(q="covid intestine", db="geo", sortby="year", order="desc")
@@ -318,7 +318,7 @@ Bulk variants (`bulk_search`, `bulk_fetch_project_summary`) parallelize requests
 
 ```python
 from pathlib import Path
-from seqoutdb import Seqout
+from seqout import Seqout
 
 with Seqout() as sq:
     # Supplementary files for a project
@@ -350,6 +350,6 @@ downloads are verified against their reported size and MD5 checksum.
 
 ## License
 
-See the repository root for license and contribution details. seqoutDB is a client for
+See the repository root for license and contribution details. seqout is a client for
 [seqout.org](https://seqout.org); please consult the upstream data sources for their respective
 terms of use.

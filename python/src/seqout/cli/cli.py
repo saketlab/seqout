@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from seqoutdb.cli.norm import (
+from seqout.cli.norm import (
     LABEL_FIELDS,
     SYS_PROMPT,
     EngineError,
@@ -34,12 +34,12 @@ from seqoutdb.cli.norm import (
     parse_model_spec,
     set_hf_token,
 )
-from seqoutdb.clients.parquet import (
+from seqout.clients.parquet import (
     _ALL_PARQUET_FILES,
     SeqoutParquetClient,
 )
-from seqoutdb.constants import PARQUET_DUMP_BASE_URL
-from seqoutdb.models.api_models import (
+from seqout.constants import PARQUET_DUMP_BASE_URL
+from seqout.models.api_models import (
     ExperimentSample,
     SearchParams,
     SearchResult,
@@ -47,9 +47,9 @@ from seqoutdb.models.api_models import (
     StudyRunsResult,
     StudyRunsResults,
 )
-from seqoutdb.models.parquet_models import GeoSample
-from seqoutdb.seqout import connect_to_seqout
-from seqoutdb.utils import (
+from seqout.models.parquet_models import GeoSample
+from seqout.seqout import connect_to_seqout
+from seqout.utils import (
     StudyRunDownloadMode,
     _extract_download_info_for_study_run,
     _validate_study_runs_data,
@@ -58,7 +58,7 @@ from seqoutdb.utils import (
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from seqoutdb.clients.api import SeqoutAPIClient
+    from seqout.clients.api import SeqoutAPIClient
 
 VALID_PREFIXES = ("GSE", "GSM", "SRP", "SRS", "SRX")
 
@@ -156,7 +156,7 @@ def _add_parquet_flag(p: argparse.ArgumentParser) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="seqoutdb",
+        prog="seqout",
         description="Command line interface for seqout.org",
     )
     parser.add_argument(
@@ -1002,7 +1002,7 @@ def _paged_search(
         console.print(_results_table(f"{query!r} — page {page + 1}{pages}", rows))
         console.print(
             "[dim]← prev · → next · q quit — "
-            "`seqoutdb show <accession>` to inspect[/]",
+            "`seqout show <accession>` to inspect[/]",
         )
         key = _read_key()
         if key in ("q", "\x1b", "\x03"):  # q / esc / ctrl-c
@@ -1078,7 +1078,7 @@ def cmd_search(
         console.print(f"[green]Saved {len(results)} result(s) to[/] {save_to}")
         return
     console.print(_results_table(f"{label} — {len(results)} result(s)", results))
-    console.print("[dim]Tip: `seqoutdb show <accession>` to inspect a result.[/]")
+    console.print("[dim]Tip: `seqout show <accession>` to inspect a result.[/]")
 
 
 SAMPLE_PREFIXES = (
@@ -2104,7 +2104,7 @@ def run_norm(
 
 
 # Persisted parquet source (a URL or a local dir), set via `parquet set-source`.
-_PARQUET_SOURCE_FILE = Path.home() / ".config" / "seqoutdb" / "parquet_source"
+_PARQUET_SOURCE_FILE = Path.home() / ".config" / "seqout" / "parquet_source"
 
 
 def _is_url(s: str) -> bool:

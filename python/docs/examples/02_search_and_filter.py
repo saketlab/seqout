@@ -6,8 +6,8 @@
 # %%
 import itertools
 
-from seqoutdb import SearchParams, connect_to_seqout
-from seqoutdb.models.api_models import SearchResults
+from seqout import SearchParams, connect_to_seqout
+from seqout.models.api_models import SearchResults
 
 sq = connect_to_seqout(backend="api")
 

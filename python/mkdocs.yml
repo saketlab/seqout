@@ -1,9 +1,9 @@
-site_name: seqoutdb
+site_name: seqout
 site_url: https://seqout.org/cli/
 site_description: Python library and command-line client for seqout.org
 docs_dir: docs
-repo_url: https://github.com/saketlab/seqoutdb 
-repo_name: saketlab/seqoutdb
+repo_url: https://github.com/saketlab/seqout 
+repo_name: saketlab/seqout
 
 # The .py files are the editable source of the example notebooks (jupytext
 # percent format). The committed .ipynb (with outputs) are what the site renders.

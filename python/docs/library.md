@@ -1,6 +1,6 @@
 # Python library
 
-You can use `seqoutdb` in your own Python code. The library does the same tasks
+You can use `seqout` in your own Python code. The library does the same tasks
 as the command-line tool.
 
 ## Connect to a backend
@@ -9,7 +9,7 @@ The `connect_to_seqout` function returns a client. Choose the backend with the
 `backend` argument:
 
 ```python
-from seqoutdb import connect_to_seqout
+from seqout import connect_to_seqout
 
 sq = connect_to_seqout(backend="api")       # the web API (default)
 pq = connect_to_seqout(backend="parquet")   # Parquet data with DuckDB
@@ -18,7 +18,7 @@ pq = connect_to_seqout(backend="parquet")   # Parquet data with DuckDB
 The client is a context manager. Use a `with` block to close it correctly:
 
 ```python
-from seqoutdb import connect_to_seqout, SearchParams
+from seqout import connect_to_seqout, SearchParams
 
 with connect_to_seqout(backend="api") as sq:
     results = sq.search(SearchParams(q="lung cancer", db="geo"))
@@ -29,7 +29,7 @@ with connect_to_seqout(backend="api") as sq:
 Give the search parameters in a `SearchParams` object:
 
 ```python
-from seqoutdb import connect_to_seqout, SearchParams
+from seqout import connect_to_seqout, SearchParams
 
 with connect_to_seqout(backend="api") as sq:
     params = SearchParams(
@@ -113,6 +113,6 @@ len(runs)               # the number of records
 directly, use the full path:
 
 ```python
-from seqoutdb.clients.api import SeqoutAPIClient
-from seqoutdb.clients.parquet import SeqoutParquetClient
+from seqout.clients.api import SeqoutAPIClient
+from seqout.clients.parquet import SeqoutParquetClient
 ```

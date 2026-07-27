@@ -8,16 +8,16 @@ from typing import Literal, Self, get_args
 import duckdb
 from duckdb import DuckDBPyConnection
 
-from seqoutdb.constants import (
+from seqout.constants import (
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
     DEFAULT_MAX_WAIT,
     DEFAULT_NUM_RETRIES,
     DEFAULT_REQ_TIMEOUT,
     PARQUET_DUMP_BASE_URL,
 )
-from seqoutdb.exception import SeqoutError
-from seqoutdb.helpers import _download_file
-from seqoutdb.models.api_models import (
+from seqout.exception import SeqoutError
+from seqout.helpers import _download_file
+from seqout.models.api_models import (
     AuthorProjectsResponse,
     InstituteFacet,
     LinkedProject,
@@ -29,8 +29,8 @@ from seqoutdb.models.api_models import (
     StudyRunsResult,
     StudyRunsResults,
 )
-from seqoutdb.models.models import BaseContainer
-from seqoutdb.models.parquet_models import (
+from seqout.models.models import BaseContainer
+from seqout.models.parquet_models import (
     AeSample,
     EnaExperiment,
     GeoSample,
@@ -38,7 +38,7 @@ from seqoutdb.models.parquet_models import (
     Study,
     _Channel,
 )
-from seqoutdb.utils import (
+from seqout.utils import (
     StudyRunDownloadMode,
     _extract_download_info_for_study_run,
     _normalize_num_workers,

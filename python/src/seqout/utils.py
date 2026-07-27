@@ -2,8 +2,8 @@ import os
 from typing import Literal
 from urllib.parse import urlparse
 
-from seqoutdb.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
-from seqoutdb.models.api_models import StudyRunsResult, StudyRunsResults
+from seqout.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
+from seqout.models.api_models import StudyRunsResult, StudyRunsResults
 
 StudyRunDownloadMode = Literal["fastq", "sra", "sra_lite", "s3", "gcs"]
 

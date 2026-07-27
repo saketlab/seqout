@@ -27,26 +27,26 @@ KINDS = {
 def test_all_modules_import():
     # import-time crashes (bad imports after a rename/move) surface here
     for mod in [
-        "seqoutdb",
-        "seqoutdb.cli",
-        "seqoutdb.seqout",
-        "seqoutdb.clients.api",
-        "seqoutdb.clients.parquet",
+        "seqout",
+        "seqout.cli",
+        "seqout.seqout",
+        "seqout.clients.api",
+        "seqout.clients.parquet",
     ]:
         importlib.import_module(mod)
 
 
 def test_package_exports_what_cli_imports():
-    import seqoutdb
+    import seqout
 
-    # cli.py does `from seqoutdb import Seqout, SearchParams, StudyRunsResults`
+    # cli.py does `from seqout import Seqout, SearchParams, StudyRunsResults`
     for name in ("Seqout", "SearchParams", "StudyRunsResults", "connect_to_seqout"):
-        assert hasattr(seqoutdb, name), f"seqoutdb.{name} missing"
+        assert hasattr(seqout, name), f"seqout.{name} missing"
 
 
 @pytest.mark.parametrize("method", sorted({m for _, m in KINDS.values()}))
 def test_client_has_methods_cli_calls(method):
-    from seqoutdb import Seqout
+    from seqout import Seqout
 
     assert callable(getattr(Seqout, method, None)), f"Seqout.{method} missing"
 
@@ -55,7 +55,7 @@ def test_client_has_methods_cli_calls(method):
     "method", ["find_publication", "search_author_projects", "fetch_study_runs"]
 )
 def test_client_has_lookup_methods(method):
-    from seqoutdb import Seqout
+    from seqout import Seqout
 
     assert callable(getattr(Seqout, method, None)), f"Seqout.{method} missing"
 
@@ -63,7 +63,7 @@ def test_client_has_lookup_methods(method):
 @pytest.mark.network
 @pytest.mark.parametrize("kind", list(KINDS))
 def test_fetch_each_accession_kind(kind):
-    from seqoutdb import Seqout
+    from seqout import Seqout
 
     acc, method = KINDS[kind]
     try:

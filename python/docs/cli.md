@@ -1,12 +1,12 @@
 # Command line
 
-The `seqoutdb` command has one subcommand for each task. This page describes
+The `seqout` command has one subcommand for each task. This page describes
 each subcommand.
 
 To see the help for any subcommand, add `--help`:
 
 ```bash
-seqoutdb search --help
+seqout search --help
 ```
 
 ## search
@@ -14,13 +14,13 @@ seqoutdb search --help
 `search` does a full-text search for projects across all seven repositories.
 
 ```bash
-seqoutdb search "lung cancer single cell"
+seqout search "lung cancer single cell"
 ```
 
 You can search with filters only. In this case, you give no query text:
 
 ```bash
-seqoutdb search --organism "Homo sapiens" --db geo -d 2020:2023
+seqout search --organism "Homo sapiens" --db geo -d 2020:2023
 ```
 
 Common options:
@@ -44,7 +44,7 @@ arrow keys to change the page. Push `q` to quit.
 `show` displays the samples or the experiments of a project as a table.
 
 ```bash
-seqoutdb show GSE12345
+seqout show GSE12345
 ```
 
 The command finds the type of the accession first. Then it shows the correct
@@ -60,7 +60,7 @@ view:
 JSON file.
 
 ```bash
-seqoutdb download GSE12345
+seqout download GSE12345
 ```
 
 To download data files, add one option:
@@ -96,8 +96,8 @@ The generic `convert` command works for every source. Give one or more
 accessions and a target kind with `--to`:
 
 ```bash
-seqoutdb convert GSE12345 --to srp
-seqoutdb convert SRP123456 SRP123457 --to gsm
+seqout convert GSE12345 --to srp
+seqout convert SRP123456 SRP123457 --to gsm
 ```
 
 The target kinds are `study`, `experiment`, `sample`, `run`, and the aliases
@@ -109,9 +109,9 @@ There is also a short subcommand for each direction, like the `pysradb` tool.
 The name shows the source kind and the target kind:
 
 ```bash
-seqoutdb gse-to-srp GSE12345
-seqoutdb srr-to-srp SRR13711483
-seqoutdb srp-to-gsm SRP123456
+seqout gse-to-srp GSE12345
+seqout srr-to-srp SRR13711483
+seqout srp-to-gsm SRP123456
 ```
 
 The client has subcommands for GEO, SRA, ENA (`er*`), DDBJ (`dr*`), and GSA
@@ -126,8 +126,8 @@ To save the result to a file, add `-o` or `--saveto`.
 a DOI:
 
 ```bash
-seqoutdb pmid 34764296
-seqoutdb pmid 10.1038/ng.2214
+seqout pmid 34764296
+seqout pmid 10.1038/ng.2214
 ```
 
 ## author
@@ -135,7 +135,7 @@ seqoutdb pmid 10.1038/ng.2214
 `author` lists every dataset that is linked to an author:
 
 ```bash
-seqoutdb author "Aviv Regev"
+seqout author "Aviv Regev"
 ```
 
 The command also shows the institutes of the author.
@@ -149,13 +149,13 @@ to the API.
 
 ```bash
 # use the configured or default Parquet source
-seqoutdb gse-to-srp GSE12345 --parquet
+seqout gse-to-srp GSE12345 --parquet
 
 # use a specific local directory for this command
-seqoutdb show SRP123456 --parquet /data/seqout
+seqout show SRP123456 --parquet /data/seqout
 
 # use a specific URL for this command
-seqoutdb pmid 34764296 --parquet https://seqout.org/data
+seqout pmid 34764296 --parquet https://seqout.org/data
 ```
 
 For more information about Parquet sources, see

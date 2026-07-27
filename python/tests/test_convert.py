@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from rich.console import Console
 
-from seqoutdb.cli.cli import (
+from seqout.cli.cli import (
     _CONVERT_COMMANDS,
     _TARGET_COL,
     _convert_one,
@@ -176,7 +176,7 @@ def test_pmid_and_doi_detection():
 
 @pytest.mark.network
 def test_real_gsm_to_srr():
-    from seqoutdb import Seqout
+    from seqout import Seqout
 
     try:
         with Seqout() as sq:
