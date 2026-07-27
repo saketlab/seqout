@@ -180,11 +180,32 @@ class NextCursor(BaseModel):
     sort_value: float | None = None  # present when paging a sorted search
 
 
+class SearchCorrection(BaseModel):
+    """Spelling correction the backend applied to a text query.
+
+    ``replaced``  - corrected-query results already substituted into ``results``.
+    ``augmented`` - original results kept; typo-corrected matches ride along in
+    ``extra_results`` (shown as a separate block, like the web app does).
+    """
+
+    original_query: str
+    corrected_query: str
+    mode: Literal["replaced", "augmented"]
+    original_total: int | None = None
+    extra_results: list[SearchResult] = []
+
+    @field_validator("extra_results", mode="before")
+    @classmethod
+    def _null_to_empty_list(cls, v: Any) -> list:
+        return v or []
+
+
 class SearchResponse(BaseModel):
     results: list[SearchResult]
     total: int | None = None  # null when the backend skips the count on broad queries
     took_ms: float
     next_cursor: NextCursor | None = None
+    correction: SearchCorrection | None = None
 
     def to_results(self) -> SearchResults:
         return SearchResults(self.results)

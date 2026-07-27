@@ -37,6 +37,7 @@ from seqout.models.api_models import (
     PublicationLookupResult,
     SampleDetailedMetadata,
     SampleMetadataResult,
+    SearchCorrection,
     SearchParams,
     SearchResponse,
     SearchResult,
@@ -118,11 +119,12 @@ class SeqoutAPIClient:
     def _iter_search_pages(
         self,
         params: SearchParamsType,
+        first: SearchResponse | None = None,
     ) -> Iterator[SearchResult]:
+        # `first` lets a caller that already fetched page 0 (e.g. to read its
+        # spelling correction) reuse it instead of hitting the endpoint twice.
+        response = first if first is not None else self._fetch_search_page(params)
         while True:
-            response = self._fetch_search_page(
-                params,
-            )
             yield from response.results
 
             if not response.next_cursor:
@@ -134,6 +136,19 @@ class SeqoutAPIClient:
             else:
                 update["cursor_rank"] = response.next_cursor.rank
             params = params.model_copy(update=update)
+            response = self._fetch_search_page(params)
+
+    def search_with_correction(
+        self,
+        params: SearchParamsType,
+    ) -> tuple[SearchCorrection | None, Iterator[SearchResult]]:
+        """Return page 0's spelling correction plus the full result iterator.
+
+        The correction (``did you mean`` / augmented extra matches) only rides on
+        the first page; this reuses that page so paging costs no extra request.
+        """
+        first = self._fetch_search_page(params)
+        return first.correction, self._iter_search_pages(params, first=first)
 
     def search(
         self,

@@ -41,6 +41,7 @@ from seqout.clients.parquet import (
 from seqout.constants import PARQUET_DUMP_BASE_URL
 from seqout.models.api_models import (
     ExperimentSample,
+    SearchCorrection,
     SearchParams,
     SearchResult,
     StudyExperimentsResult,
@@ -1015,6 +1016,33 @@ def _paged_search(
             page = max(0, page - 1)
 
 
+def _merge_augmented(
+    extra: list[SearchResult],
+    results: Iterator[SearchResult],
+) -> Iterator[SearchResult]:
+    """Yield the corrected extras first, then the literal stream minus any
+    accession already shown as an extra (the backend can list a corrected hit in
+    both places)."""
+    seen = {(r.source, r.accession) for r in extra}
+    yield from extra
+    for r in results:
+        if (r.source, r.accession) not in seen:
+            yield r
+
+
+def _print_correction(console: Console, correction: SearchCorrection | None) -> None:
+    """Surface the backend's spelling correction, mirroring the web banner."""
+    if correction is None:
+        return
+    orig, fixed = correction.original_query, correction.corrected_query
+    if correction.mode == "replaced":
+        console.print(f"[yellow]Showing results for[/] {fixed!r} "
+                      f"[dim](corrected from {orig!r})[/]")
+    elif correction.extra_results:  # augmented
+        console.print(f"[yellow]Did you mean[/] {fixed!r}? "
+                      f"[dim]added {len(correction.extra_results)} match(es) below[/]")
+
+
 def cmd_search(
     query: str | None,
     db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None,
@@ -1057,7 +1085,14 @@ def cmd_search(
 
     try:
         with connect_to_seqout(backend="api") as sq:
-            it = sq.iter_search(params)  # server applies db+date filters
+            # server applies db+date filters; page 0 also carries any spelling
+            # correction ("did you mean" / augmented extra matches).
+            correction, it = sq.search_with_correction(params)
+            _print_correction(console, correction)
+            if correction and correction.mode == "augmented" and correction.extra_results:
+                # augmented mode keeps the literal hits and rides the corrected
+                # matches alongside — surface them first, like the web app.
+                it = _merge_augmented(correction.extra_results, it)
             # --save-to is non-interactive: skip the pager, collect and write.
             if save_to is None and sys.stdin.isatty() and sys.stdout.isatty():
                 if max_results is not None:
