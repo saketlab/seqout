@@ -400,6 +400,11 @@ class ProjectCrossReferenceResult(BaseModel):
     accession: str
     link_type: str
     source: str
+    # Set only when source == "pmid": the study was matched through a shared
+    # publication rather than a declared cross-reference, so it may cover
+    # different samples. Absent on ordinary links.
+    via_pmid: str | None = None
+    title: str | None = None
 
 
 class ProjectCrossReferenceList(BaseContainer[ProjectCrossReferenceResult]):
