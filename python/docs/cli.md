@@ -11,7 +11,7 @@ seqout search --help
 
 ## search
 
-`search` does a full-text search for projects across all seven repositories.
+`search` does a full-text search for projects across all seven repositories. This is powered by the same search engine that is used in [seqout.org](https://seqout.org/). The[ _How search works_](https://seqout.org/howsearchworks) page documents the semantics of the search algorithm, including how to perform [structured search](https://seqout.org/howsearchworks#structured-search).
 
 ```bash
 seqout search "lung cancer single cell"
