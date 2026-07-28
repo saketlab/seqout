@@ -1,6 +1,6 @@
 [project]
 name = "seqout"
-version = "0.1.2"
+version = "1.0.0"
 description = "Python API and CLI client to interact with seqout.org"
 readme = "README.md"
 authors = [
