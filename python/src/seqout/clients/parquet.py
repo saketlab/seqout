@@ -15,6 +15,7 @@ from seqout.constants import (
     DEFAULT_REQ_TIMEOUT,
     PARQUET_DUMP_BASE_URL,
 )
+from seqout.dataset import ShortNames
 from seqout.exception import SeqoutError
 from seqout.helpers import _download_file
 from seqout.models.api_models import (
@@ -106,7 +107,7 @@ class _Datasource(StrEnum):
     Unknown = "unknown"
 
 
-class SeqoutParquetClient:
+class SeqoutParquetClient(ShortNames):
     def __init__(
         self,
         base_url: str = PARQUET_DUMP_BASE_URL,
@@ -343,6 +344,13 @@ class SeqoutParquetClient:
             cols = [desc[0] for desc in rel.description if desc[0]]
             geo_samples: list[GeoSample] = []
 
+            def _first_organism(ch: dict) -> dict:
+                # a channel with more than one species arrives as a list.
+                org = ch.get("Organism")
+                if isinstance(org, list):
+                    org = org[0] if org else None
+                return dict(org) if org else {}
+
             for r in rel.fetchall():
                 d = dict(zip(cols, r, strict=False))
                 channels: list[dict] = json.loads(d["channels_json"])
@@ -351,8 +359,8 @@ class SeqoutParquetClient:
                         position=ch["@position"],
                         characteristics=ch["Characteristics"],
                         molecule=ch["Molecule"],
-                        organism=dict(ch["Organism"]).get("#text"),
-                        taxonomy_id=dict(ch["Organism"]).get("@taxid"),
+                        organism=_first_organism(ch).get("#text"),
+                        taxonomy_id=_first_organism(ch).get("@taxid"),
                         source=ch["Source"],
                         extract_protocol=ch.get("Extract-Protocol"),
                         growth_protocol=ch.get("Growth-Protocol"),

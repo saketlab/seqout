@@ -23,3 +23,8 @@ def connect_to_seqout(
             return SeqoutAPIClient(**kwargs)
         case "parquet":
             return SeqoutParquetClient(**kwargs)
+
+
+# ponytail: shorter name for the same call — no auto-selection between backends,
+# a silent switch to parquet would turn a lookup into a multi-GB scan.
+connect = connect_to_seqout

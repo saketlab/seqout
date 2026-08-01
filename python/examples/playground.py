@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from seqout import connect_to_seqout
+from seqout import connect
 
 output_dir = Path("./output/parquet")
 output_dir.mkdir(exist_ok=True, parents=True)
 
-with connect_to_seqout("parquet") as sq:
+with connect("parquet") as sq:
     sq.download_parquet_files(output_dir=output_dir, with_pbar=True)
     sq.set_source(output_dir)
     study = sq.fetch_study("PRJDB13493")

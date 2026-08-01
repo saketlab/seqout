@@ -181,7 +181,8 @@ class NextCursor(BaseModel):
 
 
 class SearchCorrection(BaseModel):
-    """Spelling correction the backend applied to a text query.
+    """
+    Spelling correction the backend applied to a text query.
 
     ``replaced``  - corrected-query results already substituted into ``results``.
     ``augmented`` - original results kept; typo-corrected matches ride along in
@@ -543,11 +544,24 @@ class ExperimentSampleChannel(BaseModel):
     source: str = Field(alias="Source")
     molecule: str | None = Field(alias="Molecule", default=None)
     organism: ExperimentSampleOrganism | None = Field(alias="Organism", default=None)
+    organisms: list[ExperimentSampleOrganism] = []
     position: int = Field(alias="@position")
     characteristics: dict[str, str] = Field(alias="Characteristics")
     growth_protocol: str | None = None
     extract_protocol: str | None = None
     treatment_protocol: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_organisms(cls, data: Any) -> Any:
+        # GEO sends one Organism per channel, or a list when the channel holds
+        # more than one species (xenograft/PDX, mixed-species benchmarks).
+        # `organism` keeps the first so single-species callers are unaffected.
+        if not isinstance(data, dict):
+            return data
+        raw = data.get("Organism")
+        items = raw if isinstance(raw, list) else [raw] if raw else []
+        return {**data, "Organism": items[0] if items else None, "organisms": items}
 
     @field_validator("characteristics", mode="before")
     @classmethod

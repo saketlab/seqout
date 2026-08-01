@@ -1020,9 +1020,12 @@ def _merge_augmented(
     extra: list[SearchResult],
     results: Iterator[SearchResult],
 ) -> Iterator[SearchResult]:
-    """Yield the corrected extras first, then the literal stream minus any
-    accession already shown as an extra (the backend can list a corrected hit in
-    both places)."""
+    """
+    Yield the corrected extras first, then the rest of the literal stream.
+
+    Any accession already shown as an extra is dropped from the stream — the
+    backend can list a corrected hit in both places.
+    """
     seen = {(r.source, r.accession) for r in extra}
     yield from extra
     for r in results:
@@ -1089,7 +1092,8 @@ def cmd_search(
             # correction ("did you mean" / augmented extra matches).
             correction, it = sq.search_with_correction(params)
             _print_correction(console, correction)
-            if correction and correction.mode == "augmented" and correction.extra_results:
+            augmented = correction and correction.mode == "augmented"
+            if augmented and correction.extra_results:
                 # augmented mode keeps the literal hits and rides the corrected
                 # matches alongside — surface them first, like the web app.
                 it = _merge_augmented(correction.extra_results, it)

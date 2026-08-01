@@ -6,16 +6,31 @@
 # %%
 import itertools
 
-from seqout import SearchParams, connect_to_seqout
+from seqout import SearchParams, connect
 from seqout.models.api_models import SearchResults
 
-sq = connect_to_seqout(backend="api")
+sq = connect()
 
 # %% [markdown]
 # ## Filters
 #
-# `SearchParams` accepts many filters at once. The query text is optional when
-# you give at least one filter.
+# `search` takes the query text and any number of filters. The query text is
+# optional when you give at least one filter.
+
+# %%
+results = sq.search(
+    "single cell",
+    db="geo",
+    organism="Homo sapiens",
+    library_strategy=["RNA-Seq"],
+    date_from="2021-01-01",
+    date_to="2023-12-31",
+)
+len(results)
+
+# %% [markdown]
+# A `SearchParams` object holds the same fields. Use it to build a query in
+# steps, or to reuse one set of filters for more than one call.
 
 # %%
 params = SearchParams(
@@ -26,8 +41,7 @@ params = SearchParams(
     date_from="2021-01-01",
     date_to="2023-12-31",
 )
-results = sq.search(params)
-len(results)
+len(sq.search(params))
 
 # %% [markdown]
 # ## Every result

@@ -35,12 +35,21 @@ seqout search "lung cancer single cell" --db geo
 Or do the same task in Python:
 
 ```python
-from seqout import connect_to_seqout, SearchParams
+from seqout import connect
 
-with connect_to_seqout(backend="api") as sq:
-    results = sq.search(SearchParams(q="lung cancer single cell", db="geo"))
+with connect() as sq:
+    results = sq.search("lung cancer single cell", db="geo")
     for r in results:
         print(r.accession, r.title)
+```
+
+Then open a dataset. `get` takes any accession and finds the related records —
+metadata, samples, runs, and papers — across the archives:
+
+```python
+with connect() as sq:
+    d = sq.get("GSE168652")
+    print(d.meta.title, len(d.samples), "samples,", len(d.runs), "runs")
 ```
 
 ## Next steps

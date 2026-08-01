@@ -2,49 +2,60 @@
 # # Getting started
 #
 # `seqout` gets sequencing dataset metadata from seqout.org. This notebook
-# covers the first steps: connect, search, and open a project.
+# covers the first steps: connect, search, and open a dataset.
 
 # %%
-from seqout import SearchParams, connect_to_seqout
+from seqout import connect
 
-sq = connect_to_seqout(backend="api")
+sq = connect()
 
 # %% [markdown]
 # ## Search
 #
-# Put the query and any filters in a `SearchParams` object.
+# Give the query as a string. Filters go in as keyword arguments.
 
 # %%
-results = sq.search(SearchParams(q="pancreatic cancer single cell", db="geo"))
+results = sq.search("pancreatic cancer single cell", db="geo")
 for r in results[:5]:
     print(r.accession, "-", r.title)
 
 # %% [markdown]
-# ## Project metadata
-
-# %%
-meta = sq.fetch_project_metadata("GSE169470")
-print(meta.title)
-print("organisms:", meta.organisms, "| pmid:", meta.pmid)
-
-# %% [markdown]
-# ## Experiments and runs
+# ## Open a dataset
 #
-# Call these on a study accession. `full=True` returns every run instead of the
-# preview page.
+# `get` accepts any accession — a series, a study, an experiment, a sample, or a
+# run. It finds the related records for you, so you do not have to know which
+# archive holds which part.
 
 # %%
-experiments = sq.fetch_study_experiments("SRP311850")
-runs = sq.fetch_study_runs("SRP311850", full=True)
-print(len(experiments), "experiments,", len(runs), "runs")
+d = sq.get("GSE169470")
+
+print(d.meta.title)
+print("organisms:", d.meta.organisms, "| pmid:", d.meta.pmid)
+print("archives: geo =", d.geo, "| sra =", d.sra)
 
 # %% [markdown]
+# ## Samples and runs
+#
+# A GEO series holds no sequencing runs; the linked SRA study does. `runs`
+# crosses that link on its own.
+
+# %%
+print(len(d.samples), "samples")
+print(len(d.runs), "runs from", d.sra)
+
+# %% [markdown]
+# Each field makes its request at the first use and keeps the result, so the
+# lines above cost one request each, not one for every use.
+
+# %% [markdown]
+# ## Run data formats
+#
 # A run can offer the data in several formats — FASTQ, SRA, and the NCBI cloud
 # mirrors (NCBI, S3, GCS). Not every format is present for every run. Print the
 # ones this run has:
 
 # %%
-run = runs[0]
+run = d.runs[0]
 print(run.run_accession)
 for fmt, url in {
     "fastq": run.fastq_ftp,
@@ -56,3 +67,11 @@ for fmt, url in {
 }.items():
     if url:
         print(f"  {fmt:9} {url}")
+
+# %% [markdown]
+# ## Start from any accession
+#
+# A sample or a run resolves to its parent in the same way.
+
+# %%
+sq.get(run.run_accession).project

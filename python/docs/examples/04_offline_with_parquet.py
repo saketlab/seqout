@@ -5,9 +5,9 @@
 # Use it for offline work, large batch jobs, and your own SQL.
 
 # %%
-from seqout import connect_to_seqout
+from seqout import connect
 
-pq = connect_to_seqout(backend="parquet")
+pq = connect(backend="parquet")
 
 # %% [markdown]
 # ## Set the data source
@@ -22,12 +22,21 @@ pq.set_source("https://seqout.org/data")
 # %% [markdown]
 # ## Get a study
 #
-# The Parquet backend has the same methods as the API backend.
+# The Parquet backend has the same methods as the API backend, `get` included.
 
 # %%
 study = pq.fetch_study("GSE169470")
 print(study.title)
 print(study.num_experiments, "experiments,", study.num_samples, "samples")
+
+# %% [markdown]
+# `get` works here too, and crosses the GEO/SRA link from the `aliases` column
+# instead of the API. Some fields have no Parquet equivalent — `links`,
+# `enriched`, `classify`, and `summaries` raise a `SeqoutError` on this backend.
+
+# %%
+d = pq.get("GSE169470")
+print("geo =", d.geo, "| sra =", d.sra)
 
 # %% [markdown]
 # ## Run your own SQL
@@ -54,4 +63,4 @@ pq.execute_query(
 
 # %%
 # pq.set_source("/data/seqout")   # after you download the files
-# print(len(pq.fetch_study_runs("SRP311850")), "runs")
+# print(len(pq.get("GSE169470").runs), "runs")

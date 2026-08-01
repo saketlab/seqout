@@ -7,7 +7,7 @@ from concurrent.futures import (
     as_completed,
 )
 from pathlib import Path
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 import requests
 
@@ -18,6 +18,7 @@ from seqout.constants import (
     DEFAULT_NUM_RETRIES,
     DEFAULT_REQ_TIMEOUT,
 )
+from seqout.dataset import ShortNames
 from seqout.helpers import (
     _download_file,
     _send_req,
@@ -61,7 +62,23 @@ _NOT_FOUND = 404
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 
 
-class SeqoutAPIClient:
+def _as_params(
+    params: SearchParamsType | str | None, filters: dict[str, Any]
+) -> SearchParamsType:
+    """
+    Let the search calls take a bare query string plus keyword filters.
+
+    ``search("liver", organism="Homo sapiens")`` and the original
+    ``search(SearchParams(...))`` both work.
+    """
+    if isinstance(params, str):
+        return SearchParams(q=params, **filters)
+    if params is None:
+        return SearchParams(**filters)
+    return params
+
+
+class SeqoutAPIClient(ShortNames):
     def __init__(
         self,
         base_url: str = API_BASE_URL,
@@ -140,32 +157,37 @@ class SeqoutAPIClient:
 
     def search_with_correction(
         self,
-        params: SearchParamsType,
+        params: SearchParamsType | str | None = None,
+        **filters: Any,
     ) -> tuple[SearchCorrection | None, Iterator[SearchResult]]:
-        """Return page 0's spelling correction plus the full result iterator.
+        """
+        Return page 0's spelling correction plus the full result iterator.
 
         The correction (``did you mean`` / augmented extra matches) only rides on
         the first page; this reuses that page so paging costs no extra request.
         """
+        params = _as_params(params, filters)
         first = self._fetch_search_page(params)
         return first.correction, self._iter_search_pages(params, first=first)
 
     def search(
         self,
-        params: SearchParamsType,
+        params: SearchParamsType | str | None = None,
+        **filters: Any,
     ) -> SearchResults:
-        response = self._fetch_search_page(
-            params,
-        )
+        """Full-text search. Takes a query string, or a params object."""
+        response = self._fetch_search_page(_as_params(params, filters))
 
         return response.to_results()
 
     def iter_search(
         self,
-        params: SearchParamsType,
+        params: SearchParamsType | str | None = None,
         limit: int | None = None,
+        **filters: Any,
     ) -> Iterator[SearchResult]:
-        iterator = self._iter_search_pages(params)
+        """Iterate every page of results, transparently following the cursor."""
+        iterator = self._iter_search_pages(_as_params(params, filters))
         if limit is None:
             yield from iterator
         else:
@@ -244,7 +266,7 @@ class SeqoutAPIClient:
                 response_model=ProjectLLMEnrichedSampleMetadataResponse,
             )
         except requests.exceptions.HTTPError as exc:
-            if exc.response and exc.response.status_code == _NOT_FOUND:
+            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
                 return ProjectLLMEnrichedSampleMetadataResults([])
             raise
 
@@ -354,7 +376,7 @@ class SeqoutAPIClient:
                 response_model=PublicationLookupResult,
             )
         except requests.exceptions.HTTPError as exc:
-            if exc.response and exc.response.status_code == _NOT_FOUND:
+            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
                 return PublicationLookupResult()
             raise
 

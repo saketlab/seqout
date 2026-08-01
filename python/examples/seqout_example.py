@@ -1,89 +1,91 @@
-import re
+"""
+A complete workflow: search, pick a dataset, then pull everything it has.
+
+Run with `uv run python examples/seqout_example.py`. Output goes to ./output.
+"""
+
 import shutil
 from pathlib import Path
 
-from seqout import SearchParams, connect_to_seqout, country_code_to_name
+from seqout import connect
 
 output_dir = Path("./output")
 shutil.rmtree(output_dir, ignore_errors=True)
 output_dir.mkdir(exist_ok=True)
 
-with connect_to_seqout(backend="api") as sq:
-    # find top 50 cited papers related to 16S rRNA amplicon sequencing
-    response = sq.search(
-        params=SearchParams(q="16S rRNA amplicon sequencing")
-    ).top_cited(50)
+with connect() as sq:
+    # 1. Search. A bare query string plus keyword filters is enough.
+    results = sq.search("16S rRNA amplicon sequencing").top_cited(50)
+    print(f"{len(results)} results")
 
-    # get project summaries for first 10 papers from response
-    sq.bulk_fetch_project_summary([r.accession for r in response.slice(0, 10)]).to_csv(
-        output_dir / "top10_prj_summaries.csv"
+    # 2. Look at the set as a whole.
+    print("  by archive: ", dict(results.sources()))
+    print("  by organism:", dict(results.organisms().most_common(3)))
+    results.to_csv(output_dir / "results.csv")
+
+    # Titles and organisms for the top 10, in one request.
+    sq.summaries([r.accession for r in results.limit(10)]).to_csv(
+        output_dir / "top10_summaries.csv"
     )
 
-    # print countries with their full name and count
-    for code in response.countries():
-        name = country_code_to_name(code)
-        if name is None:
-            continue
+    # 3. Open the top dataset. `get` takes any accession — series, study,
+    # experiment, sample or run — and finds the related records itself.
+    d = sq.get(results[0].accession)
+    print(f"\n{d.accession}: {d.meta.title}")
+    print(f"  organisms: {d.meta.organisms}")
+    print(f"  archives:  geo={d.geo} sra={d.sra}")
 
-    # split data related to the top cited papers based on country
-    countries_dir = output_dir / "countries"
-    countries_dir.mkdir()
-    for c in response.countries():
-        response.filter(country_code=c).to_csv(countries_dir / f"{c.lower()}.csv")
+    # 4. Publications.
+    for p in d.pubs:
+        print(f"  paper: {p.pmid or p.doi} - {p.title} ({p.journal})")
 
-    # pick the top paper for doing futher analysis
-    accession_id = response[0].accession
+    # 5. Samples and runs. A GEO series holds no runs, so `runs` goes to the
+    # linked SRA study on its own; there is no accession juggling here.
+    print(f"  {len(d.samples)} samples, {len(d.runs)} runs")
+    d.samples.to_csv(output_dir / "samples.csv")
+    d.runs.to_csv(output_dir / "runs.csv")
+    d.links.to_csv(output_dir / "cross_refs.csv")
 
-    # export samples and cross references to a csv file
-    sq.fetch_samples(accession_id).to_csv(output_dir / "samples.csv")
-    sq.fetch_cross_references(accession_id).to_csv(output_dir / "cross_refs.csv")
+    # LLM-enriched per-sample metadata: tissue, disease, assay, cell type.
+    enriched = d.enriched
+    if len(enriched):
+        enriched.to_csv(output_dir / "enriched_metadata.csv")
 
-    # fetch project metadata
-    metadata = sq.fetch_project_metadata(accession_id)
+    # 6. What a run offers. Not every format is present for every run.
+    if len(d.runs):
+        run = d.runs[0]
+        print(f"\n  {run.run_accession}:")
+        for fmt, url in {
+            "fastq": run.fastq_ftp,
+            "sra": run.sra_ftp,
+            "s3": run.ncbi_sra_lite_s3_url,
+            "gcs": run.ncbi_sra_lite_gs_url,
+        }.items():
+            if url:
+                print(f"    {fmt:6} {url}")
 
-    # download supplementary data related to the project
-    sq.download_project_supplementary_data(
-        metadata=metadata,
-        out_dir=output_dir / "supplementary_data",
-        num_workers=10,
-        with_pbar=True,
-    )
-
-    # export llm enriched sample metadata to a csv file
-    sq.fetch_project_enriched_metadata(accession_id).to_csv(
-        output_dir / "enriched_metadata.csv"
-    )
-
-    # search for corresponding sra study id for the above geo series
-    relations = metadata.relations
-    study_id: str | None = None
-
-    for r in relations:
-        if r.type is None or r.target is None:
-            continue
-
-        if r.type.upper() == "SRA":
-            pat = re.compile("(?:SRP)[A-Z0-9]+")
-            matches = re.findall(pat, r.target)
-
-            if len(matches) > 0:
-                study_id = matches[0]
-                break
-
-    if study_id is not None:
-        # exporting all the information related to the study's experiment to a csv file
-        sq.fetch_study_experiments(study_id).to_csv(output_dir / "experiments.csv")
-
-        # fetching all runs of the study's experiment and then exporting to a csv file
-        runs = sq.fetch_study_runs(study_id)
-        runs.to_csv(output_dir / "runs.csv")
-
-        # downloading fastq files related to all the runs of the study's experiment
-        sq.download_study_runs_data(
-            runs=runs,
-            out_dir=output_dir / "runs",
-            mode="fastq",
+    # 7. Download the processed files the submitter uploaded. To fetch the raw
+    # reads instead, use download_study_runs_data(d.runs, out_dir, "fastq").
+    if d.meta.supplementary_data:
+        print(f"\n  downloading {len(d.meta.supplementary_data)} supplementary files")
+        sq.download_project_supplementary_data(
+            metadata=d.meta,
+            out_dir=output_dir / "supplementary_data",
             num_workers=10,
+            with_pbar=True,
         )
-    else:
-        pass
+
+    # 8. The same dataset, reached from four different accessions. Whichever one
+    # you start from, `geo` and `sra` name the same pair of archive records.
+    series = sq.get("GSE168652")
+    print(f"\n  starting points for {series.accession}:")
+    for acc in (
+        series.accession,
+        series.sra,
+        series.samples[0].accession,
+        series.runs[0].run_accession,
+    ):
+        other = sq.get(acc)
+        print(f"    {acc:12} ({other.kind:7}) -> geo={other.geo} sra={other.sra}")
+
+print(f"\nwrote {output_dir}/")

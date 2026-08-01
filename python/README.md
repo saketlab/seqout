@@ -248,34 +248,41 @@ Run `seqout --help` for the complete list of options.
 
 ## Python API
 
-The library mirrors the CLI and returns fully typed Pydantic models. The entry point is the
-`Seqout` client, usable as a context manager.
+The library mirrors the CLI and returns fully typed Pydantic models. The entry point is
+`connect()`, usable as a context manager.
 
 ```python
-from seqout import Seqout, SearchParams
+from seqout import connect
 
-with Seqout() as sq:
+with connect() as sq:
     # Search
-    results = sq.search(SearchParams(q="lung cancer", db="geo", sortby="citations"))
-    for r in results.top_cited(5):
+    for r in sq.search("lung cancer", db="geo", sortby="citations").top_cited(5):
         print(r.accession, r.citation_count, r.title)
 
-    # Project metadata and its samples
-    meta = sq.fetch_project_metadata("GSE149312")
-    samples = sq.fetch_samples("GSE149312")
-
-    # Sample detail
-    sample = sq.fetch_sample_detailed_metadata("SRX11169657")
+    # Open a dataset — any accession: series, study, experiment, sample, or run
+    d = sq.get("GSE149312")
+    d.meta          # project metadata
+    d.samples       # GEO samples here, SRA experiments in an SRA study
+    d.runs          # every run, via the linked SRA study
+    d.pubs          # publications
+    d.links         # the same data in other archives
+    d.enriched      # LLM-enriched per-sample metadata
 ```
+
+`Dataset` fetches each field on first use and keeps the result. It crosses the GEO/SRA
+boundary on its own, so `sq.get("GSE149312").runs` and `sq.get("SRP324458").runs` both work.
+`d.project`, `d.geo`, and `d.sra` expose the accessions it resolved.
 
 ### Searching
 
 ```python
-from seqout import Seqout, SearchParams
+from seqout import connect, SearchParams
 
-with Seqout() as sq:
+with connect() as sq:
+    results = sq.search("covid intestine", db="geo", sortby="year")
+
+    # a SearchParams object holds the same fields, for reuse across calls
     params = SearchParams(q="covid intestine", db="geo", sortby="year", order="desc")
-
     results = sq.search(params)            # first page → SearchResults
     everything = sq.iter_search(params)    # auto-paginating iterator
     first_100 = list(sq.iter_search(params, limit=100))
@@ -299,6 +306,18 @@ country, year range, and more) with `sq.search(...)` / `sq.iter_search(...)`.
 
 ### Fetching metadata
 
+`sq.get(acc)` covers most of this. The short top-level calls:
+
+| Method | Returns |
+| --- | --- |
+| `get(acc)` | `Dataset` — any accession, resolves the rest |
+| `paper(pmid=…, doi=…)` | `PublicationLookupResult` — a paper → its projects |
+| `author(name)` | `AuthorProjectsResponse` |
+| `classify(acc)` | `AccessionClassification` |
+| `summaries([acc, …])` | `ProjectSummaryResultList` — many projects, one request |
+
+The per-endpoint methods `get` is built on, for when you want one specific request:
+
 | Method | Returns |
 | --- | --- |
 | `fetch_project_summary(acc)` | `ProjectSummaryResult` |
@@ -318,16 +337,16 @@ Bulk variants (`bulk_search`, `bulk_fetch_project_summary`) parallelize requests
 
 ```python
 from pathlib import Path
-from seqout import Seqout
+from seqout import connect
 
-with Seqout() as sq:
+with connect() as sq:
+    d = sq.get("GSE149312")
+
     # Supplementary files for a project
-    meta = sq.fetch_project_metadata("GSE149312")
-    sq.download_project_supplementary_data(meta, Path("GSE149312"))
+    sq.download_project_supplementary_data(d.meta, Path("GSE149312"))
 
-    # Sequencing reads for a study (mode: fastq | sra | sra_lite | s3 | gcs)
-    runs = sq.fetch_study_runs("SRP324458")
-    sq.download_study_runs_data(runs, Path("SRP324458"), mode="fastq")
+    # Sequencing reads (mode: fastq | sra | sra_lite | s3 | gcs)
+    sq.download_study_runs_data(d.runs, Path("SRP324458"), mode="fastq")
 ```
 
 Both download methods run in parallel and accept `num_workers`, `chunk_size`, and `verbose`. Read
