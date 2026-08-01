@@ -29,41 +29,86 @@ with connect() as sq:
 
 ## Get a dataset
 
-`get` accepts any accession — a series, a study, an experiment, a sample, or a
-run. The `Dataset` finds the related records for you:
+`get` accepts any accession from any archive seqout holds — a series, a study,
+an experiment, a sample, a run, or a BioSample. The `Dataset` finds the related
+records for you:
 
 ```python
 with connect() as sq:
     d = sq.get("GSE168652")
 
     d.meta          # project metadata
-    d.samples       # GEO samples here, SRA experiments in an SRA study
+    d.samples       # the per-sample records
+    d.experiments   # the library preparations
     d.runs          # every run
     d.pubs          # publications
     d.links         # the same data in other archives
     d.enriched      # LLM-enriched sample metadata
 ```
 
-Each field makes its request at the first use and keeps the result. A GEO series
-holds no runs, so `d.runs` goes to the linked SRA study (`SRP310139` for the
-example above) on its own. An SRA study that lists no experiments gets its
-samples from the linked GEO series in the same way.
+Each field makes its request at the first use and keeps the result, so reading
+one twice costs a single request. Where a field lives in a different archive
+than the accession you gave, the link is followed for you: `d.runs` above reads
+`SRP310139`, the SRA study the series links to. An SRA study that lists no
+samples reads them from the linked GEO series in the same way.
 
 The archive accessions stay available:
 
 ```python
+d.kind      # series, study, experiment, sample, run, biosample, or submission
 d.project   # the study or series this accession belongs to
 d.sra       # the study that holds the runs
 d.geo       # the series that holds the supplementary files
 ```
 
-For a run or a sample accession, `detail` gives the record itself:
+For a run, a sample, or an experiment accession, `detail` gives the record
+itself:
 
 ```python
-sq.get("SRR13927155").detail    # the run
-sq.get("GSM5163504").detail     # the sample
-sq.get("GSM5163504").project    # -> "GSE168739"
+sq.get("SRR13927092").detail    # the run
+sq.get("GSM5155196").detail     # the sample
+sq.get("GSM5155196").project    # -> "GSE168652"
 ```
+
+### Accessions across the archives
+
+seqout holds records from GEO, SRA, ENA, DDBJ, ArrayExpress, GEA, and GSA. Each
+uses its own accession prefixes. `get` accepts any of them and resolves the
+study or series they belong to:
+
+| you have | `kind` | `project` |
+|---|---|---|
+| `GSE168652`, `GSM5155196` | series, sample | `GSE168652` |
+| `SRP310139`, `SRX10306523`, `SRS8447424`, `SRR13927092` | study, experiment, sample, run | the SRA study |
+| `PRJNA1458007`, `SAMEA7015536` | study, biosample | the ENA study |
+| `DRP016022`, `DRX817961`, `DRR839815` | study, experiment, run | the DDBJ study |
+| `CRA002740`, `CRX117570`, `CRR143507`, `HRA000925` | study, experiment, run | the GSA study |
+| `E-MTAB-16863`, `E-GEAD-657` | series | itself |
+
+A series holds no sequencing runs of its own; they belong to a study in a
+sequence archive. `runs` follows that link. GEO and ArrayExpress record it as a
+cross-reference. GEA records no cross-reference, and names the data as a
+BioProject in the project record, so that is used when no cross-reference
+exists.
+
+`runs` is empty when the dataset has none — a microarray submission such as
+`E-TABM-937`, for example, has 724 samples and no sequencing data.
+
+### When it cannot work
+
+Some accessions have no path back to their study — the archive serves no parent
+and the accession is not in the search index. `project`, and anything that needs
+it, raises `SeqoutError` saying so:
+
+```python
+sq.get("SAMD01591578").project
+# SeqoutError: could not find the study that SAMD01591578 (a biosample)
+# belongs to. Nothing links it back: the archive serves no parent for this
+# accession and it is not in the search index. Start from the study or series
+# accession instead, or call sq.search('SAMD01591578') to look for it.
+```
+
+An accession the library does not recognize fails at `get`, before any request.
 
 ## Search
 
@@ -105,20 +150,28 @@ with connect() as sq:
 
 ## The lower-level methods
 
-`get` calls these. Use them when you want one specific request:
+`get` calls these. Use them when you want one specific request. Each is tied to
+one endpoint, so you have to give it an accession that endpoint accepts:
 
 ```python
 with connect() as sq:
     meta = sq.fetch_project_metadata("GSE12345")
-    samples = sq.fetch_samples("GSE12345")               # GEO or ArrayExpress
+    samples = sq.fetch_samples("GSE12345")               # GEO, AE, GEA only
     experiments = sq.fetch_study_experiments("SRP123456")
     runs = sq.fetch_study_runs("SRP123456", full=True)   # every run
+    exp_runs = sq.fetch_experiment_runs("SRX10306523")   # the runs of one experiment
     study = sq.resolve_study("SRR13711483")              # a run -> its study
 ```
 
 !!! note
     The `full=True` argument returns every run. Without it, the API returns a
     preview of the first 500 runs. `Dataset.runs` always uses `full=True`.
+
+`resolve_study` asks the endpoint that knows, chosen by what the accession
+names: `/run/{acc}` for a run, `/sample-detail/{acc}` for a sample, an
+experiment's first run for the rest. Full-text search is the last resort, since
+not every accession is indexed. `Dataset.project` wraps it and raises with the
+detail when nothing answers.
 
 ## Use the Parquet backend
 

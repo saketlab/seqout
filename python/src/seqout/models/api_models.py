@@ -17,6 +17,17 @@ from seqout.models.models import BaseContainer
 _MAX_QUERY_LENGTH = 500
 
 
+def _join_authors(v: Any) -> Any:
+    """
+    Accept an author list as well as the joined string GEO and SRA send.
+
+    GSA (CRA/HRA) returns `authors` as a list on the project endpoint.
+    """
+    if isinstance(v, list):
+        return ", ".join(str(a) for a in v if a) or None
+    return v
+
+
 # full-text search
 class SearchParams(BaseModel):
     q: str | None = None  # optional when at least one filter is set (query-less)
@@ -92,6 +103,11 @@ class Publication(BaseModel):
     @classmethod
     def _pub_date_to_str(cls, v: object) -> str | None:
         return str(v) if v is not None else None  # API sends a bare int year sometimes
+
+    @field_validator("authors", mode="before")
+    @classmethod
+    def _normalize_authors(cls, v: Any) -> Any:
+        return _join_authors(v)
 
 
 class LinkedProject(BaseModel):
@@ -169,6 +185,11 @@ class SearchResult(BaseModel):
 
         self.countries = [code.upper() for code in self.countries]
         return self
+
+    @field_validator("authors", mode="before")
+    @classmethod
+    def _normalize_authors(cls, v: Any) -> Any:
+        return _join_authors(v)
 
     def has_organism(self, org: str) -> bool:
         return any(o.casefold() == org.casefold() for o in self.organisms)
@@ -331,6 +352,9 @@ class ProjectMetadataResult(BaseModel):
     publications: list[Publication] | None = None
     samples_ref: list[str] = []
     series_type: list[str] = []
+    # GEA records its sequencing data only as a BioProject (PRJDB*), with no
+    # cross-reference row; it is the one route from an E-GEAD series to its runs.
+    bioproject: str | None = None
     relations: list[ProjectMetadataRelation] = Field(alias="relation", default=[])
     neighbors: list[ProjectMetadataNeighbor] = []
     supplementary_data: list[tuple[str, str]] = []
@@ -382,6 +406,11 @@ class ProjectMetadataResult(BaseModel):
     @classmethod
     def _citation_count_or_zero(cls, v: Any) -> int:
         return v or 0  # GEA/GSA send null
+
+    @field_validator("authors", mode="before")
+    @classmethod
+    def _normalize_authors(cls, v: Any) -> Any:
+        return _join_authors(v)
 
     @field_validator("relations", mode="before")
     @classmethod
@@ -531,6 +560,12 @@ class StudyRunsResponse(BaseModel):
     paired_runs: int
     single_runs: int
     total_fastq_bytes: int
+    runs: StudyRunsResults
+
+
+class ExperimentRunsResponse(BaseModel):
+    experiment_accession: str
+    total: int = 0
     runs: StudyRunsResults
 
 

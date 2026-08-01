@@ -1,7 +1,8 @@
 # seqout
 
 A Python client and command-line tool for [seqout.org](https://seqout.org) — search and explore
-genomic study metadata from **GEO**, **SRA**, **ArrayExpress**, and **ENA**, and download both
+genomic study metadata from **GEO**, **SRA**, **ENA**, **DDBJ**, **ArrayExpress**, **GEA**, and
+**GSA**, and download both
 metadata and raw data files from a single, consistent interface.
 
 It comes in two parts that share the same engine:
@@ -69,7 +70,7 @@ seqout search "covid intestine" --db geo --sort citations -n 5
 
 | Option | Description |
 | --- | --- |
-| `--db {geo,sra,arrayexpress,ena}` | Restrict to a single source (default: all) |
+| `--db {geo,sra,arrayexpress,ena,gsa,dra,gea}` | Restrict to a single source (default: all) |
 | `--sort {citations,journal,year}` | Order the results |
 | `-n`, `--limit` | Maximum results to show (default: 20) |
 
@@ -259,10 +260,11 @@ with connect() as sq:
     for r in sq.search("lung cancer", db="geo", sortby="citations").top_cited(5):
         print(r.accession, r.citation_count, r.title)
 
-    # Open a dataset — any accession: series, study, experiment, sample, or run
+    # Open a dataset — any accession from any archive seqout holds
     d = sq.get("GSE149312")
     d.meta          # project metadata
-    d.samples       # GEO samples here, SRA experiments in an SRA study
+    d.samples       # the per-sample records
+    d.experiments   # the library preparations
     d.runs          # every run, via the linked SRA study
     d.pubs          # publications
     d.links         # the same data in other archives
@@ -271,7 +273,15 @@ with connect() as sq:
 
 `Dataset` fetches each field on first use and keeps the result. It crosses the GEO/SRA
 boundary on its own, so `sq.get("GSE149312").runs` and `sq.get("SRP324458").runs` both work.
-`d.project`, `d.geo`, and `d.sra` expose the accessions it resolved.
+`d.kind`, `d.project`, `d.geo`, and `d.sra` expose what it resolved.
+
+`get` accepts the accession prefixes of every source seqout holds: GEO (`GSE`/`GSM`),
+SRA (`SRP`/`SRX`/`SRS`/`SRR`), ENA (`PRJ*`/`ERP*`), DDBJ (`DRP`/`DRX`/`DRR`),
+ArrayExpress (`E-MTAB-N`), GEA (`E-GEAD-N`), GSA (`CRA`/`HRA`/`CRX`/`HRX`/`CRR`/`HRR`/`HRS`),
+and BioSample (`SAM*`). Where a dataset's runs live in another archive, `runs` follows the link
+the archive records — a cross-reference for GEO and ArrayExpress, the BioProject for GEA. An
+accession with no path back to its study raises `SeqoutError` naming the lookups that were
+tried.
 
 ### Searching
 

@@ -74,6 +74,6 @@ nav:
       - Overview: examples/index.md
       - Command-line examples: examples/command-line.md
       - Getting started: examples/01_getting_started.ipynb
-      - Search and filter: examples/02_search_and_filter.ipynb
-      - Accessions and publications: examples/03_accessions_and_publications.ipynb
+      - Working with a dataset: examples/02_working_with_a_dataset.ipynb
+      - Accessions and archives: examples/03_accessions_and_archives.ipynb
       - Offline with Parquet: examples/04_offline_with_parquet.ipynb

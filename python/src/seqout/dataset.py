@@ -12,11 +12,12 @@ long ``fetch_*`` names stay, so existing code and the CLI are unaffected.
 
 from __future__ import annotations
 
+import re
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from seqout.exception import SeqoutError
-from seqout.models.api_models import StudyRunsResults
+from seqout.models.api_models import StudyExperimentsResults, StudyRunsResults
 
 if TYPE_CHECKING:
     from seqout.models.api_models import (
@@ -29,33 +30,64 @@ if TYPE_CHECKING:
         PublicationLookupResult,
     )
 
-# study/project roots across SRA, ENA, DDBJ, GSA and BioProjects.
+# Accession shapes, mirroring the backend's classifier. S/E/D are SRA, ENA and
+# DDBJ; C/H are GSA (CNCB-NGDC) open (CRA) and human (HRA). Order matters:
+# E-GEAD-N also matches the four-letter ArrayExpress shape, so GEA is tested
+# first, and PRJC*/SAMC belong to GSA but share the PRJ/SAM shapes.
+_ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^GSE\d+$"), "series"),
+    (re.compile(r"^GSM\d+$"), "sample"),
+    (re.compile(r"^[SED]RP\d+$"), "study"),
+    (re.compile(r"^[SED]RX\d+$"), "experiment"),
+    (re.compile(r"^[SED]RS\d+$"), "sample"),
+    (re.compile(r"^[SED]RR\d+$"), "run"),
+    (re.compile(r"^[SED]RA\d+$"), "submission"),
+    (re.compile(r"^SAM[A-Z]*\d+$"), "biosample"),
+    (re.compile(r"^E-GEAD-\d+$"), "series"),
+    (re.compile(r"^E-[A-Z]{4}-\d+$"), "series"),
+    (re.compile(r"^PRJ[A-Z]+\d+$"), "study"),
+    (re.compile(r"^(CRA|HRA)\d+$"), "study"),
+    (re.compile(r"^(CRR|HRR)\d+$"), "run"),
+    (re.compile(r"^(CRX|HRX)\d+$"), "experiment"),
+    (re.compile(r"^HRS\d+$"), "sample"),
+)
+
+_SHAPES = (
+    "GSE/GSM (GEO), SRP/SRX/SRS/SRR (SRA), ERP…/DRP… (ENA, DDBJ), "
+    "CRA/HRA/CRX/HRX/CRR/HRR/HRS (GSA), E-MTAB-N and E-GEAD-N "
+    "(ArrayExpress, GEA), PRJ… and SAM… (BioProject, BioSample)"
+)
+
+# study/series roots — anything that owns samples and runs rather than being one.
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
-# series-style roots: GEO and ArrayExpress (E-MTAB-*, E-GEAD-*).
 _GEO_PREFIXES = ("GSE", "E-")
 _RUN_PREFIXES = ("SRR", "ERR", "DRR", "CRR", "HRR")
-_SAMPLE_PREFIXES = (
-    "GSM", "SRS", "SRX", "ERS", "ERX", "DRS", "DRX", "CRS", "CRX", "HRS", "HRX", "SAM",
-)  # fmt: skip
+_EXP_PREFIXES = ("SRX", "ERX", "DRX", "CRX", "HRX")
+_SAMPLE_PREFIXES = ("GSM", "SRS", "ERS", "DRS", "HRS", "SAM")
+_ROOT_ENTITIES = ("series", "study")
 
 
 def _call(client: Any, name: str, *args: Any, **kwargs: Any) -> Any:
     """Call a client method, with a clear error when the backend lacks it."""
     fn = getattr(client, name, None)
     if fn is None:
-        msg = f"{name} is not available on this backend"
+        short = name.removeprefix("fetch_").removeprefix("project_")
+        msg = (
+            f"{short} is not available on the parquet backend "
+            f"(no such table in the dump). Use the API backend for it: "
+            f"connect() instead of connect('parquet')."
+        )
         raise SeqoutError(msg)
     return fn(*args, **kwargs)
 
 
-def _kind(accession: str) -> str:
-    """Classify an accession offline: run, sample or project."""
-    up = accession.upper()
-    if up.startswith(_RUN_PREFIXES):
-        return "run"
-    if up.startswith(_SAMPLE_PREFIXES):
-        return "sample"
-    return "project"
+def _kind(accession: str) -> str | None:
+    """Name what an accession refers to, offline. ``None`` if unrecognized."""
+    up = accession.strip().upper()
+    for pattern, entity in _ENTITY_PATTERNS:
+        if pattern.match(up):
+            return entity
+    return None
 
 
 class Dataset:
@@ -76,6 +108,13 @@ class Dataset:
         self._sq = client
         self.accession = accession.strip()
         self.kind = _kind(self.accession)
+        if self.kind is None:
+            msg = (
+                f"{self.accession!r} is not an accession this library recognizes. "
+                f"Expected one of: {_SHAPES}. "
+                f"To search for it as text instead, use sq.search({self.accession!r})."
+            )
+            raise SeqoutError(msg)
 
     def __repr__(self) -> str:
         return f"Dataset({self.accession!r}, kind={self.kind!r})"
@@ -87,12 +126,28 @@ class Dataset:
 
     @cached_property
     def project(self) -> str:
-        """The study / series this accession belongs to (itself, if it is one)."""
-        if self.kind == "project":
+        """
+        The study / series this accession belongs to (itself, if it is one).
+
+        Raises when the archive exposes no path from this accession to its
+        study; the message says what was tried.
+        """
+        if self.kind in _ROOT_ENTITIES:
             return self.accession
         if self.accession.upper().startswith("GSM"):
-            return self._sq.gsm_series(self.accession) or self.accession
-        return self._sq.resolve_study(self.accession) or self.accession
+            found = self._sq.gsm_series(self.accession)
+        else:
+            found = self._sq.resolve_study(self.accession)
+        if found:
+            return found
+        msg = (
+            f"could not find the study that {self.accession} "
+            f"(a {self.kind}) belongs to. Nothing links it back: the archive "
+            f"serves no parent for this accession and it is not in the search "
+            f"index. Start from the study or series accession instead, or call "
+            f"sq.search({self.accession!r}) to look for it."
+        )
+        raise SeqoutError(msg)
 
     @cached_property
     def sra(self) -> str | None:
@@ -118,6 +173,8 @@ class Dataset:
         return self._sq.fetch_project_metadata(self.project)
 
     def _samples_of(self, accession: str) -> Any:
+        # GEO/AE/GEA list channel samples; every other archive lists experiments,
+        # which are its nearest per-sample record.
         if accession.upper().startswith(_GEO_PREFIXES):
             return self._sq.fetch_samples(accession)
         return self._sq.fetch_study_experiments(accession)
@@ -125,9 +182,11 @@ class Dataset:
     @cached_property
     def samples(self) -> Any:
         """
-        Sample records: GEO/AE channel samples, or SRA experiments.
+        The per-sample records, from whichever archive holds them.
 
-        Falls back to the linked archive when this side lists none.
+        GEO, ArrayExpress and GEA list channel samples; SRA, ENA, DDBJ and GSA
+        list experiments. Falls back to the linked archive when this side has
+        none, so a study and its series answer the same.
         """
         native = self._samples_of(self.project)
         if len(native):
@@ -138,8 +197,28 @@ class Dataset:
         return native
 
     @cached_property
+    def experiments(self) -> StudyExperimentsResults:
+        """
+        The library preparations — one row per experiment.
+
+        Reached through the linked sequencing study, so an ArrayExpress or GEA
+        series answers too. Empty only when the dataset really has none, as
+        with microarray-only submissions.
+        """
+        study = self.sra
+        if not study:
+            return StudyExperimentsResults([])
+        return self._sq.fetch_study_experiments(study)
+
+    @cached_property
     def runs(self) -> StudyRunsResults:
-        """Every sequencing run, via the linked SRA study when needed."""
+        """
+        Every sequencing run, via the linked sequencing study when needed.
+
+        The link is followed however the archive files it: a cross-reference for
+        GEO and ArrayExpress, the BioProject for GEA. Empty only when the dataset
+        really has no runs, as with microarray-only submissions.
+        """
         study = self.sra
         if not study:
             return StudyRunsResults([])
@@ -165,18 +244,26 @@ class Dataset:
         """
         The record for this exact accession — sample detail or run row.
 
-        ``None`` for a project accession; use :attr:`meta` there.
+        ``None`` when the accession is itself a study or series; use
+        :attr:`meta` there.
         """
+        if self.kind in _ROOT_ENTITIES:
+            return None
         if self.kind == "run":
             return self._sq.fetch_run(self.accession)
-        if self.kind == "sample":
+        if self.kind in ("sample", "experiment", "biosample"):
             name = (
                 "fetch_geo_sample_detailed_metadata"
                 if self.accession.upper().startswith("GSM")
                 else "fetch_sample_detailed_metadata"
             )
             return self._call(name, self.accession)
-        return None
+        msg = (
+            f"there is no detail record for {self.accession} "
+            f"(a {self.kind}). Use .meta for the project it resolves to, "
+            f"or .samples / .runs for its contents."
+        )
+        raise SeqoutError(msg)
 
 
 class ShortNames:

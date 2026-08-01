@@ -1,13 +1,13 @@
 import functools
 import itertools
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import (
     Future,
     ThreadPoolExecutor,
     as_completed,
 )
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, TypeVar
 
 import requests
 
@@ -18,7 +18,13 @@ from seqout.constants import (
     DEFAULT_NUM_RETRIES,
     DEFAULT_REQ_TIMEOUT,
 )
-from seqout.dataset import ShortNames
+from seqout.dataset import (
+    _EXP_PREFIXES,
+    _RUN_PREFIXES,
+    _SAMPLE_PREFIXES,
+    _STUDY_PREFIXES,
+    ShortNames,
+)
 from seqout.helpers import (
     _download_file,
     _send_req,
@@ -26,6 +32,7 @@ from seqout.helpers import (
 from seqout.models.api_models import (
     AccessionClassification,
     AuthorProjectsResponse,
+    ExperimentRunsResponse,
     ExperimentSampleList,
     GeoSampleDetailedMetadata,
     ProjectCrossReferenceList,
@@ -58,8 +65,7 @@ from seqout.utils import (
 
 SearchParamsType = SearchParams | StructuredSearchParams
 _NOT_FOUND = 404
-# study/project accession prefixes across SRA, ENA, DDBJ, GSA and BioProjects.
-_STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
+T = TypeVar("T")
 
 
 def _as_params(
@@ -303,36 +309,105 @@ class SeqoutAPIClient(ShortNames):
             response_model=StudyRunsResult,
         )
 
+    def fetch_experiment_runs(self, experiment_id: str) -> StudyRunsResults:
+        """List the runs of one experiment (SRX/ERX/DRX/CRX/HRX)."""
+        response = self._sender(
+            url=f"{self._base_url}/experiment/{experiment_id}/runs",
+            response_model=ExperimentRunsResponse,
+        )
+        return response.runs
+
     # --- resolvers: same names as SeqoutParquetClient so the CLI's shared
     # conversion/download helpers are backend-agnostic (call sq.<method>). ---
 
+    def _quiet(self, fn: Callable[[], T], /) -> T | None:
+        """Run a lookup that is allowed to miss; a miss is not an error here."""
+        try:
+            return fn()
+        except Exception:
+            return None
+
     def resolve_study(self, accession: str) -> str | None:
-        """Resolve a child accession (run/experiment/sample) to its study root."""
+        """
+        Resolve a child accession (run/experiment/sample) to its study root.
+
+        No single endpoint answers this for every archive, so the exact lookups
+        are tried first and full-text search is the last resort:
+
+        =========== ================================================
+        run         /run/{acc} carries study_accession (SRA, DDBJ)
+        experiment  /sample-detail/{acc} (GSA), else its first run
+        sample      /sample-detail/{acc} carries the project
+        anything    search — works when the accession is FTS-indexed
+        =========== ================================================
+        """
         if accession.upper().startswith(_STUDY_PREFIXES):
             return accession
-        try:
-            res = self.search(SearchParams(q=accession))
-        except Exception:
-            return None
-        for r in res:
-            if r.accession.upper().startswith(_STUDY_PREFIXES):
-                return r.accession
+        return self._study_by_lookup(accession) or self._study_by_search(accession)
+
+    def _study_by_lookup(self, accession: str) -> str | None:
+        """Ask the endpoint that knows, chosen by what the accession names."""
+        up = accession.upper()
+        if up.startswith(_RUN_PREFIXES):
+            run = self._quiet(lambda: self.fetch_run(accession))
+            return run.study_accession if run is not None else None
+        if up.startswith(_EXP_PREFIXES):
+            # GSA answers on sample-detail; SRA/DDBJ only via one of its runs.
+            found = self._project_from_sample_detail(accession)
+            if found:
+                return found
+            runs = self._quiet(lambda: self.fetch_experiment_runs(accession))
+            return self.resolve_study(runs[0].run_accession) if runs else None
+        if up.startswith(_SAMPLE_PREFIXES):
+            return self._project_from_sample_detail(accession)
         return None
 
-    def linked_study(self, accession: str) -> str | None:
-        """Return a GEO/AE series' linked SRA (preferred) or other study, via xref."""
-        try:
-            cands = [
+    def _study_by_search(self, accession: str) -> str | None:
+        """Last resort — works only when the accession is full-text indexed."""
+        res = self._quiet(lambda: self.search(SearchParams(q=accession)))
+        return next(
+            (
                 r.accession
-                for r in self.fetch_cross_references(accession)
+                for r in res or []
                 if r.accession.upper().startswith(_STUDY_PREFIXES)
-            ]
-        except Exception:
+            ),
+            None,
+        )
+
+    def _project_from_sample_detail(self, accession: str) -> str | None:
+        # /sample-detail serves every archive, but a GEO sample's `sample` block
+        # is channel-shaped, so it needs the GEO model to validate.
+        fetch = (
+            self.fetch_geo_sample_detailed_metadata
+            if accession.upper().startswith("GSM")
+            else self.fetch_sample_detailed_metadata
+        )
+        detail = self._quiet(lambda: fetch(accession))
+        if detail is None or detail.project is None:
             return None
+        return detail.project.accession or None
+
+    def linked_study(self, accession: str) -> str | None:
+        """
+        Return a series' linked sequencing study — the route to its runs.
+
+        Cross-references answer for GEO and ArrayExpress. GEA (E-GEAD-N) files
+        no cross-reference at all and names its data only as a BioProject in the
+        project record, so that is tried next rather than giving up.
+        """
+        xref = self._quiet(lambda: self.fetch_cross_references(accession)) or []
+        cands = [
+            r.accession
+            for r in xref
+            if r.accession.upper().startswith(_STUDY_PREFIXES)
+        ]
         for c in cands:  # prefer a real study accession over a BioProject
             if c.upper().startswith(("SRP", "ERP", "DRP")):
                 return c
-        return cands[0] if cands else None
+        if cands:
+            return cands[0]
+        meta = self._quiet(lambda: self.fetch_project_metadata(accession))
+        return meta.bioproject if meta is not None else None
 
     def linked_geo(self, accession: str) -> str | None:
         """Return an SRA/ENA study's linked GEO series / ArrayExpress, via xref."""

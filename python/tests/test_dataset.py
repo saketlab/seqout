@@ -69,19 +69,50 @@ class FakeSq(ShortNames):
 @pytest.mark.parametrize(
     ("accession", "expected"),
     [
-        ("SRR123", "run"),
-        ("ERR9", "run"),
-        ("GSM1", "sample"),
-        ("SRX1", "sample"),
-        ("SAMN1", "sample"),
-        ("GSE1", "project"),
-        ("SRP1", "project"),
-        ("E-MTAB-1", "project"),
-        ("PRJNA1", "project"),
+        # GEO
+        ("GSE1", "series"), ("GSM1", "sample"),
+        # SRA / ENA / DDBJ share the [SED]R? shape
+        ("SRP1", "study"), ("SRX1", "experiment"),
+        ("SRS1", "sample"), ("SRR1", "run"), ("SRA1", "submission"),
+        ("ERP9", "study"), ("ERR9", "run"), ("DRP9", "study"), ("DRX9", "experiment"),
+        # GSA (CNCB-NGDC): open CRA and human HRA
+        ("CRA1", "study"), ("CRX1", "experiment"), ("CRR1", "run"),
+        ("HRA1", "study"), ("HRX1", "experiment"), ("HRR1", "run"), ("HRS1", "sample"),
+        # ArrayExpress and GEA — E-GEAD-N also matches the AE four-letter shape
+        ("E-MTAB-1", "series"), ("E-GEAD-1086", "series"),
+        # archive-agnostic identifiers
+        ("PRJNA1", "study"), ("PRJDB1", "study"), ("PRJCA1", "study"),
+        ("SAMN1", "biosample"), ("SAMEA1", "biosample"),
+        ("SAMD1", "biosample"), ("SAMC1", "biosample"),
+        # case and whitespace
+        ("  gse1 ", "series"),
+        # not accessions
+        ("lung cancer", None), ("GSE", None), ("GSE12abc", None), ("", None),
     ],
 )
 def test_kind(accession, expected):
     assert _kind(accession) == expected
+
+
+def test_unknown_accession_says_what_is_accepted():
+    sq = FakeSq()
+    with pytest.raises(SeqoutError) as e:
+        sq.get("not an accession")
+    msg = str(e.value)
+    assert "not an accession this library recognizes" in msg
+    assert "GSA" in msg  # lists the shapes, newer archives included
+    assert "ArrayExpress" in msg
+    assert "sq.search" in msg  # says what to do instead
+
+
+def test_unresolvable_child_explains_itself():
+    sq = FakeSq()  # resolve_study only knows SRR/SRX/SRS
+    with pytest.raises(SeqoutError) as e:
+        _ = sq.get("CRR999").project
+    msg = str(e.value)
+    assert "could not find the study that CRR999" in msg
+    assert "a run" in msg
+    assert "sq.search" in msg
 
 
 def test_get_returns_dataset():
@@ -89,7 +120,7 @@ def test_get_returns_dataset():
     d = sq.get(" GSE1 ")
     assert isinstance(d, Dataset)
     assert d.accession == "GSE1"  # stripped
-    assert d.kind == "project"
+    assert d.kind == "series"
 
 
 def test_project_resolves_from_a_child_accession():
@@ -139,8 +170,9 @@ def test_detail_dispatches_on_the_accession_kind():
 
 
 def test_missing_backend_method_says_so():
+    """The message must name the field and the way out, not just fail."""
     sq = FakeSq()  # no fetch_cross_references on the fake
-    with pytest.raises(SeqoutError, match="not available on this backend"):
+    with pytest.raises(SeqoutError, match="not available on the parquet backend"):
         _ = sq.get("GSE1").links
 
 
@@ -193,3 +225,62 @@ def test_not_found_degrades_to_an_empty_result(monkeypatch):
     monkeypatch.setattr(sq, "_sender", boom)
     assert len(sq.fetch_project_enriched_metadata("SRP1")) == 0
     assert sq.find_publication(pmid="1").total_projects == 0
+
+
+def test_experiments_are_empty_for_array_data():
+    """AE/GEA series have no sequencing experiments; that is not an error."""
+    sq = FakeSq()
+    assert len(sq.get("E-MTAB-9").experiments) == 0
+
+
+def test_detail_refuses_kinds_that_have_no_record():
+    sq = FakeSq()
+    with pytest.raises(SeqoutError, match="no detail record"):
+        _ = sq.get("SRA123").detail  # a submission accession
+
+
+def test_authors_accept_a_list():
+    """GSA (CRA/HRA) returns authors as a list; GEO and SRA send a string."""
+    from seqout.models.api_models import ProjectMetadataResult
+
+    def built(authors):
+        return ProjectMetadataResult.model_validate(
+            {"accession": "X", "title": "t", "authors": authors}
+        ).authors
+
+    assert built(["Wen-Xiang Liu", "Ada L"]) == "Wen-Xiang Liu, Ada L"
+    assert built("Chunbo Li, Keqin Hua") == "Chunbo Li, Keqin Hua"
+    assert built([]) is None
+    assert built(None) is None
+
+
+def test_linked_study_falls_back_to_the_bioproject(monkeypatch):
+    """GEA files no cross-reference; its BioProject is the only route to runs."""
+    from seqout.clients.api import SeqoutAPIClient
+
+    sq = SeqoutAPIClient()
+    monkeypatch.setattr(sq, "fetch_cross_references", lambda _acc: [])
+    monkeypatch.setattr(
+        sq,
+        "fetch_project_metadata",
+        lambda _acc: SimpleNamespace(bioproject="PRJDB16741"),
+    )
+    assert sq.linked_study("E-GEAD-657") == "PRJDB16741"
+
+
+def test_linked_study_prefers_a_cross_reference_over_the_bioproject(monkeypatch):
+    from seqout.clients.api import SeqoutAPIClient
+
+    sq = SeqoutAPIClient()
+    monkeypatch.setattr(
+        sq,
+        "fetch_cross_references",
+        lambda _acc: [SimpleNamespace(accession="ERP191813")],
+    )
+
+    def unexpected(_acc):
+        msg = "must not fetch metadata when a cross-reference answers"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(sq, "fetch_project_metadata", unexpected)
+    assert sq.linked_study("E-MTAB-16863") == "ERP191813"

@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 
 from seqout import connect
+from seqout.exception import SeqoutError
 
 output_dir = Path("./output")
 shutil.rmtree(output_dir, ignore_errors=True)
@@ -39,10 +40,14 @@ with connect() as sq:
     for p in d.pubs:
         print(f"  paper: {p.pmid or p.doi} - {p.title} ({p.journal})")
 
-    # 5. Samples and runs. A GEO series holds no runs, so `runs` goes to the
-    # linked SRA study on its own; there is no accession juggling here.
-    print(f"  {len(d.samples)} samples, {len(d.runs)} runs")
+    # 5. Contents. A GEO series holds no runs, so `runs` and `experiments` go to
+    # the linked SRA study on their own; there is no accession juggling here.
+    print(
+        f"  {len(d.samples)} samples, "
+        f"{len(d.experiments)} experiments, {len(d.runs)} runs"
+    )
     d.samples.to_csv(output_dir / "samples.csv")
+    d.experiments.to_csv(output_dir / "experiments.csv")
     d.runs.to_csv(output_dir / "runs.csv")
     d.links.to_csv(output_dir / "cross_refs.csv")
 
@@ -86,6 +91,24 @@ with connect() as sq:
         series.runs[0].run_accession,
     ):
         other = sq.get(acc)
-        print(f"    {acc:12} ({other.kind:7}) -> geo={other.geo} sra={other.sra}")
+        print(f"    {acc:12} ({other.kind:10}) -> geo={other.geo} sra={other.sra}")
+
+    # 9. Nothing above is GEO-specific. seqout holds seven archives and the same
+    # fields read them all; array-based sources report no runs because they have
+    # none.
+    print("\n  the same fields, every archive:")
+    for acc in ("CRA002740", "HRA000925", "DRP016022", "E-GEAD-1086", "PRJNA1458007"):
+        other = sq.get(acc)
+        print(
+            f"    {acc:14} ({other.kind:10}) "
+            f"{len(other.samples):>4} samples, {len(other.runs):>4} runs"
+        )
+
+    # An accession that leads nowhere says so, instead of returning something
+    # empty and leaving you to guess why.
+    try:
+        sq.get("SAMD01591578").project
+    except SeqoutError as e:
+        print(f"\n  {e}")
 
 print(f"\nwrote {output_dir}/")
