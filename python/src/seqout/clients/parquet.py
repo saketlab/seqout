@@ -47,8 +47,7 @@ from seqout.utils import (
     _validate_study_runs_data,
 )
 
-# Study/run/experiment/sample accession prefixes across SRA, ENA, DDBJ and GSA,
-# used by the parquet-native resolvers (mirrors the CLI's mesh classifier).
+# study/run/experiment/sample accession prefixes across SRA, ENA, DDBJ and GSA
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 _RUN_PREFIXES = ("SRR", "ERR", "DRR", "CRR", "HRR")
 _EXP_PREFIXES = ("SRX", "ERX", "DRX", "CRX", "HRX")
@@ -392,8 +391,8 @@ class SeqoutParquetClient(ShortNames):
         datasource_str = "geo" if datasource == datasource.Geo else "ae"
         return self._fetch_samples_helper(study_accession, datasource_str)
 
-    # --- shared-engine surface: same method names/models as SeqoutAPIClient, so
-    # the CLI's conversion/download/pmid handlers run over parquet unchanged. ---
+    # same method names and models as SeqoutAPIClient, so the CLI's conversion,
+    # download and pmid handlers run over parquet unchanged
 
     def _query_rows(self, sql: str, params: list | None = None) -> list[dict]:
         rel = self.execute_query(sql, params)
@@ -547,8 +546,7 @@ class SeqoutParquetClient(ShortNames):
         supp: list = []
         if r.get("source") == "geo":
             srows = self._query_rows(
-                "SELECT supplementary_data FROM geo_series "
-                "WHERE accession = ? LIMIT 1",
+                "SELECT supplementary_data FROM geo_series WHERE accession = ? LIMIT 1",
                 [accession],
             )
             if srows and srows[0].get("supplementary_data"):
@@ -558,20 +556,20 @@ class SeqoutParquetClient(ShortNames):
             if pmid
             else []
         )
-        return ProjectMetadataResult.model_validate({
-            "accession": accession,
-            "title": r.get("title") or accession,
-            "summary": r.get("description"),
-            "organisms": organisms,
-            "pmid": str(pmid) if pmid else None,
-            "doi": doi,
-            "journal": r.get("journal"),
-            "citation_count": r.get("citation_count") or 0,
-            "supplementary_data": supp,
-            "publications": pubs,
-        })
-
-    # --- parquet-native resolvers (same names as the API client) ---
+        return ProjectMetadataResult.model_validate(
+            {
+                "accession": accession,
+                "title": r.get("title") or accession,
+                "summary": r.get("description"),
+                "organisms": organisms,
+                "pmid": str(pmid) if pmid else None,
+                "doi": doi,
+                "journal": r.get("journal"),
+                "citation_count": r.get("citation_count") or 0,
+                "supplementary_data": supp,
+                "publications": pubs,
+            }
+        )
 
     def resolve_study(self, accession: str) -> str | None:
         """Resolve a child accession (run/experiment/sample) to its study root."""
@@ -630,9 +628,8 @@ class SeqoutParquetClient(ShortNames):
         )
         return rows[0].get("accession") if rows else None
 
-    # --- downloaders (same names/signatures as the API client) ---
-    # ponytail: mirrors SeqoutAPIClient's threaded fetch; kept separate so the
-    # parquet backend has no API-client dependency. Fold into a shared mixin only
+    # kept separate from SeqoutAPIClient's threaded fetch so the parquet backend
+    # carries no API-client dependency. Fold into a shared mixin only
     # if a third backend appears.
 
     def _download_many(

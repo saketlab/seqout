@@ -122,8 +122,6 @@ class Dataset:
     def _call(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return _call(self._sq, name, *args, **kwargs)
 
-    # --- archive routing ---
-
     @cached_property
     def project(self) -> str:
         """
@@ -164,8 +162,6 @@ class Dataset:
         if project.upper().startswith(_GEO_PREFIXES):
             return project
         return self._sq.linked_geo(project)
-
-    # --- data ---
 
     @cached_property
     def meta(self) -> ProjectMetadataResult:

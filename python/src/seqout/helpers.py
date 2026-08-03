@@ -1,11 +1,13 @@
 import logging
+import random
 import time
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 import requests
 from pydantic import BaseModel
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 
 try:
@@ -13,13 +15,45 @@ try:
 except PackageNotFoundError:  # editable/uninstalled tree
     _USER_AGENT = "seqout-lib"
 
-# accepts the class itself and not an instance of it
-T = TypeVar("T", bound=BaseModel)
-_RETRYABLE_STATUS_CODES = {429, 443, 500, 502, 503, 504}
+# 403 because NCBI answers a throttled request with Forbidden rather than 429
+_RETRYABLE_STATUS_CODES = {403, 408, 429, 500, 502, 503, 504}
 _RANGE_NOT_SATISFIABLE = 416
 _PARTIAL_CONTENT = 206
+_MAX_RETRY_AFTER = 120
 
 logger = logging.getLogger(__name__)
+
+# one pooled session: reuses TCP+TLS rather than renegotiating per file, which
+# matters against a host that throttles on connection churn. Safe to issue
+# requests from threads; do not mutate the session after startup.
+_session = requests.Session()
+_session.headers["User-Agent"] = _USER_AGENT
+_adapter = HTTPAdapter(pool_connections=16, pool_maxsize=32)
+_session.mount("https://", _adapter)
+_session.mount("http://", _adapter)
+
+
+def _backoff(attempt: int, max_wait: int) -> float:
+    """
+    Full-jitter exponential backoff.
+
+    A deterministic wait makes every throttled worker retry at the same instant,
+    so the burst that caused the throttling re-forms. Spreading each wait over
+    zero to cap breaks that lockstep.
+    """
+    return random.uniform(0, min(2**attempt, max_wait))  # noqa: S311, jitter, not crypto
+
+
+def _retry_after(exc: Exception, fallback: float) -> float:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return fallback
+    try:
+        after = float(response.headers.get("Retry-After", fallback))
+    except (TypeError, ValueError):
+        return fallback
+    else:
+        return min(after, _MAX_RETRY_AFTER)
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -55,7 +89,7 @@ def _send_req[T: BaseModel](
 ) -> T:
     for attempt in range(num_retries):
         try:
-            r = requests.request(
+            r = _session.request(
                 method,
                 url,
                 params=params,
@@ -72,7 +106,7 @@ def _send_req[T: BaseModel](
             if not _is_retryable(exc) or attempt == num_retries - 1:
                 raise
 
-            wait = min(2**attempt, max_wait)
+            wait = _retry_after(exc, _backoff(attempt, max_wait))
             logger.warning(
                 "failed to send %s req to %s (attempt %d/%d, retrying in %.0fs) - %s",
                 method,
@@ -104,11 +138,15 @@ def _download_file(
     for attempt in range(num_retries):
         bytes_this_attempt = 0
         try:
-            headers = {}
+            # ask for the bytes as stored: NCBI serves some already-compressed
+            # files with Content-Encoding gzip and a compressed Content-Length,
+            # so requests decompresses and the bytes written never match the
+            # header, leaving a byte Range meaningless
+            headers = {"Accept-Encoding": "identity"}
             if already_downloaded > 0:
                 headers["Range"] = f"bytes={already_downloaded}-"
 
-            r = requests.get(url, headers=headers, stream=True, timeout=timeout)
+            r = _session.get(url, headers=headers, stream=True, timeout=timeout)
             if r.status_code == _RANGE_NOT_SATISFIABLE:
                 return
 
@@ -118,12 +156,17 @@ def _download_file(
             if content_length == -1:
                 raise ValueError(f"missing Content-Length header for {url}")
 
-            if r.status_code == _PARTIAL_CONTENT:
+            # a server may ignore Accept-Encoding, and then Content-Length
+            # describes the encoded stream rather than what lands on disk
+            encoded = r.headers.get("Content-Encoding") not in (None, "identity")
+
+            if r.status_code == _PARTIAL_CONTENT and not encoded:
                 open_mode = "ab"
                 resumed_from = already_downloaded
             else:
                 open_mode = "wb"
                 resumed_from = 0
+                already_downloaded = 0
 
             total = resumed_from + content_length
             pbar = (
@@ -151,7 +194,9 @@ def _download_file(
                         pbar.update(n)
 
             actual_size = dest_path.stat().st_size
-            if actual_size != total:
+            if encoded:
+                logger.debug("%s served with Content-Encoding; size check skipped", url)
+            elif actual_size != total:
                 raise OSError(
                     f"downloaded {actual_size} bytes, expected {total} for {url}"
                 )
@@ -164,8 +209,13 @@ def _download_file(
                 raise
 
             already_downloaded -= bytes_this_attempt
+            # without truncating, the next Range request resumes from an
+            # earlier offset and appends duplicates
+            if dest_path.exists() and dest_path.stat().st_size > already_downloaded:
+                with dest_path.open("r+b") as f:
+                    f.truncate(already_downloaded)
 
-            wait = min(2**attempt, max_wait)
+            wait = _retry_after(exc, _backoff(attempt, max_wait))
             logger.warning(
                 "failed to download %s (attempt %d/%d): %s. retrying in %.0fs",
                 url,
@@ -175,5 +225,9 @@ def _download_file(
                 exc,
             )
             time.sleep(wait)
+        else:
+            # without this the loop re-requests the finished file, costing a
+            # round-trip per download
+            return
 
     raise RuntimeError(f"failed to download {url} after {num_retries} retries")

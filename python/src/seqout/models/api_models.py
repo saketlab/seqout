@@ -345,7 +345,8 @@ class ProjectMetadataResult(BaseModel):
     # description field: GEO/GEA send `summary`, SRA sends `abstract` (matches the
     # frontend's summary ?? abstract fallback in similar-projects-graph.tsx).
     summary: str | None = Field(
-        default=None, validation_alias=AliasChoices("summary", "abstract"),
+        default=None,
+        validation_alias=AliasChoices("summary", "abstract"),
     )
     overall_design: str | list[str] | None = None  # GEA sends a list of protocols
     pubmed_ids: list[str] = Field(alias="pubmed_id", default=[])

@@ -377,7 +377,10 @@ def main() -> None:
     )
     p_conv.add_argument("accession", nargs="+", help="one or more accessions")
     p_conv.add_argument(
-        "--to", dest="to_kind", required=True, choices=_CONVERT_TO_CHOICES,
+        "--to",
+        dest="to_kind",
+        required=True,
+        choices=_CONVERT_TO_CHOICES,
         help="target kind: study/experiment/sample/run or srp/srx/srs/srr/gsm/gse",
     )
     p_conv.add_argument(
@@ -393,7 +396,10 @@ def main() -> None:
         p_c = sub.add_parser(name, help=f"get {tgt} accessions")
         p_c.add_argument("accession", nargs="+", help="one or more accessions")
         p_c.add_argument(
-            "-o", "--saveto", dest="save_to", metavar="FILE",
+            "-o",
+            "--saveto",
+            dest="save_to",
+            metavar="FILE",
             help="write results to FILE",
         )
         _add_parquet_flag(p_c)
@@ -517,9 +523,17 @@ def main() -> None:
 
     subcommands = {
         "search": lambda: cmd_search(
-            args.query, args.db, args.limit, args.sortby, args.max_results,
-            args.date_range, args.organism, args.library_strategy, args.platform,
-            args.library_source, args.save_to,
+            args.query,
+            args.db,
+            args.limit,
+            args.sortby,
+            args.max_results,
+            args.date_range,
+            args.organism,
+            args.library_strategy,
+            args.platform,
+            args.library_source,
+            args.save_to,
         ),
         "show": lambda: cmd_show(
             args.accession,
@@ -533,8 +547,11 @@ def main() -> None:
             args.name, parquet=args.parquet is not None, source=args.parquet or None
         ),
         "convert": lambda: cmd_convert(
-            args.accession, args.to_kind, args.save_to,
-            parquet=args.parquet is not None, source=args.parquet or None,
+            args.accession,
+            args.to_kind,
+            args.save_to,
+            parquet=args.parquet is not None,
+            source=args.parquet or None,
         ),
         "download": lambda: _run_download(args),
         "parquet": lambda: cmd_parquet(args),
@@ -545,8 +562,11 @@ def main() -> None:
         return
     if args.command in _CONVERT_COMMANDS:
         cmd_convert(
-            args.accession, args.command.split("-to-")[1], args.save_to,
-            parquet=args.parquet is not None, source=args.parquet or None,
+            args.accession,
+            args.command.split("-to-")[1],
+            args.save_to,
+            parquet=args.parquet is not None,
+            source=args.parquet or None,
         )
         return
 
@@ -610,7 +630,9 @@ def cmd_show_run(sq: SeqoutAPIClient, acc: str, console: Console) -> None:
         if p
     )
     table = Table(
-        title=run.run_accession, title_style="bold", header_style="bold green",
+        title=run.run_accession,
+        title_style="bold",
+        header_style="bold green",
     )
     table.add_column("field", style="cyan", no_wrap=True)
     table.add_column("value", overflow="fold")
@@ -628,7 +650,8 @@ def cmd_show_run(sq: SeqoutAPIClient, acc: str, console: Console) -> None:
     renderables = [table]
     if parent:
         renderables.insert(
-            0, Panel(f"[dim]part of[/] {parent}", border_style="cyan", expand=False),
+            0,
+            Panel(f"[dim]part of[/] {parent}", border_style="cyan", expand=False),
         )
     _page(console, *renderables)
 
@@ -683,8 +706,7 @@ def cmd_show(
     n = len(samples) if show_samples else len(experiments)
     orgs = ", ".join(organisms) or "[dim]—[/]"
     body = (
-        f"[bold]{title or acc}[/]\n[dim]{acc}[/]  •  "
-        f"organisms: {orgs}  •  {n} {keys}"
+        f"[bold]{title or acc}[/]\n[dim]{acc}[/]  •  organisms: {orgs}  •  {n} {keys}"
     )
     if description:
         body += f"\n\n{description.strip()}"
@@ -782,8 +804,11 @@ def _cmd_show_parquet(acc: str, source: str | None) -> None:
             table.add_column("instrument", overflow="fold")
             for e in experiments:
                 table.add_row(
-                    e.accession, e.title or "—", e.library_strategy,
-                    e.platform, e.instrument_model,
+                    e.accession,
+                    e.title or "—",
+                    e.library_strategy,
+                    e.platform,
+                    e.instrument_model,
                 )
     except Exception as e:
         console.print(
@@ -879,8 +904,16 @@ def _source_from_prefix(acc: str) -> str | None:
 
 
 _SAVE_COLS = [
-    "accession", "source", "title", "organisms", "countries",
-    "citation_count", "journal", "doi", "pmid", "updated_at",
+    "accession",
+    "source",
+    "title",
+    "organisms",
+    "countries",
+    "citation_count",
+    "journal",
+    "doi",
+    "pmid",
+    "updated_at",
 ]
 
 
@@ -896,12 +929,20 @@ def _save_results(results: list, path: Path) -> None:
         writer = csv.writer(f, delimiter=delimiter)
         writer.writerow(_SAVE_COLS)
         for r in results:
-            writer.writerow([
-                r.accession, r.source, r.title,
-                "; ".join(r.organisms), "; ".join(r.countries),
-                r.citation_count, r.journal or "", r.doi or "",
-                r.pmid or "", r.updated_at or "",
-            ])
+            writer.writerow(
+                [
+                    r.accession,
+                    r.source,
+                    r.title,
+                    "; ".join(r.organisms),
+                    "; ".join(r.countries),
+                    r.citation_count,
+                    r.journal or "",
+                    r.doi or "",
+                    r.pmid or "",
+                    r.updated_at or "",
+                ]
+            )
 
 
 def _page(console: Console, *renderables: object) -> None:
@@ -922,7 +963,8 @@ def _page(console: Console, *renderables: object) -> None:
 
 
 def _project_header(
-    sq: SeqoutAPIClient, acc: str,
+    sq: SeqoutAPIClient,
+    acc: str,
 ) -> tuple[str | None, str | None, list[str]]:
     """
     Return (title, description, organisms) for a project.
@@ -1002,8 +1044,7 @@ def _paged_search(
         console.clear()
         console.print(_results_table(f"{query!r} — page {page + 1}{pages}", rows))
         console.print(
-            "[dim]← prev · → next · q quit — "
-            "`seqout show <accession>` to inspect[/]",
+            "[dim]← prev · → next · q quit — `seqout show <accession>` to inspect[/]",
         )
         key = _read_key()
         if key in ("q", "\x1b", "\x03"):  # q / esc / ctrl-c
@@ -1039,11 +1080,15 @@ def _print_correction(console: Console, correction: SearchCorrection | None) -> 
         return
     orig, fixed = correction.original_query, correction.corrected_query
     if correction.mode == "replaced":
-        console.print(f"[yellow]Showing results for[/] {fixed!r} "
-                      f"[dim](corrected from {orig!r})[/]")
+        console.print(
+            f"[yellow]Showing results for[/] {fixed!r} "
+            f"[dim](corrected from {orig!r})[/]"
+        )
     elif correction.extra_results:  # augmented
-        console.print(f"[yellow]Did you mean[/] {fixed!r}? "
-                      f"[dim]added {len(correction.extra_results)} match(es) below[/]")
+        console.print(
+            f"[yellow]Did you mean[/] {fixed!r}? "
+            f"[dim]added {len(correction.extra_results)} match(es) below[/]"
+        )
 
 
 def cmd_search(
@@ -1425,9 +1470,7 @@ def _sample_supplementary_urls(sq: SeqoutAPIClient, acc: str) -> list[str]:
             return list(detail.sample.supplementary_data or [])
         if up.startswith(("GSE", "E-")):
             return [
-                u
-                for s in sq.fetch_samples(acc)
-                for u in (s.supplementary_data or [])
+                u for s in sq.fetch_samples(acc) for u in (s.supplementary_data or [])
             ]
     except Exception:  # best-effort inventory; absence just hides the option
         return []
@@ -1472,9 +1515,7 @@ def _runs_label(label: str, runs: StudyRunsResults) -> str:
     return f"{label}  ({sizes})" if sizes else label
 
 
-def _single_run(
-    sq: SeqoutAPIClient, acc: str, up: str
-) -> StudyRunsResults | None:
+def _single_run(sq: SeqoutAPIClient, acc: str, up: str) -> StudyRunsResults | None:
     """Resolve a pasted run accession to its study and return just that run."""
     try:
         study = _resolve_run_study(sq, acc)
@@ -1545,11 +1586,13 @@ def cmd_download_interactive(
                     # a pasted run accession: offer just that single run
                     runs = _single_run(sq, acc, up)
                     if runs:
-                        groups.append({
-                            "kind": "runs",
-                            "label": _runs_label(f"Run {acc}", runs),
-                            "runs": runs,
-                        })
+                        groups.append(
+                            {
+                                "kind": "runs",
+                                "label": _runs_label(f"Run {acc}", runs),
+                                "runs": runs,
+                            }
+                        )
                 else:
                     groups.append({"kind": "metadata", "label": "Metadata (JSON)"})
                     geo = _resolve_accession(sq, acc, "geo")
@@ -1559,18 +1602,22 @@ def cmd_download_interactive(
                         except Exception:
                             meta = None
                         if meta and meta.supplementary_data:
-                            groups.append({
-                                "kind": "project_supp",
-                                "label": "Project supplementary"
-                                f" — {len(meta.supplementary_data)} file(s)",
-                            })
+                            groups.append(
+                                {
+                                    "kind": "project_supp",
+                                    "label": "Project supplementary"
+                                    f" — {len(meta.supplementary_data)} file(s)",
+                                }
+                            )
                     supp = _sample_supplementary_urls(sq, acc)
                     if supp:
-                        groups.append({
-                            "kind": "sample_supp",
-                            "label": f"Sample supplementary — {len(supp)} file(s)",
-                            "urls": supp,
-                        })
+                        groups.append(
+                            {
+                                "kind": "sample_supp",
+                                "label": f"Sample supplementary — {len(supp)} file(s)",
+                                "urls": supp,
+                            }
+                        )
                     if not up.startswith(SAMPLE_PREFIXES):
                         study = _resolve_accession(sq, acc, "runs")
                         runs = None
@@ -1581,11 +1628,13 @@ def cmd_download_interactive(
                                 runs = None
                         if runs:
                             label = f"Run data — {len(runs)} run(s)"
-                            groups.append({
-                                "kind": "runs",
-                                "label": _runs_label(label, runs),
-                                "runs": runs,
-                            })
+                            groups.append(
+                                {
+                                    "kind": "runs",
+                                    "label": _runs_label(label, runs),
+                                    "runs": runs,
+                                }
+                            )
 
             if not groups:
                 console.print(f"[yellow]Nothing downloadable found for {acc}.[/]")
@@ -1644,17 +1693,42 @@ _MESH_ENTITY = {
 _GSM_TITLE = re.compile(r"^(GSM\d+)\s*:")
 # conversion targets (semantic + pysradb aliases + per-archive) -> mesh column.
 _TARGET_COL = {
-    "study": "study", "srp": "study", "erp": "study", "drp": "study",
-    "cra": "study", "hra": "study",
-    "run": "srr", "srr": "srr", "err": "srr", "drr": "srr", "crr": "srr",
-    "experiment": "srx", "srx": "srx", "erx": "srx", "drx": "srx", "crx": "srx",
-    "sample": "srs", "srs": "srs", "ers": "srs", "drs": "srs", "crs": "srs",
+    "study": "study",
+    "srp": "study",
+    "erp": "study",
+    "drp": "study",
+    "cra": "study",
+    "hra": "study",
+    "run": "srr",
+    "srr": "srr",
+    "err": "srr",
+    "drr": "srr",
+    "crr": "srr",
+    "experiment": "srx",
+    "srx": "srx",
+    "erx": "srx",
+    "drx": "srx",
+    "crx": "srx",
+    "sample": "srs",
+    "srs": "srs",
+    "ers": "srs",
+    "drs": "srs",
+    "crs": "srs",
     "gsm": "gsm",
 }
-# --to choices for the generic `convert` command (clean semantic + pysradb set).
 _CONVERT_TO_CHOICES = (
-    "study", "experiment", "sample", "run",
-    "srp", "srx", "srs", "srr", "gsm", "gse", "pmid", "doi",
+    "study",
+    "experiment",
+    "sample",
+    "run",
+    "srp",
+    "srx",
+    "srs",
+    "srr",
+    "gsm",
+    "gse",
+    "pmid",
+    "doi",
 )
 
 # Per-archive entity prefixes (study, experiment, run, sample) for a-to-b names.
@@ -1675,16 +1749,37 @@ def _archive_convert_commands() -> tuple[str, ...]:
 
 # pysradb-parity conversion subcommands; the target is the part after "-to-".
 _CONVERT_COMMANDS = (
-    "gse-to-gsm", "gse-to-srp",
-    "gsm-to-gse", "gsm-to-srp", "gsm-to-srr", "gsm-to-srs", "gsm-to-srx",
-    "srp-to-gse", "srp-to-srr", "srp-to-srs", "srp-to-srx",
-    "srr-to-gsm", "srr-to-srp", "srr-to-srs", "srr-to-srx",
-    "srs-to-gsm", "srs-to-srx",
-    "srx-to-srp", "srx-to-srr", "srx-to-srs",
+    "gse-to-gsm",
+    "gse-to-srp",
+    "gsm-to-gse",
+    "gsm-to-srp",
+    "gsm-to-srr",
+    "gsm-to-srs",
+    "gsm-to-srx",
+    "srp-to-gse",
+    "srp-to-srr",
+    "srp-to-srs",
+    "srp-to-srx",
+    "srr-to-gsm",
+    "srr-to-srp",
+    "srr-to-srs",
+    "srr-to-srx",
+    "srs-to-gsm",
+    "srs-to-srx",
+    "srx-to-srp",
+    "srx-to-srr",
+    "srx-to-srs",
     # literature (forward: accession -> pmid/doi; reverse: pmid/doi -> accession)
-    "srp-to-pmid", "gse-to-pmid", "ae-to-pmid", "ena-to-pmid",
-    "srp-to-doi", "gse-to-doi",
-    "pmid-to-gse", "pmid-to-srp", "doi-to-gse", "doi-to-srp",
+    "srp-to-pmid",
+    "gse-to-pmid",
+    "ae-to-pmid",
+    "ena-to-pmid",
+    "srp-to-doi",
+    "gse-to-doi",
+    "pmid-to-gse",
+    "pmid-to-srp",
+    "doi-to-gse",
+    "doi-to-srp",
     *_archive_convert_commands(),
 )
 _SAMPLE_SOURCES = ("GSE", "E-")  # series/experiments queried via fetch_samples
@@ -1800,9 +1895,7 @@ def _publication_projects(
 ) -> list[str]:
     """Reverse: a publication id -> linked project accessions, filtered by target."""
     res = (
-        sq.find_publication(pmid=acc)
-        if up.isdigit()
-        else sq.find_publication(doi=acc)
+        sq.find_publication(pmid=acc) if up.isdigit() else sq.find_publication(doi=acc)
     )
     prefixes = _PUB_TARGET_PREFIX.get(target)
     accs = [
@@ -1906,9 +1999,7 @@ def cmd_convert(
     console.print(table)
 
 
-def cmd_pmid(
-    ident: str, *, parquet: bool = False, source: str | None = None
-) -> None:
+def cmd_pmid(ident: str, *, parquet: bool = False, source: str | None = None) -> None:
     console = Console()
     ident = ident.strip()
     is_doi = _is_doi(ident)
@@ -1931,15 +2022,23 @@ def cmd_pmid(
         return
 
     body = f"[bold]{res.title or '(title unavailable)'}[/]"
-    meta = [b for b in (res.journal, f"PMID {res.pmid}" if res.pmid else None,
-                        f"doi:{res.doi}" if res.doi else None) if b]
+    meta = [
+        b
+        for b in (
+            res.journal,
+            f"PMID {res.pmid}" if res.pmid else None,
+            f"doi:{res.doi}" if res.doi else None,
+        )
+        if b
+    ]
     if meta:
         body += "\n[dim]" + "  ·  ".join(meta) + "[/]"
     panel = Panel(body, title="publication", border_style="green", expand=False)
 
     table = Table(
         title=f"{res.total_projects} linked dataset(s)",
-        title_style="bold", header_style="bold green",
+        title_style="bold",
+        header_style="bold green",
     )
     table.add_column("accession", style="bold cyan", no_wrap=True)
     table.add_column("src", no_wrap=True)
@@ -1949,9 +2048,7 @@ def cmd_pmid(
     _page(console, panel, table)
 
 
-def cmd_author(
-    name: str, *, parquet: bool = False, source: str | None = None
-) -> None:
+def cmd_author(name: str, *, parquet: bool = False, source: str | None = None) -> None:
     console = Console()
     name = name.strip()
     try:

@@ -317,8 +317,8 @@ class SeqoutAPIClient(ShortNames):
         )
         return response.runs
 
-    # --- resolvers: same names as SeqoutParquetClient so the CLI's shared
-    # conversion/download helpers are backend-agnostic (call sq.<method>). ---
+    # resolvers share their names with SeqoutParquetClient so the CLI's
+    # conversion and download helpers work against either backend
 
     def _quiet(self, fn: Callable[[], T], /) -> T | None:
         """Run a lookup that is allowed to miss; a miss is not an error here."""
@@ -397,9 +397,7 @@ class SeqoutAPIClient(ShortNames):
         """
         xref = self._quiet(lambda: self.fetch_cross_references(accession)) or []
         cands = [
-            r.accession
-            for r in xref
-            if r.accession.upper().startswith(_STUDY_PREFIXES)
+            r.accession for r in xref if r.accession.upper().startswith(_STUDY_PREFIXES)
         ]
         for c in cands:  # prefer a real study accession over a BioProject
             if c.upper().startswith(("SRP", "ERP", "DRP")):
