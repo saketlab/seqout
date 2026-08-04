@@ -1,0 +1,124 @@
+name: docs-deploy
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "python/docs/**"
+      - "python/mkdocs.yml"
+      - "python/pyproject.toml"
+      - "python/src/**"
+      - ".github/workflows/docs-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --extra counts
+
+      - run: uv run mkdocs build --strict
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: python/site/
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site
+
+      - name: Make room for the new release
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT || 22 }}
+          script: |
+            set -e
+            cd /var/www/sramap/seqoutDB/python
+            rm -rf site-incoming
+            mkdir -p site-incoming site-releases
+
+      - name: Upload the built site
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT || 22 }}
+          source: "site/*"
+          target: /var/www/sramap/seqoutDB/python/site-incoming
+          strip_components: 1
+
+      - name: Swap it in
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /var/www/sramap/seqoutDB/python
+
+            test -f site-incoming/index.html || {
+              echo "::error::upload has no index.html; refusing to swap"
+              exit 1
+            }
+
+            release="site-releases/${{ github.sha }}-${{ github.run_id }}"
+            rm -rf "$release"
+            mv site-incoming "$release"
+
+            previous=$(readlink site || true)
+
+            if [ ! -L site ] && [ -e site ]; then
+              rm -rf site.prepared
+              mv site site.prepared
+            fi
+
+            ln -sfn "$release" site.new
+            mv -T site.new site
+            rm -rf site.prepared
+
+            code=$(curl -sk -o /dev/null -w '%{http_code}' \
+                     -H 'Host: seqout.org' https://127.0.0.1/cli/ || true)
+            if [ "$code" != "200" ]; then
+              if [ -n "$previous" ] && [ -d "$previous" ]; then
+                ln -sfn "$previous" site.new
+                mv -T site.new site
+                echo "::error::/cli/ answered $code; rolled back to $previous"
+              else
+                echo "::error::/cli/ answered $code and there is nothing to roll back to"
+              fi
+              exit 1
+            fi
+
+            live=$(readlink site)
+            for old in $(ls -1dt site-releases/*/ 2>/dev/null | tail -n +6); do
+              [ "${old%/}" = "$live" ] || rm -rf "$old"
+            done
