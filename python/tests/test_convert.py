@@ -31,20 +31,35 @@ class FakeSq:
 
     def fetch_study_runs(self, _study, *, full=False):  # noqa: ARG002
         return [
-            SimpleNamespace(run_accession="SRR1", experiment_accession="SRX1",
-                            study_accession="SRP1"),
-            SimpleNamespace(run_accession="SRR2", experiment_accession="SRX1",
-                            study_accession="SRP1"),
-            SimpleNamespace(run_accession="SRR3", experiment_accession="SRX2",
-                            study_accession="SRP1"),
+            SimpleNamespace(
+                run_accession="SRR1",
+                experiment_accession="SRX1",
+                study_accession="SRP1",
+            ),
+            SimpleNamespace(
+                run_accession="SRR2",
+                experiment_accession="SRX1",
+                study_accession="SRP1",
+            ),
+            SimpleNamespace(
+                run_accession="SRR3",
+                experiment_accession="SRX2",
+                study_accession="SRP1",
+            ),
         ]
 
     def fetch_study_experiments(self, _study):
         return [
-            SimpleNamespace(accession="SRX1", title="GSM10: a; H. sapiens; RNA-Seq",
-                            samples=["SRS1"]),
-            SimpleNamespace(accession="SRX2", title="GSM20: b; H. sapiens; RNA-Seq",
-                            samples=["SRS2"]),
+            SimpleNamespace(
+                accession="SRX1",
+                title="GSM10: a; H. sapiens; RNA-Seq",
+                samples=["SRS1"],
+            ),
+            SimpleNamespace(
+                accession="SRX2",
+                title="GSM20: b; H. sapiens; RNA-Seq",
+                samples=["SRS2"],
+            ),
         ]
 
     def fetch_samples(self, _acc):
@@ -69,8 +84,11 @@ class FakeSq:
         return [SimpleNamespace(accession="SRP1")]
 
     def linked_study(self, acc):  # series -> linked SRA study (via xref)
-        cands = [r.accession for r in self.fetch_cross_references(acc)
-                 if r.accession.upper().startswith(("SRP", "ERP", "DRP", "PRJ"))]
+        cands = [
+            r.accession
+            for r in self.fetch_cross_references(acc)
+            if r.accession.upper().startswith(("SRP", "ERP", "DRP", "PRJ"))
+        ]
         for c in cands:  # prefer a real study accession over a BioProject
             if c.upper().startswith(("SRP", "ERP", "DRP")):
                 return c
@@ -78,7 +96,8 @@ class FakeSq:
 
     def fetch_project_metadata(self, _acc):  # forward: accession -> pubs
         return SimpleNamespace(
-            pmid="111", doi="10.1/x",
+            pmid="111",
+            doi="10.1/x",
             publications=[
                 SimpleNamespace(pmid="111", doi="10.1/x"),
                 SimpleNamespace(pmid="222", doi="10.2/y"),
@@ -86,10 +105,12 @@ class FakeSq:
         )
 
     def find_publication(self, *, pmid=None, doi=None):  # noqa: ARG002
-        return SimpleNamespace(projects=[
-            SimpleNamespace(accession="GSE1", source="geo"),
-            SimpleNamespace(accession="SRP1", source="sra"),
-        ])
+        return SimpleNamespace(
+            projects=[
+                SimpleNamespace(accession="GSE1", source="geo"),
+                SimpleNamespace(accession="SRP1", source="sra"),
+            ]
+        )
 
 
 def conv(acc, to_kind):
@@ -140,10 +161,16 @@ def test_convert_directions(acc, to_kind, expected):
 def test_archive_prefixes_route_to_mesh_columns():
     # ENA/DDBJ/GSA source prefixes must map to a mesh column (else no conversion)
     for prefix, col in [
-        ("ERP1", "study"), ("DRP1", "study"), ("CRA1", "study"),
-        ("ERR1", "srr"), ("DRR1", "srr"), ("CRR1", "srr"),
-        ("ERX1", "srx"), ("CRX1", "srx"),
-        ("ERS1", "srs"), ("CRS1", "srs"),
+        ("ERP1", "study"),
+        ("DRP1", "study"),
+        ("CRA1", "study"),
+        ("ERR1", "srr"),
+        ("DRR1", "srr"),
+        ("CRR1", "srr"),
+        ("ERX1", "srx"),
+        ("CRX1", "srx"),
+        ("ERS1", "srs"),
+        ("CRS1", "srs"),
         ("GSM1", "gsm"),
     ]:
         assert _mesh_column(prefix) == col, prefix

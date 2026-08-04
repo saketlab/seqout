@@ -1,13 +1,13 @@
 """
-Accession-first access: ``sq.get("GSE168652")`` instead of routing by archive.
+Accession-first access: sq.get("GSE168652") resolves the archive for you.
 
-A :class:`Dataset` wraps one accession and fills each field on first access,
-hopping between archives on its own — a GEO series reaches its linked SRA study
+A Dataset wraps one accession and fills each field on first access,
+hopping between archives on its own; a GEO series reaches its linked SRA study
 for runs, an SRA study reaches its GEO series for samples. Callers never branch
 on the prefix.
 
-:class:`ShortNames` carries the one-word aliases; both clients mix it in. The
-long ``fetch_*`` names stay, so existing code and the CLI are unaffected.
+ShortNames carries the one-word aliases; both clients mix it in. The
+long fetch_* names stay, so existing code and the CLI are unaffected.
 """
 
 from __future__ import annotations
@@ -53,12 +53,12 @@ _ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 _SHAPES = (
-    "GSE/GSM (GEO), SRP/SRX/SRS/SRR (SRA), ERP…/DRP… (ENA, DDBJ), "
+    "GSE/GSM (GEO), SRP/SRX/SRS/SRR (SRA), ERP/DRP (ENA, DDBJ), "
     "CRA/HRA/CRX/HRX/CRR/HRR/HRS (GSA), E-MTAB-N and E-GEAD-N "
-    "(ArrayExpress, GEA), PRJ… and SAM… (BioProject, BioSample)"
+    "(ArrayExpress, GEA), PRJ and SAM (BioProject, BioSample)"
 )
 
-# study/series roots — anything that owns samples and runs rather than being one.
+# study/series roots: accessions that own samples and runs
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 _GEO_PREFIXES = ("GSE", "E-")
 _RUN_PREFIXES = ("SRR", "ERR", "DRR", "CRR", "HRR")
@@ -82,7 +82,7 @@ def _call(client: Any, name: str, *args: Any, **kwargs: Any) -> Any:
 
 
 def _kind(accession: str) -> str | None:
-    """Name what an accession refers to, offline. ``None`` if unrecognized."""
+    """Name what an accession refers to, offline. None if unrecognized."""
     up = accession.strip().upper()
     for pattern, entity in _ENTITY_PATTERNS:
         if pattern.match(up):
@@ -94,7 +94,7 @@ class Dataset:
     """
     Everything reachable from one accession, fetched lazily and cached.
 
-    Accepts any accession — series, study, experiment, sample or run — and
+    Accepts any accession (series, study, experiment, sample or run) and
     resolves the rest itself::
 
         d = sq.get("GSE168652")
@@ -149,7 +149,7 @@ class Dataset:
 
     @cached_property
     def sra(self) -> str | None:
-        """The archive study holding the sequencing runs (SRP/ERP/PRJ…)."""
+        """The archive study holding the sequencing runs (SRP/ERP/PRJ)."""
         project = self.project
         if project.upper().startswith(_STUDY_PREFIXES):
             return project
@@ -157,7 +157,7 @@ class Dataset:
 
     @cached_property
     def geo(self) -> str | None:
-        """The series holding the processed / supplementary files (GSE, E-…)."""
+        """The series holding the processed and supplementary files (GSE, E-)."""
         project = self.project
         if project.upper().startswith(_GEO_PREFIXES):
             return project
@@ -165,7 +165,7 @@ class Dataset:
 
     @cached_property
     def meta(self) -> ProjectMetadataResult:
-        """Project metadata for :attr:`project`."""
+        """Project metadata for project."""
         return self._sq.fetch_project_metadata(self.project)
 
     def _samples_of(self, accession: str) -> Any:
@@ -195,7 +195,7 @@ class Dataset:
     @cached_property
     def experiments(self) -> StudyExperimentsResults:
         """
-        The library preparations — one row per experiment.
+        The library preparations, one row per experiment.
 
         Reached through the linked sequencing study, so an ArrayExpress or GEA
         series answers too. Empty only when the dataset really has none, as
@@ -227,7 +227,7 @@ class Dataset:
 
     @cached_property
     def enriched(self) -> Any:
-        """LLM-enriched per-sample metadata (tissue, disease, assay…)."""
+        """LLM-enriched per-sample metadata (tissue, disease, assay)."""
         return self._call("fetch_project_enriched_metadata", self.project)
 
     @cached_property
@@ -238,10 +238,10 @@ class Dataset:
     @cached_property
     def detail(self) -> Any:
         """
-        The record for this exact accession — sample detail or run row.
+        The record for this exact accession: sample detail or run row.
 
-        ``None`` when the accession is itself a study or series; use
-        :attr:`meta` there.
+        None when the accession is itself a study or series; use
+        meta there.
         """
         if self.kind in _ROOT_ENTITIES:
             return None
@@ -263,10 +263,10 @@ class Dataset:
 
 
 class ShortNames:
-    """One-word aliases over the ``fetch_*`` surface. Mixed into both clients."""
+    """One-word aliases over the fetch_* surface. Mixed into both clients."""
 
     def get(self, accession: str) -> Dataset:
-        """Open any accession — series, study, experiment, sample or run."""
+        """Open any accession: series, study, experiment, sample or run."""
         return Dataset(self, accession)
 
     def paper(

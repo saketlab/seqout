@@ -1,5 +1,17 @@
 """
-FTP transport for supplementary files
+FTP transport for supplementary files, with HTTPS as the fallback.
+
+GEO's HTTPS gateway throttles and sometimes answers with a Content-Length
+shorter than the real file, so a download can succeed against a truncated body.
+FTP avoids that gateway and its SIZE reply is authoritative, which makes a short
+transfer detectable for every format.
+
+Not every network can reach it; port 21 is commonly intercepted by a proxy. The
+first hard failure flips a switch so the rest of the run goes straight to HTTPS,
+which saves a connect timeout per file.
+
+Set SEQOUT_SOCKS_PROXY=host:port to tunnel FTP through SOCKS5, which needs
+pysocks installed.
 """
 
 from __future__ import annotations
@@ -28,7 +40,7 @@ def ftp_unavailable() -> bool:
 
 
 def _mark_unavailable(reason: str) -> None:
-    global _ftp_blocked  # noqa: PLW0603, one process-wide switch is the point
+    global _ftp_blocked  # noqa: PLW0603
     if not _ftp_blocked:
         logger.info("FTP unusable (%s); using HTTPS for the rest of this run", reason)
     _ftp_blocked = True
@@ -42,7 +54,7 @@ def _socks_socket() -> Iterator[None]:
         yield
         return
 
-    import socks  # noqa: PLC0415, only the proxied path needs pysocks
+    import socks  # noqa: PLC0415
 
     host, _, port = proxy.partition(":")
     original = socket.socket
@@ -55,7 +67,7 @@ def _socks_socket() -> Iterator[None]:
 
 
 def _connect(host: str) -> ftplib.FTP:
-    # resolve to IPv4 explicitly: NCBI is dual-stack and pysocks has no IPv6
+    # NCBI dual-stack FTP needs an explicit IPv4 address for pysocks
     addr = str(socket.getaddrinfo(host, 21, socket.AF_INET)[0][4][0])
     ftp = ftplib.FTP(timeout=_TIMEOUT)  # noqa: S321
     ftp.connect(addr, 21)
@@ -92,10 +104,9 @@ def fetch(url: str, dest: Path) -> bool:
             finally:
                 with contextlib.suppress(Exception):
                     ftp.quit()
-    except ftplib.all_errors as e:  # a tuple that already includes OSError
+    except ftplib.all_errors as e:  # ftplib.all_errors already includes OSError.
         part.unlink(missing_ok=True)
-        # a refused/intercepted port 21 is a property of the network, not this
-        # file, so stop trying; a per-file error just falls back for this one
+        # port 21 refusal or interception marks the network unusable for the run
         if isinstance(
             e, (socket.gaierror, ConnectionError, socket.timeout, ftplib.error_proto)
         ):

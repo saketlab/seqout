@@ -21,7 +21,7 @@ def _join_authors(v: Any) -> Any:
     """
     Accept an author list as well as the joined string GEO and SRA send.
 
-    GSA (CRA/HRA) returns `authors` as a list on the project endpoint.
+    GSA (CRA/HRA) returns authors as a list on the project endpoint.
     """
     if isinstance(v, list):
         return ", ".join(str(a) for a in v if a) or None
@@ -205,9 +205,9 @@ class SearchCorrection(BaseModel):
     """
     Spelling correction the backend applied to a text query.
 
-    ``replaced``  - corrected-query results already substituted into ``results``.
-    ``augmented`` - original results kept; typo-corrected matches ride along in
-    ``extra_results`` (shown as a separate block, like the web app does).
+    replaced  - corrected-query results already substituted into results.
+    augmented - original results kept; typo-corrected matches ride along in
+    extra_results (shown as a separate block, like the web app does).
     """
 
     original_query: str
@@ -234,16 +234,36 @@ class SearchResponse(BaseModel):
 
 
 class SearchResults(BaseContainer[SearchResult]):
+    """
+    A list of search hits, with subsetting and summary helpers.
+
+    Every method that narrows the set returns a new SearchResults, so calls
+    chain. Inherited from BaseContainer: to_df, to_csv, to_dict.
+    """
+
     def offset(self, n: int) -> SearchResults:
+        """Drop the first n hits."""
         return SearchResults(self.root[n:])
 
     def limit(self, n: int) -> SearchResults:
+        """Keep the first n hits."""
         return SearchResults(self.root[:n])
 
     def slice(self, start: int, stop: int) -> SearchResults:
+        """Keep hits from start up to stop."""
         return SearchResults(self.root[start:stop])
 
     def filter(self, **kwargs: Any) -> SearchResults:
+        """
+        Keep hits whose fields all equal the given values.
+
+        String comparisons ignore case. A hit missing one of the fields is
+        dropped.
+
+        Args:
+            **kwargs: Field name to required value, e.g. source="geo".
+
+        """
         filtered = self.root
 
         for field, value in kwargs.items():
@@ -262,27 +282,53 @@ class SearchResults(BaseContainer[SearchResult]):
         return SearchResults(filtered)
 
     def exclude(self, **kwargs: Any) -> SearchResults:
+        """
+        Drop hits whose fields equal the given values.
+
+        Comparison is exact, so this is case-sensitive where filter is not.
+
+        Args:
+            **kwargs: Field name to unwanted value.
+
+        """
         filtered = self.root
         for field, value in kwargs.items():
             filtered = [r for r in filtered if getattr(r, field, None) != value]
         return SearchResults(filtered)
 
     def by_source(self, source: str) -> SearchResults:
+        """Keep hits from one archive, e.g. geo or sra."""
         return self.filter(source=source)
 
     def by_organism(self, organism: str) -> SearchResults:
+        """Keep hits that list the given organism."""
         return SearchResults([r for r in self if r.has_organism(organism)])
 
     def organisms(self) -> Counter[str]:
+        """Count how often each organism appears across the hits."""
         return Counter(org for r in self.root for org in r.organisms)
 
     def sources(self) -> Counter[str]:
+        """Count the hits from each archive."""
         return Counter(r.source for r in self.root if r.source)
 
     def countries(self) -> Counter[str]:
+        """Count the hits from each submitting country."""
         return Counter(c for r in self.root for c in r.countries)
 
     def sort_by(self, field: str, *, reverse: bool = False) -> SearchResults:
+        """
+        Order the hits by one field.
+
+        Hits where the field is None sort to the end in either direction, so
+        they never displace a hit that has a value.
+
+        Args:
+            field: The field to order by, e.g. citation_count.
+            reverse: Order from high to low.
+
+        """
+
         def sort_key(r: Any) -> Any:
             value = getattr(r, field)
             return value if value is not None else 0
@@ -295,9 +341,11 @@ class SearchResults(BaseContainer[SearchResult]):
         )
 
     def top_cited(self, n: int = 10) -> SearchResults:
+        """Return the n most cited hits."""
         return self.sort_by("citation_count", reverse=True).limit(n)
 
     def most_recent(self, n: int = 10) -> SearchResults:
+        """Return the n most recently updated hits."""
         return self.sort_by("updated_at", reverse=True).limit(n)
 
 
@@ -342,7 +390,7 @@ class ProjectMetadataResult(BaseModel):
     accession: str
     alias: list[str] | str | None = None
     title: str
-    # description field: GEO/GEA send `summary`, SRA sends `abstract` (matches the
+    # description field: GEO/GEA send summary, SRA sends abstract (matches the
     # frontend's summary ?? abstract fallback in similar-projects-graph.tsx).
     summary: str | None = Field(
         default=None,
@@ -432,7 +480,7 @@ class ProjectCrossReferenceResult(BaseModel):
     link_type: str
     source: str
     # Set only when source == "pmid": the study was matched through a shared
-    # publication rather than a declared cross-reference, so it may cover
+    # publication and not by a declared cross-reference, so it may cover
     # different samples. Absent on ordinary links.
     via_pmid: str | None = None
     title: str | None = None
@@ -592,7 +640,7 @@ class ExperimentSampleChannel(BaseModel):
     def _normalize_organisms(cls, data: Any) -> Any:
         # GEO sends one Organism per channel, or a list when the channel holds
         # more than one species (xenograft/PDX, mixed-species benchmarks).
-        # `organism` keeps the first so single-species callers are unaffected.
+        # organism keeps the first so single-species callers are unaffected.
         if not isinstance(data, dict):
             return data
         raw = data.get("Organism")
@@ -666,8 +714,8 @@ class SampleDetailedMetadata(BaseModel):
     sample: SampleMetadataResult
 
 
-# GEO sample detail: same /sample-detail/{acc} endpoint, but a GSM's `sample` is a
-# channels-based ExperimentSample rather than an SRA SampleMetadataResult.
+# GEO sample detail: same /sample-detail/{acc} endpoint, but a GSM's sample is a
+# channels-based ExperimentSample, not an SRA SampleMetadataResult.
 class GeoSampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult

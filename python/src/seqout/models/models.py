@@ -10,12 +10,16 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class BaseContainer[T: BaseModel](RootModel[list[T]]):
+    """A list of records that also converts to a dict, a DataFrame, or a CSV."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def to_dict(self) -> list[dict]:
+        """Return the records as a list of plain dictionaries."""
         return [r.model_dump() for r in self.root]
 
     def to_csv(self, path: Path | str) -> None:
+        """Write the records to a CSV file. An empty container writes nothing."""
         path_obj = Path(path)
         with path_obj.open("w", newline="") as f:
             if not self.root:
@@ -26,6 +30,7 @@ class BaseContainer[T: BaseModel](RootModel[list[T]]):
             writer.writerows(self.to_dict())
 
     def to_df(self) -> pd.DataFrame:
+        """Return the records as a pandas DataFrame, one row each."""
         return pd.DataFrame(self.to_dict())
 
     def __len__(self) -> int:

@@ -1,5 +1,17 @@
 """
-Read GEO accession as counts matrix.
+Read a GEO accession as a counts matrix.
+
+    from seqout import seqout_counts
+
+    c = seqout_counts(gsm="GSM8207499")
+    c.manifest()      # what was found, before anything is downloaded
+    m = c.matrix()
+    a = c.anndata()
+
+The constructor resolves supplementary files and groups them into readable
+units; nothing is downloaded until you ask for raw(), matrix() or anndata().
+GEO supplementary payloads run to tens of GB, so fetching in a constructor is
+not a usable API.
 """
 
 from __future__ import annotations
@@ -27,8 +39,17 @@ from seqout.counts_model import (
 from seqout.counts_names import Role, _require, classify
 from seqout.counts_rds import read_rds
 from seqout.counts_readers import read_10x_h5, read_10x_mtx, read_h5ad, read_table
+from seqout.utils import sample_frame
 
 logger = logging.getLogger(__name__)
+
+_ASSAY_FEATURE_TYPE = {
+    "rna": "Gene Expression",
+    "adt": "Antibody Capture",
+    "hto": "Antibody Capture",
+    "atac": "Peaks",
+}
+_FROM_ASSAY = object()
 
 
 class SeqoutCounts:
@@ -45,9 +66,19 @@ class SeqoutCounts:
             platform where the API model spells platform_ref.
         cache_dir: Where downloads land. Defaults to
             ~/.cache/seqout/counts/<accession>; files are reused across runs.
-        feature_type: 10x feature class to keep. "Gene Expression" drops the
-            ATAC/antibody rows of multiome and CITE-seq matrices; None keeps
-            everything.
+        assay: which assay to take when a sample, or an R object, carries
+            several, as CITE-seq and multiome studies do. Defaults to "rna";
+            "adt", "hto" and "atac" are recognised too. None takes whichever
+            comes first. This also sets which rows of a combined 10x matrix are
+            kept, so the two cannot disagree.
+        feature_type: 10x feature class to keep, overriding the one implied by
+            assay. Rarely needed; pass None to keep every row.
+        progress: show download and read progress. Bars render as a widget in a
+            notebook and as text in a terminal, and hide themselves when output
+            is not a terminal. Pass False to silence them entirely.
+        sample_metadata: attach the study's sample-level characteristics to obs,
+            so a cell carries the donor, tissue and condition it came from
+            alongside its own annotation. Pass False to keep obs as deposited.
 
     """
 
@@ -59,7 +90,10 @@ class SeqoutCounts:
         gsm: str | None = None,
         client: Any = None,
         cache_dir: Path | str | None = None,
-        feature_type: str | None = "Gene Expression",
+        feature_type: str | None | object = _FROM_ASSAY,
+        assay: str | None = "rna",
+        progress: bool = True,
+        sample_metadata: bool = True,
     ) -> None:
         acc = accession or gse or gsm
         if not acc:
@@ -84,13 +118,23 @@ class SeqoutCounts:
             )
             raise TypeError(msg)
 
-        self.feature_type = feature_type
+        self.assay = assay
+        self.progress = progress
+        self.sample_metadata = sample_metadata
+        self.feature_type = (
+            _ASSAY_FEATURE_TYPE.get(assay or "")
+            if feature_type is _FROM_ASSAY
+            else feature_type
+        )
         self._client = client
         self._owns_client = client is None
         self._cache = Path(
             cache_dir or Path.home() / ".cache" / "seqout" / "counts" / self.accession
         )
-        self._n_samples = 0  # GSMs in the series, an input to bulk-vs-sc
+        self._n_samples = 0
+        self._meta_cache: dict[Path, pd.DataFrame] = {}
+        self._samples: list[Any] = []
+        self._design: pd.DataFrame | None = None
         self._files: list[SuppFile] | None = None
         self._units: list[Unit] | None = None
 
@@ -105,12 +149,14 @@ class SeqoutCounts:
         self.close()
 
     def close(self) -> None:
+        """Close the client, when this object opened one of its own."""
         if self._owns_client and self._client is not None:
             self._client.close()
             self._client = None
 
     @property
     def client(self) -> Any:
+        """The API client, opened on first use when none was passed in."""
         if self._client is None:
             from seqout.seqout import connect  # noqa: PLC0415, avoids an import cycle
 
@@ -126,8 +172,9 @@ class SeqoutCounts:
     def _resolve(self) -> list[SuppFile]:
         sq = self.client
         if self.accession.startswith("GSM"):
-            # a series _RAW.tar belongs to the series, not to this sample
+            # a GSM lists only its own files; a series _RAW.tar is series scope
             s = sq.fetch_geo_sample_detailed_metadata(self.accession).sample
+            self._samples = [s]
             return [
                 SuppFile(u, classify(u), self.accession, s.platform_ref)
                 for u in (s.supplementary_data or [])
@@ -135,6 +182,7 @@ class SeqoutCounts:
 
         out: list[SuppFile] = []
         samples = list(sq.fetch_samples(self.accession))
+        self._samples = samples
         self._n_samples = len(samples)
         for s in samples:
             out += [
@@ -142,9 +190,7 @@ class SeqoutCounts:
                 for u in (s.supplementary_data or [])
             ]
 
-        # Series-level files (a bulk count table, a _RAW.tar) are always listed:
-        # a mixed series can carry its bulk matrix here while its single-cell
-        # samples carry their own. Never auto-selected; see _prefer.
+        # a mixed series carries its bulk matrix here and single-cell ones per sample
         meta = sq.fetch_project_metadata(self.accession)
         seen = {f.url for f in out}
         out += [
@@ -157,7 +203,7 @@ class SeqoutCounts:
 
     def units(self, *, preferred_only: bool = True) -> list[Unit]:
         """
-        Readable units; 
+        Readable units, one matrix each.
 
         A sample often ships the same counts twice (a 10x h5 and its mtx
         triplet). By default only the preferred one per sample is returned;
@@ -165,7 +211,9 @@ class SeqoutCounts:
         """
         if self._units is None:
             self._units = group(
-                [f for f in self.files() if f.role != Role.Skip], self.accession
+                [f for f in self.files() if f.role != Role.Skip],
+                self.accession,
+                self.assay,
             )
         if preferred_only:
             return [u for u in self._units if u.preferred]
@@ -199,7 +247,7 @@ class SeqoutCounts:
         if sample is None:
             return self.units()
         key = sample.strip()
-        # a specific label beats the preferred unit of the same sample
+        # exact unit labels have selection priority within a sample
         want = key.upper()
         exact = next(
             (u for u in self.units(preferred_only=False) if u.label.upper() == want),
@@ -224,9 +272,17 @@ class SeqoutCounts:
             raise ValueError(msg)
         return units[0]
 
-    def raw(self, sample: str | None = None, *, refresh: bool = False) -> list[Path]:
+    def raw(
+        self,
+        sample: str | None = None,
+        *,
+        refresh: bool = False,
+        progress: bool | None = None,
+    ) -> list[Path]:
         """Download the files backing the selected units and return their paths."""
-        return self._fetch(self._urls(self._select(sample)), refresh=refresh)
+        return self._fetch(
+            self._urls(self._select(sample)), refresh=refresh, progress=progress
+        )
 
     @staticmethod
     def _urls(units: list[Unit]) -> list[str]:
@@ -235,7 +291,9 @@ class SeqoutCounts:
     def _path_for(self, url: str) -> Path:
         return self._cache / url.rsplit("/", 1)[-1]
 
-    def _fetch(self, urls: list[str], *, refresh: bool = False) -> list[Path]:
+    def _fetch(
+        self, urls: list[str], *, refresh: bool = False, progress: bool | None = None
+    ) -> list[Path]:
         self._cache.mkdir(parents=True, exist_ok=True)
         want = {u: self._path_for(u) for u in urls}
         if refresh:
@@ -244,7 +302,6 @@ class SeqoutCounts:
         missing = [u for u, p in want.items() if not p.exists()]
         if missing:
             logger.info("downloading %d file(s) to %s", len(missing), self._cache)
-            # bounded: serial FTP would be slower than the HTTPS path it replaces
             if not counts_ftp.ftp_unavailable() and len(missing) > 1:
                 with ThreadPoolExecutor(min(4, len(missing))) as pool:
                     got = list(
@@ -254,42 +311,53 @@ class SeqoutCounts:
             else:
                 missing = [u for u in missing if not counts_ftp.fetch(u, want[u])]
         if missing:
-            # 1 MiB chunks: the client default of 2 KiB means half a million loop
-            # iterations per GB, and these files run to tens of GB
-            # concurrency is a property of the remote host, not of local cores:
-            # the client default is cpu_count-2, which is 126 here and both
-            # overruns the connection pool and provokes NCBI throttling
+            # 1 MiB chunks cap the loop count for tens-of-GB GEO payloads.
+            # NCBI throttles high connection fanout; HTTPS workers are capped at 8
             self.client.download_files(
                 missing,
                 self._cache,
                 num_workers=min(8, len(missing)),
                 chunk_size=1 << 20,
-                with_pbar=True,
+                with_pbar=self.progress if progress is None else progress,
             )
 
         for url, path in want.items():
             check_hdf5_complete(path, url)
         return list(want.values())
 
-    def matrices(self, sample: str | None = None) -> dict[str, CountMatrix]:
+    def matrices(
+        self, sample: str | None = None, *, progress: bool | None = None
+    ) -> dict[str, CountMatrix]:
         """Every selected unit read into a CountMatrix, keyed by unit label."""
         units = self._select(sample)
-        # download_files threads within one call but not across them, so
-        # per-unit fetching would run a 20-sample series one stream at a time
+        show = self.progress if progress is None else progress
+        # download_files parallelizes only within a single call.
         if len(units) > 1:
-            self._fetch(self._urls(units))
+            self._fetch(self._urls(units), progress=show)
+
+        # tqdm.auto probes ipywidgets at import time and warns in notebooks.
+        from tqdm.auto import tqdm  # noqa: PLC0415
 
         out: dict[str, CountMatrix] = {}
-        for unit in units:
+        for unit in tqdm(
+            units,
+            desc="reading",
+            unit="unit",
+            disable=None if show and len(units) > 1 else True,
+        ):
             try:
                 out[unit.label] = self._read(unit)
             except Exception as e:
                 logger.warning("could not read %s: %s", unit.label, e)
         return out
 
-    def matrix(self, sample: str | None = None) -> CountMatrix:
+    def matrix(
+        self, sample: str | None = None, *, progress: bool | None = None
+    ) -> CountMatrix:
         """Read the single selected unit; raises when the selection is ambiguous."""
-        return self._read(self._one(sample))
+        unit = self._one(sample)
+        self._fetch(unit.urls, progress=progress)
+        return self._read(unit)
 
     def anndata(self, sample: str | None = None, *, concat: bool = True) -> Any:
         """
@@ -325,7 +393,7 @@ class SeqoutCounts:
             return read_h5ad(self._fetch(unit.urls)[0])
         return self._read(unit)
 
-    # formats whose container already tells us these are per-cell measurements
+    # 10x and h5ad containers imply per-cell measurements.
     _SC_FMTS = frozenset({"10x_mtx", "10x_h5", "h5ad"})
 
     def _read(self, unit: Unit) -> CountMatrix:
@@ -333,8 +401,7 @@ class SeqoutCounts:
             return self._read(self._expand_tar(unit))
 
         self._fetch(unit.urls)
-        # derive each path from its own URL; zipping against the fetch result
-        # pairs resolution order against sorted-URL order, which agree by luck
+        # fetch order and sorted-URL order agree only by luck
         by_role: dict[Role, Path] = {}
         for f in unit.files:
             by_role.setdefault(f.role, self._path_for(f.url))
@@ -352,7 +419,7 @@ class SeqoutCounts:
             a = read_h5ad(by_role[Role.H5ad])
             x, obs, var = a.X, a.obs, a.var
         elif unit.fmt == "rds":
-            x, obs, var = read_rds(by_role[Role.Rds])
+            x, obs, var = read_rds(by_role[Role.Rds], assay=self.assay)
         elif unit.fmt == "table":
             x, obs, var = read_table(by_role[Role.Table])
         else:
@@ -360,6 +427,8 @@ class SeqoutCounts:
             raise ValueError(msg)
 
         obs = self._merge_metadata(unit, obs)
+        if self.sample_metadata:
+            obs = self._attach_sample_metadata(unit, obs)
         kind, ev = (
             ("single_cell", [f"{unit.fmt} file"])
             if unit.fmt in self._SC_FMTS
@@ -377,6 +446,52 @@ class SeqoutCounts:
             metadata_fields=describe_metadata([str(c) for c in obs.columns]),
         )
 
+    @property
+    def design(self) -> pd.DataFrame:
+        """
+        Sample-level characteristics for the study, indexed by accession.
+
+        Built from the sample records resolution already fetched, so reading it
+        costs nothing extra.
+        """
+        if self._design is None:
+            self.files()
+            self._design = sample_frame(self._samples)
+        return self._design
+
+    def _attach_sample_metadata(self, unit: Unit, obs: pd.DataFrame) -> pd.DataFrame:
+        """
+        Carry the study's per-sample characteristics onto the observations.
+
+        For single-cell data every row came from one sample, so its values are
+        broadcast. For a bulk table the rows are samples themselves, so the
+        design joins on the index instead. Columns already present in obs win,
+        since annotation deposited per cell is more specific than per sample.
+        """
+        design = self.design
+        if design.empty:
+            return obs
+
+        if unit.sample and unit.sample in design.index:
+            for column, value in design.loc[unit.sample].items():
+                if column not in obs.columns:
+                    obs[column] = value
+            obs["sample"] = unit.sample
+            return obs
+
+        shared = obs.index.intersection(design.index)
+        if shared.empty:
+            return obs
+        new = [c for c in design.columns if c not in obs.columns]
+        logger.info(
+            "%s: attached %d sample column(s) to %d/%d observations",
+            unit.label,
+            len(new),
+            len(shared),
+            len(obs),
+        )
+        return obs.join(design[new], how="left")
+
     def _merge_metadata(self, unit: Unit, obs: pd.DataFrame) -> pd.DataFrame:
         """
         Join any sidecar annotation onto obs, keyed by cell label.
@@ -388,7 +503,9 @@ class SeqoutCounts:
         for f in unit.metadata_files:
             path = self._path_for(f.url)
             try:
-                meta = read_metadata(path)
+                meta = self._meta_cache.get(path)
+                if meta is None:
+                    meta = self._meta_cache[path] = read_metadata(path)
             except Exception as e:
                 logger.warning("could not read metadata %s: %s", f.name, e)
                 continue
@@ -440,10 +557,11 @@ class SeqoutCounts:
                     member=str(p.relative_to(dest)),
                 )
             )
-        units = group(files, self.accession)
+        units = group(files, self.accession, self.assay)
         if not units:
             msg = f"{tar_path.name}: no readable matrix inside"
             raise ValueError(msg)
+        units = [u for u in units if u.preferred] or units
         if len(units) > 1:
             logger.info(
                 "%s holds %d units; reading the first (%s). Extracted to %s",
@@ -453,3 +571,6 @@ class SeqoutCounts:
                 dest,
             )
         return units[0]
+
+
+seqout_counts = SeqoutCounts

@@ -138,10 +138,10 @@ def _run_download(args: argparse.Namespace) -> None:
 
 def _add_parquet_flag(p: argparse.ArgumentParser) -> None:
     """
-    Add the shared `--parquet` backend switch to a subcommand.
+    Add the shared --parquet backend switch to a subcommand.
 
-    Bare `--parquet` uses the configured/default parquet source; an optional
-    value overrides it with a URL or local dir for this run. Fully local — no
+    Bare --parquet uses the configured/default parquet source; an optional
+    value overrides it with a URL or local dir for this run. Fully local, with no
     call to the API.
     """
     p.add_argument(
@@ -602,7 +602,7 @@ def _classify(sq: SeqoutAPIClient, acc: str) -> tuple[str | None, str | None]:
         info = sq.classify_accession(acc)
         if info.valid and info.entity:
             return info.entity, info.database
-    except Exception:  # noqa: S110 -- any failure just falls back to prefixes
+    except Exception:  # noqa: S110 -- any failure falls back to prefixes
         pass
     up = acc.upper()
     for prefixes, entity, database in _PREFIX_ENTITY:
@@ -746,7 +746,7 @@ def cmd_show(
 
 
 def _cmd_show_parquet(acc: str, source: str | None) -> None:
-    """`show --parquet`: study/experiments/samples/run straight from parquet."""
+    """Show --parquet: study/experiments/samples/run straight from parquet."""
     console = Console()
     up = acc.upper()
     client = _open_backend(parquet=True, source=source)
@@ -992,8 +992,8 @@ def _read_key() -> str:
 
     Returns "left"/"right" for arrows, else the raw char ("q", esc, ctrl-c).
     """
-    # ponytail: POSIX termios getch, imported lazily so the module still imports
-    # on Windows (termios/tty are POSIX-only); add a msvcrt branch if asked.
+    # termios and tty are POSIX-only; imported lazily so the module still
+    # imports on Windows
     import select  # noqa: PLC0415
     import termios  # noqa: PLC0415
     import tty  # noqa: PLC0415
@@ -1064,7 +1064,7 @@ def _merge_augmented(
     """
     Yield the corrected extras first, then the rest of the literal stream.
 
-    Any accession already shown as an extra is dropped from the stream — the
+    Any accession already shown as an extra is dropped from the stream; the
     backend can list a corrected hit in both places.
     """
     seen = {(r.source, r.accession) for r in extra}
@@ -1140,7 +1140,7 @@ def cmd_search(
             augmented = correction and correction.mode == "augmented"
             if augmented and correction.extra_results:
                 # augmented mode keeps the literal hits and rides the corrected
-                # matches alongside — surface them first, like the web app.
+                # matches alongside; surface them first, like the web app.
                 it = _merge_augmented(correction.extra_results, it)
             # --save-to is non-interactive: skip the pager, collect and write.
             if save_to is None and sys.stdin.isatty() and sys.stdout.isatty():
@@ -1333,7 +1333,7 @@ def _resolve_run_study(sq: SeqoutAPIClient, run_acc: str) -> str | None:
 def _select_run_files(
     console: Console, run: StudyRunsResult, mode: StudyRunDownloadMode
 ) -> StudyRunsResults | None:
-    """Return a StudyRunsResults holding `run` with only the chosen files, or None."""
+    """Return a StudyRunsResults holding run with only the chosen files, or None."""
     try:
         _validate_study_runs_data(StudyRunsResults([run]), mode)
     except ValueError as e:
@@ -1472,7 +1472,7 @@ def _sample_supplementary_urls(sq: SeqoutAPIClient, acc: str) -> list[str]:
             return [
                 u for s in sq.fetch_samples(acc) for u in (s.supplementary_data or [])
             ]
-    except Exception:  # best-effort inventory; absence just hides the option
+    except Exception:  # best-effort inventory; absence hides the option
         return []
     return []
 
@@ -1516,7 +1516,7 @@ def _runs_label(label: str, runs: StudyRunsResults) -> str:
 
 
 def _single_run(sq: SeqoutAPIClient, acc: str, up: str) -> StudyRunsResults | None:
-    """Resolve a pasted run accession to its study and return just that run."""
+    """Resolve a pasted run accession to its study and return only that run."""
     try:
         study = _resolve_run_study(sq, acc)
         if not study:
@@ -1568,7 +1568,7 @@ def cmd_download_interactive(
     accession: str, out: str | None, *, parquet: bool = False, source: str | None = None
 ) -> None:
     """
-    Interactive picker for `download <acc>` with no mode flag on a TTY.
+    Interactive picker for download <acc> with no mode flag on a TTY.
 
     Inventory what's available for the accession, let the user pick one group,
     then fetch it.
@@ -1583,7 +1583,7 @@ def cmd_download_interactive(
         with _open_backend(parquet=parquet, source=source) as sq:
             with console.status(f"[bold]Inspecting {acc}…[/]"):
                 if up.startswith(RUN_PREFIXES):
-                    # a pasted run accession: offer just that single run
+                    # a pasted run accession: offer only that single run
                     runs = _single_run(sq, acc, up)
                     if runs:
                         groups.append(
@@ -1689,7 +1689,7 @@ _MESH_ENTITY = {
     ("SRS", "ERS", "DRS", "CRS", "HRS", "SAM"): "srs",
     ("GSM",): "gsm",
 }
-# GEO-derived SRA experiment titles start "GSM123: ..." — the GSM<->SRX link.
+# GEO-derived SRA experiment titles start "GSM123: ...", the GSM<->SRX link.
 _GSM_TITLE = re.compile(r"^(GSM\d+)\s*:")
 # conversion targets (semantic + pysradb aliases + per-archive) -> mesh column.
 _TARGET_COL = {
@@ -2104,7 +2104,7 @@ def run_norm(
 
     # 2. pick the model. --base-url points at an already-running server and never
     #    starts one. Otherwise: reuse a server already running on the target port
-    #    (even when --model was given), and only start one if nothing is there —
+    #    (even when --model was given), and only start one if nothing is there;
     #    using --model if supplied, else the default (pull/download on first use).
     detected = False
     if base_url is not None:
@@ -2130,7 +2130,7 @@ def run_norm(
 
     # If the model has to be downloaded from a private/gated HF repo, ask for a
     # token up front (skipped when one is already in the environment, or when the
-    # server is already serving it — that path doesn't download).
+    # server is already serving it, that path doesn't download).
     repo = engine.hf_repo()
     if (
         repo
@@ -2239,7 +2239,7 @@ def run_norm(
         invalid_panel(sample, raw)
 
 
-# Persisted parquet source (a URL or a local dir), set via `parquet set-source`.
+# Persisted parquet source (a URL or a local dir), set via parquet set-source.
 _PARQUET_SOURCE_FILE = Path.home() / ".config" / "seqout" / "parquet_source"
 
 
@@ -2282,9 +2282,9 @@ def _open_backend(
     """
     Open the backend a command runs against.
 
-    Default is the API; `--parquet` switches to a fully local/remote DuckDB
+    Default is the API; --parquet switches to a fully local/remote DuckDB
     backend (no network to the API), honouring the same source resolution as
-    the `parquet` subcommand.
+    the parquet subcommand.
     """
     if parquet:
         client = SeqoutParquetClient()

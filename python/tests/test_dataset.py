@@ -70,24 +70,44 @@ class FakeSq(ShortNames):
     ("accession", "expected"),
     [
         # GEO
-        ("GSE1", "series"), ("GSM1", "sample"),
+        ("GSE1", "series"),
+        ("GSM1", "sample"),
         # SRA / ENA / DDBJ share the [SED]R? shape
-        ("SRP1", "study"), ("SRX1", "experiment"),
-        ("SRS1", "sample"), ("SRR1", "run"), ("SRA1", "submission"),
-        ("ERP9", "study"), ("ERR9", "run"), ("DRP9", "study"), ("DRX9", "experiment"),
+        ("SRP1", "study"),
+        ("SRX1", "experiment"),
+        ("SRS1", "sample"),
+        ("SRR1", "run"),
+        ("SRA1", "submission"),
+        ("ERP9", "study"),
+        ("ERR9", "run"),
+        ("DRP9", "study"),
+        ("DRX9", "experiment"),
         # GSA (CNCB-NGDC): open CRA and human HRA
-        ("CRA1", "study"), ("CRX1", "experiment"), ("CRR1", "run"),
-        ("HRA1", "study"), ("HRX1", "experiment"), ("HRR1", "run"), ("HRS1", "sample"),
+        ("CRA1", "study"),
+        ("CRX1", "experiment"),
+        ("CRR1", "run"),
+        ("HRA1", "study"),
+        ("HRX1", "experiment"),
+        ("HRR1", "run"),
+        ("HRS1", "sample"),
         # ArrayExpress and GEA — E-GEAD-N also matches the AE four-letter shape
-        ("E-MTAB-1", "series"), ("E-GEAD-1086", "series"),
+        ("E-MTAB-1", "series"),
+        ("E-GEAD-1086", "series"),
         # archive-agnostic identifiers
-        ("PRJNA1", "study"), ("PRJDB1", "study"), ("PRJCA1", "study"),
-        ("SAMN1", "biosample"), ("SAMEA1", "biosample"),
-        ("SAMD1", "biosample"), ("SAMC1", "biosample"),
+        ("PRJNA1", "study"),
+        ("PRJDB1", "study"),
+        ("PRJCA1", "study"),
+        ("SAMN1", "biosample"),
+        ("SAMEA1", "biosample"),
+        ("SAMD1", "biosample"),
+        ("SAMC1", "biosample"),
         # case and whitespace
         ("  gse1 ", "series"),
         # not accessions
-        ("lung cancer", None), ("GSE", None), ("GSE12abc", None), ("", None),
+        ("lung cancer", None),
+        ("GSE", None),
+        ("GSE12abc", None),
+        ("", None),
     ],
 )
 def test_kind(accession, expected):

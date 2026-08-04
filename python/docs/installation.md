@@ -1,8 +1,12 @@
+---
+description: Installing seqout with uv or pip. Requires Python 3.13.
+---
+
 # Installation
 
 ## Requirements
 
-You need Python 3.12 or later.
+You need Python 3.13 or later.
 
 ## Install with uv
 

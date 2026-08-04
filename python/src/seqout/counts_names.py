@@ -1,6 +1,4 @@
-"""
-File-role classification and optional-dependency loading.
-"""
+"""File-role classification and optional-dependency loading."""
 
 from __future__ import annotations
 
@@ -25,7 +23,7 @@ def _require(module: str) -> Any:
     try:
         return importlib.import_module(module)
     except ImportError as e:
-        extra = _EXTRA_HINTS[module.split(".", 1)[0]]
+        extra = _EXTRA_HINTS.get(module.split(".", 1)[0], "counts")
         msg = (
             f"reading this format needs {module!r}, from the optional "
             f"{extra!r} extra. install with: uv add 'seqout[{extra}]'"
@@ -87,7 +85,7 @@ _SIDECARS = (
     "fragments.tsv",
     "readme",
     "md5sum",
-    # Visium/spatial sidecars: tables, but neither counts nor per-cell annotation
+    # visium/spatial sidecars are auxiliary tables
     "tissue_positions",
     "scalefactors",
     "web_summary",
@@ -113,7 +111,7 @@ _TENX_DIRS = re.compile(
 )
 
 
-def classify(name: str) -> Role:  # noqa: PLR0911, a dispatch table reads best flat
+def classify(name: str) -> Role:  # noqa: PLR0911
     """Return the role of a supplementary file, from its name alone."""
     low = name.lower().rsplit("/", 1)[-1]
     stem = low.removesuffix(".gz").removesuffix(".bz2")
@@ -124,8 +122,7 @@ def classify(name: str) -> Role:  # noqa: PLR0911, a dispatch table reads best f
         return Role.Features
     if ".mtx" in stem:
         return Role.Mtx
-    # shares extensions with counts files, so it lands after the matrix formats
-    # it would shadow and before Table/Rds. h5ad always carries counts too.
+    # metadata classification follows matrix formats because h5ad always carries counts
     if (
         stem.endswith((".csv", ".tsv", ".txt", ".rds", ".rda"))
         and any(h in low for h in _META_NAME_HINTS)
@@ -171,3 +168,34 @@ def is_filtered(name: str) -> bool:
     """CellRanger filtered output; preferred over raw when both exist."""
     low = name.lower()
     return "filtered" in low and "unfiltered" not in low
+
+
+# CITE-seq, hashing and multiome assays are named in filenames and Seurat assay slots
+_MODALITY_TOKENS = {
+    "rna": ("_rna", "rna_", "gex", "geneexp"),
+    "adt": ("_adt", "adt_", "antibody", "_prot", "citeseq"),
+    "hto": ("_hto", "hto_", "hashing", "hashtag"),
+    "atac": ("_atac", "atac_", "peak"),
+}
+
+
+def modality_in(text: str) -> str | None:
+    """Assay named in a filename or an object path, when one is named."""
+    low = text.lower()
+    for assay, tokens in _MODALITY_TOKENS.items():
+        if assay in low or any(t in low for t in tokens):
+            return assay
+    return None
+
+
+def modality_rank(text: str, assay: str | None) -> int:
+    """
+    Order a candidate by how well its assay matches the one asked for.
+
+    Unnamed sorts between a match and a mismatch, so a file that says nothing
+    about its assay still beats one that names a different assay.
+    """
+    found = modality_in(text)
+    if assay is None or found is None:
+        return 1
+    return 0 if found == assay else 2

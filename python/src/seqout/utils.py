@@ -1,6 +1,9 @@
 import os
-from typing import Literal
+from collections.abc import Iterable
+from typing import Any, Literal
 from urllib.parse import urlparse
+
+import pandas as pd
 
 from seqout.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
 from seqout.models.api_models import StudyRunsResult, StudyRunsResults
@@ -73,8 +76,69 @@ def _normalize_url(url: str) -> str:
 
 
 def country_name_to_code(name: str) -> str | None:
+    """Return the ISO 3166-1 alpha-2 code for a country name, or None."""
     return COUNTRY_NAME_MAP.get(name)
 
 
 def country_code_to_name(code: str) -> str | None:
+    """Return the country name for an ISO 3166-1 alpha-2 code, or None."""
     return COUNTRY_CODE_MAP.get(code)
+
+
+def _characteristics(channel: Any) -> dict[str, str]:
+    """
+    One channel's characteristics as a flat mapping.
+
+    The API flattens them to a dict; the parquet backend returns GEO's raw
+    list of {"@tag": ..., "#text": ...} entries.
+    """
+    raw = getattr(channel, "characteristics", None)
+    if isinstance(raw, dict):
+        return {str(k): str(v) for k, v in raw.items()}
+    out: dict[str, str] = {}
+    for item in raw or []:
+        if isinstance(item, dict):
+            tag, text = item.get("@tag"), item.get("#text")
+            if tag is not None:
+                out[str(tag)] = str(text)
+    return out
+
+
+# ArrayExpress exposes these as flat sample attributes
+_AE_ATTRS = (
+    "source_name",
+    "organism",
+    "organism_part",
+    "cell_type",
+    "disease",
+    "library_strategy",
+    "library_source",
+    "library_selection",
+)
+
+
+def sample_frame(samples: Iterable[Any]) -> pd.DataFrame:
+    """
+    Build a DataFrame of samples and their characteristics, indexed by accession.
+
+    Characteristics are free-text key/value pairs chosen by the submitter, so
+    the columns vary by study and are worth inspecting before being relied on.
+    Works across backends and archives: GEO samples carry them per channel,
+    ArrayExpress samples as flat attributes.
+
+        design = sample_frame(sq.fetch_samples("GSE297547"))
+        design.loc["GSM8994520", "tissue"]
+    """
+    rows = []
+    for s in samples:
+        row = {"sample": s.accession, "title": getattr(s, "title", None)}
+        channels = getattr(s, "channels", None) or []
+        for channel in channels:
+            row.update(_characteristics(channel))
+        if not channels:
+            row.update(
+                {a: v for a in _AE_ATTRS if (v := getattr(s, a, None)) is not None}
+            )
+        rows.append(row)
+    frame = pd.DataFrame(rows)
+    return frame.set_index("sample") if not frame.empty else frame

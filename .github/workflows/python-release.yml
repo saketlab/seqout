@@ -1,0 +1,102 @@
+# Publishes the Python package to PyPI when a python-v* tag is pushed.
+#
+# The repo holds an R package and a Python package with independent versions, so
+# the tag is prefixed rather than a bare v* which would be ambiguous:
+#
+#     git tag python-v1.0.1 && git push origin python-v1.0.1
+#
+# Publishing uses PyPI Trusted Publishing (OIDC), so there is no API token to
+# store or rotate. It needs a one-time setup on PyPI: project settings ->
+# Publishing -> add a GitHub publisher for this repo, workflow
+# "python-release.yml", environment "pypi". Until that exists the publish step
+# fails with an OIDC error and nothing is uploaded.
+name: python-release
+
+on:
+  push:
+    tags: ["python-v*"]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Where to publish
+        default: testpypi
+        type: choice
+        options: [testpypi, pypi]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # a tag that disagrees with pyproject uploads a release under the wrong
+      # version, and PyPI will not let it be replaced
+      - name: Tag matches the packaged version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tagged="${GITHUB_REF_NAME#python-v}"
+          packaged=$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')
+          if [ "$tagged" != "$packaged" ]; then
+            echo "tag $GITHUB_REF_NAME implies $tagged, pyproject says $packaged" >&2
+            exit 1
+          fi
+
+      - run: uv build
+      - run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: python/dist/
+
+  # install what will actually be uploaded, not the source tree, so a packaging
+  # mistake (a module left out of the wheel) fails the release rather than the
+  # first user
+  verify:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        extras: ["", "[counts]"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Install the built wheel and import it
+        shell: bash
+        run: |
+          uv venv
+          uv pip install --find-links dist "seqout${{ matrix.extras }}"
+          uv run --no-project python python/scripts/check_imports.py \
+            ${{ matrix.extras == '[counts]' && '--counts' || '--base' }}
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.repository || 'pypi' }}
+    permissions:
+      id-token: write # mints the OIDC token Trusted Publishing needs
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: >-
+            ${{ github.event.inputs.repository == 'testpypi'
+                && 'https://test.pypi.org/legacy/' || '' }}

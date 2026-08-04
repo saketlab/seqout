@@ -131,6 +131,7 @@ class SeqoutParquetClient(ShortNames):
             self._conn.execute("INSTALL httpfs; LOAD httpfs;")
 
     def set_source(self, source_dir: Path | str) -> None:
+        """Point the backend at a Parquet dump: a URL or a local directory."""
         self._source = source_dir
 
     def download_parquet_files(
@@ -142,6 +143,19 @@ class SeqoutParquetClient(ShortNames):
         *,
         with_pbar: bool = False,
     ) -> None:
+        """
+        Download Parquet files from the current source into output_dir.
+
+        Args:
+            output_dir: Created if it does not exist.
+            files: Which tables to fetch. Defaults to every table.
+            num_workers: Parallel downloads. Defaults to the core count less two.
+            chunk_size: Bytes per read from the socket.
+            with_pbar: Show a per-file progress bar.
+
+        The full set runs to tens of GB; run_download_links alone is about 11 GB.
+
+        """
         num_workers = _normalize_num_workers(num_workers)
         url_to_dest: dict[str, Path] = {}
         for f in files:
@@ -179,6 +193,19 @@ class SeqoutParquetClient(ShortNames):
     def execute_query(
         self, query: str, params: list | None = None
     ) -> DuckDBPyConnection:
+        """
+        Run SQL through DuckDB, resolving table names to their Parquet files.
+
+        Each known table name in the query is rewritten to a read_parquet call
+        against the current source. Because the match is textual, a table name
+        used as a column alias is rewritten too and the query fails; pick a
+        distinct alias.
+
+        Args:
+            query: The SQL to run.
+            params: Values for the query's placeholders.
+
+        """
         for f in _ALL_PARQUET_FILES:
             if f in query:
                 query = query.replace(
@@ -188,6 +215,7 @@ class SeqoutParquetClient(ShortNames):
         return self._conn.execute(query, params or [])
 
     def fetch_study(self, accession: str) -> Study:
+        """Fetch one study from the unified metadata table."""
         result = self.execute_query(
             "SELECT canonical_accession, source, title, description, aliases, "
             "organism_counts, library_strategy_counts, assay_l1_counts, "
@@ -300,6 +328,13 @@ class SeqoutParquetClient(ShortNames):
     def fetch_experiments(
         self, study_accession: str
     ) -> BaseContainer[SraExperiment] | BaseContainer[EnaExperiment]:
+        """
+        Fetch the experiments of an SRA or ENA study.
+
+        Raises:
+            SeqoutError: If the accession belongs to another source.
+
+        """
         datasource = self._datasource_from_study_accession(study_accession)
         if datasource not in (datasource.Sra, datasource.Ena):
             raise SeqoutError(
@@ -381,6 +416,13 @@ class SeqoutParquetClient(ShortNames):
     def fetch_samples(
         self, study_accession: str
     ) -> BaseContainer[GeoSample] | BaseContainer[AeSample]:
+        """
+        Fetch the samples of a GEO series or ArrayExpress experiment.
+
+        Raises:
+            SeqoutError: If the accession belongs to another source.
+
+        """
         datasource = self._datasource_from_study_accession(study_accession)
         if datasource not in (datasource.Geo, datasource.Ae):
             raise SeqoutError(
@@ -407,7 +449,16 @@ class SeqoutParquetClient(ShortNames):
     def fetch_study_runs(
         self, study_id: str, *, full: bool = False
     ) -> StudyRunsResults:
-        # `full` is accepted for API parity; parquet always returns every run.
+        """
+        Fetch the sequencing runs of a study, with their file URLs.
+
+        Args:
+            study_id: A study accession.
+            full: Accepted for parity with the API client. Parquet always reads
+                every run.
+
+        """
+        # full is accepted for API parity; parquet always returns every run.
         _ = full
         rows = self._query_rows(
             f"SELECT {_RUN_COLS} FROM run_download_links WHERE study_accession = ?",  # noqa: S608
@@ -416,6 +467,13 @@ class SeqoutParquetClient(ShortNames):
         return StudyRunsResults([self._row_to_run(r) for r in rows])
 
     def fetch_run(self, run_id: str) -> StudyRunsResult:
+        """
+        Fetch one run.
+
+        Raises:
+            SeqoutError: If the run is absent from the dump.
+
+        """
         rows = self._query_rows(
             f"SELECT {_RUN_COLS} FROM run_download_links "  # noqa: S608
             "WHERE run_accession = ? LIMIT 1",
@@ -426,6 +484,7 @@ class SeqoutParquetClient(ShortNames):
         return self._row_to_run(rows[0])
 
     def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
+        """Fetch the library preparations of a study."""
         rows = self._query_rows(
             "SELECT accession, title, design_description, library_layout, "
             "library_name, library_selection, library_source, library_strategy, "
@@ -442,6 +501,7 @@ class SeqoutParquetClient(ShortNames):
     def find_publication(
         self, *, pmid: str | None = None, doi: str | None = None
     ) -> PublicationLookupResult:
+        """Look a publication up by PubMed ID or DOI and list the projects it names."""
         if doi and not pmid:
             rows = self._query_rows(
                 "SELECT pmid, title, journal, doi FROM pubmed_metadata "
@@ -483,8 +543,20 @@ class SeqoutParquetClient(ShortNames):
     def search_author_projects(
         self, name: str, limit: int = 200
     ) -> AuthorProjectsResponse:
+        """
+        List datasets whose GEO contributor names contain the given name.
+
+        The dump carries author names for GEO only, so this is a GEO substring
+        match. The API client searches publication author lists across every
+        source, so the two return different sets.
+
+        Args:
+            name: Substring to match against contributor names.
+            limit: Maximum datasets to return.
+
+        """
         # parquet only carries author names for GEO (geo_contributors), so this is
-        # a GEO-only substring match — narrower than the API's cross-source FTS.
+        # a GEO-only substring match, narrower than the API's cross-source FTS.
         rows = self._query_rows(
             "SELECT c.accession AS accession, u.title AS title, "
             "u.dominant_scientific_name AS organism, "
@@ -522,6 +594,13 @@ class SeqoutParquetClient(ShortNames):
         )
 
     def fetch_project_metadata(self, accession: str) -> ProjectMetadataResult:
+        """
+        Fetch the project record from the unified metadata table.
+
+        Raises:
+            SeqoutError: If the project is absent from the dump.
+
+        """
         rows = self._query_rows(
             "SELECT canonical_accession, source, title, description, "
             "organism_counts, pmid, journal, citation_count "
@@ -667,6 +746,7 @@ class SeqoutParquetClient(ShortNames):
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
     ) -> None:
+        """Download a bare list of URLs into out_dir."""
         out_dir.mkdir(parents=True, exist_ok=True)
         url_to_dest: dict[str, Path] = {}
         for url in urls:
@@ -683,6 +763,7 @@ class SeqoutParquetClient(ShortNames):
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
     ) -> None:
+        """Download a project's supplementary files into out_dir."""
         out_dir.mkdir(parents=True, exist_ok=True)
         url_to_dest: dict[str, Path] = {}
         for url, _ in metadata.supplementary_data:
@@ -700,6 +781,18 @@ class SeqoutParquetClient(ShortNames):
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = True,
     ) -> None:
+        """
+        Download the read files of every run into out_dir.
+
+        Args:
+            runs: The runs to fetch. Pass a filtered list to fetch a subset.
+            out_dir: Created if it does not exist.
+            mode: Which copy to take: fastq, sra, sra_lite, s3, or gcs.
+            num_workers: Parallel downloads.
+            chunk_size: Bytes per read from the socket.
+            with_pbar: Show a per-file progress bar.
+
+        """
         _validate_study_runs_data(runs, mode)
         out_dir.mkdir(parents=True, exist_ok=True)
         url_to_dest: dict[str, Path] = {}
@@ -719,7 +812,7 @@ class SeqoutParquetClient(ShortNames):
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
     def close(self) -> None:
-        pass
+        """Release client resources. The DuckDB connection is closed on exit."""
 
     def __enter__(self) -> Self:
         return self

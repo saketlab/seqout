@@ -22,6 +22,8 @@ from seqout.counts_names import (
     _require,
     group_key,
     is_filtered,
+    modality_in,
+    modality_rank,
 )
 
 if TYPE_CHECKING:
@@ -29,8 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# below this many observations a table is bulk, above it per-cell; between the
-# two nothing is decided, which is where Smart-seq plates land
+# 33 to 399 observations is the undecided Smart-seq plate range.
 _BULK_MAX_OBS = 32
 _SC_MIN_OBS = 400
 
@@ -47,10 +48,11 @@ class SuppFile:
     role: Role
     sample: str | None = None
     platform: str | None = None
-    member: str | None = None  # path inside a tar, when it came from one
+    member: str | None = None
 
     @property
     def name(self) -> str:
+        """The file's basename, or its path inside the tar it came from."""
         return self.member or self.url.rsplit("/", 1)[-1]
 
 
@@ -63,13 +65,13 @@ class Unit:
     files: list[SuppFile]
     sample: str | None = None
     platform: str | None = None
-    # set for every unit by _prefer, which group() always runs
+    # group() runs _prefer before returning units.
     preferred: bool = True
-    # per-cell annotation files found alongside the matrix
     metadata_files: list[SuppFile] = field(default_factory=list)
 
     @property
     def urls(self) -> list[str]:
+        """Every URL this unit needs, matrix files and annotation alike."""
         return sorted(
             {f.url for f in self.files} | {f.url for f in self.metadata_files}
         )
@@ -89,7 +91,7 @@ class CountMatrix:
     which is what lets one type cover both.
     """
 
-    X: Any  # scipy sparse or numpy, obs x var
+    X: Any
     obs: pd.DataFrame
     var: pd.DataFrame
     kind: Kind
@@ -97,15 +99,16 @@ class CountMatrix:
     accession: str | None = None
     source: str = ""
     evidence: list[str] = field(default_factory=list)
-    # annotation categories detected in obs, e.g. {"celltype": ["cell_type"]}
     metadata_fields: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def has_metadata(self) -> bool:
+        """Whether any per-observation annotation actually landed in obs."""
         return not self.obs.empty and self.obs.shape[1] > 0
 
     @property
     def shape(self) -> tuple[int, int]:
+        """Observations by features, matching the orientation of X."""
         return (self.obs.shape[0], self.var.shape[0])
 
     def __repr__(self) -> str:
@@ -114,6 +117,26 @@ class CountMatrix:
         return (
             f"CountMatrix({self.accession or '?'}, {self.kind}, {self.fmt}, "
             f"{n_obs} {label} x {n_var} genes)"
+        )
+
+    @property
+    def summary(self) -> pd.Series:
+        """What was read and how it was classified, as one printable record."""
+        n_obs, n_var = self.shape
+        return pd.Series(
+            {
+                "accession": self.accession,
+                "kind": self.kind,
+                "format": self.fmt,
+                "observations": n_obs,
+                "features": n_var,
+                "sparse": hasattr(self.X, "nnz"),
+                "obs_columns": self.obs.shape[1],
+                "metadata_fields": ", ".join(self.metadata_fields) or "none",
+                "evidence": "; ".join(self.evidence),
+                "source": self.source,
+            },
+            name=self.accession or "matrix",
         )
 
     def to_anndata(self) -> Any:
@@ -150,26 +173,26 @@ def check_hdf5_complete(path: Path, url: str) -> None:
 
     An .h5/.h5ad truncated mid-transfer still opens as a file and still
     matches the Content-Length the server sent; only the superblock's stored
-    end-of-file catches it. Failing here names the URL instead of surfacing as
-    an h5py internal error three frames deep.
+    end-of-file catches it. Failing here names the URL; h5py would surface this as
+    an internal error three frames deep.
     """
     try:
         with path.open("rb") as f:
             if f.read(8) != _HDF5_MAGIC:
-                return  # not HDF5 (gzipped h5ad, mtx, tar), nothing to check
-            head = f.read(_SUPERBLOCK_BYTES)  # everything after the signature
+                return
+            # byte offsets below count from here, past the signature
+            head = f.read(_SUPERBLOCK_BYTES)
     except OSError:
         return
-    if len(head) < _SUPERBLOCK_BYTES:  # too short to hold a superblock
+    if len(head) < _SUPERBLOCK_BYTES:
         return
 
     version = head[0]
     if version in (0, 1):
-        # v0/v1: ... size-of-offsets at byte 13, then a fixed prelude before the
-        # base/free-space/EOF address triple (v1 adds 4 bytes for the B-tree K)
+        # v0/v1: size-of-offsets at file byte 13, EOF triple after a versioned prelude
         offsets, prelude = head[5], (16 if version == 0 else 20)
     elif version in (2, 3):
-        # v2/v3: size-of-offsets moves up to byte 9, triple starts at byte 12
+        # v2/v3: size-of-offsets at file byte 9, EOF triple at file byte 12
         offsets, prelude = head[1], 4
     else:
         return
@@ -206,7 +229,9 @@ _ROLE_FMT = {
 }
 
 
-def group(files: list[SuppFile], accession: str) -> list[Unit]:
+def group(
+    files: list[SuppFile], accession: str, assay: str | None = "rna"
+) -> list[Unit]:
     """
     Group supplementary files into readable units.
 
@@ -221,8 +246,7 @@ def group(files: list[SuppFile], accession: str) -> list[Unit]:
 
     for f in files:
         if f.role is Role.Metadata:
-            # annotation describes a matrix rather than being one; parked here
-            # and attached below, or it would read as a counts table
+            # parked here; the table reader would otherwise read annotation as counts
             metadata.setdefault(f.sample, []).append(f)
             continue
         if f.role in _TRIPLET_ROLES:
@@ -255,7 +279,7 @@ def group(files: list[SuppFile], accession: str) -> list[Unit]:
 
     units += _pair_leftovers(leftovers, accession)
     _attach_metadata(units, metadata)
-    return _prefer(units)
+    return _prefer(units, assay)
 
 
 def _attach_metadata(
@@ -288,7 +312,7 @@ def _pair_leftovers(
     alongside GSE1_someassay_dge.mtx.gz, so the name-derived key splits them
     three ways. When exactly one file of each role is left over within a sample
     scope there is only one pairing possible, so take it; ambiguity (two
-    matrices, one barcode file) still declines rather than guessing.
+    matrices, one barcode file) still declines.
     """
     out: list[Unit] = []
     for sample, members in leftovers.items():
@@ -325,7 +349,12 @@ def _pair_leftovers(
 _FMT_RANK = {"10x_mtx": 0, "10x_h5": 1, "h5ad": 2, "rds": 3, "tar": 4, "table": 5}
 
 
-def _prefer(units: list[Unit]) -> list[Unit]:
+def modality_of(unit: Unit) -> str | None:
+    """Assay a unit's filenames name, when they name one."""
+    return modality_in(" ".join(f.name for f in unit.files))
+
+
+def _prefer(units: list[Unit], assay: str | None = "rna") -> list[Unit]:
     """
     Mark one unit per sample as preferred.
 
@@ -341,29 +370,44 @@ def _prefer(units: list[Unit]) -> list[Unit]:
 
     for sample, members in by_sample.items():
         if sample is not None and len(members) > 1:
-            for u in members:  # labels must stay distinct once a sample has several
-                u.label = f"{sample}:{u.fmt}"
-        best = min(members, key=_rank)
+            _label_distinctly(sample, members)
+        best = min(members, key=lambda u: _unit_rank(u, assay))
         for u in members:
-            # a series-level file (a bulk table, a _RAW.tar) stays listed but is
-            # never auto-selected while per-sample units exist, or matrices()
-            # on a whole series would pull a multi-GB archive
+            # preferring a series-level unit makes matrices() pull a multi-GB archive
             u.preferred = u is best and not (sample is None and has_per_sample)
 
     return sorted(units, key=lambda u: (u.sample is None, u.label or ""))
 
 
-def _rank(u: Unit) -> tuple[int, int]:
+def _label_distinctly(sample: str, members: list[Unit]) -> None:
+    """
+    Give each of a sample's units a label that identifies it uniquely.
+
+    The format alone is not enough: a CITE-seq sample ships its RNA and antibody
+    matrices in the same format, and duplicate labels would make selection by
+    label return whichever came first.
+    """
+    for u in members:
+        u.label = f"{sample}:{u.fmt}"
+    if len({u.label for u in members}) == len(members):
+        return
+    for u in members:
+        stem = u.files[0].name.rsplit("/", 1)[-1].split(".")[0]
+        u.label = f"{sample}:{stem.removeprefix(sample).strip('._-') or u.fmt}"
+
+
+def _unit_rank(u: Unit, assay: str | None) -> tuple[int, int, int]:
+    modality = modality_rank(" ".join(f.name for f in u.files), assay)
     filtered = 0 if any(is_filtered(f.name) for f in u.files) else 1
-    return (filtered, _FMT_RANK.get(u.fmt, 9))
+    return (modality, filtered, _FMT_RANK.get(u.fmt, 9))
 
 
 def infer_kind(obs: pd.DataFrame, n_series_samples: int = 0) -> tuple[Kind, list[str]]:
     """
-    Bulk or single-cell, from evidence rather than shape alone.
+    Bulk or single-cell, decided on evidence.
 
     Shape is only decisive at the extremes; a 384-column Smart-seq plate sits
-    in the middle and stays unknown rather than being mislabeled bulk.
+    in the middle and stays unknown.
     """
     ev: list[str] = []
     n = len(obs)
@@ -379,7 +423,6 @@ def infer_kind(obs: pd.DataFrame, n_series_samples: int = 0) -> tuple[Kind, list
 
     ev.append(f"{n} observations")
 
-    # one observation per GSM at most means observations are samples, not cells
     if n_series_samples and n <= n_series_samples:
         ev.append(
             f"no more observations than the {n_series_samples} samples in the series"

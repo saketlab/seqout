@@ -1,17 +1,15 @@
 site_name: seqout
 site_url: https://seqout.org/cli/
-site_description: Python library and command-line client for seqout.org
+site_description: >-
+  Search sequencing study metadata across GEO, SRA, ENA, DDBJ, ArrayExpress,
+  GEA and GSA, and read counts matrices, from Python or the shell.
 docs_dir: docs
 repo_url: https://github.com/saketlab/seqout 
 repo_name: saketlab/seqout
 
-# The .py files are the editable source of the example notebooks (jupytext
-# percent format). The committed .ipynb (with outputs) are what the site renders.
-exclude_docs: |
-  examples/*.py
-
 theme:
   name: material
+  custom_dir: overrides
   logo: assets/favicon.svg
   favicon: assets/favicon.svg
   icon:
@@ -45,12 +43,38 @@ plugins:
   - search
   - mkdocs-jupyter:
       execute: false
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: true
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+            filters: ["!^_"]
+            heading_level: 3
 
 extra:
+  # notebooks cannot carry front matter, a leading raw cell renders as page
+  # body, so their descriptions live here
+  descriptions:
+    examples/01_getting_started/: Connecting to the API, searching with filters, and reading a dataset.
+    examples/02_working_with_a_dataset/: Every field a Dataset holds, from the project record to runs, publications and cross-references.
+    examples/03_accessions_and_archives/: How an accession from any of the seven archives resolves to its study, and what happens when it cannot.
+    examples/04_offline_with_parquet/: Reading the same data through DuckDB with no API request, and where that backend stops.
+    examples/05_counts_and_metadata/: From a GEO accession to a counts matrix, with per-cell annotation and study metadata joined in.
+  analytics:
+    provider: google
+    property: G-QJ6EBEJ38X
   social:
     - icon: fontawesome/regular/building
       link: https://saketlab.org
-      name: Saket Lab 
+      name: Saket Lab
 
 markdown_extensions:
   - admonition
@@ -70,6 +94,13 @@ nav:
   - Metadata normalization: normalization.md
   - Python library: library.md
   - Parquet backend: parquet.md
+  - Reference:
+      - Overview: reference/index.md
+      - Client: reference/client.md
+      - Dataset: reference/dataset.md
+      - Search: reference/search.md
+      - Counts matrices: reference/counts.md
+      - Utilities: reference/utilities.md
   - Examples:
       - Overview: examples/index.md
       - Command-line examples: examples/command-line.md
@@ -77,3 +108,4 @@ nav:
       - Working with a dataset: examples/02_working_with_a_dataset.ipynb
       - Accessions and archives: examples/03_accessions_and_archives.ipynb
       - Offline with Parquet: examples/04_offline_with_parquet.ipynb
+      - Counts and metadata: examples/05_counts_and_metadata.ipynb

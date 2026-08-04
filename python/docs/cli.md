@@ -1,7 +1,10 @@
+---
+description: "Every seqout command and flag: search, show, download, accession conversion, Parquet."
+---
+
 # Command line
 
-The `seqout` command has one subcommand for each task. This page describes
-each subcommand.
+The `seqout` command has one subcommand for each task as desribed here
 
 To see the help for any subcommand, add `--help`:
 
@@ -105,8 +108,7 @@ The target kinds are `study`, `experiment`, `sample`, `run`, and the aliases
 
 ### The a-to-b form
 
-There is also a short subcommand for each direction, like the `pysradb` tool.
-The name shows the source kind and the target kind:
+There is also a short subcommand for each direction, like [pysradb](https://saket-choudhary.me/pysradb/index.html) previously developed in our lab.
 
 ```bash
 seqout gse-to-srp GSE12345
@@ -143,9 +145,8 @@ The command also shows the institutes of the author.
 ## The `--parquet` option
 
 The subcommands `show`, `download`, `pmid`, `author`, and all `convert`
-commands accept the `--parquet` option. This option makes the command read
-Parquet data with DuckDB instead of the API. The command then needs no network
-to the API.
+commands accept the `--parquet` option. The command then reads Parquet data
+with DuckDB and sends no request to the API.
 
 ```bash
 # use the configured or default Parquet source

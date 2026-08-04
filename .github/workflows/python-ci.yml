@@ -13,6 +13,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - install: base
+            sync: ""
+            check: "--base"
+          - install: counts
+            sync: "--extra counts"
+            check: "--counts"
+    name: test (${{ matrix.install }})
     defaults:
       run:
         working-directory: python
@@ -21,5 +32,22 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: uv sync
+
+      - run: uv sync ${{ matrix.sync }}
+      - run: uv run python scripts/check_imports.py ${{ matrix.check }}
+
       - run: uv run pytest -m "not network"
+
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra counts
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests

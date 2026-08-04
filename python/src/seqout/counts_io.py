@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import io
 import logging
 import re
 import shutil
@@ -13,7 +12,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 import pandas as pd
-from isal import igzip
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +69,22 @@ _META_FIELD_HINTS: dict[str, tuple[str, ...]] = {
 }
 
 
+try:
+    # ISA-L is a speed-only optional dependency with platform-limited wheels
+    from isal import igzip as _gzip
+except ImportError:  # pragma: no cover
+    import gzip as _gzip
+
+
 def _is_gzip(path: Path) -> bool:
     with path.open("rb") as f:
         return f.read(2) == b"\x1f\x8b"
 
 
 def _open(path: Path, mode: str = "rt") -> Any:
-    """
-    Open a possibly-gzipped file transparently.
-    """
+    """Open a possibly-gzipped file transparently."""
     if _is_gzip(path):
-        return igzip.open(path, mode)
+        return _gzip.open(path, mode)
     return path.open(mode)
 
 
@@ -93,9 +96,7 @@ def _sniff_delim(head: str) -> str:
 
 
 def _text(path: Path) -> str:
-    """
-    Whole file as text.
-    """
+    """Whole file as text."""
     with _open(path, "rb") as f:
         return f.read().decode("utf-8", errors="replace")
 
@@ -128,7 +129,6 @@ def _match_field(col: str, hints: tuple[str, ...]) -> bool:
     for h in hints:
         if h in tokens:
             return True
-        # distinctive multi-part hints like orig.ident also match as substrings
         if ("_" in h or "." in h or len(h) >= 8) and h in low:  # noqa: PLR2004
             return True
     return False
@@ -138,9 +138,9 @@ def describe_metadata(columns: list[str]) -> dict[str, list[str]]:
     """
     Report which annotation categories a metadata table covers, and via which columns.
 
-    Returns e.g. {"celltype": ["cell_type"], "condition": ["treatment"]}. Keeping
-    the source columns rather than a bare flag matters downstream: a condition
-    derived from disease_status is not the same variable as one from treatment.
+    Returns e.g. {"celltype": ["cell_type"], "condition": ["treatment"]}. The source
+    columns are kept because they identify the variable: a condition derived from
+    disease_status is a different measurement from one derived from treatment.
     """
     out: dict[str, list[str]] = {}
     for category, hints in _META_FIELD_HINTS.items():
@@ -152,11 +152,16 @@ def describe_metadata(columns: list[str]) -> dict[str, list[str]]:
 
 def read_metadata(path: Path) -> pd.DataFrame:
     """Read a per-cell annotation table, keyed by whatever its first column is."""
-    text = _text(path)
-    delim = _sniff_delim(text[:_SNIFF_BYTES])
+    with _open(path, "rb") as fh:
+        delim = _sniff_delim(fh.read(_SNIFF_BYTES).decode("utf-8", errors="replace"))
     # round_trip: pandas' default float parser is off by up to 1 ULP
-    frame = pd.read_csv(
-        io.StringIO(text), sep=delim, index_col=0, float_precision="round_trip"
-    )
+    with _open(path, "rb") as fh:
+        frame = pd.read_csv(
+            fh,
+            sep=delim,
+            index_col=0,
+            float_precision="round_trip",
+            encoding_errors="replace",
+        )
     frame.index = frame.index.astype(str)
     return frame

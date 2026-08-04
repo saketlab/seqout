@@ -1,5 +1,9 @@
 """
 Format readers for counts matrices.
+
+Every reader returns (X, obs, var) where X is obs x var: cells x genes for
+single-cell, samples x genes for bulk. That matches AnnData's orientation, so
+CountMatrix.to_anndata() only wraps.
 """
 
 from __future__ import annotations
@@ -71,7 +75,7 @@ def _drop_label_headers(
                         ),
                     )
                 return bc, ft
-    return barcodes, features  # no combination fits; the caller reports the mismatch
+    return barcodes, features
 
 
 def read_10x_mtx(
@@ -85,7 +89,7 @@ def read_10x_mtx(
     sio = _require("scipy.io")
     sparse = _require("scipy.sparse")
 
-    # pass the open stream, not the path: scipy would otherwise use stdlib gzip
+    # passing an igzip stream keeps scipy.io.mmread off stdlib gzip
     if _is_gzip(mtx):
         with _open(mtx, "rb") as fh:
             coo = sio.mmread(fh)
@@ -102,10 +106,10 @@ def read_10x_mtx(
     var.index = var.get("gene_id", pd.Series(range(len(var)))).astype(str)
     obs = pd.DataFrame(index=pd.Index(bc, name="barcode"))
 
-    # MatrixMarket is genes x cells by convention, but GEO goes both ways.
+    # MatrixMarket convention is genes x cells; GEO submissions also use the transpose
     row, col, shape = coo.row, coo.col, coo.shape
     data = coo.data.astype(np.float32, copy=False)
-    del coo  # the float64 buffer would otherwise stay resident while CSR allocates
+    del coo  # the float64 COO buffer stays resident while CSR allocates
     if shape == (len(var), len(obs)):
         m = sparse.csr_matrix((data, (col, row)), shape=(len(obs), len(var)))
     elif shape == (len(obs), len(var)):
@@ -133,9 +137,7 @@ def read_10x_h5(
     sparse = _require("scipy.sparse")
 
     with h5py.File(path, "r") as f:
-        # v3 puts everything under /matrix; v2 under a per-genome group. Pick the
-        # first group; some files also keep datasets at the root, and indexing
-        # blindly lands on one of those, which has no members to read
+        # CellRanger v2 uses per-genome groups, v3 uses /matrix; root sets sort first
         if "matrix" in f:
             grp = f["matrix"]
         else:
@@ -149,8 +151,7 @@ def read_10x_h5(
         if "shape" in grp:
             n_genes, n_cells = (int(x) for x in grp["shape"][:])
         else:
-            # CSC indptr is one longer than the column count, and the feature
-            # axis is the largest row index + 1
+            # CSC indptr is one longer than columns; max index + 1 gives feature rows
             n_cells = len(grp["indptr"]) - 1 if bc_node is None else len(bc_node)
             n_genes = int(grp["indices"][:].max()) + 1 if len(grp["indices"]) else 0
             logger.info(
@@ -206,15 +207,13 @@ def read_table(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
     with _open(path) as f:
         delim = _sniff_delim(f.readline())
 
-    # the C parser is ~8x faster than engine="python" and delim is always one
-    # character, so it applies. dtype is left alone: a forced float would reject
-    # the gene-symbol column GEO tables often carry beside the counts.
+    # the C parser needs a single-character delimiter; inferred dtype keeps gene symbols
     with _open(path, "rb") as fh:
         df = pd.read_csv(fh, sep=delim, index_col=0)
     text_cols = [c for c, dt in df.dtypes.items() if not is_numeric_dtype(dt)]
     if text_cols:
         df = df.drop(columns=text_cols)  # a gene-symbol column rode along
 
-    # transposing the array rather than the frame skips a second full copy
+    # array transpose avoids a second full DataFrame copy
     x = df.to_numpy(dtype=np.float32).T
     return x, pd.DataFrame(index=df.columns), pd.DataFrame(index=df.index)

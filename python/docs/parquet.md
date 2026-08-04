@@ -1,3 +1,7 @@
+---
+description: Querying the seqout Parquet dump with DuckDB. Works offline and accepts arbitrary SQL.
+---
+
 # Parquet backend
 
 The Parquet backend reads seqout data from Parquet files. It uses DuckDB. It
@@ -11,15 +15,15 @@ Use the Parquet backend for these tasks:
 
 ## Where the data comes from
 
-The backend reads a set of Parquet files. The set is called a **source**. A
+The backend reads a set of Parquet files. The set is called a source. A
 source is one of two things:
 
-- A **URL**, such as `https://seqout.org/data`. The backend reads the files
+- A URL, such as `https://seqout.org/data`. The backend reads the files
   over HTTP. It reads only the parts that it needs.
-- A **local directory**, such as `/data/seqout`. The backend reads the files
+- A local directory, such as `/data/seqout`. The backend reads the files
   from the disk.
 
-seqout hosts a public source at **[https://seqout.org/data](https://seqout.org/data)**.
+seqout hosts a public source at [https://seqout.org/data](https://seqout.org/data).
 This is the default source. Open that address to browse and download the Parquet
 files directly. Each file is at `https://seqout.org/data/<name>.parquet`, for
 example [`geo_series.parquet`](https://seqout.org/data/geo_series.parquet). You
@@ -83,9 +87,9 @@ seqout parquet query "SELECT accession, title FROM sra_studies LIMIT 5"
 
 Options:
 
-- `--source` — use a specific source for this query.
-- `--csv` — print the result as CSV.
-- `-n`, `--limit` — the maximum number of rows to show (default: 50).
+- `--source`: use a specific source for this query.
+- `--csv`: print the result as CSV.
+- `-n`, `--limit`: the maximum number of rows to show (default: 50).
 
 !!! note "Do not reuse a table name as a column alias"
     The command finds table names by text. Do not use a table name as a column
@@ -103,8 +107,8 @@ seqout parquet show SRP123456 --experiments
 
 ## Use Parquet with the normal commands
 
-Most commands accept the `--parquet` option. With this option, the command
-reads Parquet data instead of the API:
+Most commands accept the `--parquet` option. The command then reads Parquet
+data and sends no request to the API:
 
 ```bash
 seqout show GSE12345 --parquet

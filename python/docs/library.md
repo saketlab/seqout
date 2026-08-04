@@ -1,3 +1,7 @@
+---
+description: Dataset access by accession, filtered search, and downloads of reads and supplementary files from Python.
+---
+
 # Python library
 
 You can use `seqout` in your own Python code. The library does the same tasks
@@ -29,7 +33,7 @@ with connect() as sq:
 
 ## Get a dataset
 
-`get` accepts any accession from any archive seqout holds — a series, a study,
+`get` accepts any accession from any archive seqout holds: a series, a study,
 an experiment, a sample, a run, or a BioSample. The `Dataset` finds the related
 records for you:
 
@@ -91,12 +95,12 @@ cross-reference. GEA records no cross-reference, and names the data as a
 BioProject in the project record, so that is used when no cross-reference
 exists.
 
-`runs` is empty when the dataset has none — a microarray submission such as
-`E-TABM-937`, for example, has 724 samples and no sequencing data.
+`runs` is empty when the dataset has none. A microarray submission such as
+`E-TABM-937` has 724 samples and no sequencing data.
 
 ### When it cannot work
 
-Some accessions have no path back to their study — the archive serves no parent
+Some accessions have no path back to their study: the archive serves no parent
 and the accession is not in the search index. `project`, and anything that needs
 it, raises `SeqoutError` saying so:
 

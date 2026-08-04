@@ -1,384 +1,111 @@
 # seqout
 
-A Python client and command-line tool for [seqout.org](https://seqout.org) — search and explore
-genomic study metadata from **GEO**, **SRA**, **ENA**, **DDBJ**, **ArrayExpress**, **GEA**, and
-**GSA**, and download both
-metadata and raw data files from a single, consistent interface.
-
-It comes in two parts that share the same engine:
-
-- **`seqout`** — a friendly command-line tool for everyday lookups and downloads.
-- **`seqout` (the library)** — a typed Python API for use in scripts, notebooks, and pipelines.
-
----
-
-## Installation
-
-All you need is [uv](https://docs.astral.sh/uv/).
-
-**As a command-line tool** — install it globally with `uv tool`:
-
-```bash
-uv tool install seqout
-seqout --help
-```
-
-This puts `seqout` on your PATH, isolated from your projects. Upgrade with
-`uv tool upgrade seqout`. You can also run it without installing via `uvx seqout …`.
-
-**As a library** in your own project:
-
-```bash
-uv add seqout
-```
-
-**From source** (for development):
-
-```bash
-git clone https://github.com/saketlab/seqout.git
-cd seqout/python
-uv sync
-uv run seqout --help
-```
-
-From a source checkout, anything shown below as `seqout …` can be run as `uv run seqout …`.
+A Python client and command-line tool for [seqout.org](https://seqout.org). Search genomic study
+metadata from GEO, SRA, ENA, DDBJ, ArrayExpress, GEA, and GSA, and download metadata, supplementary
+files, sequencing reads, and counts matrices through one interface.
 
 Requires Python 3.13 or newer.
 
----
-
-## Command-line tool
-
-The CLI is organized around a few clear verbs. Run `seqout --help` (or `seqout <command> --help`)
-at any time.
-
-| Command | Purpose |
-| --- | --- |
-| `seqout search <query>` | Full-text search across all sources |
-| `seqout show <accession>` | Inspect a project (table) or a sample (detail view) |
-| `seqout download <accession>` | Download metadata, supplementary files, or sequencing reads |
-
-### Search
+## Installation
 
 ```bash
-# Search everything
-seqout search "lung cancer single cell"
-
-# Narrow to one source, sort by citations, cap the results
-seqout search "covid intestine" --db geo --sort citations -n 5
+uv tool install seqout          # command-line tool, on your PATH
+uv add seqout                   # library, in your project
+uv add 'seqout[counts]'         # library, with counts-matrix reading
 ```
 
-| Option | Description |
-| --- | --- |
-| `--db {geo,sra,arrayexpress,ena,gsa,dra,gea}` | Restrict to a single source (default: all) |
-| `--sort {citations,journal,year}` | Order the results |
-| `-n`, `--limit` | Maximum results to show (default: 20) |
+`uvx seqout <command>` runs the tool without installing it. From a source checkout, prefix any command
+below with `uv run`.
 
-Each result prints its accession, source, title, organisms, and citation count — pass any accession
-straight to `show` or `download`.
-
-### Show
-
-`show` adapts to what you give it.
+## Quick start
 
 ```bash
-# A project → a table of its samples (GEO/ArrayExpress) or experiments (SRA/ENA)
+seqout search "lung cancer single cell" --db geo --sort citations -m 5
 seqout show GSE149312
-seqout show SRP324458
-seqout show E-GEOD-18544
-
-# A sample → a detailed field-by-field view, including its characteristics/attributes
-seqout show GSM8241457
-seqout show SRX11169657
-```
-
-### Download
-
-By default `download` saves **metadata** as JSON. Flags switch it to downloading **files**.
-
-```bash
-# Metadata → ./GSE149312.json   (project + all of its samples)
-seqout download GSE149312
-
-# Sample metadata → ./GSM8241457.json
-seqout download GSM8241457
-
-# Choose the destination (file or directory)
-seqout download SRP324458 -o ./study/
-```
-
-**Supplementary files** (processed data, matrices, archives):
-
-```bash
 seqout download GSE149312 --supplementary
 ```
 
-**Sequencing reads** (`--fastq`, plus `--sra`, `--sra-lite`, `--s3`, `--gcs`):
-
-```bash
-# Every run in a study
-seqout download SRP324458 --fastq
-
-# A single run — pick exactly which files to download, interactively
-seqout download SRR14851096 --fastq
-```
-
-A few conveniences worth knowing:
-
-- **Cross-accession resolution.** Ask for the "wrong" kind and it figures out the link for you:
-  `download GSE… --fastq` follows the series to its SRA study, and `download SRP… --supplementary`
-  follows the study back to its GEO series.
-- **Per-file selection.** For a single run, a checkbox prompt (space to toggle, enter to confirm)
-  lets you choose which files to pull.
-- **Interleaved paired-end warning.** When a paired-end run ships as one interleaved file, you'll be
-  reminded to use `fasterq-dump --split-3` to split R1/R2.
-- **Verified, parallel downloads.** Files download concurrently with progress bars; read downloads
-  are checked against their size and MD5.
-
-Downloaded files default to `./<accession>/`; override with `-o <dir>`.
-
-### Enriched metadata (`--enriched`)
-
-Fetch precomputed, LLM-enriched sample metadata that seqout.org has already prepared for a project:
-
-```bash
-seqout --enriched GSE12345
-```
-
-This is a simple online lookup — no local model required.
-
-### Normalizing sample metadata locally (`--norm`)
-
-`--norm` takes the messy, free-text metadata of a project's samples and turns it into clean,
-structured labels using a language model that runs **entirely on your own machine**. Nothing about
-your query leaves your computer except the original metadata fetch from seqout.org.
-
-```bash
-seqout --norm GSE149312
-```
-
-For every sample it extracts these 16 fields:
-
-```
-organism             tissue                tissue_primary_site   tissue_site_type
-cell_type            cell_line             disease               phenotype
-strain               ethnicity             development_stage     treatment
-genetic_modification assay                 assay_category        sample_type
-```
-
-Results stream into a live table as each sample finishes (a single sample is shown as a vertical
-field/value view instead). Works with project accessions (`GSE…`, `SRP…`, `E-…`) and individual
-samples (`GSM…`, `SRS…`, `SRX…`).
-
-#### Prerequisites
-
-You need **one** local inference engine installed and able to serve GGUF models:
-
-- **[Ollama](https://ollama.com)** — default port `11434`
-- **[llama.cpp](https://github.com/ggerganov/llama.cpp)** (`llama-server`) — default port `8080`
-- **[LM Studio](https://lmstudio.ai)** — default port `1234`
-
-If none are installed, `seqout` tells you what's missing rather than failing cryptically.
-
-#### How the model is chosen
-
-`seqout` resolves the model in this order:
-
-1. **`--base-url`** — if given, it talks to that already-running OpenAI-compatible server and never
-   starts anything itself.
-2. **A running server** — otherwise it auto-detects a local engine already listening (on `--port`
-   if you gave one, else the engines' default ports) and uses the model it is already serving.
-3. **`--model`** — if nothing is running, it starts an engine using your `--model` spec.
-4. **The default model** — if you didn't pass `--model`, it falls back to the bundled
-   `saketlab/seqoutlm-1B-GGUF`, a model fine-tuned for exactly this task.
-
-When it has to start a server and download a model, that happens automatically on first use.
-
-#### Choosing a model with `--model`
-
-`--model` is written as `engine/model`:
-
-```bash
-# Ollama with the default seqoutlm model (pulled from Hugging Face on first run)
-seqout --norm GSE149312 --model ollama/hf.co/saketlab/seqoutlm-1B-GGUF
-
-# Ollama with any model you already have
-seqout --norm GSE149312 --model ollama/llama3
-
-# llama.cpp or LM Studio — here the model is a Hugging Face GGUF repo
-seqout --norm GSE149312 --model llamacpp/saketlab/seqoutlm-1B-GGUF
-seqout --norm GSE149312 --model lmstudio/saketlab/seqoutlm-1B-GGUF
-```
-
-A bare engine name (`--model ollama`) uses that engine with the default model. If you omit the
-engine prefix entirely, Ollama is assumed.
-
-#### Pointing at a specific server
-
-```bash
-# Use whatever model is already loaded on a given port
-seqout --norm GSE149312 --port 8080
-
-# Talk to an already-running OpenAI-compatible server directly (never starts one)
-seqout --norm GSE149312 --base-url http://localhost:8080/v1
-```
-
-This is the simplest path if you already run your own server, e.g.:
-
-```bash
-llama-server -hf saketlab/seqoutlm-1B-GGUF --port 8080 --jinja
-seqout --norm GSE149312 --base-url http://localhost:8080/v1
-```
-
-#### Gated or private models
-
-The default `saketlab/seqoutlm-1B-GGUF` repo may be gated on Hugging Face. If a download is needed
-and the repo is private, `seqout` prompts you for an access token
-([create one here](https://huggingface.co/settings/tokens)). You can also set it in the environment
-to skip the prompt:
-
-```bash
-export HF_TOKEN=hf_xxxxxxxx   # or HUGGING_FACE_HUB_TOKEN / HUGGINGFACE_TOKEN
-```
-
-No token is needed when the model is public, already downloaded, or already being served.
-
-Run `seqout --help` for the complete list of options.
-
----
-
-## Python API
-
-The library mirrors the CLI and returns fully typed Pydantic models. The entry point is
-`connect()`, usable as a context manager.
-
 ```python
 from seqout import connect
 
 with connect() as sq:
-    # Search
-    for r in sq.search("lung cancer", db="geo", sortby="citations").top_cited(5):
-        print(r.accession, r.citation_count, r.title)
-
-    # Open a dataset — any accession from any archive seqout holds
     d = sq.get("GSE149312")
-    d.meta          # project metadata
-    d.samples       # the per-sample records
-    d.experiments   # the library preparations
-    d.runs          # every run, via the linked SRA study
-    d.pubs          # publications
-    d.links         # the same data in other archives
-    d.enriched      # LLM-enriched per-sample metadata
+    print(d.meta.title, len(d.samples), "samples,", len(d.runs), "runs")
 ```
 
-`Dataset` fetches each field on first use and keeps the result. It crosses the GEO/SRA
-boundary on its own, so `sq.get("GSE149312").runs` and `sq.get("SRP324458").runs` both work.
-`d.kind`, `d.project`, `d.geo`, and `d.sra` expose what it resolved.
+`Dataset` fetches each field on first use and keeps the result. It crosses the GEO/SRA boundary on
+its own, so `sq.get("GSE149312").runs` and `sq.get("SRP324458").runs` both work. An accession with
+no path back to its study raises `SeqoutError` naming the lookups that were tried.
 
-`get` accepts the accession prefixes of every source seqout holds: GEO (`GSE`/`GSM`),
-SRA (`SRP`/`SRX`/`SRS`/`SRR`), ENA (`PRJ*`/`ERP*`), DDBJ (`DRP`/`DRX`/`DRR`),
-ArrayExpress (`E-MTAB-N`), GEA (`E-GEAD-N`), GSA (`CRA`/`HRA`/`CRX`/`HRX`/`CRR`/`HRR`/`HRS`),
-and BioSample (`SAM*`). Where a dataset's runs live in another archive, `runs` follows the link
-the archive records — a cross-reference for GEO and ArrayExpress, the BioProject for GEA. An
-accession with no path back to its study raises `SeqoutError` naming the lookups that were
-tried.
-
-### Searching
+Reading counts needs the `counts` extra:
 
 ```python
-from seqout import connect, SearchParams
+from seqout import seqout_counts
 
-with connect() as sq:
-    results = sq.search("covid intestine", db="geo", sortby="year")
-
-    # a SearchParams object holds the same fields, for reuse across calls
-    params = SearchParams(q="covid intestine", db="geo", sortby="year", order="desc")
-    results = sq.search(params)            # first page → SearchResults
-    everything = sq.iter_search(params)    # auto-paginating iterator
-    first_100 = list(sq.iter_search(params, limit=100))
+counts = seqout_counts(gse="GSE297547")
+counts.manifest() 
+m = counts.matrix(sample="GSM8994520")
+m.summary
 ```
 
-`SearchResults` is a rich, list-like container with convenience methods:
+## Command-line reference
 
-```python
-results.by_organism("Homo sapiens")
-results.by_source("geo")
-results.top_cited(10)
-results.most_recent(10)
-results.organisms()      # Counter of organism → frequency
-results.sources()        # Counter of source → frequency
-results.to_df()          # pandas DataFrame
-results.to_csv("out.csv")
-```
+Run `seqout --help` or `seqout <command> --help` for the full option list.
 
-For field-targeted queries, use `StructuredSearchParams` (organism, platform, library strategy,
-country, year range, and more) with `sq.search(...)` / `sq.iter_search(...)`.
+### Explore
 
-### Fetching metadata
-
-`sq.get(acc)` covers most of this. The short top-level calls:
-
-| Method | Returns |
+| Command | Description |
 | --- | --- |
-| `get(acc)` | `Dataset` — any accession, resolves the rest |
-| `paper(pmid=…, doi=…)` | `PublicationLookupResult` — a paper → its projects |
-| `author(name)` | `AuthorProjectsResponse` |
-| `classify(acc)` | `AccessionClassification` |
-| `summaries([acc, …])` | `ProjectSummaryResultList` — many projects, one request |
+| `seqout search [query]` | Full-text search across every source |
+| `seqout show <accession>` | A project's samples or experiments as a table, or one sample in detail |
+| `seqout pmid <pmid\|doi>` | Every dataset linked to a publication |
+| `seqout author <name>` | Every dataset an author is linked to |
 
-The per-endpoint methods `get` is built on, for when you want one specific request:
+`search` options: `--db {geo,sra,arrayexpress,ena,gsa,dra,gea}`, `-O/--organism`, `-S/--strategy`,
+`-P/--platform`, `-C/--source`, `-d/--date DATE[:DATE]`, `--sort {citations,journal,year}`,
+`-p/--page-size` (default 20), `-m/--max`, `-o/--saveto FILE`. The query text is optional when at
+least one filter is given.
 
-| Method | Returns |
+### Download
+
+| Command | Description |
 | --- | --- |
-| `fetch_project_summary(acc)` | `ProjectSummaryResult` |
-| `fetch_project_metadata(acc)` | `ProjectMetadataResult` |
-| `fetch_samples(acc)` | `ExperimentSampleList` (GEO series / ArrayExpress) |
-| `fetch_study_experiments(study)` | `StudyExperimentsResults` (SRA / ENA) |
-| `fetch_study_runs(study)` | `StudyRunsResults` |
-| `fetch_sample_metadata(sample)` | `SampleMetadataResult` |
-| `fetch_sample_detailed_metadata(sample)` | `SampleDetailedMetadata` |
-| `fetch_geo_sample_detailed_metadata(sample)` | `GeoSampleDetailedMetadata` |
-| `fetch_cross_references(acc)` | `ProjectCrossReferenceList` |
-| `fetch_project_enriched_metadata(acc)` | `ProjectLLMEnrichedSampleMetadataResults` |
+| `seqout download <accession>` | Project or sample metadata as JSON |
+| `seqout download <accession> --supplementary` | The project's supplementary files |
+| `seqout download <accession> --sample-supplementary` | Per-sample supplementary files |
+| `seqout download <accession> --fastq` | Sequencing reads; also `--sra`, `--sra-lite`, `--s3`, `--gcs` |
 
-Bulk variants (`bulk_search`, `bulk_fetch_project_summary`) parallelize requests across a thread pool.
+Metadata lands in `./<accession>.json` and files in `./<accession>/`; `-o/--out` overrides both.
 
-### Downloading data
+### Convert accessions
 
-```python
-from pathlib import Path
-from seqout import connect
+| Command | Description |
+| --- | --- |
+| `seqout convert <accession>... --to <kind>` | Map to `study`, `experiment`, `sample`, `run`, `srp`, `srx`, `srs`, `srr`, `gsm`, `gse`, `pmid`, or `doi` |
+| `seqout gse-to-srp <accession>...` | Shorthand for one specific hop |
 
-with connect() as sq:
-    d = sq.get("GSE149312")
+The shorthands cover GEO, SRA, ENA, and DDBJ prefixes in both directions, plus publication lookups
+(`srp-to-pmid`, `doi-to-gse`, and the rest). `seqout --help` lists them all.
 
-    # Supplementary files for a project
-    sq.download_project_supplementary_data(d.meta, Path("GSE149312"))
+### Sample metadata labels
 
-    # Sequencing reads (mode: fastq | sra | sra_lite | s3 | gcs)
-    sq.download_study_runs_data(d.runs, Path("SRP324458"), mode="fastq")
-```
+| Command | Description |
+| --- | --- |
+| `seqout --enriched <accession>` | Structured labels seqout.org has already prepared |
+| `seqout --norm <accession>` | Produce the same labels locally with a language model |
 
-Both download methods run in parallel and accept `num_workers`, `chunk_size`, and `verbose`. Read
-downloads are verified against their reported size and MD5 checksum.
+`--norm` runs entirely on your machine and takes `--model engine/model`, `--port`, and
+`--base-url`. See [metadata normalization](docs/normalization.md).
 
----
+### Parquet backend
 
-## Accession reference
+| Command | Description |
+| --- | --- |
+| `seqout parquet download <dir>` | Fetch the Parquet dump for local use |
+| `seqout parquet query "<sql>"` | Run SQL against the Parquet files with DuckDB |
+| `seqout parquet show <accession>` | A study, its samples, or its experiments |
+| `seqout parquet set-source <url\|dir>` | Set the default source |
 
-| Kind | Examples | Use with |
-| --- | --- | --- |
-| GEO series | `GSE149312` | `show`, `download`, search |
-| GEO sample | `GSM8241457` | `show`, `download` |
-| SRA / ENA study | `SRP324458`, `PRJNA…` | `show`, `download` |
-| SRA experiment | `SRX11169657` | `show`, `download` |
-| SRA run | `SRR14851096` | `download --fastq` |
-| ArrayExpress | `E-GEOD-18544`, `E-MTAB-…` | `show`, `download` |
+`show`, `download`, `convert`, `pmid`, `author`, and the conversion shorthands all accept
+`--parquet [SRC]` to answer from Parquet with no API request.
 
----
-
-## License
-
-See the repository root for license and contribution details. seqout is a client for
-[seqout.org](https://seqout.org); please consult the upstream data sources for their respective
-terms of use.

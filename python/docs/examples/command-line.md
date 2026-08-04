@@ -1,3 +1,7 @@
+---
+description: seqout shell commands for search, inspection, downloads, accession conversion and Parquet queries.
+---
+
 # Command-line examples
 
 Concrete commands for common tasks. Add `--help` to any command for its full
@@ -68,7 +72,7 @@ seqout parquet query "SELECT COUNT(*) AS n FROM geo_series"
 # download the files for fast local use
 seqout parquet download /data/seqout
 
-# run any command against Parquet instead of the API
+# run any command against Parquet, with no API request
 seqout show GSE12345 --parquet
 seqout gse-to-srp GSE12345 --parquet /data/seqout
 ```

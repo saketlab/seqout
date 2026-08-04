@@ -1,9 +1,9 @@
 """
-`seqout --norm`: build per-sample prompts and run through a GGUF model.
+seqout --norm: build per-sample prompts and run through a GGUF model.
 
-Only the *user* turn is built here (raw project details -> the model produces the
+Only the user turn is built here (raw project details -> the model produces the
 enriched labels). The prompt-construction mirrors the offline dataset builder in
-`for-ref.md`, adapted to the Seqout HTTP API instead of local SQLite.
+for-ref.md, adapted to the Seqout HTTP API.
 """
 
 from __future__ import annotations
@@ -337,7 +337,7 @@ def _subprocess_env() -> dict:
 
 def parse_model_spec(spec: str | None) -> tuple[str, str]:
     """
-    `ollama/llama3` -> ('ollama', 'llama3'). Bare names default to ollama.
+    ollama/llama3 -> ('ollama', 'llama3'). Bare names default to ollama.
 
     Returns (engine, model). For llamacpp/lmstudio the model is an HF repo and
     defaults to the seqoutlm repo when only the engine is given.
@@ -392,7 +392,7 @@ def _pull_error(model: str, err: str) -> str:
 
 
 class OllamaEngine:
-    """Fully managed: starts `ollama serve`, pulls the model, and chats."""
+    """Fully managed: starts ollama serve, pulls the model, and chats."""
 
     name = "ollama"
     detected = False
@@ -526,7 +526,7 @@ class _OpenAICompatEngine:
 
 
 class LlamaCppEngine(_OpenAICompatEngine):
-    """Serves the HF repo with `llama-server -hf <repo>`."""
+    """Serves the HF repo with llama-server -hf <repo>."""
 
     name = "llamacpp"
 
@@ -572,7 +572,7 @@ class LlamaCppEngine(_OpenAICompatEngine):
 
 
 class LMStudioEngine(_OpenAICompatEngine):
-    """Uses the `lms` CLI to start the server and load the model."""
+    """Uses the lms CLI to start the server and load the model."""
 
     name = "lmstudio"
 
@@ -630,7 +630,7 @@ def _openai_loaded_model(base: str) -> str | None:
 
 
 def _ollama_running_model(port: int = DEFAULT_PORTS["ollama"]) -> str | None:
-    """Name of a model currently loaded in ollama (`/api/ps`), or None."""
+    """Name of a model currently loaded in ollama (/api/ps), or None."""
     try:
         resp = httpx.get(f"http://localhost:{port}/api/ps", timeout=1.5)
         resp.raise_for_status()
@@ -647,7 +647,7 @@ def autodetect_engine(
     Find a model on an already-running server.
 
     Returns (engine, name, model) with the engine marked as detected (so it
-    won't download or prompt), or None.  With `port` set, only that port is
+    won't download or prompt), or None.  With port set, only that port is
     probed (in llama.cpp -> LM Studio -> ollama order); otherwise each engine's
     default port is tried.
     """
@@ -683,7 +683,7 @@ def engine_from_base_url(
     """
     Build an OpenAI-compatible engine for an already-running server.
 
-    Uses `base_url` (e.g. http://host:8080/v1). Marked detected: never launches
+    Uses base_url (e.g. http://host:8080/v1). Marked detected: never launches
     or downloads. Returns (engine, name, model) or raises EngineError if
     unreachable.
     """

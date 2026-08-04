@@ -8,14 +8,13 @@ from typing import Any
 import requests
 from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
-from tqdm import tqdm
 
 try:
     _USER_AGENT = f"seqout-lib/{version('seqout')}"
 except PackageNotFoundError:  # editable/uninstalled tree
     _USER_AGENT = "seqout-lib"
 
-# 403 because NCBI answers a throttled request with Forbidden rather than 429
+# NCBI answers throttled requests with Forbidden
 _RETRYABLE_STATUS_CODES = {403, 408, 429, 500, 502, 503, 504}
 _RANGE_NOT_SATISFIABLE = 416
 _PARTIAL_CONTENT = 206
@@ -23,9 +22,7 @@ _MAX_RETRY_AFTER = 120
 
 logger = logging.getLogger(__name__)
 
-# one pooled session: reuses TCP+TLS rather than renegotiating per file, which
-# matters against a host that throttles on connection churn. Safe to issue
-# requests from threads; do not mutate the session after startup.
+# shared session reuses TCP and TLS; these hosts throttle connection churn
 _session = requests.Session()
 _session.headers["User-Agent"] = _USER_AGENT
 _adapter = HTTPAdapter(pool_connections=16, pool_maxsize=32)
@@ -41,7 +38,7 @@ def _backoff(attempt: int, max_wait: int) -> float:
     so the burst that caused the throttling re-forms. Spreading each wait over
     zero to cap breaks that lockstep.
     """
-    return random.uniform(0, min(2**attempt, max_wait))  # noqa: S311, jitter, not crypto
+    return random.uniform(0, min(2**attempt, max_wait))  # noqa: S311
 
 
 def _retry_after(exc: Exception, fallback: float) -> float:
@@ -138,10 +135,7 @@ def _download_file(
     for attempt in range(num_retries):
         bytes_this_attempt = 0
         try:
-            # ask for the bytes as stored: NCBI serves some already-compressed
-            # files with Content-Encoding gzip and a compressed Content-Length,
-            # so requests decompresses and the bytes written never match the
-            # header, leaving a byte Range meaningless
+            # NCBI can report compressed Content-Length for already-compressed payloads
             headers = {"Accept-Encoding": "identity"}
             if already_downloaded > 0:
                 headers["Range"] = f"bytes={already_downloaded}-"
@@ -156,8 +150,7 @@ def _download_file(
             if content_length == -1:
                 raise ValueError(f"missing Content-Length header for {url}")
 
-            # a server may ignore Accept-Encoding, and then Content-Length
-            # describes the encoded stream rather than what lands on disk
+            # some servers ignore Accept-Encoding; encoded Content-Length is wire size
             encoded = r.headers.get("Content-Encoding") not in (None, "identity")
 
             if r.status_code == _PARTIAL_CONTENT and not encoded:
@@ -168,18 +161,18 @@ def _download_file(
                 resumed_from = 0
                 already_downloaded = 0
 
+            # tqdm.auto probes ipywidgets at import time and warns in notebooks.
+            from tqdm.auto import tqdm  # noqa: PLC0415
+
             total = resumed_from + content_length
-            pbar = (
-                tqdm(
-                    total=total,
-                    initial=resumed_from,
-                    unit="B",
-                    unit_scale=True,
-                    desc=f"downloading {url[:100]}",
-                    leave=False,
-                )
-                if with_pbar
-                else None
+            pbar = tqdm(
+                total=total,
+                initial=resumed_from,
+                unit="B",
+                unit_scale=True,
+                desc=dest_path.name[:40],
+                leave=False,
+                disable=None if with_pbar else True,
             )
 
             with dest_path.open(open_mode) as f:
@@ -190,8 +183,7 @@ def _download_file(
                     n = len(chunk)
                     bytes_this_attempt += n
                     already_downloaded += n
-                    if pbar:
-                        pbar.update(n)
+                    pbar.update(n)
 
             actual_size = dest_path.stat().st_size
             if encoded:
@@ -201,16 +193,14 @@ def _download_file(
                     f"downloaded {actual_size} bytes, expected {total} for {url}"
                 )
 
-            if pbar:
-                pbar.close()
+            pbar.close()
             r.close()
         except Exception as exc:
             if not _is_retryable(exc) or attempt == num_retries - 1:
                 raise
 
             already_downloaded -= bytes_this_attempt
-            # without truncating, the next Range request resumes from an
-            # earlier offset and appends duplicates
+            # truncate first; the Range retry appends from the restored offset
             if dest_path.exists() and dest_path.stat().st_size > already_downloaded:
                 with dest_path.open("r+b") as f:
                     f.truncate(already_downloaded)
@@ -226,8 +216,6 @@ def _download_file(
             )
             time.sleep(wait)
         else:
-            # without this the loop re-requests the finished file, costing a
-            # round-trip per download
             return
 
     raise RuntimeError(f"failed to download {url} after {num_retries} retries")

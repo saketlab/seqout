@@ -74,8 +74,8 @@ def _as_params(
     """
     Let the search calls take a bare query string plus keyword filters.
 
-    ``search("liver", organism="Homo sapiens")`` and the original
-    ``search(SearchParams(...))`` both work.
+    search("liver", organism="Homo sapiens") and the original
+    search(SearchParams(...)) both work.
     """
     if isinstance(params, str):
         return SearchParams(q=params, **filters)
@@ -144,8 +144,8 @@ class SeqoutAPIClient(ShortNames):
         params: SearchParamsType,
         first: SearchResponse | None = None,
     ) -> Iterator[SearchResult]:
-        # `first` lets a caller that already fetched page 0 (e.g. to read its
-        # spelling correction) reuse it instead of hitting the endpoint twice.
+        # first lets a caller that already fetched page 0 (e.g. to read its
+        # spelling correction) reuse it and save a second request.
         response = first if first is not None else self._fetch_search_page(params)
         while True:
             yield from response.results
@@ -169,7 +169,7 @@ class SeqoutAPIClient(ShortNames):
         """
         Return page 0's spelling correction plus the full result iterator.
 
-        The correction (``did you mean`` / augmented extra matches) only rides on
+        The correction (did you mean / augmented extra matches) only rides on
         the first page; this reuses that page so paging costs no extra request.
         """
         params = _as_params(params, filters)
@@ -204,6 +204,7 @@ class SeqoutAPIClient(ShortNames):
         params: list[SearchParamsType],
         num_workers: int | None = None,
     ) -> dict[int, SearchResults]:
+        """Run several searches in parallel, keyed by their index in params."""
         num_workers = _normalize_num_workers(num_workers)
 
         def _do_search(params: SearchParamsType) -> SearchResults:
@@ -222,6 +223,7 @@ class SeqoutAPIClient(ShortNames):
         return results
 
     def fetch_project_summary(self, accession_id: str) -> ProjectSummaryResult:
+        """Fetch the short project record: title, organisms, dates, counts."""
         return self._sender(
             url=f"{self._base_url}/project/{accession_id}/metadata",
             response_model=ProjectSummaryResult,
@@ -230,6 +232,7 @@ class SeqoutAPIClient(ShortNames):
     def bulk_fetch_project_summary(
         self, accession_ids: list[str]
     ) -> ProjectSummaryResultList:
+        """Fetch short project records for many accessions in one request."""
         return self._poster(
             url=f"{self._base_url}/bulk/project-metadata",
             response_model=ProjectSummaryResultList,
@@ -237,12 +240,21 @@ class SeqoutAPIClient(ShortNames):
         )
 
     def fetch_project_metadata(self, accession_id: str) -> ProjectMetadataResult:
+        """Fetch the full project record, including its supplementary files."""
         return self._sender(
             url=f"{self._base_url}/project/{accession_id}",
             response_model=ProjectMetadataResult,
         )
 
     def fetch_samples(self, accession_id: str) -> ExperimentSampleList:
+        """
+        Fetch the sample records of a GEO series or ArrayExpress experiment.
+
+        Raises:
+            ValueError: If the accession names anything else. A sequence archive
+                study has experiments, not samples; use fetch_study_experiments.
+
+        """
         if not accession_id.startswith("GSE") and not accession_id.startswith("E-"):
             msg = (
                 "samples can be only fetched for GEO series and"
@@ -256,6 +268,7 @@ class SeqoutAPIClient(ShortNames):
         )
 
     def fetch_cross_references(self, accession_id: str) -> ProjectCrossReferenceList:
+        """Fetch the accessions other archives record for the same data."""
         response = self._sender(
             url=f"{self._base_url}/project/{accession_id}/xref",
             response_model=ProjectCrossReferenceResponse,
@@ -266,6 +279,12 @@ class SeqoutAPIClient(ShortNames):
     def fetch_project_enriched_metadata(
         self, accession_id: str
     ) -> ProjectLLMEnrichedSampleMetadataResults:
+        """
+        Fetch the structured per-sample labels seqout.org has prepared.
+
+        Coverage is partial. A project that has not been processed answers 404,
+        which comes back as an empty result.
+        """
         try:
             response = self._sender(
                 url=f"{self._base_url}/project/{accession_id}/enriched",
@@ -279,6 +298,7 @@ class SeqoutAPIClient(ShortNames):
         return response.samples
 
     def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
+        """Fetch the library preparations of a study."""
         return self._sender(
             url=f"{self._base_url}/project/{study_id}/experiments",
             response_model=StudyExperimentsResults,
@@ -287,6 +307,15 @@ class SeqoutAPIClient(ShortNames):
     def fetch_study_runs(
         self, study_id: str, *, full: bool = False
     ) -> StudyRunsResults:
+        """
+        Fetch the sequencing runs of a study, with their file URLs.
+
+        Args:
+            study_id: A study accession, such as SRP310139 or PRJNA1458007.
+            full: Read every run. The default is the backend's 500-run preview,
+                which is enough to inspect a study but not to download one.
+
+        """
         # default returns the backend's 500-run preview; full=True gets every run
         # (needed for complete downloads and accession conversions).
         response = self._sender(
@@ -298,12 +327,14 @@ class SeqoutAPIClient(ShortNames):
         return response.runs
 
     def classify_accession(self, accession_id: str) -> AccessionClassification:
+        """Ask the API what an accession is and which source holds it."""
         return self._sender(
             url=f"{self._base_url}/accession/{accession_id}/classify",
             response_model=AccessionClassification,
         )
 
     def fetch_run(self, run_id: str) -> StudyRunsResult:
+        """Fetch one run, with its file URLs, sizes and checksums."""
         return self._sender(
             url=f"{self._base_url}/run/{run_id}",
             response_model=StudyRunsResult,
@@ -338,7 +369,7 @@ class SeqoutAPIClient(ShortNames):
         run         /run/{acc} carries study_accession (SRA, DDBJ)
         experiment  /sample-detail/{acc} (GSA), else its first run
         sample      /sample-detail/{acc} carries the project
-        anything    search — works when the accession is FTS-indexed
+        anything    search, works when the accession is FTS-indexed
         =========== ================================================
         """
         if accession.upper().startswith(_STUDY_PREFIXES):
@@ -363,7 +394,7 @@ class SeqoutAPIClient(ShortNames):
         return None
 
     def _study_by_search(self, accession: str) -> str | None:
-        """Last resort — works only when the accession is full-text indexed."""
+        """Last resort; works only when the accession is full-text indexed."""
         res = self._quiet(lambda: self.search(SearchParams(q=accession)))
         return next(
             (
@@ -375,7 +406,7 @@ class SeqoutAPIClient(ShortNames):
         )
 
     def _project_from_sample_detail(self, accession: str) -> str | None:
-        # /sample-detail serves every archive, but a GEO sample's `sample` block
+        # /sample-detail serves every archive, but a GEO sample's sample block
         # is channel-shaped, so it needs the GEO model to validate.
         fetch = (
             self.fetch_geo_sample_detailed_metadata
@@ -389,11 +420,11 @@ class SeqoutAPIClient(ShortNames):
 
     def linked_study(self, accession: str) -> str | None:
         """
-        Return a series' linked sequencing study — the route to its runs.
+        Return a series' linked sequencing study, the route to its runs.
 
         Cross-references answer for GEO and ArrayExpress. GEA (E-GEAD-N) files
         no cross-reference at all and names its data only as a BioProject in the
-        project record, so that is tried next rather than giving up.
+        project record, so that is tried next.
         """
         xref = self._quiet(lambda: self.fetch_cross_references(accession)) or []
         cands = [
@@ -430,6 +461,14 @@ class SeqoutAPIClient(ShortNames):
     def search_author_projects(
         self, name: str, limit: int = 200
     ) -> AuthorProjectsResponse:
+        """
+        List every dataset an author is linked to through its publications.
+
+        Args:
+            name: The author name as it appears in the publication record.
+            limit: Maximum datasets to return.
+
+        """
         # all datasets linked to an author across GEO/SRA/ArrayExpress/ENA.
         return self._sender(
             url=f"{self._base_url}/author/projects",
@@ -440,6 +479,11 @@ class SeqoutAPIClient(ShortNames):
     def find_publication(
         self, *, pmid: str | None = None, doi: str | None = None
     ) -> PublicationLookupResult:
+        """
+        Look a publication up by PubMed ID or DOI and list the projects it names.
+
+        A publication seqout does not hold comes back as an empty result.
+        """
         # reverse lookup: publication -> linked projects across all sources.
         params = {"pmid": pmid} if pmid else {"doi": doi}
         try:
@@ -454,12 +498,14 @@ class SeqoutAPIClient(ShortNames):
             raise
 
     def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
+        """Fetch one sample record."""
         return self._sender(
             url=f"{self._base_url}/sample/{sample_id}",
             response_model=SampleMetadataResult,
         )
 
     def fetch_sample_detailed_metadata(self, sample_id: str) -> SampleDetailedMetadata:
+        """Fetch one sample with every field the archive holds."""
         return self._sender(
             url=f"{self._base_url}/sample-detail/{sample_id}",
             response_model=SampleDetailedMetadata,
@@ -468,6 +514,7 @@ class SeqoutAPIClient(ShortNames):
     def fetch_geo_sample_detailed_metadata(
         self, sample_id: str
     ) -> GeoSampleDetailedMetadata:
+        """Fetch one GSM, including the supplementary files it carries."""
         return self._sender(
             url=f"{self._base_url}/sample-detail/{sample_id}",
             response_model=GeoSampleDetailedMetadata,
@@ -482,6 +529,17 @@ class SeqoutAPIClient(ShortNames):
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
     ) -> None:
+        """
+        Download a project's supplementary files into out_dir.
+
+        Args:
+            metadata: The project record, from fetch_project_metadata.
+            out_dir: Created if it does not exist.
+            num_workers: Parallel downloads. Defaults to the core count less two.
+            chunk_size: Bytes per read from the socket.
+            with_pbar: Show a per-file progress bar.
+
+        """
         num_workers = _normalize_num_workers(num_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -554,6 +612,23 @@ class SeqoutAPIClient(ShortNames):
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = True,
     ) -> None:
+        """
+        Download the read files of every run into out_dir.
+
+        Args:
+            runs: The runs to fetch, from fetch_study_runs or Dataset.runs. Pass a
+                filtered list to fetch a subset.
+            out_dir: Created if it does not exist.
+            mode: Which copy to take: fastq, sra, sra_lite, s3, or gcs. Not every
+                run offers every mode.
+            num_workers: Parallel downloads. Defaults to the core count less two.
+            chunk_size: Bytes per read from the socket.
+            with_pbar: Show a per-file progress bar.
+
+        Raises:
+            ValueError: If a run carries no URL for the requested mode.
+
+        """
         _validate_study_runs_data(runs, mode)
         num_workers = _normalize_num_workers(num_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -591,7 +666,7 @@ class SeqoutAPIClient(ShortNames):
                 f.result()
 
     def close(self) -> None:
-        pass
+        """Release client resources. The HTTP session is process-wide and stays open."""
 
     def __enter__(self) -> Self:
         return self

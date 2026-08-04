@@ -1,5 +1,9 @@
 """
 Read .rds counts objects.
+
+Two paths: a pure-Python one that parses the RDS stream and lifts the sparse
+slots straight out of Seurat and SingleCellExperiment objects, and an Rscript
+fallback for objects only R can unwrap. Neither densifies the matrix.
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from seqout.counts_io import _gunzip_beside, read_metadata
-from seqout.counts_names import _require
+from seqout.counts_names import _require, modality_rank
 from seqout.counts_readers import read_10x_mtx
 
 logger = logging.getLogger(__name__)
@@ -78,7 +82,7 @@ dump_meta <- function(df, file) {
 dump_meta(obs_meta, file.path(out, "obs.tsv"))
 dump_meta(var_meta, file.path(out, "var.tsv"))
 
-# invisible(): Rscript auto-prints top-level values, and writeMM returns NULL
+# invisible(): Rscript auto-prints writeMM NULL returns.
 invisible(writeMM(counts, file.path(out, "matrix.mtx")))
 writeLines(as.character(cells), file.path(out, "barcodes.tsv"))
 writeLines(as.character(genes), file.path(out, "features.tsv"))
@@ -117,9 +121,7 @@ def _r_class(node: Any) -> str:
 def _find_sparse_matrices(
     root: Any, max_nodes: int = _MAX_WALK_NODES
 ) -> list[tuple[str, Any, tuple[Any, ...]]]:
-    """
-    Every sparse matrix in the object graph, as (path, node, ancestors).
-    """
+    """Every sparse matrix in the object graph, as (path, node, ancestors)."""
     found: list[tuple[str, Any, tuple[Any, ...]]] = []
     queue = deque([("", root, ())])
     seen: set[int] = set()
@@ -132,7 +134,7 @@ def _find_sparse_matrices(
 
         if _r_class(node) in _SPARSE_CLASSES:
             found.append((path, node, ancestors))
-            continue  # its slots are plain arrays, no need to descend
+            continue
 
         slots = _slots(node)
         if not slots:
@@ -189,11 +191,18 @@ def _axis_names(
     return [f"{prefix}{i + 1}" for i in range(n)]
 
 
-def _rank(path: str) -> tuple[int, int]:
+def _layer_rank(path: str, assay: str | None) -> tuple[int, int, int]:
+    """
+    Order candidate matrices inside one R object.
+
+    A Seurat object holds an assay per modality and several layers per assay, so
+    the assay is chosen first and the raw layer within it second.
+    """
+    modality = modality_rank(path, assay)
     for i, token in enumerate(_LAYER_PREFERENCE):
         if token in path:
-            return (i, len(path))
-    return (len(_LAYER_PREFERENCE), len(path))
+            return (modality, i, len(path))
+    return (modality, len(_LAYER_PREFERENCE), len(path))
 
 
 _OBS_META_TOKENS = ("meta.data", "coldata", "colddata", "phenodata")
@@ -223,9 +232,7 @@ def _as_frame(node: Any) -> pd.DataFrame | None:
 
 
 def _find_metadata(root: Any, n: int, tokens: tuple[str, ...]) -> pd.DataFrame | None:
-    """
-    Find the metadata table describing n rows, preferring conventional names.
-    """
+    """Find the metadata table describing n rows, preferring conventional names."""
     best: tuple[int, pd.DataFrame] | None = None
     queue = deque([("", root)])
     seen: set[int] = set()
@@ -237,7 +244,7 @@ def _find_metadata(root: Any, n: int, tokens: tuple[str, ...]) -> pd.DataFrame |
         seen.add(id(node))
 
         if _r_class(node) in _SPARSE_CLASSES:
-            continue  # a counts matrix is not a metadata table
+            continue
 
         frame = _as_frame(node)
         if frame is not None and len(frame) == n and not frame.empty:
@@ -264,17 +271,17 @@ def _attach(labels: list[str], meta: pd.DataFrame | None, axis: str) -> pd.DataF
     if meta is None:
         return pd.DataFrame(index=index)
     if len(meta) == len(index) and not meta.index.equals(index):
-        # positional when labels disagree: R keeps both in matrix column order
+        # R keeps labels and metadata in matrix column order when names disagree
         meta = meta.set_axis(index)
     out = meta.reindex(index)
     logger.info("attached %d %s metadata column(s): %s", out.shape[1], axis, list(out))
     return out
 
 
-def _rds_via_rdata(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame] | None:
-    """
-    Extract counts from an .rds with no R installed. 
-    """
+def _rds_via_rdata(
+    path: Path, assay: str | None = "rna"
+) -> tuple[Any, pd.DataFrame, pd.DataFrame] | None:
+    """Extract counts from an .rds with no R installed."""
     try:
         rdata = importlib.import_module("rdata")
     except ImportError:
@@ -294,7 +301,7 @@ def _rds_via_rdata(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame] | None:
         logger.debug("no sparse matrix found in %s; trying R", path.name)
         return None
 
-    chosen, node, ancestors = min(matrices, key=lambda pn: _rank(pn[0]))
+    chosen, node, ancestors = min(matrices, key=lambda pn: _layer_rank(pn[0], assay))
     slots = _slots(node) or {}
     try:
         n_genes, n_cells = (int(d) for d in slots["Dim"])
@@ -325,13 +332,13 @@ def _rds_via_rdata(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame] | None:
     )
 
 
-def read_rds(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
-    """
-    Read an .rds counts object into (obs x var, obs, var).
-    """
+def read_rds(
+    path: Path, assay: str | None = "rna"
+) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
+    """Read an .rds counts object into (obs x var, obs, var)."""
     path = _gunzip_beside(path)
 
-    direct = _rds_via_rdata(path)
+    direct = _rds_via_rdata(path, assay)
     if direct is not None:
         return direct
 
@@ -367,9 +374,9 @@ def read_rds(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
             mtx,
             Path(tmp) / "barcodes.tsv",
             Path(tmp) / "features.tsv",
-            feature_type=None,  # an R object carries no 10x feature_type column
+            feature_type=None,  # r-exported matrices lack a 10x feature_type column
         )
-        # meta.data / colData / rowData, so this path matches the pure-Python one
+        # R fallback exports Seurat meta.data and Bioconductor colData/rowData
         obs = _attach(list(obs.index), _read_meta_tsv(Path(tmp) / "obs.tsv"), "barcode")
         var = _attach(list(var.index), _read_meta_tsv(Path(tmp) / "var.tsv"), "gene")
         return x, obs, var
