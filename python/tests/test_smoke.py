@@ -14,8 +14,7 @@ import importlib
 
 import pytest
 
-# Every accession kind the CLI/library claim to support, with the client method
-# the CLI actually calls for it. Methods must exist even when offline.
+# KINDS pins the client methods the CLI calls for each accession type.
 KINDS = {
     "GSE": ("GSE100112", "fetch_samples"),
     "GSM": ("GSM2652046", "fetch_geo_sample_detailed_metadata"),
@@ -25,7 +24,6 @@ KINDS = {
 
 
 def test_all_modules_import():
-    # import-time crashes (bad imports after a rename/move) surface here
     for mod in [
         "seqout",
         "seqout.cli",
@@ -39,7 +37,7 @@ def test_all_modules_import():
 def test_package_exports_what_cli_imports():
     import seqout
 
-    # cli.py does `from seqout import Seqout, SearchParams, StudyRunsResults`
+    # CLI imports these names from seqout.
     for name in ("Seqout", "SearchParams", "StudyRunsResults", "connect_to_seqout"):
         assert hasattr(seqout, name), f"seqout.{name} missing"
 
@@ -73,9 +71,7 @@ def test_fetch_each_accession_kind(kind):
         if _looks_offline(e):
             pytest.skip(f"API unreachable: {e}")
         raise
-    # the call returning a parsed model/container at all is the point: it exercises
-    # the endpoint URL and validates the live response against the pydantic models
-    # (where the single-characteristic / dropped-field bugs lived).
+    # Parsed live responses catch endpoint URL and Pydantic shape regressions.
     assert result is not None
 
 

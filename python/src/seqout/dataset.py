@@ -30,10 +30,7 @@ if TYPE_CHECKING:
         PublicationLookupResult,
     )
 
-# Accession shapes, mirroring the backend's classifier. S/E/D are SRA, ENA and
-# DDBJ; C/H are GSA (CNCB-NGDC) open (CRA) and human (HRA). Order matters:
-# E-GEAD-N also matches the four-letter ArrayExpress shape, so GEA is tested
-# first, and PRJC*/SAMC belong to GSA but share the PRJ/SAM shapes.
+# Mirrors the backend classifier; E-GEAD-N and PRJC/SAMC overlap older accession shapes.
 _ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^GSE\d+$"), "series"),
     (re.compile(r"^GSM\d+$"), "sample"),
@@ -58,7 +55,6 @@ _SHAPES = (
     "(ArrayExpress, GEA), PRJ and SAM (BioProject, BioSample)"
 )
 
-# study/series roots: accessions that own samples and runs
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 _GEO_PREFIXES = ("GSE", "E-")
 _RUN_PREFIXES = ("SRR", "ERR", "DRR", "CRR", "HRR")
@@ -169,8 +165,7 @@ class Dataset:
         return self._sq.fetch_project_metadata(self.project)
 
     def _samples_of(self, accession: str) -> Any:
-        # GEO/AE/GEA list channel samples; every other archive lists experiments,
-        # which are its nearest per-sample record.
+        # GEO/AE/GEA list channel samples; other archives list experiments
         if accession.upper().startswith(_GEO_PREFIXES):
             return self._sq.fetch_samples(accession)
         return self._sq.fetch_study_experiments(accession)

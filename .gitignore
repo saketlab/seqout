@@ -4,7 +4,7 @@
 .RData
 .Ruserdata
 .Renviron
-
+.ipynb_checkpoints/
 # Package build output
 *.tar.gz
 *.Rcheck/
@@ -36,3 +36,11 @@ tests/testthat/Rplots.pdf
 .venv/
 __pycache__
 .DS_Store
+
+# mkdocs build output
+python/site/
+
+# assistant instructions, local only
+CLAUDE.md
+AGENTS.md
+.claude/

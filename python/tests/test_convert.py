@@ -68,22 +68,22 @@ class FakeSq:
     def fetch_geo_sample_detailed_metadata(self, _gsm):
         return SimpleNamespace(project=SimpleNamespace(accession="GSE1"))
 
-    def gsm_series(self, gsm):  # GSM -> its GEO series (via the detail lookup)
+    def gsm_series(self, gsm):
         detail = self.fetch_geo_sample_detailed_metadata(gsm)
         return detail.project.accession if detail.project else None
 
-    def search(self, _params):  # SRR/SRX/SRS resolve back to the study
+    def search(self, _params):
         return [SimpleNamespace(accession="SRP1")]
 
-    def resolve_study(self, accession):  # child accession -> study root (via search)
+    def resolve_study(self, accession):
         if accession.upper().startswith(("SRP", "ERP", "DRP", "GSE", "PRJ")):
             return accession
         return self.search(None)[0].accession
 
-    def fetch_cross_references(self, _acc):  # GSE1 -> SRP1
+    def fetch_cross_references(self, _acc):
         return [SimpleNamespace(accession="SRP1")]
 
-    def linked_study(self, acc):  # series -> linked SRA study (via xref)
+    def linked_study(self, acc):
         cands = [
             r.accession
             for r in self.fetch_cross_references(acc)
@@ -94,7 +94,7 @@ class FakeSq:
                 return c
         return cands[0] if cands else None
 
-    def fetch_project_metadata(self, _acc):  # forward: accession -> pubs
+    def fetch_project_metadata(self, _acc):
         return SimpleNamespace(
             pmid="111",
             doi="10.1/x",
@@ -120,38 +120,30 @@ def conv(acc, to_kind):
 @pytest.mark.parametrize(
     ("acc", "to_kind", "expected"),
     [
-        # study -> children
         ("SRP1", "run", ["SRR1", "SRR2", "SRR3"]),
         ("SRP1", "experiment", ["SRX1", "SRX2"]),
         ("SRP1", "sample", ["SRS1", "SRS2"]),
-        # run -> up/across
         ("SRR1", "srx", ["SRX1"]),
         ("SRR1", "srs", ["SRS1"]),
         ("SRR1", "srp", ["SRP1"]),
         ("SRR1", "gsm", ["GSM10"]),
-        # experiment -> across
         ("SRX1", "run", ["SRR1", "SRR2"]),
         ("SRX1", "sample", ["SRS1"]),
-        # sample -> across
         ("SRS1", "srx", ["SRX1"]),
         ("SRS1", "run", ["SRR1", "SRR2"]),
-        # GSM as source (via the experiment-title link)
         ("GSM10", "srx", ["SRX1"]),
         ("GSM10", "run", ["SRR1", "SRR2"]),
         ("GSM10", "srs", ["SRS1"]),
         ("GSM10", "gse", ["GSE1"]),
         ("GSM10", "srp", ["SRP1"]),
-        # GEO series -> its samples
         ("GSE1", "gsm", ["GSM10", "GSM20"]),
-        # literature forward: accession -> pmid/doi (flat id first, deduped)
         ("SRP1", "pmid", ["111", "222"]),
         ("SRP1", "doi", ["10.1/x", "10.2/y"]),
         ("SRR1", "pmid", ["111", "222"]),  # child resolves to study first
-        # literature reverse: pmid/doi -> projects, filtered by target
         ("34764296", "srp", ["SRP1"]),
         ("34764296", "gse", ["GSE1"]),
         ("34764296", "study", ["GSE1", "SRP1"]),  # no prefix filter -> all
-        ("10.1/x", "gse", ["GSE1"]),  # doi source
+        ("10.1/x", "gse", ["GSE1"]),
     ],
 )
 def test_convert_directions(acc, to_kind, expected):

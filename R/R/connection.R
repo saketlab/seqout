@@ -4,16 +4,19 @@
 #' SeqOut tables. Uses DuckDB's httpfs extension to query Parquet files hosted
 #' on seqout.org without downloading them entirely.
 #'
-#' Registering a view makes DuckDB read that Parquet file's footer over HTTP,
-#' so the wait is one round trip per table and worth reporting.
+#' Registering a view makes DuckDB read that Parquet file's footer over HTTP, so
+#' registering all of them costs a round trip per table. Views are created on
+#' first reference instead; [register_tables()] does them all when something
+#' needs the catalog populated, such as `dplyr::tbl()`.
 #'
 #' @param base_url Base URL of the SeqOut server. Defaults to
 #'   `"https://seqout.org"`.
 #' @param read_only If `TRUE`, the DuckDB connection is read-only.
 #'   Defaults to `FALSE` so that [cache_table()] can materialise views
 #'   locally.
-#' @param progress Show a progress bar while the tables are registered.
-#'   Defaults to `TRUE` in an interactive session.
+#' @param eager Register every view up front rather than on first use.
+#' @param progress Show a progress bar while views are registered. Defaults to
+#'   `TRUE` in an interactive session.
 #'
 #' @return A `seqout_connection` object (list) containing the DuckDB
 #'   connection handle and configuration.
@@ -27,6 +30,7 @@
 #' }
 seqout_connect <- function(base_url = "https://seqout.org",
                            read_only = FALSE,
+                           eager = FALSE,
                            progress = interactive()) {
   base_url <- sub("/$", "", base_url)
   data_url <- paste0(base_url, "/data")
@@ -53,25 +57,85 @@ seqout_connect <- function(base_url = "https://seqout.org",
   DBI::dbExecute(db, "SET enable_http_metadata_cache = true")
   DBI::dbExecute(db, "SET enable_object_cache = true")
 
-  tables <- .seqout_tables()
-  ok <- logical(length(tables))
+  con <- structure(
+    list(
+      db       = db,
+      drv      = drv,
+      base_url = base_url,
+      data_url = data_url,
+      api_url  = paste0(base_url, "/api"),
+      tables   = .seqout_tables(),
+      views    = new.env(parent = emptyenv())
+    ),
+    class = "seqout_connection"
+  )
+
+  if (eager) {
+    .register_views(con, con$tables, progress = progress)
+  }
+
+  cli::cli_alert_success(
+    "Connected to SeqOut ({.url {base_url}}) \u2014 {length(con$tables)} table{?s} available"
+  )
+
+  con
+}
+
+#' Register the remote Parquet views
+#'
+#' Views are created on first reference, which keeps [seqout_connect()] quick.
+#' Anything that reads the DuckDB catalog directly, such as `dplyr::tbl()`,
+#' needs them to exist first.
+#'
+#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param tables Which tables to register. Defaults to all of them.
+#' @param progress Show a progress bar. Defaults to `TRUE` interactively.
+#'
+#' @return The names of the views now registered, invisibly.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' con <- seqout_connect()
+#' register_tables(con, "unified_metadata")
+#' dplyr::tbl(con$db, "unified_metadata")
+#' }
+register_tables <- function(con, tables = NULL, progress = interactive()) {
+  .check_connection(con)
+  tables <- tables %||% con$tables
+  unknown <- setdiff(tables, con$tables)
+  if (length(unknown) > 0) {
+    cli::cli_abort("Not a SeqOut table: {.val {unknown}}.")
+  }
+  invisible(.register_views(con, tables, progress = progress))
+}
+
+#' Create any of `tables` that is not registered yet
+#'
+#' `con$views` is an environment, so a view registered through one copy of the
+#' connection is visible from every other.
+#' @noRd
+.register_views <- function(con, tables, progress = FALSE) {
+  pending <- setdiff(tables, ls(con$views))
+  if (length(pending) == 0) {
+    return(character(0))
+  }
+  progress <- progress && length(pending) > 1
   if (progress) {
     cli::cli_progress_bar(
       format = "Registering {cli::pb_current}/{cli::pb_total} {.val {tbl}} {cli::pb_bar} {cli::pb_eta}",
-      total = length(tables), clear = TRUE
+      total = length(pending), clear = TRUE
     )
   }
-  for (i in seq_along(tables)) {
-    tbl <- tables[i]
+  for (tbl in pending) {
     if (progress) cli::cli_progress_update()
-    url <- paste0(data_url, "/", tbl, ".parquet")
     sql <- sprintf(
-      "CREATE OR REPLACE VIEW %s AS SELECT * FROM read_parquet('%s')",
-      tbl, url
+      "CREATE OR REPLACE VIEW %s AS SELECT * FROM read_parquet('%s/%s.parquet')",
+      tbl, con$data_url, tbl
     )
-    ok[i] <- tryCatch(
+    ok <- tryCatch(
       {
-        DBI::dbExecute(db, sql)
+        DBI::dbExecute(con$db, sql)
         TRUE
       },
       error = function(e) {
@@ -79,26 +143,24 @@ seqout_connect <- function(base_url = "https://seqout.org",
         FALSE
       }
     )
+    if (ok) assign(tbl, TRUE, envir = con$views)
   }
   if (progress) cli::cli_progress_done()
-  registered <- tables[ok]
+  ls(con$views)
+}
 
-  con <- structure(
-    list(
-      db       = db,
-      drv      = drv,
-      base_url = base_url,
-      api_url  = paste0(base_url, "/api"),
-      tables   = registered
-    ),
-    class = "seqout_connection"
-  )
-
-  cli::cli_alert_success(
-    "Connected to SeqOut ({.url {base_url}}) \u2014 {length(registered)} table{?s} available"
-  )
-
-  con
+#' Register the views a statement names, before DuckDB has to resolve them
+#' @noRd
+.ensure_views <- function(con, sql) {
+  pending <- setdiff(con$tables, ls(con$views))
+  if (length(pending) == 0) {
+    return(invisible(NULL))
+  }
+  named <- pending[vapply(pending, grepl, logical(1), x = sql, fixed = TRUE)]
+  if (length(named) > 0) {
+    .register_views(con, named)
+  }
+  invisible(NULL)
 }
 
 #' Close a SeqOut connection

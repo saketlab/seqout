@@ -113,8 +113,8 @@ class SeqoutCounts:
         ):
             msg = (
                 f"{type(client).__name__} cannot back SeqoutCounts: it has no "
-                "fetch_geo_sample_detailed_metadata. Pass an API client "
-                "(connect('api')) or omit client= to open one."
+                "fetch_geo_sample_detailed_metadata. Pass a client from "
+                "connect('api') or connect('parquet'), or omit client= to open one."
             )
             raise TypeError(msg)
 

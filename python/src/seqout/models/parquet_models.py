@@ -1,6 +1,7 @@
 import datetime
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class _ExternalRef(BaseModel):
@@ -18,10 +19,11 @@ class Study(BaseModel):
     citation_count: int
     aliases: list[str]
     organisms: list[str]
-    library_strategies: list[str]
-    assay_l1: list[str]
-    assay_l2: list[str]
-    num_experiments: int
+    # None means the backend cannot answer; [] would read as "has none"
+    library_strategies: list[str] | None = None
+    assay_l1: list[str] | None = None
+    assay_l2: list[str] | None = None
+    num_experiments: int | None = None
     num_samples: int
     center_names: list[str]
     is_single_cell: bool
@@ -78,6 +80,19 @@ class _Channel(BaseModel):
     growth_protocol: str | None
     treatment_protocol: str | None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _listify_characteristics(cls, data: Any) -> Any:
+        # GEO sends one Characteristics as a bare object and several as a list
+        if not isinstance(data, dict):
+            return data
+        raw = data.get("characteristics")
+        if raw is None:
+            return {**data, "characteristics": []}
+        if isinstance(raw, dict):
+            return {**data, "characteristics": [raw]}
+        return data
+
 
 class GeoSample(_Sample):
     channel_count: int
@@ -85,6 +100,11 @@ class GeoSample(_Sample):
     platform: str
     hybridization_protocol: str | None = None
     scan_protocol: str | None = None
+
+    @property
+    def platform_ref(self) -> str:
+        """The GPL platform accession."""
+        return self.platform
 
 
 class AeSample(_Sample):

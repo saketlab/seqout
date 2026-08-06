@@ -170,7 +170,7 @@ def test_non_hdf5_files_are_not_checked(tmp_path):
 
 
 def test_infer_kind_is_honest_about_smartseq_plates():
-    # 384 columns Smart-seq
+    # 384 columns are in the undecided Smart-seq range.
     obs = pd.DataFrame(index=pd.Index([f"cell_{i}" for i in range(384)]))
     kind, ev = infer_kind(obs)
     assert kind == "unknown"
@@ -285,7 +285,6 @@ def test_does_not_guess_when_leftover_pairing_is_ambiguous():
 
 
 def test_leftover_pairing_is_scoped_to_one_sample():
-    # leftover 10x pairing is scoped to one GSM
     files = [
         SuppFile(f"{FTP}/GSM1_barcodes.tsv.gz", Role.Barcodes, "GSM1"),
         SuppFile(f"{FTP}/GSM1_features.tsv.gz", Role.Features, "GSM1"),
@@ -347,7 +346,7 @@ def test_intercepted_port_disables_ftp_for_the_rest_of_the_run(tmp_path, monkeyp
         calls.append(1)
         # Squid intercepts port 21 and answers with an HTTP status line
         msg = "HTTP/1.1 403 Forbidden"
-        raise ftplib.error_proto(msg)  # noqa: S321 — a fake, no FTP is opened
+        raise ftplib.error_proto(msg)  # noqa: S321, fake error only; no FTP is opened
 
     monkeypatch.setattr(counts_ftp, "_connect", boom)
     for i in range(5):
@@ -369,7 +368,7 @@ def _write_r_objects(tmp_path):
     script.write_text(f"""
         ok <- requireNamespace("Seurat", quietly=TRUE) &&
               requireNamespace("SingleCellExperiment", quietly=TRUE)
-        if (!ok) quit(status=42)  # status 42 marks missing R packages
+        if (!ok) quit(status=42)
         suppressPackageStartupMessages({{library(Seurat); library(Matrix)
             library(SingleCellExperiment)}})
         set.seed(1)
@@ -386,7 +385,7 @@ def _write_r_objects(tmp_path):
         saveRDS(m, "{tmp_path}/plain.rds")
         cat(sum(m))
     """)
-    p = subprocess.run(  # noqa: S603 — rscript path from shutil.which, script we wrote
+    p = subprocess.run(  # noqa: S603, rscript path from shutil.which and script we wrote
         [rscript, "--vanilla", str(script)], capture_output=True, text=True, check=False
     )
     if p.returncode == _R_WITHOUT_PKGS:
@@ -446,11 +445,11 @@ def test_pure_python_and_r_rds_paths_agree(tmp_path):
 
     _write_r_objects(tmp_path)
     for name in ("seurat.rds", "sce.rds", "plain.rds"):
-        pure = cr._rds_via_rdata(tmp_path / name)  # noqa: SLF001 — comparing the two internal paths is the point
+        pure = cr._rds_via_rdata(tmp_path / name)  # noqa: SLF001, compares both internal paths
         if pure is None:
             pytest.skip("rdata not installed")
         original = cr._rds_via_rdata  # noqa: SLF001
-        cr._rds_via_rdata = lambda _p: None  # noqa: SLF001 — force the R fallback
+        cr._rds_via_rdata = lambda _p: None  # noqa: SLF001, force the R fallback
         try:
             viar = cr.read_rds(tmp_path / name)
         finally:
@@ -749,7 +748,6 @@ def test_assay_selects_among_a_samples_modalities():
 
 
 def test_same_format_units_get_distinct_labels():
-    # same-format modalities need labels that identify the assay
     files = [
         SuppFile(f"{FTP}/GSM1_adt_C001.h5ad", Role.H5ad, "GSM1"),
         SuppFile(f"{FTP}/GSM1_rna_C001.h5ad", Role.H5ad, "GSM1"),

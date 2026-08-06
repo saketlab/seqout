@@ -13,9 +13,10 @@ Tables(con)
 \item{con}{A \code{seqout_connection}.}
 }
 \value{
-A tibble with \code{table_name} and \code{table_type} columns.
+A tibble with \code{table_name}, \code{table_type} and \code{registered} columns.
 }
 \description{
-Shows all tables registered in the DuckDB connection, including both
-remote Parquet views and locally cached tables.
+Every remote SeqOut table, plus any table cached locally by \code{\link[=cache_table]{cache_table()}}.
+\code{registered} says whether the view exists in DuckDB yet; views are created on
+first use, so a fresh connection reports \code{FALSE} for most of them.
 }

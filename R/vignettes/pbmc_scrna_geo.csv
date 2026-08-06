@@ -29,11 +29,11 @@
 "GSE290836","Immune cell sequencing after allogeneic hematopoietic cell transplantation",2026-02-28,FALSE,NA
 "GSE320155","scRNA‑seq of human intra‑hepatic CD4⁺ T cells reveals unique Treg transcriptional identities and two steady‑state tissue‑adaptation programs across healthy and HCC liver samples",2026-02-24,FALSE,NA
 "GSE300837","Genetic susceptibility to PM2.5 exposure drives transcriptional responses in pediatric asthma: insights from single-cell transcriptomics",2026-02-24,FALSE,NA
-"GSE319710","Monocytes defined by platelet interactions and oxidative stress signaling underlie HIV-associated atherosclerosis [scRNA-seq]",2026-02-19,FALSE,NA
 "GSE319709","Single-cell transcriptomics reveals etiology-specific T-cell heterogeneity in hepatocellular carcinoma and implicates regulatory",2026-02-19,FALSE,NA
+"GSE319710","Monocytes defined by platelet interactions and oxidative stress signaling underlie HIV-associated atherosclerosis [scRNA-seq]",2026-02-19,FALSE,NA
 "GSE308662","CD4+ T cells' immune response during the early phase of infection with Schistosoma japonicum",2026-02-17,FALSE,NA
-"GSE312209","An oncogenic KRAS-driven secretome involving TNFα promotes niche preparation prior to pancreatic cancer onset [co-culture scRNA-seq]",2026-02-11,FALSE,NA
 "GSE294652","Single-cell RNA sequencing data from human CAR-T cell samples",2026-02-11,FALSE,NA
+"GSE312209","An oncogenic KRAS-driven secretome involving TNFα promotes niche preparation prior to pancreatic cancer onset [co-culture scRNA-seq]",2026-02-11,FALSE,NA
 "GSE305350","CD27 Agonism Enhances Long-Lived CD4⁺ T Cell Vaccine Responses Critical for 2 Anti-Tumor Immunity",2026-02-09,FALSE,NA
 "GSE318371","Peripheral blood mononuclear cells single-cell landscape of newly diagnosed NK/T cell lymphoma patients",2026-02-06,FALSE,NA
 "GSE267027","The Cd4+ T cell population Partners with Tpex CD8 T cells to mediate Antitumor Immunity in the Tumor Microenvironment.[P5]",2026-02-04,FALSE,NA
@@ -48,17 +48,17 @@
 "GSE242941","Transcriptional profiling of skin cancer NK cells reveals the elevated glucocorticoid receptor activity alters their pro-inflammatory features.",2026-01-13,FALSE,NA
 "GSE316069","Single-cell Profiling Reveals Diverse γδ T Cell Subsets in Ulcerative Colitis",2026-01-12,FALSE,NA
 "GSE301630","A single-cell transcriptomic landscape of peripheral leukocytes in healthy dogs",2026-01-11,FALSE,"SRP598092"
-"GSE285843","Systematic Comparison of 10X Genomics and Parse Single Cell RNA Technologies across PBMC and CD8+ TEMRA Cells",2025-12-31,FALSE,"SRP556153"
 "GSE314072","Functionally heterogeneous intratumoral CD4+CD8+ double positive T cells can give rise to single positive T cells [scRNA-seq + scTCR-seq]",2025-12-31,FALSE,"SRP655943"
 "GSE314071","Functionally heterogeneous intratumoral CD4+CD8+ double positive T cells can give rise to single positive T cells [bulkRNA-seq]",2025-12-31,FALSE,"SRP655932"
+"GSE285843","Systematic Comparison of 10X Genomics and Parse Single Cell RNA Technologies across PBMC and CD8+ TEMRA Cells",2025-12-31,FALSE,"SRP556153"
 "GSE268374","Restoration of CD56dim NK Cells by Methotrexate Contributes to the Treatment of Juvenile Idiopathic Arthritis",2025-12-30,FALSE,"SRP509980"
-"GSE285339","Narrow-band ultraviolet B induces peripheral regulatory T cells to exert antigen-specific immune suppression [scRNA-seq]",2025-12-30,FALSE,"SRP553878"
 "GSE294745","Single-cell transcriptomic and m6A methylation analysis reveals platelet-mediated immune regulatory mechanisms in sepsis",2025-12-30,FALSE,"SRP578999"
+"GSE285339","Narrow-band ultraviolet B induces peripheral regulatory T cells to exert antigen-specific immune suppression [scRNA-seq]",2025-12-30,FALSE,"SRP553878"
 "GSE303609","Dermatomyositis is characterized by JAK1-mediated monocyte-driven vasculopathy and inflammation",2025-12-23,FALSE,"SRP603524"
 "GSE292997","Integrin β1 demarks precursors of brain-residing antibody-secreting cells in multiple sclerosis",2025-12-18,FALSE,"SRP573323"
+"GSE314089","Uncoupling the two distinct roles of targeting BDCA2 in treating autoimmune diseases: direct inhibition of BDCA2-positive B cells and normalization of proinflammatory monocyte-derived macrophages via the global suppression of type I IFN",2025-12-16,FALSE,"SRP655959"
 "GSE313971","Rational redesign of antigen binding domain improves in vivo efficacy of the CD22-CAR",2025-12-16,FALSE,"SRP655677"
 "GSE306570","Simultaneous Induction of Multiple Classes of Broadly Neutralizing Antibody Precursors via Combination Germline-Targeting Immunization",2025-12-16,FALSE,"SRP612785"
-"GSE314089","Uncoupling the two distinct roles of targeting BDCA2 in treating autoimmune diseases: direct inhibition of BDCA2-positive B cells and normalization of proinflammatory monocyte-derived macrophages via the global suppression of type I IFN",2025-12-16,FALSE,"SRP655959"
 "GSE306023","CD8 T cells cross-restricted by HLA-B*57 and HLA-E*01 recognize HIV Gag with different functional profiles [dataset 2]",2025-12-10,FALSE,"SRP610381"
 "GSE305352","Control samples for study ""hiv-seq reveals global host gene expression differences between hiv-transcribing cells from viremic and suppressed people with hiv""",2025-12-09,FALSE,"SRP608725"
 "GSE262964","Ascorbic acid increases CD8+ T cells by binding Myh9 protein and enriching gut microbiota Akkermansia muciniphila, improves cognitive levels in middle-aged mice [scRNA-seq]",2025-12-03,FALSE,"SRP499086"
@@ -76,11 +76,11 @@
 "GSE273803","PURE-seq Integrates FACS and PIP-seq for Single-Cell Genomics of Ultra-rare Cells",2025-10-30,FALSE,"SRP523829"
 "GSE249159","scRNA-seq of CD4+ T cells from mouse allergic airway inflammation model and human patients with eosinophilic chronic rhinosinusitis (ECRS)",2025-10-23,FALSE,"SRP475335"
 "GSE216280","Single-cell RNA sequencing of peripheral blood mononuclear cell of human osteosarcoma",2025-10-16,FALSE,"SRP403899"
-"GSE248689","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_HealthyExercise)",2025-10-12,FALSE,"SRP474596"
-"GSE248693","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_cirrhosis)",2025-10-12,FALSE,"SRP474551"
 "GSE248695","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_RespiratoryDiseases)",2025-10-12,FALSE,"SRP474626"
 "GSE270165","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_COVID-HC)",2025-10-12,FALSE,"SRP514645"
 "GSE248685","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_BRCA)",2025-10-12,FALSE,"SRP474440"
+"GSE248689","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_HealthyExercise)",2025-10-12,FALSE,"SRP474596"
+"GSE248693","Interpretable Inflammation Landscape of Circulating Immune cells (ILCIC_cirrhosis)",2025-10-12,FALSE,"SRP474551"
 "GSE278240","Construction of immune profiles in PBMC of bacteremia mice with different outcomes",2025-10-09,FALSE,"SRP535391"
 "GSE309443","Targeting PTPN2 enhances human CAR T cell efficacy and the development of long-term memory [scRNA-Seq]",2025-10-03,FALSE,NA
 "GSE309625","Antigen reactivity defines tissue-resident memory and exhausted T cells in tumours.",2025-10-01,FALSE,"SRP629972"
@@ -90,24 +90,24 @@
 "GSE288452","Peanut Allergy Oral Immunotherapy Drives Single-Cell Multi-omic Changes in Peanut-reactive T cells Associated with Sustained Unresponsiveness",2025-09-24,FALSE,"SRP560880"
 "GSE275067","Deep longitudinal immune profiling reveals reprogramming of memory T cells that links to B cell dysregulation with age.",2025-09-11,FALSE,NA
 "GSE271896","Deep longitudinal immune profiling reveals reprogramming of memory T cells that links to B cell dysregulation with age",2025-09-11,FALSE,NA
-"GSE297720","An interpretable and adaptive autoencoder for efficient tissue deconvolution",2025-09-09,FALSE,"SRP586781"
 "GSE283826","Single-cell RNA-sequencing analysis reveals the peripheral immune characteristics of patients with primary membranous nephropathy",2025-09-09,FALSE,"SRP550209"
+"GSE297720","An interpretable and adaptive autoencoder for efficient tissue deconvolution",2025-09-09,FALSE,"SRP586781"
 "GSE306708","Multi-step genomics on single cells and live cultures in sub-nanoliter capsules",2025-09-08,FALSE,NA
-"GSE298578","Single cell RNA profiling of blood CD4+ T cells identifies distinct helper and dysfunctional regulatory clusters in children with SLE (5' PBMC validation dataset)",2025-09-04,FALSE,"SRP588862"
 "GSE285774","Single cell RNA profiling of blood CD4+ T cells identifies distinct helper and dysfunctional regulatory clusters in children with SLE [PBMCs]",2025-09-04,FALSE,"SRP600746"
+"GSE298578","Single cell RNA profiling of blood CD4+ T cells identifies distinct helper and dysfunctional regulatory clusters in children with SLE (5' PBMC validation dataset)",2025-09-04,FALSE,"SRP588862"
 "GSE287690","Implication of inflammatory cytotoxic IL-7 receptor alpha low effector memory CD8+ T cells that promote innate immunity in lupus.",2025-09-02,FALSE,NA
 "GSE298838","Blocking PD-1 engagement rapidly upregulates innate antiviral and immune functions that associate with HIV reservoir decay [scRNA-seq]",2025-08-30,FALSE,"SRP589583"
 "GSE298837","Blocking PD-1 engagement rapidly upregulates innate antiviral and immune functions that associate with HIV reservoir decay [bulkRNA-seq]",2025-08-30,FALSE,"SRP589684"
 "GSE288975","Multi-omics analysis identifies progenitors of CD4-CTLs [scATAC-seq invitrodiff]",2025-08-25,FALSE,"SRP562052"
+"GSE304467","Multi-omics analysis identifies progenitors of CD4-CTLs [invitrodiff_n_scm_scRNA]",2025-08-25,FALSE,"SRP606347"
 "GSE288986","Multi-omics analysis identifies progenitors of CD4-CTLs [scRNA-seq ex vivo]",2025-08-25,FALSE,"SRP562065"
 "GSE288988","Multi-omics analysis identifies progenitors of CD4-CTLs [scRNA-seq in vitro]",2025-08-25,FALSE,"SRP562062"
-"GSE304467","Multi-omics analysis identifies progenitors of CD4-CTLs [invitrodiff_n_scm_scRNA]",2025-08-25,FALSE,"SRP606347"
 "GSE305300","Human memory CD4+ T cells recognize Mycobacterium tuberculosis-infected macrophages amid broader pathogen-specific responses [scRNA-seq]",2025-08-24,FALSE,"SRP608586"
 "GSE304129","HIV broadly neutralizing antibody precursors induced to the Apex epitope in non-human primates",2025-08-24,FALSE,"SRP605681"
-"GSE285118","Single-cell profiling of blood and cerebrospinal fluid in tuberculous meningitis",2025-08-17,FALSE,"SRP553040"
 "GSE275286","Transcriptional analysis of dendritic cells upon TLR stimulation reveals an immunosuppressive profile (N279 scRNA-Seq)",2025-08-17,FALSE,"SRP527575"
-"GSE301385","Drug-induced metabolic remodeling of immune cell repertoire generates an effective broad-range antimicrobial effect [scRNA-Seq 2]",2025-08-12,FALSE,"SRP596467"
+"GSE285118","Single-cell profiling of blood and cerebrospinal fluid in tuberculous meningitis",2025-08-17,FALSE,"SRP553040"
 "GSE214497","Determinants of early-onset cachexia in transgenic mouse model of pancreatic cancer",2025-08-12,FALSE,"SRP400381"
+"GSE301385","Drug-induced metabolic remodeling of immune cell repertoire generates an effective broad-range antimicrobial effect [scRNA-Seq 2]",2025-08-12,FALSE,"SRP596467"
 "GSE298084","Tissue-specific immunosuppressive and proliferating macrophages fuel early metastatic progression of human colorectal cancer to liver",2025-08-10,FALSE,"SRP588481"
 "GSE304704","The effects of Cryopreservation on PBMCs transcriptome profile",2025-08-06,FALSE,"SRP606965"
 "GSE304665","High-Dimensional Analysis of Type 2 Lymphocyte Dynamics During Mepolizumab Treatment in Severe Asthma",2025-08-05,FALSE,NA
@@ -145,22 +145,22 @@
 "GSE294224","A dendritic cell-like transition of T cells is associated with spontaneous remission of adult T-cell leukemia-lymphoma",2025-04-15,FALSE,"SRP577660"
 "GSE264104","A Single-Cell Woodchuck Liver Atlas Identifies Healthy and Disease-related Cellular Programs Conserved in Human [scRNA-Seq]",2025-04-07,FALSE,"SRP502181"
 "GSE171741","Albumin treatment transcriptionally reprograms circulating immune cells in patients with acutely decompensated cirrhosis",2025-04-07,FALSE,"SRP314100"
-"GSE293707","CD55 upregulation in T cells of COVID-19 patients suppresses type-I interferon responses [scRNA-seq]",2025-04-03,FALSE,"SRP576263"
 "GSE293708","CD55 upregulation in T cells of COVID-19 patients suppresses type-I interferon responses [bulkRNA-seq]",2025-04-03,FALSE,"SRP576261"
+"GSE293707","CD55 upregulation in T cells of COVID-19 patients suppresses type-I interferon responses [scRNA-seq]",2025-04-03,FALSE,"SRP576263"
 "GSE206289","SARS-CoV-2 induced immune perturbations in infants vary with disease severity and differ from adults’ responses",2025-03-30,FALSE,NA
 "GSE268279","Cytolytic γδ T-cells and IFNγ-producing CD4-lymphocytes characterise the early response to MTBVAC tuberculosis vaccine",2025-03-27,FALSE,"SRP509748"
 "GSE249243","Single-cell transcriptomic analysis identified resistant MDSCs and a stress-tolerant gene co-expression network as common MDSC features across multiple disease settings",2025-03-25,FALSE,NA
 "GSE248954","Single-cell transcriptomic analysis identified resistant MDSCs and a stress-tolerant gene co-expression network as common MDSC features across multiple disease settings",2025-03-25,FALSE,"SRP474932"
 "GSE290141","Immune Evasion Mechanisms in Early Stage-I High-Grade Serous Ovarian Carcinoma: Insights into Regulatory T-Cell Dynamics",2025-03-23,FALSE,"SRP565352"
 "GSE231948","Gene expression profile at single cell level of ferret peripheral blood mononuclear cell (PBMC) and splenocyte samples",2025-03-18,FALSE,"SRP436511"
-"GSE212704","Humanized Mouse Model Reveals T-Cell ANXA2 as a Potential Therapeutic Target in Ischemic Stroke",2025-03-17,FALSE,"SRP395694"
 "GSE290112","Concurrent loss of the Y chromosome in cancer and T cells impacts outcome [scRNA-seq MB49]",2025-03-17,FALSE,"SRP565318"
+"GSE212704","Humanized Mouse Model Reveals T-Cell ANXA2 as a Potential Therapeutic Target in Ischemic Stroke",2025-03-17,FALSE,"SRP395694"
 "GSE249974","Anti-VEGF treatment enhances antitumor responses by targeting regulatory T cells",2025-03-13,FALSE,"SRP477552"
-"GSE274643","Hyperleukocytosis in a neuroblastoma patient after treatment with natural killer T cells expressing a GD2-specific chimeric antigen receptor and IL15",2025-03-12,FALSE,"SRP525917"
 "GSE270142","Activated polyreactive B cells are clonally expanded in autoantibody positive and patients with recentonset type 1 diabetes",2025-03-12,FALSE,"SRP514583"
+"GSE274643","Hyperleukocytosis in a neuroblastoma patient after treatment with natural killer T cells expressing a GD2-specific chimeric antigen receptor and IL15",2025-03-12,FALSE,"SRP525917"
 "GSE291758","Comparison of 3' GEM-X and PIPseq V on human immune cells",2025-03-11,FALSE,"SRP569884"
-"GSE226648","The immune landscape of the “deregulated host response” in sepsis: newly emerging MDSCs with high expression of CD47 leads to B cell suppression via App-CD74 signaling [scRNA-seq]",2025-03-11,FALSE,"SRP425657"
 "GSE222996","The immune landscape of the “deregulated host response” in sepsis: newly emerging MDSCs with high expression of CD47 leads to B cell suppression via App-CD74 signaling [RNA-seq]",2025-03-11,FALSE,"SRP417818"
+"GSE226648","The immune landscape of the “deregulated host response” in sepsis: newly emerging MDSCs with high expression of CD47 leads to B cell suppression via App-CD74 signaling [scRNA-seq]",2025-03-11,FALSE,"SRP425657"
 "GSE291681","The saponin monophosphoryl lipid A nanoparticle adjuvant induces dose-dependent HIV vaccine responses in non-human primates",2025-03-10,FALSE,"SRP569659"
 "GSE290587","Concurrent loss of the Y chromosome in cancer and T cells impacts outcome [scRNA-seq]",2025-03-09,FALSE,"SRP566533"
 "GSE220071","Characterization of chicken peripheral blood mononuclear cells (PBMCs) during prime vaccinations at single-cell resolution",2025-03-04,FALSE,"SRP411327"
@@ -174,8 +174,8 @@
 "GSE196796","The transcriptomic landscape of pediatrics with dengue virus infection reveals the severity-dependent immune response",2025-02-13,FALSE,"SRP359991"
 "GSE255566","Single-cell RNA sequencing of peripheral blood mononuclear cells reveals complex cellular signalling signatures of type 2 diabetes mellitus",2025-02-11,FALSE,"SRP489304"
 "GSE288581","Single Cell Immune Profiling in Ankylosing Spondylitis Reveals Resistance of CD8+ T cells to Immune Exhaustion",2025-02-05,FALSE,"SRP561214"
-"GSE282793","Comprehensive Single-Cell Chromatin and Transcriptomic Profiling of Peripheral Immune Cells in Non-Segmental Vitiligo",2025-02-04,FALSE,"SRP547482"
 "GSE190905","Single-cell RNA and TCR sequencing reveals distinct systematic immune response induced by SABR with or without prior anti-PD-1 therapy",2025-02-04,FALSE,"SRP350787"
+"GSE282793","Comprehensive Single-Cell Chromatin and Transcriptomic Profiling of Peripheral Immune Cells in Non-Segmental Vitiligo",2025-02-04,FALSE,"SRP547482"
 "GSE256089","scRNA-seq analyses of HTO-tagged human peripheral blood mononuclear cells collected at the ART timepoint during HIV-1 disease",2025-01-28,FALSE,"SRP490396"
 "GSE252383","Genetic background and aging-driven neuroimmune and disc changes underscore herniation susceptibility and pain-associated behaviors in SM/J mice",2025-01-22,FALSE,NA
 "GSE287541","Transcriptomic and proteomic characterization of cell and protein biomarkers of checkpoint inhibitor-induced liver injury [scRNA-seq]",2025-01-21,FALSE,"SRP558677"
@@ -188,21 +188,21 @@
 "GSE270738","The immune profile of circulating autoreactive CD4 T cells is imprinted through tissue activation during autoimmune liver diseases (TTm)",2024-12-18,FALSE,"SRP516029"
 "GSE272294","Decoding the immune checkpoint signatures in human atherosclerosis: implications of type 2 diabetes and lipid-lowering intervention [human PBMC scRNA-Seq]",2024-12-17,FALSE,"SRP520022"
 "GSE248556","Single-cell transcriptome of PBMC response to Omicron breakthrough infection",2024-12-17,FALSE,"SRP474023"
-"GSE264196","A 50-gene high-risk profile predictive of COVID-19 and Idiopathic Pulmonary Fibrosis mortality originates from a molecular imbalance in monocyte and T-cell subsets that reverses in survivors with post-COVID-19 Interstitial Lung Disease",2024-12-04,FALSE,"SRP502307"
 "GSE283471","The core cellular network modulates immune phenotype switching in hepatitis B",2024-12-04,FALSE,NA
+"GSE264196","A 50-gene high-risk profile predictive of COVID-19 and Idiopathic Pulmonary Fibrosis mortality originates from a molecular imbalance in monocyte and T-cell subsets that reverses in survivors with post-COVID-19 Interstitial Lung Disease",2024-12-04,FALSE,"SRP502307"
 "GSE221199","Single cell transcriptomic profiling of human CD19+ B cells enriched for CD5+ Innate-like B cells",2024-12-03,FALSE,"SRP413490"
 "GSE220297","Single-cell transcriptomic analysis reveals transcriptional and cell subpopulation differences between human and pig immune cells",2024-11-30,FALSE,"SRP411810"
-"GSE278405","Phenotypic plasticity and increased tissue infiltration of TREM1+ mono-macrophages following radiotherapy in rectal cancer. [RNA-Seq]",2024-11-19,FALSE,NA
 "GSE278406","Phenotypic plasticity and increased tissue infiltration of TREM1+ mono-macrophages following radiotherapy in rectal cancer. [scRNA-Seq]",2024-11-19,FALSE,NA
+"GSE278405","Phenotypic plasticity and increased tissue infiltration of TREM1+ mono-macrophages following radiotherapy in rectal cancer. [RNA-Seq]",2024-11-19,FALSE,NA
 "GSE228759","RSK1 is an exploitable dependency in myeloid malignancies [scRNA-seq]",2024-11-13,FALSE,"SRP430506"
-"GSE273017","A novel method for characterizing cell-cell interactions at single-cell resolution reveals unique immune signatures in blood T cell-monocyte complexes during infection (Dengue scRNA-Seq)",2024-11-05,FALSE,NA
 "GSE273015","A novel method for characterizing cell-cell interactions at single-cell resolution reveals unique immune signatures in blood T cell-monocyte complexes during infection (ATB scRNA-Seq)",2024-11-05,FALSE,NA
+"GSE273017","A novel method for characterizing cell-cell interactions at single-cell resolution reveals unique immune signatures in blood T cell-monocyte complexes during infection (Dengue scRNA-Seq)",2024-11-05,FALSE,NA
 "GSE280147","Gene expression profile of patient with biallelic BRF2 mutation",2024-11-04,FALSE,NA
 "GSE253568","Regulatory T cells and IFN-γ-producing Th1 cells play a critical role in the pathogenesis of Sjögren’s Syndrome",2024-11-03,FALSE,"SRP484553"
 "GSE280632","3D hydrogel culture system for generation of fibrosis-associated macrophages",2024-11-02,FALSE,"SRP541926"
 "GSE274826","Hyperglycemia-triggered lipid peroxidation destabilizes STAT4 and impairs anti-viral Th1 responses in type 2 diabetes",2024-11-01,FALSE,"SRP526400"
-"GSE280401","Deciphering the Transcriptomic Landscape of Type 2 Diabetes: Insights from Bulk RNA Sequencing and Single-Cell Analysis [scRNA-seq]",2024-10-29,FALSE,"SRP541456"
 "GSE280402","Deciphering the Transcriptomic Landscape of Type 2 Diabetes: Insights from Bulk RNA Sequencing and Single-Cell Analysis [RNA-seq]",2024-10-29,FALSE,"SRP541458"
+"GSE280401","Deciphering the Transcriptomic Landscape of Type 2 Diabetes: Insights from Bulk RNA Sequencing and Single-Cell Analysis [scRNA-seq]",2024-10-29,FALSE,"SRP541456"
 "GSE273224","Development of activation-induced marker assay to identify HCV-specific T cells for single-cell RNA-seq analysis.",2024-10-29,FALSE,"SRP522492"
 "GSE273350","MobiChIP: a compatible library construction method of single-cell ChIP-seq based droplets",2024-10-26,FALSE,"SRP522831"
 "GSE279945","OP3: single-cell multimodal dataset in PBMCs for perturbation prediction benchmarking",2024-10-21,FALSE,NA
@@ -222,18 +222,18 @@
 "GSE274561","Gene expression profile at single cell level of PBMC from HFD/STZ-induced type 2 diabetic mice",2024-08-14,FALSE,"SRP526273"
 "GSE210433","TET2 Mutant Clonal Hematopoiesis Enhances Severity of COVID-19 Related Cytokine Release Syndrome and is Associated with Increased Mortality [scRNA-seq]",2024-08-13,FALSE,"SRP389703"
 "GSE273170","Baseline Immune State and T cell Clonal Kinetics are Associated with Response to CAR-T Therapy in Large B-cell Lymphoma",2024-08-11,FALSE,NA
-"GSE210395","Mapping the heterogeneity of pDCs and Monocytes of systemic sclerosis at single cell level [scRNA-seq]",2024-08-09,FALSE,"SRP389629"
 "GSE274381","The significance of CD16+ monocytes in the occurrence and development of Chronic Thromboembolic Pulmonary Hypertension: insights from single-cell RNA sequencing",2024-08-09,FALSE,"SRP525323"
+"GSE210395","Mapping the heterogeneity of pDCs and Monocytes of systemic sclerosis at single cell level [scRNA-seq]",2024-08-09,FALSE,"SRP389629"
 "GSE255381","Gene expression profile at single cell level of T cells from PBMC",2024-08-07,FALSE,"SRP488986"
 "GSE244793","AS01-adjuvanted vaccine promotes functional and epigenetic modifications in monocytes [scRNA-seq]",2024-07-30,FALSE,NA
 "GSE256291","Comparing transcriptional profiles of CD14+  monocytes from melanoma patients and healthy donors by scRNA-seq.",2024-07-18,FALSE,"SRP490860"
-"GSE237790","Novel Long Noncoding RNA HEAT4 Affects Monocyte Subtypes, Reducing Inflammation and Promoting Vascular Healing [scRNA-seq]",2024-07-14,FALSE,"SRP450426"
 "GSE267644","Novel Long Noncoding RNA HEAT4 Affects Monocyte Subtypes, Reducing Inflammation and Promoting Vascular Healing [scRNA-seq HF]",2024-07-14,FALSE,"SRP508088"
+"GSE237790","Novel Long Noncoding RNA HEAT4 Affects Monocyte Subtypes, Reducing Inflammation and Promoting Vascular Healing [scRNA-seq]",2024-07-14,FALSE,"SRP450426"
 "GSE156459","RNA-sequencing of peripheral blood in FOP patients",2024-06-30,FALSE,"SRP278064"
-"GSE156464","Single cell RNA-sequencing of PBMCs in FOP patients",2024-06-30,FALSE,"SRP278067"
 "GSE233290","Biomimetic Cell Stimulation with Graphene Oxide Antigen Presenting Platform (GO-APP) for Developing T Cell-Based Therapies [scRNA-Seq]",2024-06-30,FALSE,"SRP439570"
-"GSE257541","Cellular dynamics of pig-to-human kdiney xenotransplantation [RNA-seq]",2024-06-29,FALSE,"SRP491593"
+"GSE156464","Single cell RNA-sequencing of PBMCs in FOP patients",2024-06-30,FALSE,"SRP278067"
 "GSE257542","Cellular dynamics of pig-to-human kdiney xenotransplantation [single cell RNA-seq]",2024-06-29,FALSE,"SRP491592"
+"GSE257541","Cellular dynamics of pig-to-human kdiney xenotransplantation [RNA-seq]",2024-06-29,FALSE,"SRP491593"
 "GSE218131","Oligoclonal CD4+CXCR5+ T cells with a cytotoxic phenotype in tonsils and blood",2024-06-23,FALSE,NA
 "GSE228597","Immunologic drivers of immune checkpoint inhibitor therapy myocarditis, fatality and anti-tumor response in cancer patients",2024-06-21,FALSE,NA
 "GSE266541","Gene expression profile at single cell level of primary regulatory T cells(CD25+CD127- Treg), primary induced regulatory T cells(iTreg), and AMRT treated iPSC-derived CD4+ T cells (iCD4+Treg-like)",2024-06-15,FALSE,"SRP505580"
@@ -257,34 +257,34 @@
 "GSE214283","Single-cell transcriptomics of the immune system in ME/CFS at baseline and following symptom provocation",2024-01-15,FALSE,"SRP399879"
 "GSE244870","TGF-beta blockade drives a transitional effector phenotype in T cells reversing SIV latency and decreasing SIV reservoirs in vivo [scRNA-seq]",2024-01-07,FALSE,"SRP465012"
 "GSE218310","scGR-seq: simulatenous profiling of glycomic and transcriptomic in single cell [scRNA-Seq]",2024-01-03,FALSE,"SRP408599"
-"GSE226572","Single-cell RNA-sequencing of PBMCs from SAVI patients reveals disease-associated monocytes with elevated integrated stress response I",2023-12-31,FALSE,"SRP425536"
-"GSE244663","HA-1-targeted T cell receptor (TCR) T cell therapy for recurrent leukemia after hematopoietic stem cell transplantation: results from a phase I clinical trial.",2023-12-31,FALSE,"SRP464545"
-"GSE226598","Single-cell RNA-sequencing of PBMCs from SAVI patients reveals disease-associated monocytes with elevated integrated stress response II",2023-12-31,FALSE,"SRP425539"
 "GSE244589","Multiomic Profiling Reveals Metabolic Alterations Mediating Aberrant Platelet Activity and Inflammation in Myeloproliferative Neoplasms [scRNA-Seq]",2023-12-31,FALSE,"SRP464411"
-"GSE239501","Monocytes in Type 1 diabetes families exhibit high cytolytic activity and subset abundances that correlate with clinical progression",2023-12-31,FALSE,"SRP451950"
 "GSE229173","Comparative analysis of peripheral blood immunoinflammatory landscapes in patients with acute cholangitis and its secondary septic shock using single-cell RNA sequencing",2023-12-31,FALSE,"SRP431477"
+"GSE226572","Single-cell RNA-sequencing of PBMCs from SAVI patients reveals disease-associated monocytes with elevated integrated stress response I",2023-12-31,FALSE,"SRP425536"
+"GSE226598","Single-cell RNA-sequencing of PBMCs from SAVI patients reveals disease-associated monocytes with elevated integrated stress response II",2023-12-31,FALSE,"SRP425539"
+"GSE239501","Monocytes in Type 1 diabetes families exhibit high cytolytic activity and subset abundances that correlate with clinical progression",2023-12-31,FALSE,"SRP451950"
 "GSE232131","T-cell instructed monocyte activation is a key pathological feature in Ankylosing Spondylitis and provides novel therapeutic opportunities",2023-12-31,FALSE,"SRP436827"
+"GSE244663","HA-1-targeted T cell receptor (TCR) T cell therapy for recurrent leukemia after hematopoietic stem cell transplantation: results from a phase I clinical trial.",2023-12-31,FALSE,"SRP464545"
 "GSE244515","Uncovering systemic immunological modification by type 2 diabetes mellitus in periodontitis patients via single-cell RNA analysis",2023-12-19,FALSE,"SRP464287"
 "GSE229856","Characterization of CD8+ T cells in immune-privileged organs of ZIKV-infected Ifnar1-/- mice",2023-12-10,FALSE,"SRP432948"
 "GSE237780","Generation of antigen-specific mature T cells from RAG1−/−RAG2−/−B2M−/− stem cells by engineering their microenvironment",2023-12-06,FALSE,"SRP450520"
-"GSE248788","Discovering Molecular Signatures in ATMR: Single-cell RNA Sequencing Analysis of Human Blood and Tissue Spatial Transcriptomics [scRNA-seq]",2023-12-02,FALSE,"SRP474789"
 "GSE248787","Discovering Molecular Signatures in ATMR: Single-cell RNA Sequencing Analysis of Human Blood and Tissue Spatial Transcriptomics [Spatial Transcriptomics]",2023-12-02,FALSE,"SRP474738"
+"GSE248788","Discovering Molecular Signatures in ATMR: Single-cell RNA Sequencing Analysis of Human Blood and Tissue Spatial Transcriptomics [scRNA-seq]",2023-12-02,FALSE,"SRP474789"
 "GSE243665","A single cell RNAseq benchmark experiment embedding ""controlled"" cancer heterogeneity",2023-12-01,FALSE,"SRP462078"
 "GSE226557","The SENSE (Simple prEservatioN of Single cElls) method for cryopreservation enables the generation of single-cell immune profiles from whole blood.",2023-11-27,FALSE,NA
 "GSE236099","Identifying immune signatures of sepsis in very preterm babies",2023-11-22,FALSE,"SRP446490"
 "GSE197543","Single-cell characterization of human glioblastoma reveals regional differences in tumor-infiltrating leukocyte activation",2023-11-20,FALSE,NA
-"GSE247277","Distinct baseline immune characteristics associated with responses to conjugated and unconjugated pneumococcal polysaccharide vaccines in older adults [scRNA-seq]",2023-11-07,FALSE,NA
-"GSE235499","Enhancing sensitivity and versatility of Tn5-based single cell omics II",2023-11-07,FALSE,NA
-"GSE235502","Enhancing sensitivity and versatility of Tn5-based single cell omics IV",2023-11-07,FALSE,NA
 "GSE235501","Enhancing sensitivity and versatility of Tn5-based single cell omics III",2023-11-07,FALSE,NA
+"GSE235502","Enhancing sensitivity and versatility of Tn5-based single cell omics IV",2023-11-07,FALSE,NA
+"GSE235499","Enhancing sensitivity and versatility of Tn5-based single cell omics II",2023-11-07,FALSE,NA
+"GSE247277","Distinct baseline immune characteristics associated with responses to conjugated and unconjugated pneumococcal polysaccharide vaccines in older adults [scRNA-seq]",2023-11-07,FALSE,NA
 "GSE231794","Single-Cell Transcriptomics Reveals Peripheral Immune Responses in Non-Segmental Vitiligo",2023-11-06,FALSE,"SRP436189"
 "GSE187438","Factors contributing to Chimeric Antigen Receptor T-cell Therapy efficacy in pediatric oncology patients",2023-11-01,FALSE,"SRP344391"
 "GSE215915","Multiomic chromatin accessibility and gene expression in peripheral blood predicts future decompensation in hospitalized adults with COVID-19",2023-10-16,FALSE,"SRP403053"
 "GSE237254","Early-to-mid stage idiopathic Parkinson’s disease shows enhanced cytotoxicity and differentiation in CD8 T-cells in females",2023-10-12,FALSE,"SRP449333"
 "GSE239799","Single-cell mulitome (paired scRNA-seq + scATAC-seq) analysis of PBMCs from infants and young children during COVID-19 infection",2023-10-11,FALSE,"SRP452618"
 "GSE237579","Dendritic Cell Vaccination in Conjunction with TLR Agonist Polarizes Interferon Immune Responses Associated with Long-term Survival in Malignant Glioma Patients [scRNA-seq]",2023-10-10,FALSE,"SRP449942"
-"GSE237562","Dendritic Cell Vaccination in Conjunction with TLR Agonist Polarizes Interferon Immune Responses Associated with Long-term Survival in Malignant Glioma Patients [Bulk RNA-seq]",2023-10-10,FALSE,"SRP449924"
 "GSE189050","Molecular Dissection of Disease Heterogeneity in SLE",2023-10-10,FALSE,"SRP346610"
+"GSE237562","Dendritic Cell Vaccination in Conjunction with TLR Agonist Polarizes Interferon Immune Responses Associated with Long-term Survival in Malignant Glioma Patients [Bulk RNA-seq]",2023-10-10,FALSE,"SRP449924"
 "GSE239626","CITE-seq reveals inhibition of NF-kB pathway in B cells from vitamin D-treated multiple sclerosis patients",2023-10-04,FALSE,"SRP452470"
 "GSE241834","COSMOS: A Platform for real-time morphology-based, label-free cell sorting using deep learning (scRNA-Seq)",2023-09-24,FALSE,"SRP457334"
 "GSE243629","A single-cell atlas of the peripheral immune response in patients with influenza A virus infection",2023-09-20,FALSE,"SRP462008"
@@ -308,9 +308,9 @@
 "GSE228763","Gene expression profile at single cell level of virus-specific CD8+ T cells in subjects with past or current HCV infection.",2023-06-07,FALSE,"SRP430510"
 "GSE217561","Single-Cell RNA sequencing reveals blood immune features of gout remission patients with monosodium urate crystal deposition.",2023-05-31,FALSE,"SRP406906"
 "GSE194028","Systematic benchmarking of single-cell ATAC sequencing protocols",2023-05-21,FALSE,"SRP355864"
-"GSE220188","Mapping disease-associated regulatory circuits by cell type from single-cell multiomics data (S. aureus scATAC-seq)",2023-05-18,FALSE,"SRP411629"
 "GSE222548","Mapping disease-associated regulatory circuits by cell type from single-cell multiomics data (COVID-19 scATAC-seq)",2023-05-18,FALSE,NA
 "GSE220189","Mapping disease-associated regulatory circuits by cell type from single-cell multiomics data (S. aureus scRNA-seq)",2023-05-18,FALSE,"SRP411630"
+"GSE220188","Mapping disease-associated regulatory circuits by cell type from single-cell multiomics data (S. aureus scATAC-seq)",2023-05-18,FALSE,"SRP411629"
 "GSE232186","Single cell transcriptomics reveals cell type specific features of developmentally regulated responses to lipopolysaccharide between birth and 5 years",2023-05-17,FALSE,NA
 "GSE207475","Transcriptomic profile at single cell level of Age-associated B cells (ABCs) from individuals with different health conditions",2023-04-16,FALSE,"SRP385336"
 "GSE207633","Single-cell RNA-Seq resolves phenotypically heterogeneous subtypes in systemic juvenile idiopathic arthritis (SJIA)",2023-04-11,FALSE,NA
@@ -319,8 +319,8 @@
 "GSE218208","RevGel-seq: instrument-free single-cell RNA sequencing using a reversible hydrogel for cell-specific barcoding [PBMC_perf_10X]",2023-03-28,FALSE,"SRP408438"
 "GSE218355","Canine peripheral blood TCRαβ T cell atlas: Identification of diverse subsets including CD8+ MAIT-like cells by combined single-cell transcriptome and V(D)J repertoire analysis",2023-02-28,FALSE,"SRP408663"
 "GSE194072","Re-generation of cytotoxic γδT cells with distinctive signatures from human γδT-derived iPSCs",2023-02-23,FALSE,"SRP355983"
-"GSE205607","Single-cell RNA-seq analysis identifies distinct myeloid cells in COVID19 vaccination- associated encephalitis (set 2)",2023-02-19,FALSE,"SRP378917"
 "GSE205606","Single-cell RNA-seq analysis identifies distinct myeloid cells in COVID19 vaccination- associated encephalitis (set 1)",2023-02-19,FALSE,"SRP378915"
+"GSE205607","Single-cell RNA-seq analysis identifies distinct myeloid cells in COVID19 vaccination- associated encephalitis (set 2)",2023-02-19,FALSE,"SRP378917"
 "GSE201704","Oligoclonal T-cell expansion in a patient with bone marrow failure after CD19 CAR-T for Richter transformed DLBCL",2023-01-28,FALSE,"SRP372517"
 "GSE220969","Global and cell type-specific immunological hallmarks of severe dengue progression",2023-01-15,FALSE,"SRP413084"
 "GSE216488","Human IRF1 governs phagocytic IFN-γ immunity to mycobacteria but not cell-intrinsic IFN-a/b immunity to viruses [CITEseq]",2023-01-11,FALSE,"SRP404459"
@@ -343,8 +343,8 @@
 "GSE214633","A flexible model for correlated count data, with application to analysis of gene expression differences in multi-condition experiments",2022-10-04,FALSE,"SRP400699"
 "GSE214240","Progenitor like cell type of an MLL-EDC4 fusion in acute myeloid leukemia",2022-09-28,FALSE,NA
 "GSE213282","Titration of 124 antibodies using CITE-Seq on human PBMCs",2022-09-17,FALSE,"SRP396978"
-"GSE200083","Single cell transcriptional profile of SC-islet grafts in an in vivo humanized model [scRNA-seq_invivo]",2022-08-31,FALSE,"SRP367369"
 "GSE200084","Immune challenged SC-islets first response profiled by single cell transcription analysis after co-culture with human allogeneic PBMCs [scRNA-seq_invitro]",2022-08-31,FALSE,"SRP367368"
+"GSE200083","Single cell transcriptional profile of SC-islet grafts in an in vivo humanized model [scRNA-seq_invivo]",2022-08-31,FALSE,"SRP367369"
 "GSE211803","The immunogenicity of human kidney organoids",2022-08-24,FALSE,"SRP393442"
 "GSE196388","Porcine intestinal innate lymphoid cells and lymphocyte spatial context revealed through single-cell RNA sequencing",2022-08-18,FALSE,NA
 "GSE210132","The NALCN channel regulates metastasis and non-malignant cell dissemination (scRNA-Seq)",2022-08-05,FALSE,"SRP388900"
@@ -352,22 +352,22 @@
 "GSE208337","Elevated Myl9 reflects the Myl9-containing microthrombi in SARS-CoV-2-induced exudative vasculitis and predicts COVID-19 severity",2022-07-20,FALSE,"SRP386774"
 "GSE180045","Identification of Pathogenic Immune Cell Subsets in Checkpoint Inhibitor-induced Myocarditis",2022-06-28,FALSE,"SRP328212"
 "GSE202548","Activated-memory T cells influence naïve T cell fate: A non-cytotoxic function of human CD8 T cells",2022-06-28,FALSE,"SRP374358"
-"GSE178429","Multi-omics gene regulatory network analysis of resting and stimulated PBMCs [stimulation scRNA-seq]",2022-06-19,FALSE,"SRP324544"
 "GSE178428","Multi-omics gene regulatory network analysis of resting and stimulated PBMCs [scATAC-seq]",2022-06-19,FALSE,"SRP324531"
+"GSE178429","Multi-omics gene regulatory network analysis of resting and stimulated PBMCs [stimulation scRNA-seq]",2022-06-19,FALSE,"SRP324544"
 "GSE178430","Multi-omics gene regulatory network analysis of resting and stimulated PBMCs [PBMC isolate scRNA-seq]",2022-06-19,FALSE,"SRP324543"
 "GSE206283","Differential chromatin accessibility in peripheral blood mononuclear cells underlies COVID-19 disease severity prior to seroconversion [scRNA-Seq]",2022-06-18,FALSE,"SRP382068"
 "GSE169441","Immune responses to Coronavirus disease-19 with Thymosin α 1 intervention: an observational cohort study",2022-06-07,FALSE,"SRP311819"
 "GSE185856","Single-cell analysis implicates Th17 to Th2 cell plasticity in the pathogenesis of palmoplantar pustulosis [RNA-Seq]",2022-05-30,FALSE,"SRP341239"
-"GSE185857","Single-cell analysis implicates Th17 to Th2 cell plasticity in the pathogenesis of palmoplantar pustulosis [scRNA-Seq]",2022-05-30,FALSE,"SRP341415"
 "GSE197452","Single cell RNA-seq by mostly-natural sequencing by synthesis",2022-05-30,FALSE,"SRP361502"
+"GSE185857","Single-cell analysis implicates Th17 to Th2 cell plasticity in the pathogenesis of palmoplantar pustulosis [scRNA-Seq]",2022-05-30,FALSE,"SRP341415"
 "GSE204688","Gene expression profile at single cell level of two TDT patients' PBMCs after gene editing treatment.",2022-05-28,FALSE,NA
 "GSE203406","Proximal tubule cells in blood and urine have potential as biomarkers for kidney disease biopsies",2022-05-22,FALSE,"SRP376181"
 "GSE201534","Heterologous ChAdOx1-BNT162b2 vaccination in a Korean cohort induces a robust genetic immune and antibody response that includes Omicron [scRNA-seq]",2022-05-19,FALSE,"SRP372296"
 "GSE201533","Heterologous ChAdOx1-BNT162b2 vaccination in a Korean cohort induces a robust genetic immune and antibody response that includes Omicron [RNA_seq]",2022-05-19,FALSE,"SRP372293"
 "GSE180697","A dynamic single cell-based framework for digital twins to prioritize disease genes and drug targets",2022-04-11,FALSE,"SRP329601"
 "GSE179886","Endothelial-immune crosstalk contributes to vasculopathy in nonalcoholic fatty liver disease",2022-04-10,FALSE,"SRP327859"
-"GSE196735","Single-cell eQTL mapping identifies cell type specific genetic control of autoimmune disease [scRNAseq_data]",2022-04-07,FALSE,"SRP359840"
 "GSE195956","WAT3R: Recovery of T-Cell Receptor Variable Regions From 3’ Single-Cell RNA-Sequencing",2022-04-07,FALSE,"SRP357799"
+"GSE196735","Single-cell eQTL mapping identifies cell type specific genetic control of autoimmune disease [scRNAseq_data]",2022-04-07,FALSE,"SRP359840"
 "GSE196829","Single-cell eQTL mapping identifies cell type specific genetic control of autoimmune disease [Genotype_data]",2022-04-07,FALSE,NA
 "GSE200107","Single-Cell immunoprofiling after immunotherapy for allergic rhinitis reveals functional suppression of pathogenic Th2 cells and clonal conversion",2022-04-06,FALSE,"SRP367445"
 "GSE198528","Enhanced recovery of single-cell RNA-sequencing reads for missing gene expression data",2022-04-04,FALSE,"SRP363859"
@@ -375,8 +375,8 @@
 "GSE195965","Single-cell sequencing of mouse peripheral blood mononuclear cells",2022-02-09,FALSE,"SRP357833"
 "GSE166245","Single-cell RNA analyses of cattle PBMC",2022-01-31,FALSE,"SRP304880"
 "GSE188620","Next Generation Sequencing Facilitates Quantitative Analysis of Transcriptomes and TCR repertoire in vaccinated PBMCs and tumors",2022-01-31,FALSE,"SRP345641"
-"GSE189126","T cell characteristics associated with toxicity to immune checkpoint blockade in patients with melanoma [BCR and TCR scRNA-Seq]",2022-01-12,FALSE,NA
 "GSE189125","T cell characteristics associated with toxicity to immune checkpoint blockade in patients with melanoma [scRNA-Seq]",2022-01-12,FALSE,NA
+"GSE189126","T cell characteristics associated with toxicity to immune checkpoint blockade in patients with melanoma [BCR and TCR scRNA-Seq]",2022-01-12,FALSE,NA
 "GSE190329","Single-cell Transcriptome Analysis of Chronic Antibody-mediated Rejection after Renal Transplantation",2022-01-11,FALSE,"SRP386500"
 "GSE192708","Well-paired-seq: a Size-exclusion and Locally Quasi-static Hydrodynamic Microwell Chip for Single-cell RNA-seq",2022-01-03,FALSE,"SRP352734"
 "GSE167377","From nasal to basal: Single-cell sequence illustrates the winding infection route for IBDV and its influence on bursal cells",2021-12-22,FALSE,"SRP307805"
@@ -403,10 +403,10 @@
 "GSE144744","Identifying CNS-colonizing T cells as potential therapeutic targets to prevent progression of multiple sclerosis",2021-02-15,FALSE,NA
 "GSE148416","Single cell resolution landscape of equine peripheral blood mononuclear cells reveals diverse immune cell subtypes including T-bet+ B cells",2021-01-24,FALSE,"SRP255906"
 "GSE157278","Single-cell RNA Sequencing reveals the expansion of Cytotoxic CD4+ T lymphocytes and the heterogeneity of pathogenesis in primary Sjögren’s syndrome patients",2021-01-14,FALSE,"SRP279609"
-"GSE161329","No detectable alloreactive transcriptional responses under standard sample preparation conditions during donor-multiplexed single-cell RNA sequencing of peripheral blood mononuclear cells",2020-11-12,FALSE,"SRP292300"
 "GSE147928","Characterisation of CD4+ T-cell subtypes using single cell RNA sequencing and the impact of cell number and sequencing depth",2020-11-12,FALSE,"SRP254926"
-"GSE159113","Single cell RNA-seq for LPS-treated human monocytes",2020-11-09,FALSE,"SRP286550"
+"GSE161329","No detectable alloreactive transcriptional responses under standard sample preparation conditions during donor-multiplexed single-cell RNA sequencing of peripheral blood mononuclear cells",2020-11-12,FALSE,"SRP292300"
 "GSE159117","Single cell RNA-seq for PBMC from rheumatoid arthritis patient",2020-11-09,FALSE,"SRP286551"
+"GSE159113","Single cell RNA-seq for LPS-treated human monocytes",2020-11-09,FALSE,"SRP286550"
 "GSE151310","Single-cell transcriptomic sequencing of BCMA CAR-T cells during CAR-T therapy in refractory primary plasma cell leukemia",2020-09-30,FALSE,"SRP264992"
 "GSE150672","Highly Efficient, Massively-Parallel Single-Cell RNA-Seq Reveals Cellular States and Molecular Features of Human Skin Pathology",2020-09-29,FALSE,"SRP273339"
 "GSE158440","Single-cell profiling of Ebola virus infection in vivo reveals viral and host transcriptional dynamics (ExVivo scRNA-seq)",2020-09-22,FALSE,"SRP285115"
@@ -421,25 +421,25 @@
 "GSE125188","Single-cell RNA sequencing reveals the heterogeneity of liver-resident immune cells in human",2020-03-31,FALSE,"SRP179761"
 "GSE141105","Bulk and single cell transcriptomic data indicate that a dichotomy between inflammatory pathways in peripheral blood and arthritic joints complicates biomarker discovery",2020-01-09,FALSE,"SRP233489"
 "GSE142016","Transcriptomic, epigenetic and functional analyses implicate neutrophil diversity in the pathogenesis of systemic lupus erythematosus [scRNA-seq]",2019-12-12,FALSE,"SRP237539"
-"GSE133544","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (gmSCRB-seq)",2019-12-09,FALSE,"SRP212646"
+"GSE133537","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (C1HT)",2019-12-09,FALSE,"SRP212639"
+"GSE133548","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (inDrop)",2019-12-09,FALSE,"SRP212651"
+"GSE133538","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects  (C1HT small)",2019-12-09,FALSE,"SRP212640"
 "GSE133540","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (DROP-Seq)",2019-12-09,FALSE,"SRP212642"
-"GSE141469","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (10 X V3)",2019-12-09,FALSE,"SRP234722"
-"GSE133536","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (10X 8x 10K cells 25K reads)",2019-12-09,FALSE,"SRP212638"
-"GSE133543","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (QUARTZ-Seq2)",2019-12-09,FALSE,"SRP212645"
-"GSE133545","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (SMART-Se2q)",2019-12-09,FALSE,"SRP212647"
 "GSE133541","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects  (ICELL8)",2019-12-09,FALSE,"SRP212643"
+"GSE133539","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (CEL-Seq2)",2019-12-09,FALSE,"SRP212641"
+"GSE141469","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (10 X V3)",2019-12-09,FALSE,"SRP234722"
+"GSE133542","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (MARS-Seq)",2019-12-09,FALSE,"SRP212644"
+"GSE133543","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (QUARTZ-Seq2)",2019-12-09,FALSE,"SRP212645"
+"GSE133535","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (10X 2x 5K cells 250K reads)",2019-12-09,FALSE,"SRP212637"
+"GSE133536","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (10X 8x 10K cells 25K reads)",2019-12-09,FALSE,"SRP212638"
+"GSE133544","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (gmSCRB-seq)",2019-12-09,FALSE,"SRP212646"
+"GSE133545","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (SMART-Se2q)",2019-12-09,FALSE,"SRP212647"
 "GSE133546","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (SingleNuclei)",2019-12-09,FALSE,"SRP212648"
 "GSE133547","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (ddSEQ)",2019-12-09,FALSE,"SRP212649"
-"GSE133548","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (inDrop)",2019-12-09,FALSE,"SRP212651"
-"GSE133535","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (10X 2x 5K cells 250K reads)",2019-12-09,FALSE,"SRP212637"
-"GSE133537","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (C1HT)",2019-12-09,FALSE,"SRP212639"
-"GSE133538","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects  (C1HT small)",2019-12-09,FALSE,"SRP212640"
-"GSE133539","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (CEL-Seq2)",2019-12-09,FALSE,"SRP212641"
-"GSE133542","Benchmarking Single-Cell RNA Sequencing Protocols for Cell Atlas Projects (MARS-Seq)",2019-12-09,FALSE,"SRP212644"
-"GSE128626","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [sorted population Bulk RNA-seq]",2019-06-06,FALSE,"SRP188982"
-"GSE128627","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [WB/PBMCs bulk RNA-seq]",2019-06-06,FALSE,"SRP188983"
-"GSE122083","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [scRNA-seq ind.1]",2019-06-06,FALSE,"SRP167690"
 "GSE122058","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [WT/TLR10 bulk RNA-seq]",2019-06-06,FALSE,"SRP167434"
+"GSE122083","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [scRNA-seq ind.1]",2019-06-06,FALSE,"SRP167690"
+"GSE128627","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [WB/PBMCs bulk RNA-seq]",2019-06-06,FALSE,"SRP188983"
+"GSE128626","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [sorted population Bulk RNA-seq]",2019-06-06,FALSE,"SRP188982"
 "GSE132300","Prediction of bacterial infection outcome using single cell RNA-seq analysis of human immune cells [scRNA-seq ind. 2]",2019-06-06,FALSE,"SRP200654"
 "GSE128639","Comprehensive integration of single-cell data",2019-06-05,FALSE,"SRP188993"
 "GSE129112","scRNA-seq analysis of the dual expressors, B cells and T cells of a diabetes patient",2019-06-01,FALSE,"SRP189995"

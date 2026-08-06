@@ -368,8 +368,7 @@ def main() -> None:
         help="stop after this many results total (default: unlimited)",
     )
 
-    # Generic conversion: convert <acc>... --to <kind> (works for every source,
-    # including ArrayExpress/GEA whose E-* accessions have no clean a-to-b name).
+    # Generic convert covers ArrayExpress/GEA accessions with no clean a-to-b name.
     p_conv = sub.add_parser(
         "convert",
         help="convert accessions to a related kind (any source)",
@@ -388,9 +387,7 @@ def main() -> None:
     )
     _add_parquet_flag(p_conv)
 
-    # pysradb-style accession conversion subcommands (a-to-b), plus per-archive
-    # ENA/DDBJ/GSA names. The source in the name is a hint; the actual source is
-    # auto-detected, so any matching-target accession flows through.
+    # Source names in a-to-b commands are hints; conversion auto-detects the accession.
     for name in _CONVERT_COMMANDS:
         tgt = name.split("-to-")[1].upper()
         p_c = sub.add_parser(name, help=f"get {tgt} accessions")
@@ -404,7 +401,6 @@ def main() -> None:
         )
         _add_parquet_flag(p_c)
 
-    # parquet backend subcommand
     p_pq = sub.add_parser(
         "parquet",
         help="parquet backend: download, query, and explore local data dumps",
@@ -570,7 +566,6 @@ def main() -> None:
         )
         return
 
-    # no subcommand: the --enriched / --norm top-level flags
     if args.enriched is None and args.norm is None:
         raise SystemExit(1)
     if args.norm is not None:
@@ -582,8 +577,7 @@ def main() -> None:
             raise SystemExit(1)
 
 
-# Fallback (entity, database) map, mirroring the backend classifier, used only
-# when the /accession/{acc}/classify call is unreachable (offline / old backend).
+# Prefix fallback mirrors the backend classifier when classify is unreachable.
 _PREFIX_ENTITY: list[tuple[tuple[str, ...], str, str]] = [
     (("GSE",), "series", "geo"),
     (("E-",), "experiment", "arrayexpress"),  # ArrayExpress / GEA (project-level)
@@ -677,8 +671,7 @@ def cmd_show(
         with connect_to_seqout(backend="api") as sq:
             with console.status(f"[bold]Identifying {acc}…[/]"):
                 entity, database = _classify(sq, acc)
-            # AE/GEA E-* accessions classify as "experiment" but are project-level
-            # in our data model, so treat the arrayexpress family as a project.
+            # AE/GEA E-* accessions classify as experiments but behave as projects.
             is_project = (
                 entity in ("series", "study", "bioproject")
                 or database == "arrayexpress"
@@ -687,9 +680,8 @@ def cmd_show(
                 if entity == "run":
                     cmd_show_run(sq, acc, console)
                     return
-                cmd_show_sample(sq, acc, console)  # SRA sample/experiment/biosample
+                cmd_show_sample(sq, acc, console)
                 return
-            # project view: samples for GEO series & AE/GEA, experiments otherwise
             show_samples = entity == "series" or database == "arrayexpress"
             with console.status(f"[bold]Fetching {acc}…[/]"):
                 title, description, organisms = _project_header(sq, acc)
@@ -992,8 +984,7 @@ def _read_key() -> str:
 
     Returns "left"/"right" for arrows, else the raw char ("q", esc, ctrl-c).
     """
-    # termios and tty are POSIX-only; imported lazily so the module still
-    # imports on Windows
+    # Lazy POSIX imports keep the module importable on Windows.
     import select  # noqa: PLC0415
     import termios  # noqa: PLC0415
     import tty  # noqa: PLC0415
@@ -1002,11 +993,11 @@ def _read_key() -> str:
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
-        # os.read on the raw fd (not sys.stdin) so select and reads see the same
-        # bytes -- sys.stdin buffering would hide the "[C"/"[D" tail from select.
+        # os.read on the fd avoids sys.stdin buffering, which hides
+        # arrow-key tails from select
         ch = os.read(fd, 1).decode(errors="ignore")
         if ch == "\x1b" and select.select([fd], [], [], 0.05)[0]:
-            ch += os.read(fd, 2).decode(errors="ignore")  # arrow: ESC [ C/D
+            ch += os.read(fd, 2).decode(errors="ignore")
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
     return {"\x1b[C": "right", "\x1b[D": "left"}.get(ch, ch)
@@ -1047,7 +1038,7 @@ def _paged_search(
             "[dim]← prev · → next · q quit — `seqout show <accession>` to inspect[/]",
         )
         key = _read_key()
-        if key in ("q", "\x1b", "\x03"):  # q / esc / ctrl-c
+        if key in ("q", "\x1b", "\x03"):
             break
         if key == "right":
             ensure((page + 2) * page_size)
@@ -1084,7 +1075,7 @@ def _print_correction(console: Console, correction: SearchCorrection | None) -> 
             f"[yellow]Showing results for[/] {fixed!r} "
             f"[dim](corrected from {orig!r})[/]"
         )
-    elif correction.extra_results:  # augmented
+    elif correction.extra_results:
         console.print(
             f"[yellow]Did you mean[/] {fixed!r}? "
             f"[dim]added {len(correction.extra_results)} match(es) below[/]"
@@ -1133,16 +1124,13 @@ def cmd_search(
 
     try:
         with connect_to_seqout(backend="api") as sq:
-            # server applies db+date filters; page 0 also carries any spelling
-            # correction ("did you mean" / augmented extra matches).
+            # Page 0 carries spelling correction while later pages carry only results.
             correction, it = sq.search_with_correction(params)
             _print_correction(console, correction)
             augmented = correction and correction.mode == "augmented"
             if augmented and correction.extra_results:
-                # augmented mode keeps the literal hits and rides the corrected
-                # matches alongside; surface them first, like the web app.
+                # Augmented corrected matches are displayed first, matching the web app.
                 it = _merge_augmented(correction.extra_results, it)
-            # --save-to is non-interactive: skip the pager, collect and write.
             if save_to is None and sys.stdin.isatty() and sys.stdout.isatty():
                 if max_results is not None:
                     it = itertools.islice(it, max_results)
@@ -1180,7 +1168,6 @@ SAMPLE_PREFIXES = (
 )
 
 
-# Study/project accession prefixes across SRA, ENA, DDBJ, GSA and BioProjects.
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 
 
@@ -1196,8 +1183,7 @@ def _resolve_accession(sq: SeqoutAPIClient, acc: str, want: str) -> str | None:
     targets = _STUDY_PREFIXES if want == "runs" else ("GSE", "E-")
     if acc.upper().startswith(targets):
         return acc
-    # the actual cross-source lookup lives on the client (API xref vs parquet
-    # aliases) so this stays backend-agnostic.
+    # Client-owned cross-source lookup keeps this backend-agnostic.
     return sq.linked_study(acc) if want == "runs" else sq.linked_geo(acc)
 
 
@@ -1232,7 +1218,7 @@ def cmd_download(
                     meta = sq.fetch_project_metadata(acc)
                     project = meta.model_dump()
                 except Exception:
-                    project = None  # best-effort header, samples are the point
+                    project = None  # Header is best effort; samples are the payload.
                 rows = (
                     sq.fetch_samples(acc) if is_geo else sq.fetch_study_experiments(acc)
                 )
@@ -1272,7 +1258,7 @@ def cmd_download_supplementary(
                 f"Downloading [bold]{n}[/] supplementary file(s) → [bold]{out_dir}/[/]"
             )
             sq.download_project_supplementary_data(meta, out_dir)
-    except RuntimeError as e:  # partial-failure summary from the client
+    except RuntimeError as e:
         console.print(f"[red]{e}[/]")
         raise SystemExit(1) from e
     except Exception as e:
@@ -1283,8 +1269,7 @@ def cmd_download_supplementary(
 
 RUN_PREFIXES = ("SRR", "ERR", "DRR")
 
-# per-mode (url, bytes, md5) field names on StudyRunsResult; non-fastq modes all
-# carry size/md5 in the sra_* fields (mirrors _extract_download_info_for_study_run).
+# Non-fastq modes carry size/md5 in the sra_* fields.
 _MODE_FIELDS = {
     "fastq": ("fastq_ftp", "fastq_bytes", "fastq_md5"),
     "sra": ("sra_ftp", "sra_bytes", "sra_md5"),
@@ -1401,7 +1386,6 @@ def cmd_download_runs(
     try:
         with _open_backend(parquet=parquet, source=source) as sq:
             if up.startswith(RUN_PREFIXES):
-                # a single run: resolve to its study, grab that run, pick files
                 with console.status(f"[bold]Resolving {acc}…[/]"):
                     study = _resolve_run_study(sq, acc)
                     if study is None:
@@ -1439,10 +1423,10 @@ def cmd_download_runs(
                 f" [bold]{len(runs)}[/] run(s) as [bold]{mode}[/] → [bold]{out_dir}/[/]"
             )
             sq.download_study_runs_data(runs, out_dir, mode=mode)
-    except ValueError as e:  # e.g. mode unavailable for these runs
+    except ValueError as e:
         console.print(f"[red]{e}[/]")
         raise SystemExit(1) from e
-    except RuntimeError as e:  # partial-failure / verification summary
+    except RuntimeError as e:
         console.print(f"[red]{e}[/]")
         raise SystemExit(1) from e
     except Exception as e:
@@ -1496,7 +1480,7 @@ def cmd_download_sample_supplementary(
                 f"Downloading [bold]{len(urls)}[/] sample file(s) → [bold]{out_dir}/[/]"
             )
             sq.download_files(urls, out_dir)
-    except RuntimeError as e:  # partial-failure summary from the client
+    except RuntimeError as e:
         console.print(f"[red]{e}[/]")
         raise SystemExit(1) from e
     except Exception as e:
@@ -1583,7 +1567,7 @@ def cmd_download_interactive(
         with _open_backend(parquet=parquet, source=source) as sq:
             with console.status(f"[bold]Inspecting {acc}…[/]"):
                 if up.startswith(RUN_PREFIXES):
-                    # a pasted run accession: offer only that single run
+
                     runs = _single_run(sq, acc, up)
                     if runs:
                         groups.append(
@@ -1665,23 +1649,20 @@ def cmd_download_interactive(
             if g["kind"] == "runs":
                 _download_run_group(console, sq, g["runs"], out_dir)
                 return
-    except RuntimeError as e:  # partial-failure summary from the client
+    except RuntimeError as e:
         console.print(f"[red]{e}[/]")
         raise SystemExit(1) from e
     except Exception as e:
         console.print(f"[red]Failed:[/] {e}")
         raise SystemExit(1) from e
 
-    # metadata / project-supplementary reuse the existing single-purpose commands.
     if g["kind"] == "metadata":
         cmd_download(acc, out, parquet=parquet, source=source)
     elif g["kind"] == "project_supp":
         cmd_download_supplementary(acc, out, parquet=parquet, source=source)
 
 
-# accession prefix -> its column in the study mesh built by _sra_mesh.
-# Covers SRA (SR*), ENA (ER*), DDBJ/DRA (DR*), GSA (CR*/HR*), BioProjects, and
-# GEO samples (GSM, linked via the GEO-derived SRA experiment title prefix).
+# Mesh prefixes cover SRA, ENA, DDBJ/DRA, GSA, BioProjects and GEO samples.
 _MESH_ENTITY = {
     ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ"): "study",
     ("SRR", "ERR", "DRR", "CRR", "HRR"): "srr",
@@ -1691,7 +1672,6 @@ _MESH_ENTITY = {
 }
 # GEO-derived SRA experiment titles start "GSM123: ...", the GSM<->SRX link.
 _GSM_TITLE = re.compile(r"^(GSM\d+)\s*:")
-# conversion targets (semantic + pysradb aliases + per-archive) -> mesh column.
 _TARGET_COL = {
     "study": "study",
     "srp": "study",
@@ -1731,7 +1711,6 @@ _CONVERT_TO_CHOICES = (
     "doi",
 )
 
-# Per-archive entity prefixes (study, experiment, run, sample) for a-to-b names.
 _ARCHIVE_ENTITIES = {
     "ena": ("erp", "erx", "err", "ers"),
     "dra": ("drp", "drx", "drr", "drs"),
@@ -1747,7 +1726,6 @@ def _archive_convert_commands() -> tuple[str, ...]:
     return tuple(cmds)
 
 
-# pysradb-parity conversion subcommands; the target is the part after "-to-".
 _CONVERT_COMMANDS = (
     "gse-to-gsm",
     "gse-to-srp",
@@ -1769,7 +1747,6 @@ _CONVERT_COMMANDS = (
     "srx-to-srp",
     "srx-to-srr",
     "srx-to-srs",
-    # literature (forward: accession -> pmid/doi; reverse: pmid/doi -> accession)
     "srp-to-pmid",
     "gse-to-pmid",
     "ae-to-pmid",
@@ -1782,7 +1759,7 @@ _CONVERT_COMMANDS = (
     "doi-to-srp",
     *_archive_convert_commands(),
 )
-_SAMPLE_SOURCES = ("GSE", "E-")  # series/experiments queried via fetch_samples
+_SAMPLE_SOURCES = ("GSE", "E-")
 
 
 def _mesh_column(up: str) -> str | None:
@@ -1849,10 +1826,10 @@ def _study_of(sq: SeqoutAPIClient, acc: str, col: str) -> str | None:
     """Resolve a mesh-source accession to its study root."""
     if col == "study":
         return acc
-    if col == "gsm":  # GSM -> its GEO series -> linked SRA study
+    if col == "gsm":  # GSM reaches runs through its GEO series link.
         gse = _gsm_series(sq, acc)
         return _resolve_accession(sq, gse, "runs") if gse else None
-    return _resolve_run_study(sq, acc)  # SRA/ENA/DDBJ/GSA child -> study via search
+    return _resolve_run_study(sq, acc)
 
 
 # reverse literature targets -> the accession prefix(es) to keep (None = all).
@@ -1914,13 +1891,13 @@ def _convert_special(
 
     Returns the result list, or None to fall through to the study mesh.
     """
-    if _is_pmid(up) or _is_doi(acc):  # reverse: publication id -> projects
+    if _is_pmid(up) or _is_doi(acc):
         return _publication_projects(sq, acc, up, to_kind)
-    if to_kind in ("pmid", "doi"):  # forward: accession -> publication ids
+    if to_kind in ("pmid", "doi"):
         return _accession_pubs(sq, acc, up, to_kind)
     if to_kind in ("sample", "gsm") and up.startswith(_SAMPLE_SOURCES):
-        return [s.accession for s in sq.fetch_samples(acc)]  # series -> its samples
-    if to_kind == "gse":  # -> the linked GEO series
+        return [s.accession for s in sq.fetch_samples(acc)]
+    if to_kind == "gse":
         geo = (
             _gsm_series(sq, acc)
             if up.startswith("GSM")
@@ -1941,17 +1918,15 @@ def _convert_one(
     col = _mesh_column(up) if target else None
     result = None
     if target and col is not None:
-        # study-mesh source: SRA/ENA/DDBJ/GSA study, child, or GEO sample
         study = _study_of(sq, acc, col)
         if not study:
             console.print(f"[yellow]{acc}: couldn't resolve to a study.[/]")
             return []
         result = _mesh_project(sq, study, col, up, target)
     elif target and up.startswith(_SAMPLE_SOURCES):
-        # cross-archive: GEO/ArrayExpress/GEA series -> linked SRA study
         study = _resolve_accession(sq, acc, "runs")
         if study and target == "study":
-            result = [study]  # the linked project itself, no mesh needed
+            result = [study]  # The linked project itself needs no mesh.
         elif study:
             result = _mesh_project(sq, study, "study", up, target)
 
@@ -2083,7 +2058,6 @@ def run_norm(
 ) -> None:
     console = Console()
 
-    # 1. fetch all samples for the project
     try:
         with console.status("[bold]Fetching samples…[/]") as status:
             records = build_records(
@@ -2094,7 +2068,7 @@ def run_norm(
     except ValueError as e:
         console.print(f"[red]Error:[/] {e}")
         raise SystemExit(1) from e
-    except Exception as e:  # network / API errors
+    except Exception as e:
         console.print(f"[red]Failed to fetch samples for {accession}:[/] {e}")
         raise SystemExit(1) from e
 
@@ -2102,10 +2076,7 @@ def run_norm(
         console.print(f"[yellow]No samples found for {accession}.[/]")
         raise SystemExit(1)
 
-    # 2. pick the model. --base-url points at an already-running server and never
-    #    starts one. Otherwise: reuse a server already running on the target port
-    #    (even when --model was given), and only start one if nothing is there;
-    #    using --model if supplied, else the default (pull/download on first use).
+    # --base-url wins, then an already-running server, then --model
     detected = False
     if base_url is not None:
         try:
@@ -2128,9 +2099,7 @@ def run_norm(
         label += "   [green](detected running server)[/]"
     console.print(label)
 
-    # If the model has to be downloaded from a private/gated HF repo, ask for a
-    # token up front (skipped when one is already in the environment, or when the
-    # server is already serving it, that path doesn't download).
+    # Prompt for an HF token only before a private or gated repo download.
     repo = engine.hf_repo()
     if (
         repo
@@ -2178,7 +2147,6 @@ def run_norm(
         except Exception as e:
             return None, f"<error: {e}>"
 
-    # 3. Single sample -> vertical field/value table (no streaming benefit).
     if len(records) == 1:
         r = records[0]
         with console.status(f"[bold]Normalizing {r.sample}…[/]"):
@@ -2199,8 +2167,6 @@ def run_norm(
         console.print(table)
         return
 
-    # 3b. Several samples -> stream one row per sample into a live table as each
-    #     finishes, then leave the full table rendered at its natural width.
     def build_table() -> Table:
         t = Table(title="Normalized labels", show_lines=True, header_style="bold green")
         t.add_column("sample", style="bold cyan", no_wrap=True)
@@ -2228,8 +2194,7 @@ def run_norm(
             live_table.caption = f"normalized {i}/{n}"
             live.update(live_table)
 
-    # Final, full-width render (the live view is transient and cleared on exit;
-    # live_table already holds every row).
+    # The final table needs its own width because the live render is transient.
     live_table.caption = None
     min_width = 14 * (len(LABEL_FIELDS) + 1)
     target = console if console.size.width >= min_width else Console(width=min_width)
@@ -2239,7 +2204,6 @@ def run_norm(
         invalid_panel(sample, raw)
 
 
-# Persisted parquet source (a URL or a local dir), set via parquet set-source.
 _PARQUET_SOURCE_FILE = Path.home() / ".config" / "seqout" / "parquet_source"
 
 

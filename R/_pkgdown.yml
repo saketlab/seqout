@@ -89,6 +89,7 @@ reference:
   - seqout_connect
   - seqout_close
   - tables
+  - register_tables
   - cache_table
   - clear_cache
   - query

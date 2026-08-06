@@ -69,10 +69,8 @@ class FakeSq(ShortNames):
 @pytest.mark.parametrize(
     ("accession", "expected"),
     [
-        # GEO
         ("GSE1", "series"),
         ("GSM1", "sample"),
-        # SRA / ENA / DDBJ share the [SED]R? shape
         ("SRP1", "study"),
         ("SRX1", "experiment"),
         ("SRS1", "sample"),
@@ -82,7 +80,6 @@ class FakeSq(ShortNames):
         ("ERR9", "run"),
         ("DRP9", "study"),
         ("DRX9", "experiment"),
-        # GSA (CNCB-NGDC): open CRA and human HRA
         ("CRA1", "study"),
         ("CRX1", "experiment"),
         ("CRR1", "run"),
@@ -90,10 +87,9 @@ class FakeSq(ShortNames):
         ("HRX1", "experiment"),
         ("HRR1", "run"),
         ("HRS1", "sample"),
-        # ArrayExpress and GEA — E-GEAD-N also matches the AE four-letter shape
+        # E-GEAD-N also matches the ArrayExpress four-letter shape.
         ("E-MTAB-1", "series"),
         ("E-GEAD-1086", "series"),
-        # archive-agnostic identifiers
         ("PRJNA1", "study"),
         ("PRJDB1", "study"),
         ("PRJCA1", "study"),
@@ -101,9 +97,7 @@ class FakeSq(ShortNames):
         ("SAMEA1", "biosample"),
         ("SAMD1", "biosample"),
         ("SAMC1", "biosample"),
-        # case and whitespace
         ("  gse1 ", "series"),
-        # not accessions
         ("lung cancer", None),
         ("GSE", None),
         ("GSE12abc", None),
@@ -120,13 +114,13 @@ def test_unknown_accession_says_what_is_accepted():
         sq.get("not an accession")
     msg = str(e.value)
     assert "not an accession this library recognizes" in msg
-    assert "GSA" in msg  # lists the shapes, newer archives included
+    assert "GSA" in msg
     assert "ArrayExpress" in msg
-    assert "sq.search" in msg  # says what to do instead
+    assert "sq.search" in msg
 
 
 def test_unresolvable_child_explains_itself():
-    sq = FakeSq()  # resolve_study only knows SRR/SRX/SRS
+    sq = FakeSq()
     with pytest.raises(SeqoutError) as e:
         _ = sq.get("CRR999").project
     msg = str(e.value)
@@ -139,7 +133,7 @@ def test_get_returns_dataset():
     sq = FakeSq()
     d = sq.get(" GSE1 ")
     assert isinstance(d, Dataset)
-    assert d.accession == "GSE1"  # stripped
+    assert d.accession == "GSE1"
     assert d.kind == "series"
 
 
@@ -147,7 +141,7 @@ def test_project_resolves_from_a_child_accession():
     sq = FakeSq()
     assert sq.get("GSM1").project == "GSE1"
     assert sq.get("SRR1").project == "SRP1"
-    assert sq.get("GSE1").project == "GSE1"  # already a project
+    assert sq.get("GSE1").project == "GSE1"
 
 
 def test_runs_hop_from_geo_to_the_linked_sra_study():
@@ -172,7 +166,7 @@ def test_samples_hop_back_to_geo_when_the_sra_side_is_empty():
 def test_samples_stay_native_when_the_series_has_them():
     sq = FakeSq()
     assert sq.get("GSE1").samples == ["GSM1", "GSM2"]
-    assert ("linked_study", "GSE1") not in sq.calls  # no needless hop
+    assert ("linked_study", "GSE1") not in sq.calls
 
 
 def test_fields_are_cached():
@@ -186,12 +180,12 @@ def test_detail_dispatches_on_the_accession_kind():
     sq = FakeSq()
     assert sq.get("SRR1").detail.run_accession == "SRR1"
     assert sq.get("GSM1").detail.accession == "GSM1"
-    assert sq.get("GSE1").detail is None  # projects use .meta
+    assert sq.get("GSE1").detail is None
 
 
 def test_missing_backend_method_says_so():
     """The message must name the field and the way out, not just fail."""
-    sq = FakeSq()  # no fetch_cross_references on the fake
+    sq = FakeSq()
     with pytest.raises(SeqoutError, match="not available on the parquet backend"):
         _ = sq.get("GSE1").links
 
@@ -235,7 +229,7 @@ def test_not_found_degrades_to_an_empty_result(monkeypatch):
     r = requests.Response()
     r.status_code = 404
     err = requests.exceptions.HTTPError(response=r)
-    assert not r  # the trap: a 404 Response is falsy
+    assert not r
 
     sq = SeqoutAPIClient()
 
@@ -256,7 +250,7 @@ def test_experiments_are_empty_for_array_data():
 def test_detail_refuses_kinds_that_have_no_record():
     sq = FakeSq()
     with pytest.raises(SeqoutError, match="no detail record"):
-        _ = sq.get("SRA123").detail  # a submission accession
+        _ = sq.get("SRA123").detail
 
 
 def test_authors_accept_a_list():

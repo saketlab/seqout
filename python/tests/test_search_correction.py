@@ -17,7 +17,7 @@ def test_merge_puts_extras_first_and_drops_stream_dupes():
 
 
 def test_merge_keeps_same_accession_from_a_different_source():
-    # dedup is keyed on (source, accession), so a same-id row from another repo stays
+    # Same accession from a different source is not a duplicate.
     extra = [_row("X1", "geo")]
     stream = [_row("X1", "sra")]
     out = [(r.source, r.accession) for r in _merge_augmented(extra, iter(stream))]

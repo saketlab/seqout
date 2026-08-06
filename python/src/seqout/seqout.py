@@ -48,6 +48,4 @@ def connect_to_seqout(
             return SeqoutParquetClient(**kwargs)
 
 
-# the backend is always explicit; a silent switch to parquet would turn a
-# lookup into a multi-GB scan
 connect = connect_to_seqout

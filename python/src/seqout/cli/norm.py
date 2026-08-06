@@ -59,19 +59,16 @@ LABEL_FIELDS = [
     "sample_type",
 ]
 
-# Below this many words in a series' own (summary + overall_design), pull extra
-# context from its super/sub-series.
+# Pull super/sub-series context when the series text is too thin for normalization.
 MIN_CONTEXT_WORDS = 15
 
 DEFAULT_ENGINE = "ollama"
-# HuggingFace GGUF repo, referenced in each engine's native form.
 DEFAULT_HF_REPO = "saketlab/seqoutlm-1B-GGUF"
 DEFAULT_OLLAMA_MODEL = f"hf.co/{DEFAULT_HF_REPO}"
 KNOWN_ENGINES = ("ollama", "llamacpp", "lmstudio")
 
 DEFAULT_PORTS = {"ollama": 11434, "llamacpp": 8080, "lmstudio": 1234}
 
-# HTTP status code threshold for server errors.
 _SERVER_ERROR_THRESHOLD = 500
 
 
@@ -136,7 +133,7 @@ def _study_dict(
 class SampleRecord:
     sample: str
     title: str
-    details: dict  # the user-turn payload (study text + attributes)
+    details: dict
     attributes: dict = field(default_factory=dict)
 
     def user_prompt(self) -> str:
@@ -207,7 +204,6 @@ def build_records(
         if on_progress:
             on_progress(msg)
 
-    # GEO series -> all samples
     if up.startswith("GSE"):
         progress("Fetching series metadata")
         meta = sq.fetch_project_metadata(acc)
@@ -223,7 +219,6 @@ def build_records(
             records.append(SampleRecord(s.accession, s.title or "", details, attrs))
         return records
 
-    # SRA / ENA study -> all samples (via experiments -> sample metadata)
     if up.startswith(("SRP", "ERP", "DRP")):
         progress("Fetching study metadata")
         meta = sq.fetch_project_metadata(acc)
@@ -246,7 +241,6 @@ def build_records(
             records.append(SampleRecord(sm.accession, sm.title or "", details, attrs))
         return records
 
-    # Single SRA sample / experiment
     if up.startswith(("SRS", "ERS", "DRS", "SRX", "ERX", "DRX")):
         progress("Fetching sample metadata")
         detail = sq.fetch_sample_detailed_metadata(acc)
@@ -266,7 +260,6 @@ def build_records(
             details["attributes"] = attrs
         return [SampleRecord(s.accession, s.title or "", details, attrs)]
 
-    # Single GEO sample
     if up.startswith("GSM"):
         progress("Fetching sample metadata")
         detail = sq.fetch_geo_sample_detailed_metadata(acc)
@@ -405,7 +398,7 @@ class OllamaEngine:
     def hf_repo(self) -> str | None:
         """Return the HF repo to download, or None if already loaded."""
         if self.detected:
-            return None  # already loaded; nothing to download
+            return None
         return self.model[len("hf.co/") :] if self.model.startswith("hf.co/") else None
 
     def ensure_ready(self, status: Callable[[str], None] | None = None) -> None:
@@ -421,7 +414,6 @@ class OllamaEngine:
                 "  then re-run this command."
             )
             raise EngineError(msg)
-        # server
         try:
             httpx.get(f"{self.base}/api/version", timeout=2)
         except httpx.HTTPError:
@@ -439,7 +431,6 @@ class OllamaEngine:
                     "in another terminal."
                 )
                 raise EngineError(msg) from None
-        # model present?
         tags = httpx.get(f"{self.base}/api/tags", timeout=10).json()
         have = {m["name"] for m in tags.get("models", [])}
         have |= {n.split(":")[0] for n in have}
@@ -493,7 +484,7 @@ class _OpenAICompatEngine:
     """Shared client for llama.cpp / LM Studio OpenAI-compatible servers."""
 
     name = "openai-compat"
-    base = ""  # set per instance, e.g. http://localhost:8080/v1
+    base = ""
     api_model = "default"
     repo = ""
     detected = False
@@ -501,7 +492,7 @@ class _OpenAICompatEngine:
     def hf_repo(self) -> str | None:
         """Return the HF repo to download, or None if already loaded."""
         if self.detected:
-            return None  # already being served; nothing to download
+            return None
         return self.repo or None
 
     def ensure_ready(self, status: Callable[[str], None] | None = None) -> None:

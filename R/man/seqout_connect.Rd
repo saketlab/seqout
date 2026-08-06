@@ -8,12 +8,14 @@
 seqout_connect(
   base_url = "https://seqout.org",
   read_only = FALSE,
+  eager = FALSE,
   progress = interactive()
 )
 
 SeqoutConnect(
   base_url = "https://seqout.org",
   read_only = FALSE,
+  eager = FALSE,
   progress = interactive()
 )
 }
@@ -25,8 +27,10 @@ SeqoutConnect(
 Defaults to \code{FALSE} so that \code{\link[=cache_table]{cache_table()}} can materialise views
 locally.}
 
-\item{progress}{Show a progress bar while the tables are registered.
-Defaults to \code{TRUE} in an interactive session.}
+\item{eager}{Register every view up front rather than on first use.}
+
+\item{progress}{Show a progress bar while views are registered. Defaults to
+\code{TRUE} in an interactive session.}
 }
 \value{
 A \code{seqout_connection} object (list) containing the DuckDB
@@ -38,8 +42,10 @@ SeqOut tables. Uses DuckDB's httpfs extension to query Parquet files hosted
 on seqout.org without downloading them entirely.
 }
 \details{
-Registering a view makes DuckDB read that Parquet file's footer over HTTP,
-so the wait is one round trip per table and worth reporting.
+Registering a view makes DuckDB read that Parquet file's footer over HTTP, so
+registering all of them costs a round trip per table. Views are created on
+first reference instead; \code{\link[=register_tables]{register_tables()}} does them all when something
+needs the catalog populated, such as \code{dplyr::tbl()}.
 }
 \examples{
 \dontrun{

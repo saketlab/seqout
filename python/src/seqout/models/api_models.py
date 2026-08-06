@@ -28,11 +28,10 @@ def _join_authors(v: Any) -> Any:
     return v
 
 
-# full-text search
 class SearchParams(BaseModel):
     q: str | None = None  # optional when at least one filter is set (query-less)
     db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None = None
-    organism: str | None = None  # exact scientific name, e.g. "Homo sapiens"
+    organism: str | None = None
     library_strategy: list[str] | None = None  # GEO/SRA only; NULL elsewhere
     library_source: list[str] | None = None  # SRA only; NULL elsewhere
     platform: list[str] | None = None  # GEO/SRA only; NULL elsewhere
@@ -47,7 +46,7 @@ class SearchParams(BaseModel):
     @field_validator("q")
     @classmethod
     def _query_must_be_valid(cls, v: str | None) -> str | None:
-        if v is None:  # query-less filter search
+        if v is None:
             return None
         v = v.strip()
 
@@ -358,7 +357,6 @@ class AuthorProjectsResponse(BaseModel):
     institutes: list[InstituteFacet] = []
 
 
-# project summary
 class ProjectSummaryResult(BaseModel):
     accession: str
     title: str
@@ -370,7 +368,6 @@ class ProjectSummaryResultList(BaseContainer[ProjectSummaryResult]):
     pass
 
 
-# project metadata
 class ProjectMetadataRelation(BaseModel):
     type: str | None = Field(alias="@type", default=None)
     target: str | None = Field(alias="@target", default=None)
@@ -388,10 +385,9 @@ class ProjectMetadataNeighbor(BaseModel):
 
 class ProjectMetadataResult(BaseModel):
     accession: str
-    alias: list[str] | str | None = None
+    alias: list[str] = []
     title: str
-    # description field: GEO/GEA send summary, SRA sends abstract (matches the
-    # frontend's summary ?? abstract fallback in similar-projects-graph.tsx).
+    # GEO/GEA send summary and SRA sends abstract, matching the frontend fallback.
     summary: str | None = Field(
         default=None,
         validation_alias=AliasChoices("summary", "abstract"),
@@ -401,8 +397,7 @@ class ProjectMetadataResult(BaseModel):
     publications: list[Publication] | None = None
     samples_ref: list[str] = []
     series_type: list[str] = []
-    # GEA records its sequencing data only as a BioProject (PRJDB*), with no
-    # cross-reference row; it is the one route from an E-GEAD series to its runs.
+    # GEA routes from E-GEAD series to runs only through its BioProject.
     bioproject: str | None = None
     relations: list[ProjectMetadataRelation] = Field(alias="relation", default=[])
     neighbors: list[ProjectMetadataNeighbor] = []
@@ -435,6 +430,7 @@ class ProjectMetadataResult(BaseModel):
         return out
 
     @field_validator(
+        "alias",
         "relations",
         "neighbors",
         "samples_ref",
@@ -474,14 +470,11 @@ class ProjectMetadataResult(BaseModel):
         ]
 
 
-# project cross references
 class ProjectCrossReferenceResult(BaseModel):
     accession: str
     link_type: str
     source: str
-    # Set only when source == "pmid": the study was matched through a shared
-    # publication and not by a declared cross-reference, so it may cover
-    # different samples. Absent on ordinary links.
+    # via_pmid marks a publication match, which may cover different samples.
     via_pmid: str | None = None
     title: str | None = None
 
@@ -495,7 +488,6 @@ class ProjectCrossReferenceResponse(BaseModel):
     xref: ProjectCrossReferenceList
 
 
-# llm enriched sample metadata
 class ProjectLLMEnrichedSampleMetadataResult(BaseModel):
     sample: str
     age: str | None = None
@@ -547,7 +539,6 @@ class ProjectLLMEnrichedSampleMetadataResponse(BaseModel):
     samples: ProjectLLMEnrichedSampleMetadataResults
 
 
-# study experiments
 class StudyExperimentsResult(BaseModel):
     accession: str
     title: str
@@ -568,12 +559,11 @@ class StudyExperimentsResults(BaseContainer[StudyExperimentsResult]):
     pass
 
 
-# study runs
 class AccessionClassification(BaseModel):
     accession: str
     valid: bool
     kind: str | None = None
-    entity: str | None = None  # series/study/experiment/sample/run/biosample/bioproject
+    entity: str | None = None
     database: str | None = None
     archive: str | None = None
 
@@ -618,7 +608,6 @@ class ExperimentRunsResponse(BaseModel):
     runs: StudyRunsResults
 
 
-# experiment samples
 class ExperimentSampleOrganism(BaseModel):
     text: str = Field(alias="#text")
     taxonomy_id: str = Field(alias="@taxid")
@@ -638,9 +627,7 @@ class ExperimentSampleChannel(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _normalize_organisms(cls, data: Any) -> Any:
-        # GEO sends one Organism per channel, or a list when the channel holds
-        # more than one species (xenograft/PDX, mixed-species benchmarks).
-        # organism keeps the first so single-species callers are unaffected.
+        # GEO sends one Organism per channel, or a list for mixed-species channels.
         if not isinstance(data, dict):
             return data
         raw = data.get("Organism")
@@ -686,7 +673,6 @@ class ExperimentSampleList(BaseContainer[ExperimentSample]):
     pass
 
 
-# sample metadata
 class SampleMetadataResult(BaseModel):
     accession: str
     alias: str | None = None
@@ -707,15 +693,13 @@ class SampleMetadataResult(BaseModel):
         return v
 
 
-# sample detailed metadata
 class SampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
     sample: SampleMetadataResult
 
 
-# GEO sample detail: same /sample-detail/{acc} endpoint, but a GSM's sample is a
-# channels-based ExperimentSample, not an SRA SampleMetadataResult.
+# GEO sample-detail is channel-shaped, unlike SRA sample-detail.
 class GeoSampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult

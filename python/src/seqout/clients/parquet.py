@@ -20,6 +20,8 @@ from seqout.exception import SeqoutError
 from seqout.helpers import _download_file
 from seqout.models.api_models import (
     AuthorProjectsResponse,
+    ExperimentSample,
+    GeoSampleDetailedMetadata,
     InstituteFacet,
     LinkedProject,
     ProjectMetadataResult,
@@ -47,7 +49,6 @@ from seqout.utils import (
     _validate_study_runs_data,
 )
 
-# study/run/experiment/sample accession prefixes across SRA, ENA, DDBJ and GSA
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 _RUN_PREFIXES = ("SRR", "ERR", "DRR", "CRR", "HRR")
 _EXP_PREFIXES = ("SRX", "ERX", "DRX", "CRX", "HRX")
@@ -81,7 +82,6 @@ ParquetFile = Literal[
     "geo_samples",
     "sra_experiments",
     "sra_submissions",
-    # newer sources: GSA, DRA and GEA
     "gsa_studies",
     "gsa_experiments",
     "gsa_samples",
@@ -126,9 +126,12 @@ class SeqoutParquetClient(ShortNames):
     def _setup_duckdb(self) -> None:
         try:
             self._conn.execute("LOAD httpfs;")
-            self._conn.execute("SET enable_http_metadata_cache=true;")
         except duckdb.CatalogException:
             self._conn.execute("INSTALL httpfs; LOAD httpfs;")
+        self._conn.execute("SET enable_http_metadata_cache=true;")
+        self._conn.execute("SET enable_object_cache=true;")
+        # a library writing progress bars to stderr breaks piped output
+        self._conn.execute("SET enable_progress_bar=false;")
 
     def set_source(self, source_dir: Path | str) -> None:
         """Point the backend at a Parquet dump: a URL or a local directory."""
@@ -358,8 +361,7 @@ class SeqoutParquetClient(ShortNames):
                     f"failed to fetch samples for {study_accession} study"
                 )
 
-            # samples_ref is either a plain ["GSM..."] list or [{"@ref": "GSM..."}]
-            # depending on the export; tolerate both.
+            # samples_ref may be a plain GSM list or a list of @ref objects.
             samples = [
                 str(v["@ref"] if isinstance(v, dict) else v)
                 for v in json.loads(result[0])
@@ -433,8 +435,7 @@ class SeqoutParquetClient(ShortNames):
         datasource_str = "geo" if datasource == datasource.Geo else "ae"
         return self._fetch_samples_helper(study_accession, datasource_str)
 
-    # same method names and models as SeqoutAPIClient, so the CLI's conversion,
-    # download and pmid handlers run over parquet unchanged
+    # Method names and models match SeqoutAPIClient for backend-neutral CLI paths.
 
     def _query_rows(self, sql: str, params: list | None = None) -> list[dict]:
         rel = self.execute_query(sql, params)
@@ -458,7 +459,6 @@ class SeqoutParquetClient(ShortNames):
                 every run.
 
         """
-        # full is accepted for API parity; parquet always returns every run.
         _ = full
         rows = self._query_rows(
             f"SELECT {_RUN_COLS} FROM run_download_links WHERE study_accession = ?",  # noqa: S608
@@ -555,8 +555,6 @@ class SeqoutParquetClient(ShortNames):
             limit: Maximum datasets to return.
 
         """
-        # parquet only carries author names for GEO (geo_contributors), so this is
-        # a GEO-only substring match, narrower than the API's cross-source FTS.
         rows = self._query_rows(
             "SELECT c.accession AS accession, u.title AS title, "
             "u.dominant_scientific_name AS organism, "
@@ -650,6 +648,38 @@ class SeqoutParquetClient(ShortNames):
             }
         )
 
+    def fetch_geo_sample_detailed_metadata(
+        self, sample_id: str
+    ) -> GeoSampleDetailedMetadata:
+        """
+        Fetch one GSM, including the supplementary files it carries.
+
+        Raises:
+            SeqoutError: If the sample is absent from the dump.
+
+        """
+        rows = self._query_rows(
+            "SELECT accession, title, description, sample_type, channel_count, "
+            "channels, platform_ref, supplementary_data, hybridization_protocol, "
+            "scan_protocol, published_at, updated_at "
+            "FROM geo_samples WHERE accession = ?",
+            [sample_id],
+        )
+        if not rows:
+            raise SeqoutError(f"sample {sample_id} not found in the parquet dump")
+        row = dict(rows[0])
+        for key in ("channels", "supplementary_data"):
+            if isinstance(row.get(key), str):
+                row[key] = json.loads(row[key])
+        series = self.gsm_series(sample_id)
+        return GeoSampleDetailedMetadata(
+            sample_type=row.get("sample_type") or "",
+            project=self.fetch_project_metadata(series)
+            if series
+            else ProjectMetadataResult(accession=sample_id, title=sample_id),
+            sample=ExperimentSample.model_validate(row),
+        )
+
     def resolve_study(self, accession: str) -> str | None:
         """Resolve a child accession (run/experiment/sample) to its study root."""
         up = accession.upper()
@@ -707,9 +737,7 @@ class SeqoutParquetClient(ShortNames):
         )
         return rows[0].get("accession") if rows else None
 
-    # kept separate from SeqoutAPIClient's threaded fetch so the parquet backend
-    # carries no API-client dependency. Fold into a shared mixin only
-    # if a third backend appears.
+    # Separate downloader avoids an API-client dependency until a third backend exists.
 
     def _download_many(
         self,

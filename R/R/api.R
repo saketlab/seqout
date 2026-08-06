@@ -74,6 +74,7 @@ NULL
 
 #' @noRd
 .db_query <- function(con, sql, params = NULL) {
+  .ensure_views(con, sql)
   if (!is.null(params)) {
     df <- DBI::dbGetQuery(con$db, sql, params = params)
   } else {

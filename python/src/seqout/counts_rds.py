@@ -376,7 +376,6 @@ def read_rds(
             Path(tmp) / "features.tsv",
             feature_type=None,  # r-exported matrices lack a 10x feature_type column
         )
-        # R fallback exports Seurat meta.data and Bioconductor colData/rowData
         obs = _attach(list(obs.index), _read_meta_tsv(Path(tmp) / "obs.tsv"), "barcode")
         var = _attach(list(var.index), _read_meta_tsv(Path(tmp) / "var.tsv"), "gene")
         return x, obs, var

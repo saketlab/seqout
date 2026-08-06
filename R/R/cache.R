@@ -20,6 +20,7 @@ cache_table <- function(con, table) {
   }
 
   local_name <- paste0(table, "_local")
+  .register_views(con, table)
 
   cli::cli_alert_info("Caching {.val {table}} locally as {.val {local_name}}...")
 
@@ -66,20 +67,28 @@ query <- function(con, sql, params = NULL) {
 
 #' List available tables and views
 #'
-#' Shows all tables registered in the DuckDB connection, including both
-#' remote Parquet views and locally cached tables.
+#' Every remote SeqOut table, plus any table cached locally by [cache_table()].
+#' `registered` says whether the view exists in DuckDB yet; views are created on
+#' first use, so a fresh connection reports `FALSE` for most of them.
 #'
 #' @param con A `seqout_connection`.
-#' @return A tibble with `table_name` and `table_type` columns.
+#' @return A tibble with `table_name`, `table_type` and `registered` columns.
 #' @export
 tables <- function(con) {
   .check_connection(con)
-  .db_query(con, "
+  live <- .db_query(con, "
     SELECT table_name, table_type
     FROM information_schema.tables
     WHERE table_schema = 'main'
-    ORDER BY table_type, table_name
   ")
+  remote <- tibble::tibble(
+    table_name = setdiff(con$tables, live$table_name),
+    table_type = "VIEW"
+  )
+  out <- rbind(live, remote)
+  out$registered <- out$table_name %in% ls(con$views) |
+    out$table_type == "BASE TABLE"
+  out[order(out$table_type, out$table_name), ]
 }
 
 

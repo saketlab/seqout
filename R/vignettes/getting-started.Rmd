@@ -331,10 +331,13 @@ query(con, "
 ")
 ```
 
-Or use `dplyr`/`dbplyr` for lazy evaluation:
+Or use `dplyr`/`dbplyr` for lazy evaluation. `tbl()` reads the DuckDB catalog
+directly, so the view has to exist first:
 
 ```{r dplyr}
 library(dbplyr)
+
+register_tables(con, "unified_metadata")
 
 tbl(con$db, "unified_metadata") |>
   filter(

@@ -202,6 +202,10 @@ Publications <- publications
 #' @export
 Query <- query
 
+#' @rdname register_tables
+#' @export
+RegisterTables <- register_tables
+
 #' @rdname resolve_accession
 #' @export
 ResolveAccession <- resolve_accession

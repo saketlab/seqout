@@ -65,7 +65,6 @@ class Unit:
     files: list[SuppFile]
     sample: str | None = None
     platform: str | None = None
-    # group() runs _prefer before returning units.
     preferred: bool = True
     metadata_files: list[SuppFile] = field(default_factory=list)
 

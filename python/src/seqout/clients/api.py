@@ -1,3 +1,5 @@
+import contextlib
+import datetime
 import functools
 import itertools
 from collections.abc import Callable, Iterator
@@ -56,6 +58,7 @@ from seqout.models.api_models import (
     StudyRunsResult,
     StudyRunsResults,
 )
+from seqout.models.parquet_models import Study
 from seqout.utils import (
     _extract_download_info_for_study_run,
     _normalize_num_workers,
@@ -144,8 +147,7 @@ class SeqoutAPIClient(ShortNames):
         params: SearchParamsType,
         first: SearchResponse | None = None,
     ) -> Iterator[SearchResult]:
-        # first lets a caller that already fetched page 0 (e.g. to read its
-        # spelling correction) reuse it and save a second request.
+        # Reuse page 0 when a caller already fetched its spelling correction.
         response = first if first is not None else self._fetch_search_page(params)
         while True:
             yield from response.results
@@ -316,8 +318,6 @@ class SeqoutAPIClient(ShortNames):
                 which is enough to inspect a study but not to download one.
 
         """
-        # default returns the backend's 500-run preview; full=True gets every run
-        # (needed for complete downloads and accession conversions).
         response = self._sender(
             url=f"{self._base_url}/project/{study_id}/runs",
             params={"full": "true"} if full else None,
@@ -348,8 +348,7 @@ class SeqoutAPIClient(ShortNames):
         )
         return response.runs
 
-    # resolvers share their names with SeqoutParquetClient so the CLI's
-    # conversion and download helpers work against either backend
+    # Method names match SeqoutParquetClient for backend-neutral CLI paths.
 
     def _quiet(self, fn: Callable[[], T], /) -> T | None:
         """Run a lookup that is allowed to miss; a miss is not an error here."""
@@ -406,8 +405,7 @@ class SeqoutAPIClient(ShortNames):
         )
 
     def _project_from_sample_detail(self, accession: str) -> str | None:
-        # /sample-detail serves every archive, but a GEO sample's sample block
-        # is channel-shaped, so it needs the GEO model to validate.
+        # GEO sample-detail is channel-shaped, unlike the other archives.
         fetch = (
             self.fetch_geo_sample_detailed_metadata
             if accession.upper().startswith("GSM")
@@ -469,7 +467,6 @@ class SeqoutAPIClient(ShortNames):
             limit: Maximum datasets to return.
 
         """
-        # all datasets linked to an author across GEO/SRA/ArrayExpress/ENA.
         return self._sender(
             url=f"{self._base_url}/author/projects",
             params={"q": name, "limit": limit},
@@ -484,7 +481,6 @@ class SeqoutAPIClient(ShortNames):
 
         A publication seqout does not hold comes back as an empty result.
         """
-        # reverse lookup: publication -> linked projects across all sources.
         params = {"pmid": pmid} if pmid else {"doi": doi}
         try:
             return self._sender(
@@ -518,6 +514,40 @@ class SeqoutAPIClient(ShortNames):
         return self._sender(
             url=f"{self._base_url}/sample-detail/{sample_id}",
             response_model=GeoSampleDetailedMetadata,
+        )
+
+    def fetch_study(self, accession: str) -> Study:
+        """
+        Fetch one study: title, abstract, organisms, publication and counts.
+
+        library_strategies, assay_l1, assay_l2 and num_experiments come back
+        None. The REST API does not carry them; connect("parquet") does.
+        """
+        meta = self.fetch_project_metadata(accession)
+
+        design = meta.overall_design
+        if isinstance(design, list):  # GEA sends a list of protocols
+            design = "\n".join(design)
+        published_at = None
+        if meta.published_at:
+            with contextlib.suppress(ValueError):
+                published_at = datetime.date.fromisoformat(meta.published_at[:10])
+
+        return Study(
+            accession=meta.accession,
+            title=meta.title,
+            description=meta.summary,
+            overall_design=design,
+            pubmed_id=meta.pmid or (meta.pubmed_ids[0] if meta.pubmed_ids else None),
+            journal=meta.journal,
+            citation_count=meta.citation_count,
+            aliases=meta.alias,
+            organisms=list(meta.organisms or []),
+            num_samples=len(meta.samples_ref),
+            center_names=[meta.center_name] if meta.center_name else [],
+            is_single_cell=bool(meta.is_single_cell),
+            single_cell_modality=meta.single_cell_modality,
+            published_at=published_at,
         )
 
     def download_project_supplementary_data(
