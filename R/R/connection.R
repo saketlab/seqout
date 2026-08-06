@@ -15,8 +15,6 @@
 #'   Defaults to `FALSE` so that [cache_table()] can materialise views
 #'   locally.
 #' @param eager Register every view up front rather than on first use.
-#' @param progress Show a progress bar while views are registered. Defaults to
-#'   `TRUE` in an interactive session.
 #'
 #' @return A `seqout_connection` object (list) containing the DuckDB
 #'   connection handle and configuration.
@@ -30,8 +28,7 @@
 #' }
 seqout_connect <- function(base_url = "https://seqout.org",
                            read_only = FALSE,
-                           eager = FALSE,
-                           progress = interactive()) {
+                           eager = FALSE) {
   base_url <- sub("/$", "", base_url)
   data_url <- paste0(base_url, "/data")
 
@@ -71,11 +68,13 @@ seqout_connect <- function(base_url = "https://seqout.org",
   )
 
   if (eager) {
-    .register_views(con, con$tables, progress = progress)
+    .register_views(con, con$tables, progress = interactive())
   }
 
+  # nothing has been requested from base_url yet on the lazy path, so this
+  # reports what is on offer rather than claiming the server answered
   cli::cli_alert_success(
-    "Connected to SeqOut ({.url {base_url}}) \u2014 {length(con$tables)} table{?s} available"
+    "SeqOut ({.url {base_url}}) \u2014 {length(con$tables)} table{?s} available"
   )
 
   con
@@ -91,7 +90,7 @@ seqout_connect <- function(base_url = "https://seqout.org",
 #' @param tables Which tables to register. Defaults to all of them.
 #' @param progress Show a progress bar. Defaults to `TRUE` interactively.
 #'
-#' @return The names of the views now registered, invisibly.
+#' @return The names of every registered view, invisibly.
 #'
 #' @export
 #' @examples
@@ -117,10 +116,7 @@ register_tables <- function(con, tables = NULL, progress = interactive()) {
 #' @noRd
 .register_views <- function(con, tables, progress = FALSE) {
   pending <- setdiff(tables, ls(con$views))
-  if (length(pending) == 0) {
-    return(character(0))
-  }
-  progress <- progress && length(pending) > 1
+  progress <- progress && length(pending) > 0
   if (progress) {
     cli::cli_progress_bar(
       format = "Registering {cli::pb_current}/{cli::pb_total} {.val {tbl}} {cli::pb_bar} {cli::pb_eta}",
@@ -146,21 +142,14 @@ register_tables <- function(con, tables = NULL, progress = interactive()) {
     if (ok) assign(tbl, TRUE, envir = con$views)
   }
   if (progress) cli::cli_progress_done()
-  ls(con$views)
+  invisible(ls(con$views))
 }
 
 #' Register the views a statement names, before DuckDB has to resolve them
 #' @noRd
 .ensure_views <- function(con, sql) {
-  pending <- setdiff(con$tables, ls(con$views))
-  if (length(pending) == 0) {
-    return(invisible(NULL))
-  }
-  named <- pending[vapply(pending, grepl, logical(1), x = sql, fixed = TRUE)]
-  if (length(named) > 0) {
-    .register_views(con, named)
-  }
-  invisible(NULL)
+  named <- con$tables[vapply(con$tables, grepl, logical(1), x = sql, fixed = TRUE)]
+  invisible(.register_views(con, named))
 }
 
 #' Close a SeqOut connection

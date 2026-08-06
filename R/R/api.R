@@ -99,15 +99,7 @@ NULL
     if (any(nested)) {
       return(vals)
     }
-    vapply(vals, function(v) {
-      if (is.null(v)) {
-        NA_character_
-      } else if (is.list(v)) {
-        paste0(v, collapse = "; ")
-      } else {
-        as.character(v)
-      }
-    }, character(1))
+    vapply(vals, .flatten_value, character(1))
   })
   names(cols) <- all_names
   tibble::as_tibble(cols)

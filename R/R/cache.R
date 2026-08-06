@@ -24,12 +24,10 @@ cache_table <- function(con, table) {
 
   cli::cli_alert_info("Caching {.val {table}} locally as {.val {local_name}}...")
 
-  DBI::dbExecute(con$db, sprintf(
+  n <- DBI::dbExecute(con$db, sprintf(
     "CREATE OR REPLACE TABLE \"%s\" AS SELECT * FROM \"%s\"",
     local_name, table
   ))
-
-  n <- DBI::dbGetQuery(con$db, sprintf("SELECT count(*) AS n FROM \"%s\"", local_name))$n
   cli::cli_alert_success("Cached {.val {table}}: {format(n, big.mark = ',')} rows")
 
   invisible(local_name)
@@ -51,10 +49,11 @@ cache_table <- function(con, table) {
 #' con <- seqout_connect()
 #' query(con, "SELECT accession, title FROM geo_series LIMIT 10")
 #' query(con, "
-#'   SELECT organism, sum(count) AS total
-#'   FROM organism_growth_monthly
+#'   SELECT dominant_scientific_name AS organism, count(*) AS n
+#'   FROM unified_metadata
+#'   WHERE dominant_scientific_name IS NOT NULL
 #'   GROUP BY organism
-#'   ORDER BY total DESC
+#'   ORDER BY n DESC
 #'   LIMIT 20
 #' ")
 #' }
@@ -85,9 +84,9 @@ tables <- function(con) {
     table_name = setdiff(con$tables, live$table_name),
     table_type = "VIEW"
   )
+  live$registered <- TRUE
+  remote$registered <- FALSE
   out <- rbind(live, remote)
-  out$registered <- out$table_name %in% ls(con$views) |
-    out$table_type == "BASE TABLE"
   out[order(out$table_type, out$table_name), ]
 }
 

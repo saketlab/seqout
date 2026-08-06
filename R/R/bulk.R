@@ -22,7 +22,7 @@ bulk_project_metadata <- function(con, accessions) {
         "SELECT %s AS accession, %s AS title, %s AS description FROM %s WHERE %s IN (%s)",
         m$acc_col, m$title_col, m$desc_col, tbl, m$acc_col, placeholders
       )
-      DBI::dbGetQuery(con$db, sql, params = as.list(accs))
+      .db_query(con, sql, params = as.list(accs))
     })
     results <- Filter(function(df) nrow(df) > 0, results)
 

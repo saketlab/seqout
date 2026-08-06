@@ -1,5 +1,5 @@
 site_name: seqout
-site_url: https://seqout.org/cli/
+site_url: https://seqout.org/cli/python/
 site_description: >-
   Search sequencing study metadata across GEO, SRA, ENA, DDBJ, ArrayExpress,
   GEA and GSA, and read counts matrices, from Python or the shell.

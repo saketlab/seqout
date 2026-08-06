@@ -28,10 +28,11 @@ Parquet views and any locally cached tables.
 con <- seqout_connect()
 query(con, "SELECT accession, title FROM geo_series LIMIT 10")
 query(con, "
-  SELECT organism, sum(count) AS total
-  FROM organism_growth_monthly
+  SELECT dominant_scientific_name AS organism, count(*) AS n
+  FROM unified_metadata
+  WHERE dominant_scientific_name IS NOT NULL
   GROUP BY organism
-  ORDER BY total DESC
+  ORDER BY n DESC
   LIMIT 20
 ")
 }

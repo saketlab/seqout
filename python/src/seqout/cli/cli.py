@@ -1567,7 +1567,6 @@ def cmd_download_interactive(
         with _open_backend(parquet=parquet, source=source) as sq:
             with console.status(f"[bold]Inspecting {acc}…[/]"):
                 if up.startswith(RUN_PREFIXES):
-
                     runs = _single_run(sq, acc, up)
                     if runs:
                         groups.append(

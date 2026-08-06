@@ -295,7 +295,7 @@ project_citations <- function(con, accession, type = "original",
     return(study)
   }
 
-  df <- DBI::dbGetQuery(con$db,
+  df <- .db_query(con,
     "SELECT accession FROM sra_studies WHERE accession = ? OR alias = ? LIMIT 1",
     params = list(study, study)
   )

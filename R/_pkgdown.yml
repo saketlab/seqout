@@ -1,4 +1,4 @@
-url: https://seqout.org/r
+url: https://seqout.org/cli/R
 
 development:
   mode: auto
@@ -17,9 +17,9 @@ template:
     in_header: |
       <meta name="keywords" content="seqout, R package, GEO, SRA, ENA, ArrayExpress, DDBJ, GSA, genomics metadata, single-cell, counts matrix, DuckDB, Parquet">
       <meta name="author" content="Saket Choudhary">
-      <link rel="canonical" href="https://seqout.org/r">
+      <link rel="canonical" href="https://seqout.org/cli/R">
       <meta property="og:type" content="website">
-      <meta property="og:url" content="https://seqout.org/r">
+      <meta property="og:url" content="https://seqout.org/cli/R">
       <meta property="og:title" content="seqout - genomics metadata for R">
       <meta property="og:description" content="R client for SeqOut. Search GEO, SRA, ENA, ArrayExpress, DDBJ and GSA metadata, resolve accessions across archives, and read GEO supplementary files as counts matrices.">
       <meta property="og:site_name" content="seqout">
@@ -45,7 +45,7 @@ template:
           "name": "Saket Choudhary",
           "url": "https://saketlab.org"
         },
-        "url": "https://seqout.org/r",
+        "url": "https://seqout.org/cli/R",
         "downloadUrl": "https://github.com/saketlab/seqout",
         "softwareVersion": "0.1.0",
         "programmingLanguage": "R"

@@ -1,18 +1,15 @@
-name: docs-deploy
+name: r-docs-deploy
 
 on:
   push:
     branches: [main, master]
     paths:
-      - "python/docs/**"
-      - "python/mkdocs.yml"
-      - "python/pyproject.toml"
-      - "python/src/**"
-      - ".github/workflows/docs-deploy.yml"
+      - "R/**"
+      - ".github/workflows/r-docs-deploy.yml"
   workflow_dispatch:
 
 concurrency:
-  group: docs-deploy
+  group: r-docs-deploy
   cancel-in-progress: false
 
 permissions:
@@ -21,23 +18,59 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: python
+    timeout-minutes: 90
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+
+      - uses: r-lib/actions/setup-r@v2
         with:
-          enable-cache: true
+          use-public-rspm: true
 
-      - run: uv sync --extra counts
+      - uses: r-lib/actions/setup-pandoc@v2
 
-      - run: uv run mkdocs build --strict
+      # hdf5r needs libhdf5, and the Seurat stack needs the usual build deps
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libhdf5-dev libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
+            libglpk-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: R
+          extra-packages: |
+            any::pkgdown
+            any::Seurat
+            any::hdf5r
+          needs: website
+
+      # the counts vignette reads ~900 MB of GEO h5ad; keep it across runs
+      - name: Cache the GEO downloads the vignette reads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/R/seqout
+          key: seqout-counts-${{ hashFiles('R/vignettes/counts-and-metadata.Rmd') }}
+          restore-keys: seqout-counts-
+
+      - name: Build the site
+        working-directory: R
+        run: |
+          R CMD INSTALL . --no-byte-compile
+          Rscript -e 'pkgdown::build_site(preview = FALSE, install = FALSE, new_process = FALSE)'
+
+      - name: The build has to have produced a landing page
+        run: test -f R/docs/index.html
 
       - uses: actions/upload-artifact@v4
         with:
-          name: site
-          path: python/site/
+          name: r-site
+          path: R/docs/
           retention-days: 7
 
   deploy:
@@ -46,7 +79,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: site
+          name: r-site
           path: site
 
       - name: Make room for the new release
@@ -58,7 +91,7 @@ jobs:
           port: ${{ secrets.HOSTINGER_PORT || 22 }}
           script: |
             set -e
-            cd /var/www/sramap/seqoutDB/python
+            cd /var/www/sramap/seqoutDB/R
             rm -rf site-incoming
             mkdir -p site-incoming site-releases
 
@@ -70,7 +103,7 @@ jobs:
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: ${{ secrets.HOSTINGER_PORT || 22 }}
           source: "site/*"
-          target: /var/www/sramap/seqoutDB/python/site-incoming
+          target: /var/www/sramap/seqoutDB/R/site-incoming
           strip_components: 1
 
       - name: Swap it in
@@ -83,7 +116,7 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /var/www/sramap/seqoutDB/python
+            cd /var/www/sramap/seqoutDB/R
 
             test -f site-incoming/index.html || {
               echo "::error::upload has no index.html; refusing to swap"
@@ -106,19 +139,17 @@ jobs:
             rm -rf site.prepared
 
             code=$(curl -sk -o /dev/null -w '%{http_code}' \
-                      -H 'Host: seqout.org' https://127.0.0.1/cli/python/ || true)
+                     -H 'Host: seqout.org' https://127.0.0.1/cli/R/ || true)
             if [ "$code" != "200" ]; then
               if [ -n "$previous" ] && [ -d "$previous" ]; then
                 ln -sfn "$previous" site.new
                 mv -T site.new site
-                echo "::error::/cli/python/ answered $code; rolled back to $previous"
+                echo "::error::/cli/R/ answered $code; rolled back to $previous"
               else
-                echo "::error::/cli/python/ answered $code and there is nothing to roll back to"
+                echo "::error::/cli/R/ answered $code and there is nothing to roll back to"
               fi
               exit 1
             fi
 
-            live=$(readlink site)
-            for old in $(ls -1dt site-releases/*/ 2>/dev/null | tail -n +6); do
-              [ "${old%/}" = "$live" ] || rm -rf "$old"
-            done
+            ls -dt site-releases/*/ | tail -n +4 | xargs -r rm -rf
+            echo "deployed $release"

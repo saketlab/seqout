@@ -1,13 +1,3 @@
-fake_con <- function() {
-  structure(
-    list(
-      db = NULL, base_url = "https://example.org", api_url = "https://example.org/api",
-      tables = character(0)
-    ),
-    class = "seqout_connection"
-  )
-}
-
 test_that("dataset accepts any accession and records what it is", {
   con <- fake_con()
   expect_equal(dataset(con, "GSE168652")$kind, "series")

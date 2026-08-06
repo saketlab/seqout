@@ -37,15 +37,19 @@ with connect() as sq:
 its own, so `sq.get("GSE149312").runs` and `sq.get("SRP324458").runs` both work. An accession with
 no path back to its study raises `SeqoutError` naming the lookups that were tried.
 
-Reading counts needs the `counts` extra:
+### From a GEO accession to a single-cell matrix
+
+Supplementary files are grouped into units that read as one matrix: a 10x triplet, a CellRanger
+`.h5`, an `.h5ad`, an `.rds` or a table. The manifest resolves them without downloading anything,
+and the donor covariates come from the same accession. Needs the `counts` extra.
 
 ```python
 from seqout import seqout_counts
 
 counts = seqout_counts(gse="GSE297547")
-counts.manifest() 
-m = counts.matrix(sample="GSM8994520")
-m.summary
+counts.manifest()                       # what is readable, still no download
+m = counts.matrix(sample="GSM8994520")  # cells by genes, obs carries the annotation
+counts.design                           # one row per sample: tissue, age, sex
 ```
 
 ## Command-line reference

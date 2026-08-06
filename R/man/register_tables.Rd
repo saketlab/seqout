@@ -17,7 +17,7 @@ RegisterTables(con, tables = NULL, progress = interactive())
 \item{progress}{Show a progress bar. Defaults to \code{TRUE} interactively.}
 }
 \value{
-The names of the views now registered, invisibly.
+The names of every registered view, invisibly.
 }
 \description{
 Views are created on first reference, which keeps \code{\link[=seqout_connect]{seqout_connect()}} quick.

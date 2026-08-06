@@ -21,8 +21,9 @@ inst/doc/
 vignettes/*_cache/
 vignettes/*_files/
 
-# devtools/pkgdown (R output at repo root only — not python/docs source)
+# devtools/pkgdown output (built, not source; python/docs IS source)
 /docs/
+R/docs/
 
 # Test output
 tests/testthat/Rplots.pdf

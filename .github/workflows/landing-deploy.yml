@@ -1,0 +1,65 @@
+name: landing-deploy
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "README.md"
+      - "scripts/build_landing.py"
+      - ".github/workflows/landing-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: landing-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Render the README into the landing page
+        run: uv run --with markdown python scripts/build_landing.py landing/
+
+      - name: Upload it
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT || 22 }}
+          source: "landing/index.html"
+          target: /var/www/sramap/seqoutDB/landing-incoming
+          strip_components: 1
+
+      - name: Swap it in
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /var/www/sramap/seqoutDB
+            test -s landing-incoming/index.html || {
+              echo "::error::upload is empty; refusing to swap"
+              exit 1
+            }
+            mkdir -p landing
+            mv -f landing-incoming/index.html landing/index.html
+            rmdir landing-incoming 2>/dev/null || true
+
+            code=$(curl -sk -o /dev/null -w '%{http_code}' \
+                     -H 'Host: seqout.org' https://127.0.0.1/cli/ || true)
+            test "$code" = "200" || {
+              echo "::error::/cli/ answered $code"
+              exit 1
+            }
+            echo "landing page deployed"

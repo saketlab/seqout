@@ -8,15 +8,13 @@
 seqout_connect(
   base_url = "https://seqout.org",
   read_only = FALSE,
-  eager = FALSE,
-  progress = interactive()
+  eager = FALSE
 )
 
 SeqoutConnect(
   base_url = "https://seqout.org",
   read_only = FALSE,
-  eager = FALSE,
-  progress = interactive()
+  eager = FALSE
 )
 }
 \arguments{
@@ -28,9 +26,6 @@ Defaults to \code{FALSE} so that \code{\link[=cache_table]{cache_table()}} can m
 locally.}
 
 \item{eager}{Register every view up front rather than on first use.}
-
-\item{progress}{Show a progress bar while views are registered. Defaults to
-\code{TRUE} in an interactive session.}
 }
 \value{
 A \code{seqout_connection} object (list) containing the DuckDB
