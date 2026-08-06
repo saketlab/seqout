@@ -1,72 +1,117 @@
 #' Get project metadata
 #'
-#' @param con A `seqout_connection` from [connect_seqout()].
+#' @param con A `seqout_connection` from [seqout_connect()].
 #' @param accession Character. Project accession (e.g., `"GSE1234"`,
 #'   `"SRP012345"`, `"E-MTAB-1234"`, `"PRJNA123456"`).
-#' @return A tibble with project metadata.
+#' @param transpose Return one row per field instead of one wide row.
+#' @return A tibble with project metadata, or a `field`/`value` tibble when
+#'   `transpose = TRUE`.
 #' @export
-sq_project <- function(con, accession) {
+project <- function(con, accession, transpose = FALSE) {
   .check_connection(con)
   check_required(accession)
 
   tbl <- .accession_to_table(accession)
   m <- .table_column_map(tbl)
-  .db_query(con, sprintf("SELECT * FROM %s WHERE %s = ?", tbl, m$acc_col),
+  out <- .db_query(con, sprintf("SELECT * FROM %s WHERE %s = ?", tbl, m$acc_col),
     params = list(accession)
   )
+  if (transpose) .as_fields(out) else out
 }
-
 
 #' Get project title and description only
 #'
-#' @inheritParams sq_project
-#' @return A tibble with `accession`, `title`, and `description` columns.
+#' @inheritParams project
+#' @param transpose Return one row per field instead of one wide row. A project
+#'   record runs to 25 columns, which prints unreadably.
+#' @return A tibble of project metadata, or a `field`/`value` tibble when
+#'   `transpose = TRUE`.
 #' @export
-sq_project_metadata <- function(con, accession) {
+#' @examples
+#' \dontrun{
+#' con <- seqout_connect()
+#' project_metadata(con, "GSE297547", transpose = TRUE)
+#' }
+project_metadata <- function(con, accession, transpose = FALSE) {
   .check_connection(con)
-  check_required(accession)
-
-  tbl <- .accession_to_table(accession)
-  m <- .table_column_map(tbl)
-  .db_query(con, sprintf(
-    "SELECT %s AS accession, %s AS title, %s AS description FROM %s WHERE %s = ?",
-    m$acc_col, m$title_col, m$desc_col, tbl, m$acc_col
-  ), params = list(accession))
+  rlang::check_required(accession)
+  res <- .api_get(con, paste0("/project/", accession))
+  out <- .records_to_tibble(list(res))
+  if (transpose) .as_fields(out) else out
 }
 
+#' One row per field, for records too wide to print
+#'
+#' List columns are flattened to a semicolon-joined string, so the result is
+#' always two character columns.
+#' @noRd
+.as_fields <- function(x) {
+  if (nrow(x) == 0) {
+    return(tibble::tibble(field = character(0), value = character(0)))
+  }
+  if (nrow(x) > 1) {
+    cli::cli_abort("Only a single-row table can be transposed; got {nrow(x)} rows.")
+  }
+  tibble::tibble(
+    field = names(x),
+    value = vapply(x, .flatten_value, character(1), USE.NAMES = FALSE)
+  )
+}
+
+#' @noRd
+.flatten_value <- function(v) {
+  if (is.list(v)) {
+    v <- unlist(v, use.names = FALSE)
+  }
+  v <- v[!is.na(v)]
+  if (length(v) == 0) {
+    return(NA_character_)
+  }
+  paste(as.character(v), collapse = "; ")
+}
 
 #' Get samples for a project
 #'
-#' @inheritParams sq_project
+#' GEO samples carry no series column, so the Parquet route has to resolve them
+#' through `samples_ref`, which scans the whole sample table. The series
+#' endpoint answers with the same columns in one request, so it goes first and
+#' Parquet backs it up.
+#'
+#' @inheritParams project
 #' @return A tibble of sample metadata.
 #' @export
-sq_project_samples <- function(con, accession) {
+project_samples <- function(con, accession) {
   .check_connection(con)
   check_required(accession)
 
-  tbl <- .accession_to_table(accession)
-
-  if (tbl == "sra_studies") {
-    # Resolve PRJ* accessions to SRA study accession
+  row <- .accession_row(accession)
+  if (is.null(row) || is.null(row$child)) {
+    cli::cli_abort("{.val {accession}} has no sample table.")
+  }
+  if (identical(row$table, "sra_studies")) {
     accession <- .resolve_to_sra_study(con, accession)
   }
 
-  sql <- switch(tbl,
-    geo_series = "
-      SELECT s.* FROM geo_samples s
-      WHERE s.accession IN (
-        SELECT unnest(samples_ref) FROM geo_series WHERE accession = ?
-      )",
-    arrayexpress_experiments =
-      "SELECT * FROM arrayexpress_samples WHERE experiment_accession = ?",
-    ena_studies =
-      "SELECT * FROM ena_experiments WHERE study_accession = ?",
-    "SELECT * FROM sra_experiments WHERE study = ?"
-  )
+  if (identical(row$child, "geo_series_samples")) {
+    fast <- .geo_series_samples(con, accession)
+    if (!is.null(fast)) {
+      return(fast)
+    }
+  }
+
+  sql <- if (identical(row$child, "geo_series_samples")) {
+    paste(
+      "SELECT s.* FROM geo_samples s WHERE s.accession IN",
+      "(SELECT unnest(json_extract_string(samples_ref, '$[*]'))",
+      "FROM geo_series WHERE accession = ?)"
+    )
+  } else {
+    parts <- strsplit(row$child, "|", fixed = TRUE)[[1]]
+    sprintf("SELECT * FROM %s WHERE %s = ?", parts[1], parts[2])
+  }
 
   .db_query(con, sql, params = list(accession))
 }
-
 
 #' Get experiments for a study
 #'
@@ -74,7 +119,7 @@ sq_project_samples <- function(con, accession) {
 #' @param study Character. Study accession (SRP/ERP/DRP/PRJ*).
 #' @return A tibble of experiment metadata.
 #' @export
-sq_project_experiments <- function(con, study) {
+project_experiments <- function(con, study) {
   .check_connection(con)
   check_required(study)
 
@@ -84,80 +129,58 @@ sq_project_experiments <- function(con, study) {
   )
 }
 
-
 #' Get run download links for a study
 #'
 #' @param con A `seqout_connection`.
 #' @param study Character. Study accession.
 #' @return A tibble of run metadata with download links.
 #' @export
-sq_project_runs <- function(con, study) {
+project_runs <- function(con, study) {
   .check_connection(con)
   check_required(study)
-  .records_to_tibble(.api_get(con, paste0("/project/", study, "/runs")))
+  resp <- .api_get(con, paste0("/project/", study, "/runs"))
+  .records_to_tibble(resp$runs %||% list())
 }
-
 
 #' Get cross-references for a project
 #'
-#' @inheritParams sq_project
+#' @inheritParams project
 #' @return A tibble with cross-reference entries.
 #' @export
-sq_project_xref <- function(con, accession) {
+project_xref <- function(con, accession) {
   .check_connection(con)
-  check_required(accession)
-
-  xref_parts <- list(
-    cross_ref_geo = "SELECT 'geo' AS source, geo_accession AS source_accession, target_accession, link_type FROM cross_ref_geo WHERE geo_accession = ? OR target_accession = ?",
-    cross_ref_ae  = "SELECT 'ae', ae_accession, target_accession, link_type FROM cross_ref_ae WHERE ae_accession = ? OR target_accession = ?",
-    cross_ref_ena = "SELECT 'ena', ena_accession, target_accession, link_type FROM cross_ref_ena WHERE ena_accession = ? OR target_accession = ?"
-  )
-
-  available <- names(xref_parts)[names(xref_parts) %in% con$tables]
-  if (length(available) == 0) {
-    return(tibble::tibble())
-  }
-
-  sql <- paste(xref_parts[available], collapse = " UNION ALL ")
-  params <- rep(list(accession), length(available) * 2)
-  .db_query(con, sql, params = params)
+  rlang::check_required(accession)
+  res <- .api_get(con, paste0("/project/", accession, "/xref"))
+  .records_to_tibble(.as_record_list(res$xref %||% res))
 }
-
 
 #' Get ontology-enriched sample metadata
 #'
-#' @inheritParams sq_project
+#' @inheritParams project
 #' @return A tibble with enriched sample metadata (v3 if available, else v1).
 #' @export
-sq_project_enriched <- function(con, accession) {
+project_enriched <- function(con, accession) {
   .check_connection(con)
-  check_required(accession)
-
-  df <- .db_query(con, "SELECT * FROM ontology_samples_v3 WHERE study_accession = ?",
-    params = list(accession)
+  rlang::check_required(accession)
+  res <- tryCatch(
+    .api_get(con, paste0("/project/", accession, "/enriched")),
+    error = function(e) NULL
   )
-  if (nrow(df) > 0) {
-    return(df)
-  }
-
-  .db_query(con, "SELECT * FROM enriched_samples WHERE study_accession = ?",
-    params = list(accession)
-  )
+  .records_to_tibble(.as_record_list(res$samples %||% res))
 }
-
 
 #' Get citations for a project
 #'
 #' Uses DuckDB to parse publication data from the `study_publications` table.
 #' Falls back to the REST API for BibTeX format.
 #'
-#' @inheritParams sq_project
+#' @inheritParams project
 #' @param type One of `"original"` or `"all"`.
 #' @param format One of `"tibble"` (default) or `"bibtex"`.
 #' @return A tibble with citation data, or a character string of BibTeX.
 #' @export
-sq_project_citations <- function(con, accession, type = "original",
-                                 format = "tibble") {
+project_citations <- function(con, accession, type = "original",
+                              format = "tibble") {
   .check_connection(con)
   check_required(accession)
   type <- match.arg(type, c("original", "all"))
@@ -180,22 +203,25 @@ sq_project_citations <- function(con, accession, type = "original",
   )
 }
 
+#' @noRd
+.geo_series_samples <- function(con, accession) {
+  res <- tryCatch(.api_get(con, paste0("/geo/series/", accession, "/samples")),
+    error = function(e) NULL
+  )
+  records <- .as_record_list(res$samples %||% res)
+  if (length(records) == 0) {
+    return(NULL)
+  }
+  .records_to_tibble(records)
+}
 
 #' @noRd
 .accession_to_table <- function(accession) {
-  if (grepl("^GSE", accession, ignore.case = TRUE)) {
-    "geo_series"
-  } else if (grepl("^ERP", accession, ignore.case = TRUE)) {
-    "ena_studies"
-  } else if (grepl("^[SD]RP", accession, ignore.case = TRUE)) {
-    "sra_studies"
-  } else if (grepl("^E-", accession, ignore.case = TRUE)) {
-    "arrayexpress_experiments"
-  } else if (grepl("^PRJ", accession, ignore.case = TRUE)) {
-    "sra_studies"
-  } else {
+  row <- .accession_row(accession)
+  if (is.null(row) || is.null(row$table)) {
     cli::cli_abort("Cannot determine table for accession {.val {accession}}")
   }
+  row$table
 }
 
 #' @noRd

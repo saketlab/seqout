@@ -6,7 +6,7 @@
 #' @param accessions Character vector of project accessions.
 #' @return A tibble with project metadata.
 #' @export
-sq_bulk_project_metadata <- function(con, accessions) {
+bulk_project_metadata <- function(con, accessions) {
   .check_connection(con)
   check_required(accessions)
 
@@ -49,7 +49,7 @@ sq_bulk_project_metadata <- function(con, accessions) {
 #' @return If `output_dir` is `NULL`, a named list of tibbles. Otherwise,
 #'   the paths of written CSV files (invisibly).
 #' @export
-sq_bulk_metadata <- function(con, accessions, output_dir = NULL) {
+bulk_metadata <- function(con, accessions, output_dir = NULL) {
   .check_connection(con)
   check_required(accessions)
 

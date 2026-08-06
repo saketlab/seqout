@@ -4,9 +4,9 @@
 \name{seqout-package}
 \alias{seqout}
 \alias{seqout-package}
-\title{seqout: Client for the SeqOut Genomics Database}
+\title{seqout: R client for SeqOut metadata search interface}
 \description{
-Query genomics study metadata from the SeqOut database (seqout.org). Provides programmatic access to metadata from NCBI GEO, SRA, ENA, and ArrayExpress. Uses DuckDB for local caching and efficient downstream analysis of query results.
+Query genomics study metadata from SeqOut (seqout.org). Provides programmatic access to metadata from NCBI GEO, SRA, ENA, and ArrayExpress.
 }
 \seealso{
 Useful links:
@@ -19,6 +19,11 @@ Useful links:
 }
 \author{
 \strong{Maintainer}: Saket Choudhary \email{saketlab@gmail.com} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
+
+Authors:
+\itemize{
+  \item Saket Choudhary \email{saketlab@gmail.com} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
+}
 
 }
 \keyword{internal}

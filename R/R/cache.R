@@ -9,13 +9,13 @@
 #'   `"geo_series"`). Must be one of the registered SeqOut tables.
 #' @return The local table name (invisibly).
 #' @export
-sq_cache_table <- function(con, table) {
+cache_table <- function(con, table) {
   .check_connection(con)
   check_required(table)
 
   if (!table %in% con$tables) {
     cli::cli_abort(
-      "{.val {table}} is not a registered SeqOut table. See {.fn sq_tables}."
+      "{.val {table}} is not a registered SeqOut table. See {.fn tables}."
     )
   }
 
@@ -47,9 +47,9 @@ sq_cache_table <- function(con, table) {
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- connect_seqout()
-#' sq_query(con, "SELECT accession, title FROM geo_series LIMIT 10")
-#' sq_query(con, "
+#' con <- seqout_connect()
+#' query(con, "SELECT accession, title FROM geo_series LIMIT 10")
+#' query(con, "
 #'   SELECT organism, sum(count) AS total
 #'   FROM organism_growth_monthly
 #'   GROUP BY organism
@@ -57,7 +57,7 @@ sq_cache_table <- function(con, table) {
 #'   LIMIT 20
 #' ")
 #' }
-sq_query <- function(con, sql, params = NULL) {
+query <- function(con, sql, params = NULL) {
   .check_connection(con)
   check_required(sql)
   .db_query(con, sql, params = params)
@@ -72,7 +72,7 @@ sq_query <- function(con, sql, params = NULL) {
 #' @param con A `seqout_connection`.
 #' @return A tibble with `table_name` and `table_type` columns.
 #' @export
-sq_tables <- function(con) {
+tables <- function(con) {
   .check_connection(con)
   .db_query(con, "
     SELECT table_name, table_type
@@ -85,12 +85,12 @@ sq_tables <- function(con) {
 
 #' Clear locally cached tables
 #'
-#' Removes all `*_local` tables created by [sq_cache_table()].
+#' Removes all `*_local` tables created by [cache_table()].
 #'
 #' @param con A `seqout_connection`.
 #' @return Number of tables removed (invisibly).
 #' @export
-sq_clear_cache <- function(con) {
+clear_cache <- function(con) {
   .check_connection(con)
 
   tables <- DBI::dbGetQuery(con$db, "

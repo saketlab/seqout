@@ -25,24 +25,24 @@ pak::pak("saketlab/seqout/R")
 ## Connect to SeqOut
 
 All queries start by creating a connection. This sets up a local DuckDB
-instance that reads remote Parquet files from `seqout.org` — no full download
-is required.
+instance that reads remote Parquet files from `seqout.org`, a full download
+is not required.
 
 ```{r connect}
 library(seqout)
 
-con <- connect_seqout()
+con <- seqout_connect()
 con
 ```
 
-## 1. Search for datasets
+## Search for datasets
 
 Suppose we are interested in finding single-cell RNA-seq datasets
-related to liver cancer. `sq_find_projects()` lets us search by
+related to liver cancer. `find_projects()` lets us search by
 keywords and apply structured filters — no SQL needed:
 
 ```{r search-liver}
-results <- sq_find_projects(con,
+results <- find_projects(con,
   keywords = "liver cancer scRNA",
   organism = "Homo sapiens",
   sort_by  = "citations",
@@ -57,7 +57,7 @@ filters:
 
 ```{r search-narrow}
 # Only GEO projects from 2020 onwards with at least 10 samples
-sq_find_projects(con,
+find_projects(con,
   keywords    = "liver cancer scRNA",
   organism    = "Homo sapiens",
   source      = "geo",
@@ -69,25 +69,25 @@ sq_find_projects(con,
 
 ### Discover valid filter values
 
-Not sure what to pass for `assay` or `organism`? The `sq_list_*` helpers
+Not sure what to pass for `assay` or `organism`? The `list_*` helpers
 return valid values with project counts:
 
 ```{r list-values}
 # Specific assay types (RNA-seq, ChIP-seq, WGS, ...)
-sq_list_assays(con)
+list_assays(con)
 
 # Broad assay categories (Transcriptomic, Genomic Sequencing, ...)
-sq_list_assays(con, level = "broad")
+list_assays(con, level = "broad")
 
 # Top organisms
-sq_list_organisms(con, limit = 10)
+list_organisms(con, limit = 10)
 
 # Top countries
-sq_list_countries(con, limit = 10)
+list_countries(con, limit = 10)
 ```
 
 
-## 2. Get detailed metadata for a project
+## Get detailed metadata for a project
 
 From our search above, `GSE151530` is a highly cited single-cell liver
 cancer study. Let's get its metadata.
@@ -95,33 +95,33 @@ cancer study. Let's get its metadata.
 **Title and description:**
 
 ```{r metadata-basic}
-sq_project_metadata(con, "GSE151530")
+project_metadata(con, "GSE151530")
 ```
 
 **Full metadata** including contributors, organisms, instruments, and
 supplementary data links:
 
 ```{r metadata-full}
-project <- sq_project(con, "GSE151530")
-project
+meta <- project(con, "GSE151530")
+meta
 ```
 
 **Samples** in this project:
 
 ```{r samples}
-samples <- sq_project_samples(con, "GSE151530")
+samples <- project_samples(con, "GSE151530")
 samples
 ```
 
 
-## 3. Enriched (ontology-annotated) metadata
+## Enriched (ontology-annotated) metadata
 
 SeqOut annotates samples with standardized ontology terms for tissue,
-disease, cell type, assay, and more. `sq_project_enriched()` retrieves
+disease, cell type, assay, and more. `project_enriched()` retrieves
 these annotations:
 
 ```{r enriched}
-enriched <- sq_project_enriched(con, "GSE151530")
+enriched <- project_enriched(con, "GSE151530")
 enriched
 ```
 
@@ -138,29 +138,29 @@ enriched |>
 ```
 
 
-## 4. Publications
+## Publications
 
-`sq_publications()` parses the structured publication data — DOI, PubMed ID,
+`publications()` parses the structured publication data — DOI, PubMed ID,
 journal, and citation count — for one or more accessions:
 
 ```{r publications}
-sq_publications(con, c("GSE151530", "GSE98638"))
+publications(con, c("GSE151530", "GSE98638"))
 ```
 
-For a single project, `sq_project_citations()` returns the same data:
+For a single project, `project_citations()` returns the same data:
 
 ```{r citations-tibble}
-sq_project_citations(con, "GSE151530")
+project_citations(con, "GSE151530")
 ```
 
 
-## 5. BibTeX export
+## BibTeX export
 
 To get a ready-to-use BibTeX string for a project's publications, pass
 `format = "bibtex"`:
 
 ```{r bibtex}
-bib <- sq_project_citations(con, "GSE151530", format = "bibtex")
+bib <- project_citations(con, "GSE151530", format = "bibtex")
 cat(bib)
 ```
 
@@ -184,9 +184,9 @@ writeLines(bib, "GSE151530.bib")
 ```
 
 
-## 6. Growth of scRNA-seq and snRNA-seq datasets
+## Growth of scRNA-seq and snRNA-seq datasets
 
-`sq_assay_projects()` retrieves one row per project for each assay type,
+`assay_projects()` retrieves one row per project for each assay type,
 with the publication month. We can then aggregate and plot yearly trends
 with `dplyr` and `ggplot2`:
 
@@ -194,7 +194,7 @@ with `dplyr` and `ggplot2`:
 library(dplyr)
 library(ggplot2)
 
-sc_projects <- sq_assay_projects(con,
+sc_projects <- assay_projects(con,
   assay     = c("scRNA-seq", "snRNA-seq"),
   year_from = 2015,
   year_to   = 2025
@@ -220,13 +220,77 @@ ggplot(sc_growth, aes(x = year, y = n_projects, fill = assay_type)) +
 ```
 
 
+## Finding PBMC scRNA-seq datasets with BAM files
+
+`geo_search()` searches GEO series free-text (title, summary, overall
+design) and returns the linked SRA accession. `check_sra_bam()` then
+checks whether the original submission to SRA/NCBI included aligned BAM
+files — useful when you want to skip alignment and work directly from
+pre-aligned reads.
+
+```{r pbmc-search}
+library(dplyr)
+
+pbmc <- geo_search(con, "PBMC scRNA-seq", limit = 10000)
+```
+
+Export the full catalogue to CSV:
+
+```{r pbmc-csv}
+write.csv(pbmc, "pbmc_scrna_geo.csv", row.names = FALSE)
+```
+
+Now check which of those studies have BAM files deposited in SRA:
+
+```{r pbmc-bam}
+pbmc_with_sra <- pbmc |> filter(!is.na(sra_accession))
+
+bam_status <- check_sra_bam(con, pbmc_with_sra$sra_accession)
+
+pbmc_bam <- pbmc_with_sra |>
+  left_join(bam_status, by = "sra_accession") |>
+  filter(has_bam_sra) |>
+  arrange(desc(published))
+
+cat(nrow(pbmc_bam), "PBMC scRNA-seq studies with BAM in SRA\n")
+```
+
+Fetch publication DOIs and render an interactive table:
+
+```{r pbmc-bam-table}
+library(DT)
+
+pubs <- publications(con, pbmc_bam$accession)
+
+pbmc_bam |>
+  left_join(pubs |> select(accession, doi) |> distinct(),
+    by = "accession"
+  ) |>
+  mutate(
+    GEO = sprintf('<a href="https://seqout.org/p/%s">%s</a>', accession, accession),
+    SRA = sprintf('<a href="https://seqout.org/p/%s">%s</a>', sra_accession, sra_accession),
+    Title = ifelse(
+      !is.na(doi),
+      sprintf('<a href="https://doi.org/%s">%s</a>', doi, title),
+      title
+    )
+  ) |>
+  select(GEO, SRA, Title, published) |>
+  datatable(
+    escape = FALSE, rownames = FALSE,
+    colnames = c("GEO", "SRA", "Title", "Published"),
+    options = list(pageLength = 25, dom = "tip")
+  )
+```
+
+
 ## Cumulative project deposits across databases
 
-For a broader view, `sq_growth_stats()` returns monthly project counts
+For a broader view, `growth_stats()` returns monthly project counts
 per database. We can compute cumulative totals:
 
 ```{r cumulative-growth, fig.width=7, fig.height=5}
-growth <- sq_growth_stats(con, mode = "projects") |>
+growth <- growth_stats(con, mode = "projects") |>
   filter(db %in% c("geo", "sra")) |>
   arrange(db, month) |>
   group_by(db) |>
@@ -257,11 +321,12 @@ All the above functions run on DuckDB under the hood. You can also query
 the tables directly with SQL:
 
 ```{r sql}
-sq_query(con, "
-  SELECT organism, sum(count) AS total
-  FROM organism_growth_monthly
+query(con, "
+  SELECT dominant_scientific_name AS organism, count(*) AS n_projects
+  FROM unified_metadata
+  WHERE dominant_scientific_name IS NOT NULL
   GROUP BY organism
-  ORDER BY total DESC
+  ORDER BY n_projects DESC
   LIMIT 10
 ")
 ```
@@ -284,22 +349,22 @@ tbl(con$db, "unified_metadata") |>
 
 ## Cache tables locally
 
-For repeated analysis, materialise a remote view into local DuckDB storage
+For repeated analysis, we can materialise a remote view into local DuckDB storage
 to avoid repeated HTTP requests:
 
 ```{r cache}
-sq_cache_table(con, "unified_metadata")
+cache_table(con, "unified_metadata")
 
 # Subsequent queries hit local storage
-sq_query(con, "SELECT count(*) AS n FROM unified_metadata_local")
+query(con, "SELECT count(*) AS n FROM unified_metadata_local")
 
 # Clean up
-sq_clear_cache(con)
+clear_cache(con)
 ```
 
 
 ## Close connection
 
 ```{r close}
-close_seqout(con)
+seqout_close(con)
 ```

@@ -87,11 +87,18 @@ NULL
   if (length(records) == 0) {
     return(tibble::tibble())
   }
-  # Handles ragged records with different field sets
   all_names <- unique(unlist(lapply(records, names)))
   cols <- lapply(all_names, function(nm) {
-    vapply(records, function(r) {
-      v <- r[[nm]]
+    vals <- lapply(records, function(r) r[[nm]])
+    nested <- vapply(
+      vals,
+      function(v) is.list(v) && any(vapply(v, is.list, logical(1))),
+      logical(1)
+    )
+    if (any(nested)) {
+      return(vals)
+    }
+    vapply(vals, function(v) {
       if (is.null(v)) {
         NA_character_
       } else if (is.list(v)) {
@@ -112,20 +119,15 @@ NULL
 
 #' @noRd
 .table_column_map <- function(tbl) {
-  list(
-    acc_col = if (tbl == "ena_studies") "study_accession" else "accession",
-    title_col = if (tbl == "ena_studies") "study_title" else "title",
-    desc_col = switch(tbl,
-      geo_series = "summary",
-      sra_studies = "abstract",
-      arrayexpress_experiments = "description",
-      ena_studies = "study_description",
-      "abstract"
-    )
-  )
+  for (row in .accession_registry) {
+    if (identical(row$table, tbl)) {
+      return(list(acc_col = row$cols[1], title_col = row$cols[2], desc_col = row$cols[3]))
+    }
+  }
+  list(acc_col = "accession", title_col = "title", desc_col = "abstract")
 }
 
-#' Shared SQL for parsing study_publications JSON into structured columns.
+#' Shared SQL for parsing study_publications JSON into structured columns
 #' @param where_clause SQL WHERE clause (must include "sp." table alias).
 #' @noRd
 .publications_sql <- function(where_clause) {
@@ -150,7 +152,6 @@ NULL
 .valid_dbs <- c("geo", "sra", "arrayexpress", "ena")
 
 #' @noRd
-.valid_download_modes <- c("fastq", "sra", "sra_lite", "s3", "gcs")
 
 #' @noRd
 .paginate_api <- function(con, path, params, max_pages = 1) {
@@ -176,4 +177,19 @@ NULL
   attr(out, "total") <- result$total
   attr(out, "took_ms") <- result$took_ms
   out
+}
+
+
+#' Unwrap the shapes the API uses for a list of records
+#' @noRd
+.as_record_list <- function(records) {
+  if (is.null(records)) {
+    return(list())
+  }
+  for (key in c("results", "items", "organisms", "data")) {
+    if (!is.null(records[[key]])) {
+      return(records[[key]])
+    }
+  }
+  if (!is.null(names(records))) list(records) else records
 }

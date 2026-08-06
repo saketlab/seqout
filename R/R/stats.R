@@ -9,11 +9,10 @@
 #' @param db Optional. Restrict to a specific database.
 #' @return A tibble with growth data (columns depend on mode).
 #' @export
-sq_growth_stats <- function(con, mode = "projects", db = NULL) {
+growth_stats <- function(con, mode = "projects", db = NULL) {
   .check_connection(con)
   mode <- match.arg(mode, c("projects", "experiments", "bases"))
 
-  # DuckDB path for projects and experiments
   if (mode %in% c("projects", "experiments")) {
     if (mode == "projects") {
       if (!is.null(db)) {
@@ -41,7 +40,6 @@ sq_growth_stats <- function(con, mode = "projects", db = NULL) {
       return(.db_query(con, sql))
     }
 
-    # experiments mode
     if (!is.null(db)) {
       db <- match.arg(db, .valid_dbs)
       sql <- "
@@ -63,7 +61,6 @@ sq_growth_stats <- function(con, mode = "projects", db = NULL) {
     return(.db_query(con, sql))
   }
 
-  # bases mode — REST API only
   if (!is.null(db)) db <- match.arg(db, c(.valid_dbs, "sra_fastq_bytes", "sra_sra_bytes"))
   params <- .compact(list(mode = mode, db = db))
   result <- do.call(.api_get, c(list(con = con, path = "/stats/growth"), params))
@@ -81,12 +78,11 @@ sq_growth_stats <- function(con, mode = "projects", db = NULL) {
 #' @param address_type Optional. Filter by address type.
 #' @return A tibble with geographic contribution data.
 #' @export
-sq_global_contributions <- function(con, organism = NULL, assay_l1 = NULL,
-                                    assay_l2 = NULL, place_type = NULL,
-                                    address_type = NULL) {
+global_contributions <- function(con, organism = NULL, assay_l1 = NULL,
+                                 assay_l2 = NULL, place_type = NULL,
+                                 address_type = NULL) {
   .check_connection(con)
 
-  # DuckDB path — build WHERE clause from filters
   clauses <- "country IS NOT NULL"
   params <- list()
   if (!is.null(organism)) {
@@ -131,8 +127,8 @@ sq_global_contributions <- function(con, organism = NULL, assay_l1 = NULL,
 #' @param organism Optional. Scope assay counts (requires `country`).
 #' @return A list of available filter values.
 #' @export
-sq_global_contribution_filters <- function(con, country = NULL,
-                                           organism = NULL) {
+global_contribution_filters <- function(con, country = NULL,
+                                        organism = NULL) {
   .check_connection(con)
 
   where <- "WHERE country IS NOT NULL"

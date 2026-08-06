@@ -4,7 +4,7 @@
 #' @param accession Sample accession (SRS/DRS/ERS/SAM*/GSM*).
 #' @return A tibble with sample metadata.
 #' @export
-sq_sample <- function(con, accession) {
+seqout_sample <- function(con, accession) {
   .check_connection(con)
   check_required(accession)
 
@@ -29,7 +29,7 @@ sq_sample <- function(con, accession) {
 #' @param accession Sample or experiment accession (GSM/SRX/DRX/ERX/SRS/DRS/ERS/SAM*).
 #' @return A tibble with detailed metadata.
 #' @export
-sq_sample_detail <- function(con, accession) {
+sample_detail <- function(con, accession) {
   .check_connection(con)
   check_required(accession)
 
@@ -49,7 +49,6 @@ sq_sample_detail <- function(con, accession) {
     ))
   }
 
-  # Fallback to REST API for unrecognized prefixes
   result <- .api_get(con, paste0("/sample-detail/", accession))
   .records_to_tibble(if (is.list(result) && !is.null(result$accession)) list(result) else result)
 }
@@ -65,46 +64,6 @@ sq_sample_detail <- function(con, accession) {
 #' @return A character string with the parent project accession, or `NA` if
 #'   not found.
 #' @export
-sq_resolve_accession <- function(con, accession) {
-  .check_connection(con)
-  check_required(accession)
-
-  # Try DuckDB lookups by accession prefix
-  if (grepl("^(SRX|DRX|ERX)", accession, ignore.case = TRUE)) {
-    df <- .db_query(con, "SELECT study FROM sra_experiments WHERE accession = ? LIMIT 1",
-      params = list(accession)
-    )
-    if (nrow(df) > 0) {
-      return(df$study[1])
-    }
-  }
-  if (grepl("^(ERR|SRR|DRR)", accession, ignore.case = TRUE)) {
-    df <- .db_query(con,
-      "SELECT e.study FROM sra_experiments e WHERE e.accession IN (
-         SELECT experiment FROM sra_experiments WHERE accession = ?
-       ) LIMIT 1",
-      params = list(accession)
-    )
-    if (nrow(df) > 0) {
-      return(df$study[1])
-    }
-  }
-  if (grepl("^GSM", accession, ignore.case = TRUE)) {
-    df <- .db_query(con,
-      "SELECT accession FROM geo_series WHERE list_contains(samples_ref, ?) LIMIT 1",
-      params = list(accession)
-    )
-    if (nrow(df) > 0) {
-      return(df$accession[1])
-    }
-  }
-
-  # Fallback to REST API
-  tryCatch(
-    {
-      result <- .api_get(con, paste0("/accession/", accession, "/project"))
-      result$accession %||% NA_character_
-    },
-    error = function(e) NA_character_
-  )
+resolve_accession <- function(con, accession) {
+  resolve_study(con, accession)
 }

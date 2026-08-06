@@ -1,0 +1,102 @@
+// SF Pro renders heavy without smoothing, and its optical sizes want
+// negative tracking on headings.
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.7;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+h1 { font-weight: 700; }
+h2 { font-weight: 650; }
+h3 { font-weight: 600; }
+
+.page-header {
+  border-bottom: 1px solid var(--bs-border-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.navbar {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  box-shadow: 0 1px 0 var(--bs-border-color);
+  border-bottom: none !important;
+}
+
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.nav-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+pre, pre.sourceCode, div.sourceCode {
+  border: 1px solid var(--bs-border-color) !important;
+  font-size: 0.84rem !important;
+  line-height: 1.55;
+}
+
+p code, li code, td code {
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.2rem;
+  background-color: var(--bs-secondary-bg);
+}
+
+.ref-index td {
+  vertical-align: top;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ref-index h2,
+.template-home aside h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--bs-secondary-color);
+  border-bottom: 1px solid var(--bs-border-color);
+  padding-bottom: 0.3rem;
+  margin-top: 2rem;
+}
+
+.template-home aside { font-size: 0.875rem; }
+
+footer {
+  font-size: 0.8125rem;
+  opacity: 0.6;
+  margin-top: 4rem;
+  border-top: 1px solid var(--bs-border-color);
+  padding-top: 1.25rem;
+}
+
+[data-bs-theme="dark"] {
+  --bs-body-bg: #0d1117;
+  --bs-body-color: #cdd9e5;
+  --bs-secondary-bg: #161b22;
+  --bs-tertiary-bg: #1c2128;
+  --bs-border-color: #30363d;
+  --bs-secondary-color: #8b949e;
+  --bs-code-color: #79c0ff;
+
+  .navbar { background-color: #010409 !important; }
+
+  pre, pre.sourceCode, div.sourceCode {
+    background-color: #161b22 !important;
+  }
+
+  p code, li code, td code {
+    background-color: rgba(110, 118, 129, 0.15);
+    color: #79c0ff;
+  }
+}

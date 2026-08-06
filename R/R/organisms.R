@@ -1,128 +1,115 @@
 #' List all organisms
 #'
-#' Returns distinct organisms across all databases, queried from the
-#' `organism_growth_monthly` materialized view.
+#' Distinct organisms across every archive. Served by the API: the organism
+#' tables were dropped from the Parquet export when it was reorganised.
 #'
-#' @param con A `seqout_connection`.
-#' @param common_names If `TRUE`, include common name mappings. Default `FALSE`.
-#' @return A tibble of organism names. If `common_names = TRUE`, includes
-#'   a `common_name` column.
+#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param common_names Keep the common-name column.
+#'
+#' @return A tibble of organism names.
+#'
 #' @export
-sq_organisms <- function(con, common_names = FALSE) {
+#' @examples
+#' \dontrun{
+#' con <- seqout_connect()
+#' organisms(con)
+#' }
+organisms <- function(con, common_names = FALSE) {
   .check_connection(con)
-
+  res <- .api_get(con, "/organisms")
+  names_vec <- unlist(res$organisms %||% list(), use.names = FALSE)
+  out <- tibble::tibble(organism = as.character(names_vec))
   if (common_names) {
-    sql <- "
-      SELECT DISTINCT o.organism, c.common_name
-      FROM organism_growth_monthly o
-      LEFT JOIN common_names c ON o.organism = c.scientific_name
-      ORDER BY o.organism
-    "
-  } else {
-    sql <- "
-      SELECT DISTINCT organism
-      FROM organism_growth_monthly
-      ORDER BY organism
-    "
+    out$common_name <- NA_character_
   }
-
-  .db_query(con, sql)
+  out
 }
 
-
-#' Get organism growth over time
+#' Organism growth over time
 #'
-#' Monthly experiment counts for a specific organism across databases.
+#' Monthly counts for one organism across the archives.
 #'
-#' @param con A `seqout_connection`.
-#' @param organism Character. Scientific name (e.g., `"Homo sapiens"`).
-#' @param db Optional. Restrict to `"geo"`, `"sra"`, `"arrayexpress"`, or
+#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param organism Scientific name, for example `"Homo sapiens"`.
+#' @param db Restrict to one source: `"geo"`, `"sra"`, `"arrayexpress"` or
 #'   `"ena"`.
-#' @return A tibble with columns `db`, `month`, `count`.
+#'
+#' @return A tibble of counts by month.
+#'
 #' @export
-sq_organism_growth <- function(con, organism, db = NULL) {
+organism_growth <- function(con, organism, db = NULL) {
   .check_connection(con)
-  check_required(organism)
+  rlang::check_required(organism)
   if (!is.null(db)) db <- match.arg(db, .valid_dbs)
-
-  if (!is.null(db)) {
-    sql <- "
-      SELECT db, month, count
-      FROM organism_growth_monthly
-      WHERE lower(organism) = lower(?) AND db = ?
-      ORDER BY month
-    "
-    params <- list(organism, db)
-  } else {
-    sql <- "
-      SELECT db, month, count
-      FROM organism_growth_monthly
-      WHERE lower(organism) = lower(?)
-      ORDER BY db, month
-    "
-    params <- list(organism)
-  }
-
-  .db_query(con, sql, params = params)
+  res <- .api_get(con, "/stats/organism-growth", organism = organism, db = db)
+  series <- res$series %||% list()
+  sources <- if (is.null(db)) names(series) else intersect(db, names(series))
+  frames <- lapply(sources, function(src) {
+    rows <- .records_to_tibble(series[[src]])
+    if (nrow(rows) == 0) NULL else cbind(db = src, rows)
+  })
+  frames <- Filter(Negate(is.null), frames)
+  if (length(frames) == 0) tibble::tibble() else tibble::as_tibble(do.call(rbind, frames))
 }
 
-
-#' Get total experiment counts per organism
+#' Organism totals
 #'
-#' @param con A `seqout_connection`.
-#' @param year_from Optional. Filter by publication year (start).
-#' @param year_to Optional. Filter by publication year (end).
-#' @param limit Maximum organisms to return. Default 50.
-#' @return A tibble with organism names and total counts.
+#' The organisms with the most records, most first.
+#'
+#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param year_from Earliest year to count.
+#' @param year_to Latest year to count.
+#' @param limit Maximum organisms to return.
+#'
+#' @return A tibble of organisms and counts.
+#'
 #' @export
-sq_organism_totals <- function(con, year_from = NULL, year_to = NULL,
-                               limit = 50) {
+organism_totals <- function(con, year_from = NULL, year_to = NULL, limit = 50) {
   .check_connection(con)
-
-  clauses <- character()
-  params <- list()
-  if (!is.null(year_from)) {
-    clauses <- c(clauses, "extract(year FROM month) >= ?")
-    params <- c(params, list(as.integer(year_from)))
-  }
-  if (!is.null(year_to)) {
-    clauses <- c(clauses, "extract(year FROM month) <= ?")
-    params <- c(params, list(as.integer(year_to)))
-  }
-
-  where <- if (length(clauses) > 0) paste("WHERE", paste(clauses, collapse = " AND ")) else ""
-  sql <- sprintf("
-    SELECT organism, sum(count) AS total
-    FROM organism_growth_monthly
-    %s
-    GROUP BY organism
-    ORDER BY total DESC
-    LIMIT ?
-  ", where)
-  params <- c(params, list(as.integer(limit)))
-
-  .db_query(con, sql, params = params)
+  records <- .api_get(
+    con, "/stats/organism-totals",
+    year_from = year_from, year_to = year_to, limit = limit
+  )
+  .records_to_tibble(.as_record_list(records))
 }
 
-
-#' Search organisms by partial name
+#' Search organisms by name
 #'
-#' Typeahead/autocomplete search for organism names.
+#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param query Search text, matched against scientific and common names.
+#' @param limit Maximum results.
 #'
-#' @param con A `seqout_connection`.
-#' @param query Character. Partial organism name.
-#' @param limit Maximum results. Default 20.
-#' @return A character vector of matching organism names.
+#' @return A tibble of matching organisms.
+#'
 #' @export
-sq_organism_search <- function(con, query, limit = 20) {
+#' @examples
+#' \dontrun{
+#' con <- seqout_connect()
+#' organism_search(con, "sapiens")
+#' }
+organism_search <- function(con, query, limit = 20) {
   .check_connection(con)
-  check_required(query)
+  rlang::check_required(query)
+  records <- .api_get(con, "/stats/organism-search", q = query, limit = limit)
+  .records_to_tibble(.as_record_list(records))
+}
 
-  df <- .db_query(con, "
-    SELECT DISTINCT organism
-    FROM organism_growth_monthly
-    WHERE lower(organism) LIKE lower(? || '%')
-    LIMIT ?
-  ", params = list(query, limit))
-  df$organism
+#' Common name for a scientific name
+#'
+#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param scientific_name A scientific name, for example `"Homo sapiens"`.
+#'
+#' @return A tibble with `tax_id`, `scientific_name` and `common_name`.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' con <- seqout_connect()
+#' common_name(con, "Homo sapiens")
+#' }
+common_name <- function(con, scientific_name) {
+  .check_connection(con)
+  rlang::check_required(scientific_name)
+  records <- .api_get(con, "/common-name", scientific_name = scientific_name)
+  .records_to_tibble(.as_record_list(records))
 }

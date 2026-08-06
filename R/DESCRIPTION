@@ -15,14 +15,25 @@ Depends:
     R (>= 4.1.0)
 Imports:
     cli,
+    curl,
     DBI,
     duckdb,
     httr2,
+    methods,
     rlang,
-    tibble
+    stats,
+    tibble,
+    tools,
+    utils
 Suggests:
     dplyr,
     dbplyr,
+    DT,
+    ggplot2,
+    hdf5r,
+    Matrix,
+    scales,
+    Seurat,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
@@ -30,5 +41,5 @@ Suggests:
 Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

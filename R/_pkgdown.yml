@@ -1,0 +1,216 @@
+url: https://seqout.org/r
+
+development:
+  mode: auto
+
+template:
+  bootstrap: 5
+  light-switch: true
+  preset: default
+  bslib:
+    primary: "#0071e3"
+    border-radius: "0.5rem"
+    font-family-sans-serif: '"SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    headings-font-family: '"SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    font-family-monospace: '"SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
+  includes:
+    in_header: |
+      <meta name="keywords" content="seqout, R package, GEO, SRA, ENA, ArrayExpress, DDBJ, GSA, genomics metadata, single-cell, counts matrix, DuckDB, Parquet">
+      <meta name="author" content="Saket Choudhary">
+      <link rel="canonical" href="https://seqout.org/r">
+      <meta property="og:type" content="website">
+      <meta property="og:url" content="https://seqout.org/r">
+      <meta property="og:title" content="seqout - genomics metadata for R">
+      <meta property="og:description" content="R client for SeqOut. Search GEO, SRA, ENA, ArrayExpress, DDBJ and GSA metadata, resolve accessions across archives, and read GEO supplementary files as counts matrices.">
+      <meta property="og:site_name" content="seqout">
+      <meta property="og:locale" content="en_US">
+      <meta name="twitter:card" content="summary_large_image">
+      <meta name="twitter:title" content="seqout - genomics metadata for R">
+      <meta name="twitter:description" content="Search genomics study metadata across GEO, SRA, ENA, ArrayExpress, DDBJ and GSA from R.">
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "seqout",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows, macOS, Linux",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "description": "R client for the SeqOut genomics metadata database, covering NCBI GEO, SRA, ENA, ArrayExpress, DDBJ and GSA, with counts-matrix readers for GEO supplementary files",
+        "author": {
+          "@type": "Person",
+          "name": "Saket Choudhary",
+          "url": "https://saketlab.org"
+        },
+        "url": "https://seqout.org/r",
+        "downloadUrl": "https://github.com/saketlab/seqout",
+        "softwareVersion": "0.1.0",
+        "programmingLanguage": "R"
+      }
+      </script>
+
+home:
+  title: "seqout - genomics metadata for R"
+  description: >
+    Query study metadata from NCBI GEO, SRA, ENA, ArrayExpress, DDBJ and GSA,
+    resolve accessions across archives, and read GEO supplementary files as
+    counts matrices.
+
+  links:
+  - text: Python client
+    href: https://seqout.org/cli/
+  - text: Browse source code
+    href: https://github.com/saketlab/seqout
+  - text: Report a bug
+    href: https://github.com/saketlab/seqout/issues
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [search, github, lightswitch]
+
+  components:
+    reference:
+      text: Reference
+      href: reference/index.html
+
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/saketlab/seqout
+      aria-label: GitHub
+
+reference:
+- title: Connecting
+  desc: Open a connection and work with the local DuckDB cache
+  contents:
+  - seqout_connect
+  - seqout_close
+  - tables
+  - cache_table
+  - clear_cache
+  - query
+
+- title: Searching
+  desc: Free-text and structured search across every archive
+  contents:
+  - seqout_search
+  - search_structured
+  - search_correction
+  - iter_search
+  - bulk_search
+  - find_projects
+  - geo_search
+  - assay_projects
+
+- title: Datasets and projects
+  desc: Metadata for one accession or many
+  contents:
+  - dataset
+  - project
+  - project_metadata
+  - project_samples
+  - project_experiments
+  - project_runs
+  - project_xref
+  - project_enriched
+  - project_summary
+  - summaries
+  - bulk_project_metadata
+  - bulk_metadata
+
+- title: Samples, experiments and runs
+  desc: Record-level metadata below the project
+  contents:
+  - seqout_sample
+  - sample_detail
+  - sample_frame
+  - experiment_runs
+  - run
+  - resolve_accession
+
+- title: Resolving accessions
+  desc: Work out what an accession is and what it links to
+  contents:
+  - accession_kind
+  - classify
+  - resolve_study
+  - gsm_series
+  - linked_study
+  - linked_geo
+
+- title: Counts matrices
+  desc: Read GEO supplementary files as a counts matrix
+  contents:
+  - seqout_counts
+  - manifest
+  - seqout_units
+  - seqout_matrix
+  - matrices
+  - seqout_counts_files
+  - file_role
+  - group_key
+  - is_filtered
+
+- title: Downloads
+  desc: Fetch supplementary files, reads and download scripts
+  contents:
+  - download_files
+  - download_supplementary
+  - download_runs
+  - download_script
+
+- title: Publications
+  desc: Papers linked to studies, and studies linked to papers
+  contents:
+  - paper
+  - author
+  - publications
+  - project_citations
+
+- title: Organisms
+  desc: Organism names, totals and growth
+  contents:
+  - organisms
+  - list_organisms
+  - organism_search
+  - organism_totals
+  - organism_growth
+  - common_name
+
+- title: Database statistics
+  desc: Growth and geographic contributions across archives
+  contents:
+  - growth_stats
+  - global_contributions
+  - global_contribution_filters
+
+- title: Discovery lists
+  desc: Valid values for the structured search filters
+  contents:
+  - list_assays
+  - list_countries
+
+- title: BAM availability
+  desc: Whether aligned reads were deposited alongside a study
+  contents:
+  - sample_bam
+  - check_sra_bam
+
+- title: Package
+  contents:
+  - seqout-package
+
+authors:
+  Saket Choudhary:
+    href: https://github.com/saketkc
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with
+  components:
+    developed_by: "Developed by [Saket Lab](https://saketlab.org)"
+    built_with: "Built with [pkgdown](https://pkgdown.r-lib.org/)"
