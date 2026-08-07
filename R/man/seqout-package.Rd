@@ -4,15 +4,16 @@
 \name{seqout-package}
 \alias{seqout}
 \alias{seqout-package}
-\title{seqout: R client for SeqOut metadata search interface}
+\title{seqout: Client for the 'SeqOut' Genomics Metadata Database}
 \description{
-Query genomics study metadata from SeqOut (seqout.org). Provides programmatic access to metadata from NCBI GEO, SRA, ENA, and ArrayExpress.
+Search and download genomics study metadata from 'SeqOut' \url{https://seqout.org}, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA. Resolves an accession to its records in every archive, and reads GEO supplementary files as counts matrices. Queries are answered either from the REST API or from remote Parquet files through 'DuckDB', with no download step.
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/saketlab/seqout}
   \item \url{https://seqout.org}
+  \item \url{https://seqout.org/cli/R}
   \item Report bugs at \url{https://github.com/saketlab/seqout/issues}
 }
 

@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - "README.md"
+      - "llms.txt"
       - "scripts/build_landing.py"
       - ".github/workflows/landing-deploy.yml"
   workflow_dispatch:
@@ -33,7 +34,7 @@ jobs:
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: ${{ secrets.HOSTINGER_PORT || 22 }}
-          source: "landing/index.html"
+          source: "landing/*"
           target: /var/www/sramap/seqoutDB/landing-incoming
           strip_components: 1
 
@@ -48,12 +49,15 @@ jobs:
           script: |
             set -euo pipefail
             cd /var/www/sramap/seqoutDB
-            test -s landing-incoming/index.html || {
-              echo "::error::upload is empty; refusing to swap"
-              exit 1
-            }
+            files="index.html llms.txt pages.xml sitemap.xml og-image.png favicon.svg"
+            for f in $files; do
+              test -s "landing-incoming/$f" || {
+                echo "::error::$f is missing or empty; refusing to swap"
+                exit 1
+              }
+            done
             mkdir -p landing
-            mv -f landing-incoming/index.html landing/index.html
+            for f in $files; do mv -f "landing-incoming/$f" "landing/$f"; done
             rmdir landing-incoming 2>/dev/null || true
 
             code=$(curl -sk -o /dev/null -w '%{http_code}' \

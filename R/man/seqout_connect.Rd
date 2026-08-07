@@ -6,20 +6,22 @@
 \title{Connect to the SeqOut database}
 \usage{
 seqout_connect(
-  base_url = "https://seqout.org",
+  base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
   read_only = FALSE,
   eager = FALSE
 )
 
 SeqoutConnect(
-  base_url = "https://seqout.org",
+  base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
   read_only = FALSE,
   eager = FALSE
 )
 }
 \arguments{
-\item{base_url}{Base URL of the SeqOut server. Defaults to
-\code{"https://seqout.org"}.}
+\item{base_url}{Base URL of the SeqOut server. Defaults to the
+\code{SEQOUT_BASE_URL} environment variable, or \code{"https://seqout.org"} when
+that is unset. The environment variable lets CI point at an origin that
+is not behind the public CDN without touching any code.}
 
 \item{read_only}{If \code{TRUE}, the DuckDB connection is read-only.
 Defaults to \code{FALSE} so that \code{\link[=cache_table]{cache_table()}} can materialise views

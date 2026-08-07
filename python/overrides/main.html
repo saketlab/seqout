@@ -7,10 +7,22 @@
   {{ super() }}
 {% endblock %}
 
+{% block htmltitle %}
+  {% if page and page.is_homepage %}
+    <title>{{ config.extra.home_title }}</title>
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}
+
 {% block extrahead %}
-  {% set title = page.title ~ " - " ~ config.site_name if page and page.title and not page.is_homepage else config.site_name %}
+  {% set title = page.title ~ " - " ~ config.site_name if page and page.title and not page.is_homepage else config.extra.home_title %}
   {% set description = page.meta.description if page and page.meta and page.meta.description else config.site_description %}
   {% set image = config.site_url ~ "assets/og-image.png" %}
+
+  <meta name="author" content="Saket Choudhary">
+  <meta name="keywords" content="seqout, Python, GEO, SRA, ENA, DDBJ, ArrayExpress, GEA, GSA, genomics metadata, accession lookup, single-cell, counts matrix, DuckDB, Parquet">
+  <link rel="alternate" type="text/plain" href="https://seqout.org/cli/llms.txt" title="llms.txt">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="{{ config.site_name }}">

@@ -1,8 +1,23 @@
 [project]
 name = "seqout"
 version = "1.0.0"
-description = "Python API and CLI client to interact with seqout.org"
+description = "Search genomics study metadata across GEO, SRA, ENA, DDBJ, ArrayExpress, GEA and GSA, and read GEO supplementary files as counts matrices"
 readme = "README.md"
+license = "MIT"
+keywords = [
+    "genomics", "bioinformatics", "metadata", "single-cell",
+    "GEO", "SRA", "ENA", "DDBJ", "ArrayExpress", "GSA",
+    "accession", "counts matrix", "duckdb", "parquet",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
+]
 authors = [
     { name = "Mukesh Reddy", email = "mukeshreddy.work@gmail.com" },
     { name = "Aniruddha Mukherjee", email = "amkhrjee@iitb.ac.in" }
@@ -22,6 +37,12 @@ dependencies = [
 
 [project.optional-dependencies]
 counts = ["anndata>=0.10", "h5py>=3.11", "isal>=1.6", "rdata>=0.11", "scipy>=1.14"]
+
+[project.urls]
+Homepage = "https://seqout.org"
+Documentation = "https://seqout.org/cli/python/"
+Repository = "https://github.com/saketlab/seqout"
+Issues = "https://github.com/saketlab/seqout/issues"
 
 [project.scripts]
 seqout = "seqout.cli.cli:main"

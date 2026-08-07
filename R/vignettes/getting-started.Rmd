@@ -1,5 +1,8 @@
 ---
 title: "Getting started with seqout"
+description: >
+  Connect to SeqOut from R, search GEO, SRA, ENA, ArrayExpress, DDBJ and GSA,
+  and read a study's samples, experiments and runs.
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Getting started with seqout}

@@ -17,6 +17,15 @@ uv add 'seqout[counts]'         # library, with counts-matrix reading
 `uvx seqout <command>` runs the tool without installing it. From a source checkout, prefix any command
 below with `uv run`.
 
+The development version installs from GitHub. The package lives in the `python/` subdirectory of the
+repo, so `#subdirectory=python` is required.
+
+```bash
+uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+```
+
 ## Quick start
 
 ```bash

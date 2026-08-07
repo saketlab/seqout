@@ -8,9 +8,8 @@
 # Package build output
 *.tar.gz
 *.Rcheck/
+*.csv
 
-# roxygen2 generated (tracked separately)
-# man/*.Rd   <- keep these, they're part of the package
 
 # Vignette build artifacts
 vignettes/*.html
@@ -21,7 +20,6 @@ inst/doc/
 vignettes/*_cache/
 vignettes/*_files/
 
-# devtools/pkgdown output (built, not source; python/docs IS source)
 /docs/
 R/docs/
 

@@ -15,18 +15,19 @@ template:
     font-family-monospace: '"SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
   includes:
     in_header: |
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-7MHP1LW5FD"></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-7MHP1LW5FD');
+      </script>
       <meta name="keywords" content="seqout, R package, GEO, SRA, ENA, ArrayExpress, DDBJ, GSA, genomics metadata, single-cell, counts matrix, DuckDB, Parquet">
+      <link rel="alternate" type="text/plain" href="https://seqout.org/cli/llms.txt" title="llms.txt">
       <meta name="author" content="Saket Choudhary">
-      <link rel="canonical" href="https://seqout.org/cli/R">
       <meta property="og:type" content="website">
-      <meta property="og:url" content="https://seqout.org/cli/R">
-      <meta property="og:title" content="seqout - genomics metadata for R">
-      <meta property="og:description" content="R client for SeqOut. Search GEO, SRA, ENA, ArrayExpress, DDBJ and GSA metadata, resolve accessions across archives, and read GEO supplementary files as counts matrices.">
       <meta property="og:site_name" content="seqout">
       <meta property="og:locale" content="en_US">
-      <meta name="twitter:card" content="summary_large_image">
-      <meta name="twitter:title" content="seqout - genomics metadata for R">
-      <meta name="twitter:description" content="Search genomics study metadata across GEO, SRA, ENA, ArrayExpress, DDBJ and GSA from R.">
       <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -46,14 +47,20 @@ template:
           "url": "https://saketlab.org"
         },
         "url": "https://seqout.org/cli/R",
-        "downloadUrl": "https://github.com/saketlab/seqout",
+        "codeRepository": "https://github.com/saketlab/seqout",
+        "license": "https://opensource.org/licenses/MIT",
         "softwareVersion": "0.1.0",
         "programmingLanguage": "R"
       }
       </script>
 
+  opengraph:
+    image:
+      src: https://seqout.org/cli/og-image.png
+      alt: seqout
+
 home:
-  title: "seqout - genomics metadata for R"
+  title: "Genomics study metadata for R"
   description: >
     Query study metadata from NCBI GEO, SRA, ENA, ArrayExpress, DDBJ and GSA,
     resolve accessions across archives, and read GEO supplementary files as
@@ -61,6 +68,8 @@ home:
 
   links:
   - text: Python client
+    href: https://seqout.org/cli/python/
+  - text: Both clients
     href: https://seqout.org/cli/
   - text: Browse source code
     href: https://github.com/saketlab/seqout

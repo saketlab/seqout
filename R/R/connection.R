@@ -9,8 +9,10 @@
 #' first reference instead; [register_tables()] does them all when something
 #' needs the catalog populated, such as `dplyr::tbl()`.
 #'
-#' @param base_url Base URL of the SeqOut server. Defaults to
-#'   `"https://seqout.org"`.
+#' @param base_url Base URL of the SeqOut server. Defaults to the
+#'   `SEQOUT_BASE_URL` environment variable, or `"https://seqout.org"` when
+#'   that is unset. The environment variable lets CI point at an origin that
+#'   is not behind the public CDN without touching any code.
 #' @param read_only If `TRUE`, the DuckDB connection is read-only.
 #'   Defaults to `FALSE` so that [cache_table()] can materialise views
 #'   locally.
@@ -26,7 +28,7 @@
 #' query(con, "SELECT * FROM geo_series LIMIT 5")
 #' seqout_close(con)
 #' }
-seqout_connect <- function(base_url = "https://seqout.org",
+seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
                            read_only = FALSE,
                            eager = FALSE) {
   base_url <- sub("/$", "", base_url)

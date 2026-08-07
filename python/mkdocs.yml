@@ -60,6 +60,7 @@ plugins:
             heading_level: 3
 
 extra:
+  home_title: seqout - genomics metadata for Python and the shell
   # notebooks cannot carry front matter, a leading raw cell renders as page
   # body, so their descriptions live here
   descriptions:

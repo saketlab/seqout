@@ -1,0 +1,85 @@
+# seqout
+
+> Python and R clients for seqout.org, a metadata index over NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA (CNCB-NGDC). Search every archive at once, resolve an accession to its records in the others, and read GEO supplementary files as counts matrices.
+
+The two clients are independent and versioned separately. Both answer from either
+DuckDB over remote Parquet files at https://seqout.org/data, or the REST API at
+https://seqout.org/api. The backend is always chosen explicitly.
+
+Install:
+
+```bash
+uv add seqout                    # Python library, needs Python 3.13+
+uv add 'seqout[counts]'          # with the counts-matrix readers
+uv tool install seqout           # the seqout command line
+```
+
+```r
+pak::pak("saketlab/seqout/R")                                              # R package
+install.packages("seqout", repos = "https://saketlab.r-universe.dev")      # or r-universe
+```
+
+The development version installs from GitHub. The Python package lives in the
+`python/` subdirectory of the repo, so `#subdirectory=python` is required.
+
+```bash
+uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+```
+
+Python:
+
+```python
+from seqout import connect, seqout_counts
+
+sq = connect()
+sq.search("liver cancer scRNA", organism="Homo sapiens")
+sq.get("GSE151530").samples
+
+counts = seqout_counts(gse="GSE297547")
+counts.manifest()                        # readable units, nothing downloaded yet
+counts.matrix(sample="GSM8994520")       # AnnData, cells by genes
+counts.design                            # one row per sample
+```
+
+R:
+
+```r
+library(seqout)
+
+con <- seqout_connect()
+find_projects(con, keywords = "liver cancer scRNA", organism = "Homo sapiens")
+project_samples(con, "GSE151530")
+
+counts <- seqout_counts(con, "GSE297547")
+manifest(counts)
+seqout_matrix(counts, sample = "GSM8994520")
+```
+
+## Documentation
+
+- [Overview](https://seqout.org/cli/): both clients, install commands and a worked example
+- [Python client](https://seqout.org/cli/python/): library, command line and Parquet backend
+- [Python installation](https://seqout.org/cli/python/installation/): pip, uv and the optional extras
+- [Command line](https://seqout.org/cli/python/cli/): every verb of the `seqout` command, with options
+- [Python library](https://seqout.org/cli/python/library/): `connect()`, `Dataset` and the client method surface
+- [Parquet backend](https://seqout.org/cli/python/parquet/): querying the Parquet dump with DuckDB, offline or in place
+- [Counts matrices](https://seqout.org/cli/python/reference/counts/): `seqout_counts`, manifests, units and readers
+- [R package](https://seqout.org/cli/R/): reference index and articles
+- [R function reference](https://seqout.org/cli/R/reference/): every exported function, grouped by task
+- [Getting started in R](https://seqout.org/cli/R/articles/getting-started.html): connecting, searching, and reading a study
+- [Counts and metadata in R](https://seqout.org/cli/R/articles/counts-and-metadata.html): GEO supplementary files to a Seurat object
+
+## Examples
+
+- [Getting started](https://seqout.org/cli/python/examples/01_getting_started/): connecting, searching with filters, reading a dataset
+- [Working with a dataset](https://seqout.org/cli/python/examples/02_working_with_a_dataset/): every field a `Dataset` holds
+- [Accessions and archives](https://seqout.org/cli/python/examples/03_accessions_and_archives/): how an accession from any archive resolves, and when it cannot
+- [Offline with Parquet](https://seqout.org/cli/python/examples/04_offline_with_parquet/): the same data with no API request, and where that backend stops
+- [Counts and metadata](https://seqout.org/cli/python/examples/05_counts_and_metadata/): a counts matrix with per-cell annotation and study metadata joined in
+
+## Optional
+
+- [Metadata normalization](https://seqout.org/cli/python/normalization/): `--norm`, which labels free-text GEO sample fields with a local language model
+- [Source](https://github.com/saketlab/seqout): both clients, MIT licensed
+- [Issues](https://github.com/saketlab/seqout/issues)
+- [seqout.org](https://seqout.org): the web interface over the same data
