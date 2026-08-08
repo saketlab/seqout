@@ -1,7 +1,12 @@
 """Render README.md into the seqout.org/cli landing page."""
 
+import importlib
+import inspect
+import json
+import re
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import markdown
@@ -122,8 +127,89 @@ FOOT = """
 """
 
 
+def _notebook_to_markdown(path: Path) -> str:
+    """Notebook markdown and code, without outputs."""
+    cells = json.loads(path.read_text())["cells"]
+    out = []
+    for cell in cells:
+        src = "".join(cell["source"]).rstrip()
+        if not src:
+            continue
+        out.append(src if cell["cell_type"] == "markdown" else f"```python\n{src}\n```")
+    return "\n\n".join(out)
+
+
+def _render_object(path: str) -> str:
+    """Render one dotted path: signature, docstring, and a class's methods."""
+    module, _, name = path.rpartition(".")
+    try:
+        obj = getattr(importlib.import_module(module), name)
+    except (ImportError, AttributeError):
+        return f"### {path}\n\n(not importable at build time)"
+
+    def one(label: str, thing: Callable[..., object]) -> str:
+        try:
+            sig = str(inspect.signature(thing))
+        except (TypeError, ValueError):
+            sig = ""
+        doc = inspect.getdoc(thing) or ""
+        return f"```python\n{label}{sig}\n```\n\n{doc}".rstrip()
+
+    parts = [f"### {path}", one(name, obj)]
+    if inspect.isclass(obj):
+        parts += [
+            one(f"{name}.{m}", fn)
+            for m, fn in inspect.getmembers(obj, inspect.isfunction)
+            if not m.startswith("_") and fn.__qualname__.startswith(obj.__name__)
+        ]
+    return "\n\n".join(parts)
+
+
+def _expand_mkdocstrings(text: str) -> str:
+    """Expand `::: dotted.path` mkdocstrings directives."""
+    return re.sub(
+        r"^:::\s+(\S+)\s*$",
+        lambda m: _render_object(m.group(1)),
+        text,
+        flags=re.MULTILINE,
+    )
+
+
+def _nav_pages(mkdocs: Path) -> list[str]:
+    """Page paths in mkdocs nav order."""
+    # Regex, not YAML: mkdocs.yml has custom tags safe_load rejects.
+    nav = mkdocs.read_text().partition("\nnav:\n")[2]
+    nav = re.split(r"\n(?=\S)", nav)[0]
+    return re.findall(r":\s*(\S+\.(?:md|ipynb))\s*$", nav, re.MULTILINE)
+
+
+def build_llms_full(root: Path) -> str:
+    """Every documented page of both clients, inlined, in nav order."""
+    docs = root / "python" / "docs"
+    parts = [
+        (root / "llms.txt").read_text().rstrip(),
+        "\n\n---\n\n# Full documentation\n\nEvery page below is the source of a"
+        " rendered page linked from the index above.\n",
+    ]
+    sources = [docs / page for page in _nav_pages(root / "python" / "mkdocs.yml")]
+    sources += sorted((root / "R" / "vignettes").glob("*.Rmd"))
+
+    for src in sources:
+        if not src.exists():
+            msg = f"documented page is missing: {src}"
+            raise FileNotFoundError(msg)
+        text = (
+            _notebook_to_markdown(src)
+            if src.suffix == ".ipynb"
+            else _expand_mkdocstrings(src.read_text().strip())
+        )
+        parts.append(f"\n---\n\n<!-- {src.relative_to(root)} -->\n\n{text}\n")
+
+    return "\n".join(parts)
+
+
 def build(root: Path, out_dir: Path) -> list[Path]:
-    """Write index.html, llms.txt and sitemap.xml into out_dir."""
+    """Write index.html, llms.txt, llms-full.txt and sitemap.xml into out_dir."""
     body = markdown.markdown(
         (root / "README.md").read_text(), extensions=["tables", "fenced_code"]
     )
@@ -135,6 +221,9 @@ def build(root: Path, out_dir: Path) -> list[Path]:
     llms = out_dir / "llms.txt"
     shutil.copyfile(root / "llms.txt", llms)
 
+    llms_full = out_dir / "llms-full.txt"
+    llms_full.write_text(build_llms_full(root))
+
     for name in ASSETS:
         shutil.copyfile(root / "python" / "docs" / "assets" / name, out_dir / name)
 
@@ -145,10 +234,18 @@ def build(root: Path, out_dir: Path) -> list[Path]:
 
     sitemap = out_dir / "sitemap.xml"
     sitemap.write_text(
-        SITEMAP % "\n".join(f"  <sitemap><loc>{s}</loc></sitemap>" for s in CHILD_SITEMAPS)
+        SITEMAP
+        % "\n".join(f"  <sitemap><loc>{s}</loc></sitemap>" for s in CHILD_SITEMAPS)
     )
 
-    return [page, llms, pages, sitemap, *(out_dir / name for name in ASSETS)]
+    return [
+        page,
+        llms,
+        llms_full,
+        pages,
+        sitemap,
+        *(out_dir / name for name in ASSETS),
+    ]
 
 
 if __name__ == "__main__":

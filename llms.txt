@@ -2,9 +2,13 @@
 
 > Python and R clients for seqout.org, a metadata index over NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA (CNCB-NGDC). Search every archive at once, resolve an accession to its records in the others, and read GEO supplementary files as counts matrices.
 
-The two clients are independent and versioned separately. Both answer from either
-DuckDB over remote Parquet files at https://seqout.org/data, or the REST API at
-https://seqout.org/api. The backend is always chosen explicitly.
+The two clients are independent and versioned separately. Both answer from DuckDB
+over remote Parquet files at https://seqout.org/data or from the REST API at
+https://seqout.org/api. In Python the backend is chosen explicitly, with
+`connect(backend="api")` or `connect(backend="parquet")`, and never silently. In R
+`seqout_connect()` holds both, and each function uses whichever can answer it:
+DuckDB for lookup, filtering and stats, REST for full-text search, download scripts,
+BibTeX and run-level data.
 
 Install:
 
@@ -55,6 +59,23 @@ manifest(counts)
 seqout_matrix(counts, sample = "GSM8994520")
 ```
 
+The command line has `seqout search`, `show`, `download`, `pmid`, `author` and
+`convert`. `download` takes `--supplementary`, `--sample-supplementary` and
+`--fastq` (also `--sra`, `--sra-lite`, `--s3`, `--gcs`). `convert --to` maps an
+accession to `study`, `experiment`, `sample`, `run`, `srp`, `srx`, `srs`, `srr`,
+`gsm`, `gse`, `pmid` or `doi`, and the `srp-to-pmid` style shorthands do the same.
+`seqout parquet download|query|show|set-source` works against the Parquet dump, and
+most verbs accept `--parquet [SRC]` to answer with no API request. `--enriched`
+returns the ontology labels seqout.org has already prepared; `--norm` produces them
+locally with a language model.
+
+In R, alongside search and project metadata, there are `download_*` helpers,
+`project_enriched()`, `project_citations(format = "bibtex")`, `assay_projects()`,
+`geo_search()`, `check_sra_bam()`, the discovery lists `list_assays()`,
+`list_organisms()` and `list_countries()`, and `query()` for raw SQL. Views are
+DuckDB tables, so `dplyr` and `dbplyr` work directly on a connection, and
+`cache_table()` materialises one locally.
+
 ## Documentation
 
 - [Overview](https://seqout.org/cli/): both clients, install commands and a worked example
@@ -63,7 +84,12 @@ seqout_matrix(counts, sample = "GSM8994520")
 - [Command line](https://seqout.org/cli/python/cli/): every verb of the `seqout` command, with options
 - [Python library](https://seqout.org/cli/python/library/): `connect()`, `Dataset` and the client method surface
 - [Parquet backend](https://seqout.org/cli/python/parquet/): querying the Parquet dump with DuckDB, offline or in place
+- [Python API reference](https://seqout.org/cli/python/reference/): every public name in the Python package, grouped by task
+- [Client reference](https://seqout.org/cli/python/reference/client/): `connect()` and the method surface both backends share
+- [Dataset reference](https://seqout.org/cli/python/reference/dataset/): the `Dataset` façade and every field it lazily resolves
+- [Search reference](https://seqout.org/cli/python/reference/search/): search, filters and structured queries
 - [Counts matrices](https://seqout.org/cli/python/reference/counts/): `seqout_counts`, manifests, units and readers
+- [Utilities reference](https://seqout.org/cli/python/reference/utilities/): retries, resumable downloads and other helpers
 - [R package](https://seqout.org/cli/R/): reference index and articles
 - [R function reference](https://seqout.org/cli/R/reference/): every exported function, grouped by task
 - [Getting started in R](https://seqout.org/cli/R/articles/getting-started.html): connecting, searching, and reading a study
@@ -71,6 +97,8 @@ seqout_matrix(counts, sample = "GSM8994520")
 
 ## Examples
 
+- [Example index](https://seqout.org/cli/python/examples/): every worked example, and what each one covers
+- [Command-line examples](https://seqout.org/cli/python/examples/command-line/): the `seqout` command end to end, one shell block per task
 - [Getting started](https://seqout.org/cli/python/examples/01_getting_started/): connecting, searching with filters, reading a dataset
 - [Working with a dataset](https://seqout.org/cli/python/examples/02_working_with_a_dataset/): every field a `Dataset` holds
 - [Accessions and archives](https://seqout.org/cli/python/examples/03_accessions_and_archives/): how an accession from any archive resolves, and when it cannot
@@ -80,6 +108,7 @@ seqout_matrix(counts, sample = "GSM8994520")
 ## Optional
 
 - [Metadata normalization](https://seqout.org/cli/python/normalization/): `--norm`, which labels free-text GEO sample fields with a local language model
+- [llms-full.txt](https://seqout.org/cli/llms-full.txt): every page below inlined in one file, including the full API reference
 - [Source](https://github.com/saketlab/seqout): both clients, MIT licensed
-- [Issues](https://github.com/saketlab/seqout/issues)
+- [Issues](https://github.com/saketlab/seqout/issues): bug reports and feature requests for either client
 - [seqout.org](https://seqout.org): the web interface over the same data
