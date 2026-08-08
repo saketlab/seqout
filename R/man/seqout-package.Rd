@@ -4,9 +4,9 @@
 \name{seqout-package}
 \alias{seqout}
 \alias{seqout-package}
-\title{seqout: Client for the 'SeqOut' Genomics Metadata Database}
+\title{seqout: Client for querying 'SeqOut' genomics metadata database}
 \description{
-Search and download genomics study metadata from 'SeqOut' \url{https://seqout.org}, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA. Resolves an accession to its records in every archive, and reads GEO supplementary files as counts matrices. Queries are answered either from the REST API or from remote Parquet files through 'DuckDB', with no download step.
+Search and download genomics study metadata from 'SeqOut' \url{https://seqout.org}, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA.
 }
 \seealso{
 Useful links:
@@ -19,11 +19,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Saket Choudhary \email{saketlab@gmail.com} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
+\strong{Maintainer}: Saket Choudhary \email{saketc@iitb.ac.in} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
 
 Authors:
 \itemize{
-  \item Saket Choudhary \email{saketlab@gmail.com} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
+  \item Saket Choudhary \email{saketc@iitb.ac.in} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
 }
 
 }

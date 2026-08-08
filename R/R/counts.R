@@ -312,6 +312,42 @@ seqout_matrix <- function(counts, sample = NULL) {
   .read_unit(counts, unit)
 }
 
+#' Counts in either orientation
+#'
+#' `counts_matrix()`, aliased `genexcell_counts()`, gives features by
+#' observations; `cellxgene_counts()` the reverse.
+#'
+#' @param x A `seqout_matrix` from [seqout_matrix()] or [matrices()].
+#'
+#' @return A matrix, dgCMatrix if `x$X` was sparse.
+#'
+#' @examples
+#' \dontrun{
+#' counts <- seqout_counts(gse = "GSE291735")
+#' mats <- lapply(wt$sample, function(gsm) counts_matrix(seqout_matrix(counts, sample = gsm)))
+#' }
+#'
+#' @export
+counts_matrix <- function(x) {
+  X <- .counts_X(x)
+  if (methods::is(X, "Matrix")) Matrix::t(X) else t(X)
+}
+
+#' @rdname counts_matrix
+#' @export
+genexcell_counts <- counts_matrix
+
+#' @rdname counts_matrix
+#' @export
+cellxgene_counts <- function(x) .counts_X(x)
+
+.counts_X <- function(x) {
+  if (!inherits(x, "seqout_matrix")) {
+    cli::cli_abort("{.arg x} must be a {.cls seqout_matrix} (from {.fn seqout_matrix}).")
+  }
+  x$X
+}
+
 #' Read every preferred unit
 #'
 #' Units that cannot be read are skipped with a warning, so one broken file does
@@ -423,6 +459,8 @@ matrices <- function(counts) {
   } else {
     .infer_kind(rownames(parsed$obs), n_samples)
   }
+
+  dimnames(parsed$X) <- list(rownames(parsed$obs), rownames(parsed$var))
 
   structure(
     list(

@@ -110,6 +110,16 @@ class CountMatrix:
         """Observations by features, matching the orientation of X."""
         return (self.obs.shape[0], self.var.shape[0])
 
+    @property
+    def cellxgene(self) -> Any:
+        """Observations by features, as stored (CSR)."""
+        return self.X
+
+    @property
+    def genexcell(self) -> Any:
+        """Features by observations; CSR transposes to CSC."""
+        return self.X.T
+
     def __repr__(self) -> str:
         n_obs, n_var = self.shape
         label = "cells" if self.kind == "single_cell" else "obs"

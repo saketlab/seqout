@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -130,8 +131,8 @@ class SeqoutParquetClient(ShortNames):
             self._conn.execute("INSTALL httpfs; LOAD httpfs;")
         self._conn.execute("SET enable_http_metadata_cache=true;")
         self._conn.execute("SET enable_object_cache=true;")
-        # a library writing progress bars to stderr breaks piped output
-        self._conn.execute("SET enable_progress_bar=false;")
+        with contextlib.suppress(duckdb.InvalidInputException):
+            self._conn.execute("SET enable_progress_bar=false;")
 
     def set_source(self, source_dir: Path | str) -> None:
         """Point the backend at a Parquet dump: a URL or a local directory."""

@@ -158,6 +158,7 @@ reference:
   - manifest
   - seqout_units
   - seqout_matrix
+  - counts_matrix
   - matrices
   - seqout_counts_files
   - file_role

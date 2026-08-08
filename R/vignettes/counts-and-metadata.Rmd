@@ -90,6 +90,10 @@ dim(rna$X)
 class(rna$X)
 ```
 
+```{r counts-matrix}
+dim(counts_matrix(rna))
+```
+
 `kind` is decided on evidence. Barcode-looking row labels mean single-cell; row
 labels that are GSM accessions, or an observation count no larger than the
 number of samples in the series, mean bulk. A dense table with a few hundred
@@ -202,12 +206,12 @@ set.seed(1)
 n_cells <- 1500
 
 objs <- lapply(picked, function(accession) {
-  x <- seqout_matrix(counts, sample = accession)
-  keep <- sample(nrow(x$X), min(n_cells, nrow(x$X)))
+  x <- counts_matrix(seqout_matrix(counts, sample = accession))
+  keep <- sample(ncol(x), min(n_cells, ncol(x)))
   covariates <- design[design$sample == accession, ]
 
   obj <- CreateSeuratObject(
-    counts = Matrix::t(x$X[keep, , drop = FALSE]),
+    counts = x[, keep, drop = FALSE],
     project = accession, min.cells = 3, min.features = 200
   )
   obj$sample <- accession
@@ -219,7 +223,10 @@ objs <- lapply(picked, function(accession) {
 })
 ```
 
-`X` is cells by genes.Covariates from `sample_frame()` are stored ast `meta.data` in the Seurat object.
+`counts_matrix()` returns a sparse matrix in the gene x cell format, and is also
+exported as `genexcell_counts()`; `cellxgene_counts()` gives the other
+orientation. Covariates
+from `sample_frame()` are stored as `meta.data` in the Seurat object.
 
 ```{r seurat-merge, message=FALSE, warning=FALSE}
 pbmc <- merge(objs[[1]], objs[-1],

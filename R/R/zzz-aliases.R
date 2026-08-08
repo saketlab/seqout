@@ -42,6 +42,10 @@ ClearCache <- clear_cache
 #' @export
 CommonName <- common_name
 
+#' @rdname counts_matrix
+#' @export
+CountsMatrix <- counts_matrix
+
 #' @rdname seqout_connect
 #' @export
 SeqoutConnect <- seqout_connect

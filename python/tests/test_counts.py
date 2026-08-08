@@ -196,6 +196,35 @@ def test_summary_reports_what_was_read():
     assert s.name == "GSM1"
 
 
+def _matrix(x):
+    return CountMatrix(
+        X=x,
+        obs=pd.DataFrame(index=pd.Index(["c1", "c2", "c3"])),
+        var=pd.DataFrame(index=pd.Index(["g1", "g2"])),
+        kind="single_cell",
+        fmt="mtx",
+    )
+
+
+def test_orientation_properties_agree_with_shape():
+    m = _matrix(np.arange(6).reshape(3, 2))
+
+    assert m.cellxgene.shape == m.shape == (3, 2)
+    assert m.genexcell.shape == (2, 3)
+    assert m.cellxgene is m.X
+    assert (m.genexcell == m.X.T).all()
+
+
+def test_orientation_properties_keep_the_matrix_sparse():
+    sparse = pytest.importorskip("scipy.sparse")
+    m = _matrix(sparse.csr_matrix(np.arange(6).reshape(3, 2)))
+
+    assert sparse.issparse(m.cellxgene)
+    assert sparse.issparse(m.genexcell)
+    assert m.genexcell.format == "csc"
+    assert (m.genexcell.toarray() == m.cellxgene.toarray().T).all()
+
+
 def test_snake_case_alias_is_the_same_object():
     from seqout import SeqoutCounts as Camel
     from seqout import seqout_counts
