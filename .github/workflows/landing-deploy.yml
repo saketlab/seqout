@@ -29,7 +29,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Render the README into the landing page
-        run: uv run --with markdown --with ./python python scripts/build_landing.py landing/
+        run: >
+          uv run --python 3.13 --with markdown --with ./python
+          python scripts/build_landing.py landing/
 
       - name: Upload it
         uses: appleboy/scp-action@v0.1.7
