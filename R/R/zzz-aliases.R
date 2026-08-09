@@ -210,6 +210,10 @@ Publications <- publications
 #' @export
 Query <- query
 
+#' @rdname quick_annotation
+#' @export
+QuickAnnotation <- quick_annotation
+
 #' @rdname register_tables
 #' @export
 RegisterTables <- register_tables
