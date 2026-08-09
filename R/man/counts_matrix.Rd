@@ -27,8 +27,11 @@ observations; \code{cellxgene_counts()} the reverse.
 }
 \examples{
 \dontrun{
-counts <- seqout_counts(gse = "GSE291735")
-mats <- lapply(wt$sample, function(gsm) counts_matrix(seqout_matrix(counts, sample = gsm)))
+counts <- seqout_counts(con, "GSE291735")
+counts_matrix(seqout_matrix(counts, sample = "GSM8994520"))
 }
 
+}
+\seealso{
+\code{\link[=bind_counts]{bind_counts()}} to combine several samples into one matrix.
 }

@@ -321,16 +321,17 @@ seqout_matrix <- function(counts, sample = NULL) {
 #'
 #' @return A matrix, dgCMatrix if `x$X` was sparse.
 #'
+#' @seealso [bind_counts()] to combine several samples into one matrix.
+#'
 #' @examples
 #' \dontrun{
-#' counts <- seqout_counts(gse = "GSE291735")
-#' mats <- lapply(wt$sample, function(gsm) counts_matrix(seqout_matrix(counts, sample = gsm)))
+#' counts <- seqout_counts(con, "GSE291735")
+#' counts_matrix(seqout_matrix(counts, sample = "GSM8994520"))
 #' }
 #'
 #' @export
 counts_matrix <- function(x) {
-  X <- .counts_X(x)
-  if (methods::is(X, "Matrix")) Matrix::t(X) else t(X)
+  .transpose(.counts_X(x))
 }
 
 #' @rdname counts_matrix
@@ -340,6 +341,53 @@ genexcell_counts <- counts_matrix
 #' @rdname counts_matrix
 #' @export
 cellxgene_counts <- function(x) .counts_X(x)
+
+#' Bind counts matrices across samples
+#'
+#' @param x A list of `seqout_matrix` objects, as [matrices()] returns.
+#' @param labels Column-name prefix per matrix. Defaults to the list names,
+#' @param max_cells Cap on columns kept per matrix, sampled at random. `NULL`
+#'   keeps all; set a seed for reproducibility.
+#'
+#' @return A matrix, dgCMatrix if the inputs were sparse.
+#'
+#' @examples
+#' \dontrun{
+#' counts <- seqout_counts(con, "GSE291735")
+#' merged <- bind_counts(matrices(counts, sample = wt$sample),
+#'   labels = wt$stage, max_cells = 1200
+#' )
+#' }
+#'
+#' @export
+bind_counts <- function(x, labels = NULL, max_cells = NULL) {
+  if (!is.list(x) || length(x) == 0) {
+    cli::cli_abort("{.arg x} must be a non-empty list of {.cls seqout_matrix} objects.")
+  }
+  Xs <- lapply(x, .counts_X)
+  genes <- Reduce(intersect, lapply(Xs, colnames))
+  if (length(genes) == 0) {
+    cli::cli_abort("The {length(Xs)} matrices share no features.")
+  }
+  labels <- labels %||% names(x) %||% seq_along(x)
+
+  out <- Map(function(X, label) {
+    i <- if (!is.null(max_cells) && nrow(X) > max_cells) {
+      sort(sample.int(nrow(X), max_cells))
+    } else {
+      seq_len(nrow(X))
+    }
+    X <- .transpose(X[i, genes, drop = FALSE])
+    colnames(X) <- paste0(label, "_", colnames(X) %||% seq_along(i))
+    X
+  }, Xs, labels)
+  do.call(cbind, out)
+}
+
+#' @noRd
+.transpose <- function(X) {
+  if (methods::is(X, "Matrix")) Matrix::t(X) else t(X)
+}
 
 .counts_X <- function(x) {
   if (!inherits(x, "seqout_matrix")) {
@@ -354,13 +402,19 @@ cellxgene_counts <- function(x) .counts_X(x)
 #' not fail the whole call. Compare the length against [manifest()].
 #'
 #' @param counts A `seqout_counts` handle from [seqout_counts()].
+#' @param sample Unit labels or sample accessions to read. `NULL` reads every
+#'   preferred unit.
 #'
 #' @return A named list of `seqout_matrix` objects, keyed by unit label.
 #'
 #' @export
-matrices <- function(counts) {
+matrices <- function(counts, sample = NULL) {
   .check_counts(counts)
-  units <- .counts_units(counts, preferred_only = TRUE)
+  units <- if (is.null(sample)) {
+    .counts_units(counts, preferred_only = TRUE)
+  } else {
+    lapply(sample, function(s) .select_unit(counts, s))
+  }
 
   urls <- unique(unlist(lapply(units, .unit_urls), use.names = FALSE))
   if (length(urls) > 0) {

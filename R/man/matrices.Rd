@@ -5,12 +5,15 @@
 \alias{Matrices}
 \title{Read every preferred unit}
 \usage{
-matrices(counts)
+matrices(counts, sample = NULL)
 
-Matrices(counts)
+Matrices(counts, sample = NULL)
 }
 \arguments{
 \item{counts}{A \code{seqout_counts} handle from \code{\link[=seqout_counts]{seqout_counts()}}.}
+
+\item{sample}{Unit labels or sample accessions to read. \code{NULL} reads every
+preferred unit.}
 }
 \value{
 A named list of \code{seqout_matrix} objects, keyed by unit label.

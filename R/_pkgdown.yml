@@ -160,6 +160,7 @@ reference:
   - seqout_matrix
   - counts_matrix
   - matrices
+  - bind_counts
   - seqout_counts_files
   - file_role
   - group_key

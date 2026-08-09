@@ -10,6 +10,10 @@ AssayProjects <- assay_projects
 #' @export
 Author <- author
 
+#' @rdname bind_counts
+#' @export
+BindCounts <- bind_counts
+
 #' @rdname bulk_metadata
 #' @export
 BulkMetadata <- bulk_metadata
