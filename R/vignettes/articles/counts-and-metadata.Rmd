@@ -3,15 +3,17 @@ title: "Counts and metadata"
 description: >
   Turn a GEO accession into a counts matrix in R, join the sample metadata,
   and carry both into Seurat for SCTransform and UMAP.
-output: rmarkdown::html_document
+output:
+  rmarkdown::html_document:
+    self_contained: true
+    mathjax: null
 ---
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE,
-  fig.path = "img/"
+  eval = !is.null(curl::nslookup("seqout.org", error = FALSE))
 )
 ```
 

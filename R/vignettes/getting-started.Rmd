@@ -3,7 +3,10 @@ title: "Getting started with seqout"
 description: >
   Connect to SeqOut from R, search GEO, SRA, ENA, ArrayExpress, DDBJ and GSA,
   and read a study's samples, experiments and runs.
-output: rmarkdown::html_vignette
+output:
+  rmarkdown::html_vignette:
+    self_contained: true
+    mathjax: null
 vignette: >
   %\VignetteIndexEntry{Getting started with seqout}
   %\VignetteEngine{knitr::rmarkdown}
@@ -11,11 +14,12 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
+# ponytail: every chunk below queries seqout.org, so skip evaluation when the
+# host is unreachable (CRAN, offline builds) rather than failing the build.
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE,
-  fig.path = "img/"
+  eval = !is.null(curl::nslookup("seqout.org", error = FALSE))
 )
 ```
 

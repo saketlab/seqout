@@ -10,5 +10,3 @@
 ^\.Rhistory$
 ^README\.md$
 ^vignettes/articles$
-^vignettes/precompute\.R$
-^vignettes/.*\.Rmd\.orig$
