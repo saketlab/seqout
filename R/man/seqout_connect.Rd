@@ -30,8 +30,8 @@ locally.}
 \item{eager}{Register every view up front rather than on first use.}
 }
 \value{
-A \code{seqout_connection} object (list) containing the DuckDB
-connection handle and configuration.
+A \code{seqout_connection} object containing the DuckDB connection
+handle and configuration.
 }
 \description{
 Creates a DuckDB connection with remote Parquet views registered for all
@@ -43,6 +43,12 @@ Registering a view makes DuckDB read that Parquet file's footer over HTTP, so
 registering all of them costs a round trip per table. Views are created on
 first reference instead; \code{\link[=register_tables]{register_tables()}} does them all when something
 needs the catalog populated, such as \code{dplyr::tbl()}.
+
+\code{duckdb} is a suggested package, not a hard dependency, because it is a large
+source build wherever no binary matches. The DuckDB handle is opened the
+first time \code{con$db} is touched, so functions that only call the REST API
+(\code{\link[=seqout_search]{seqout_search()}}, \code{\link[=project_metadata]{project_metadata()}}, \code{\link[=download_script]{download_script()}}, ...) work
+without it. Anything Parquet-backed prompts to install it.
 }
 \examples{
 \dontrun{

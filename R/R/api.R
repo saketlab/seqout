@@ -74,11 +74,12 @@ NULL
 
 #' @noRd
 .db_query <- function(con, sql, params = NULL) {
+  db <- .duckdb(con)
   .ensure_views(con, sql)
   if (!is.null(params)) {
-    df <- DBI::dbGetQuery(con$db, sql, params = params)
+    df <- DBI::dbGetQuery(db, sql, params = params)
   } else {
-    df <- DBI::dbGetQuery(con$db, sql)
+    df <- DBI::dbGetQuery(db, sql)
   }
   tibble::as_tibble(df)
 }
