@@ -26,6 +26,12 @@ seqout search "liver cancer scRNA" --organism "Homo sapiens"
 seqout show GSE151530
 ```
 
+`seqout` can also be installed system-wide as a CLI tool:
+
+```bash
+uv tool install seqout
+```
+
 ## R
 
 `pak::pak("saketlab/seqout/R")` or [r-universe](https://saketlab.r-universe.dev/seqout) |
