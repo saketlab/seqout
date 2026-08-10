@@ -31,32 +31,19 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      # hdf5r needs libhdf5, and the Seurat stack needs the usual build deps
       - name: System libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libhdf5-dev libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
             libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
-            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-            libglpk-dev
+            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: R
-          extra-packages: |
-            any::pkgdown
-            any::Seurat
-            any::hdf5r
+          extra-packages: any::pkgdown
           needs: website
-
-      # the counts vignette reads ~900 MB of GEO h5ad; keep it across runs
-      - name: Cache the GEO downloads the vignette reads
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/R/seqout
-          key: seqout-counts-${{ hashFiles('R/vignettes/counts-and-metadata.Rmd') }}
-          restore-keys: seqout-counts-
 
       - name: Build the site
         working-directory: R

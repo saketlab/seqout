@@ -445,9 +445,11 @@ check_sra_bam <- function(con, sra_accessions) {
 
   result <- .db_query(con, sql, params = as.list(sra_accessions))
 
-  tibble::tibble(sra_accession = sra_accessions) |>
-    dplyr::left_join(result, by = "sra_accession") |>
-    dplyr::mutate(has_bam_sra = dplyr::coalesce(has_bam_sra, FALSE))
+  found <- result$has_bam_sra[match(sra_accessions, result$sra_accession)]
+  tibble::tibble(
+    sra_accession = sra_accessions,
+    has_bam_sra = !is.na(found) & found
+  )
 }
 
 #' List available assay types

@@ -4,7 +4,7 @@
 \name{seqout-package}
 \alias{seqout}
 \alias{seqout-package}
-\title{seqout: Client for querying 'SeqOut' genomics metadata database}
+\title{seqout: Client for Querying the 'SeqOut' Genomics Metadata Database}
 \description{
 Search and download genomics study metadata from 'SeqOut' \url{https://seqout.org}, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA.
 }
@@ -13,7 +13,7 @@ Useful links:
 \itemize{
   \item \url{https://github.com/saketlab/seqout}
   \item \url{https://seqout.org}
-  \item \url{https://seqout.org/cli/R}
+  \item \url{https://seqout.org/cli/R/}
   \item Report bugs at \url{https://github.com/saketlab/seqout/issues}
 }
 

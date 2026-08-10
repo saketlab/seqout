@@ -1,5 +1,5 @@
 Package: seqout
-Title: Client for querying 'SeqOut' genomics metadata database
+Title: Client for Querying the 'SeqOut' Genomics Metadata Database
 Version: 0.1.0
 Authors@R:
     person("Saket", "Choudhary", role = c("aut", "cre"),
@@ -9,7 +9,7 @@ Description: Search and download genomics study metadata from 'SeqOut'
     <https://seqout.org>, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ
     (DRA and GEA), ArrayExpress and GSA. 
 License: MIT + file LICENSE
-URL: https://github.com/saketlab/seqout, https://seqout.org, https://seqout.org/cli/R
+URL: https://github.com/saketlab/seqout, https://seqout.org, https://seqout.org/cli/R/
 BugReports: https://github.com/saketlab/seqout/issues
 Depends:
     R (>= 4.1.0)

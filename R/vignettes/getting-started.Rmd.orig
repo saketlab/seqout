@@ -14,7 +14,8 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE
+  eval = TRUE,
+  fig.path = "img/"
 )
 ```
 
@@ -182,7 +183,7 @@ This produces entries like:
 
 To save to a `.bib` file:
 
-```{r save-bibtex}
+```{r save-bibtex, eval=FALSE}
 writeLines(bib, "GSE151530.bib")
 ```
 
@@ -239,7 +240,7 @@ pbmc <- geo_search(con, "PBMC scRNA-seq", limit = 10000)
 
 Export the full catalogue to CSV:
 
-```{r pbmc-csv}
+```{r pbmc-csv, eval=FALSE}
 write.csv(pbmc, "pbmc_scrna_geo.csv", row.names = FALSE)
 ```
 
@@ -258,17 +259,22 @@ pbmc_bam <- pbmc_with_sra |>
 cat(nrow(pbmc_bam), "PBMC scRNA-seq studies with BAM in SRA\n")
 ```
 
-Fetch publication DOIs and render an interactive table:
+Fetch publication DOIs and join them on:
 
 ```{r pbmc-bam-table}
-library(DT)
-
 pubs <- publications(con, pbmc_bam$accession)
 
-pbmc_bam |>
-  left_join(pubs |> select(accession, doi) |> distinct(),
-    by = "accession"
-  ) |>
+catalogue <- pbmc_bam |>
+  left_join(pubs |> select(accession, doi) |> distinct(), by = "accession") |>
+  select(accession, sra_accession, title, doi, published)
+
+head(catalogue, 10)
+```
+
+```{r pbmc-bam-datatable, eval=FALSE}
+library(DT)
+
+catalogue |>
   mutate(
     GEO = sprintf('<a href="https://seqout.org/p/%s">%s</a>', accession, accession),
     SRA = sprintf('<a href="https://seqout.org/p/%s">%s</a>', sra_accession, sra_accession),
