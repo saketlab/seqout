@@ -14,12 +14,17 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-# ponytail: every chunk below queries seqout.org, so skip evaluation when the
-# host is unreachable (CRAN, offline builds) rather than failing the build.
+api_reachable <- tryCatch(
+  curl::curl_fetch_memory(
+    "https://seqout.org/api/project/GSE151530",
+    curl::new_handle(timeout = 30)
+  )$status_code == 200L,
+  error = function(e) FALSE
+)
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = !is.null(curl::nslookup("seqout.org", error = FALSE))
+  eval = api_reachable
 )
 ```
 

@@ -27,6 +27,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      MAKEFLAGS: -j4
       # Tests that would call seqout.org skip themselves. The vignette is built
       # live, and falls back to code-only output if seqout.org is unreachable.
       NOT_CRAN: false
@@ -45,6 +46,7 @@ jobs:
           working-directory: R
           extra-packages: any::rcmdcheck
           needs: check
+          cache: always
 
       - uses: r-lib/actions/check-r-package@v2
         with:

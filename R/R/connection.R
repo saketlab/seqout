@@ -4,11 +4,6 @@
 #' SeqOut tables. Uses DuckDB's httpfs extension to query Parquet files hosted
 #' on seqout.org without downloading them entirely.
 #'
-#' Registering a view makes DuckDB read that Parquet file's footer over HTTP, so
-#' registering all of them costs a round trip per table. Views are created on
-#' first reference instead; [register_tables()] does them all when something
-#' needs the catalog populated, such as `dplyr::tbl()`.
-#'
 #' @param base_url Base URL of the SeqOut server. Defaults to the
 #'   `SEQOUT_BASE_URL` environment variable, or `"https://seqout.org"` when
 #'   that is unset. The environment variable lets CI point at an origin that
@@ -18,8 +13,8 @@
 #'   locally.
 #' @param eager Register every view up front rather than on first use.
 #'
-#' @return A `seqout_connection` object (list) containing the DuckDB
-#'   connection handle and configuration.
+#' @return A `seqout_connection` object containing the DuckDB connection
+#'   handle and configuration.
 #'
 #' @export
 #' @examples
@@ -32,10 +27,45 @@ seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seq
                            read_only = FALSE,
                            eager = FALSE) {
   base_url <- sub("/$", "", base_url)
-  data_url <- paste0(base_url, "/data")
+
+  con <- new.env(parent = emptyenv())
+  con$base_url <- base_url
+  con$data_url <- paste0(base_url, "/data")
+  con$api_url <- paste0(base_url, "/api")
+  con$tables <- .seqout_tables()
+  con$views <- new.env(parent = emptyenv())
+  con$read_only <- read_only
+  con$state <- new.env(parent = emptyenv())
+  con$state$db <- NULL
+  con$state$drv <- NULL
+  class(con) <- "seqout_connection"
+
+  makeActiveBinding("db", function() .duckdb(con), con)
+
+  if (eager) {
+    .register_views(con, con$tables, progress = interactive())
+  }
+
+  cli::cli_alert_success(
+    "SeqOut ({.url {base_url}}) \u2014 {length(con$tables)} table{?s} available"
+  )
+
+  con
+}
+
+#' Open the DuckDB handle, once, on first `con$db`
+#' @noRd
+.duckdb <- function(con) {
+  if (!is.null(con$state$db)) {
+    return(con$state$db)
+  }
+  rlang::check_installed(
+    "duckdb",
+    "to query the SeqOut Parquet tables (REST-only functions do not need it)."
+  )
 
   drv <- duckdb::duckdb()
-  db <- DBI::dbConnect(drv, read_only = read_only)
+  db <- DBI::dbConnect(drv, read_only = con$read_only)
 
   for (ext in c("httpfs", "json")) {
     tryCatch(
@@ -56,30 +86,9 @@ seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seq
   DBI::dbExecute(db, "SET enable_http_metadata_cache = true")
   DBI::dbExecute(db, "SET enable_object_cache = true")
 
-  con <- structure(
-    list(
-      db       = db,
-      drv      = drv,
-      base_url = base_url,
-      data_url = data_url,
-      api_url  = paste0(base_url, "/api"),
-      tables   = .seqout_tables(),
-      views    = new.env(parent = emptyenv())
-    ),
-    class = "seqout_connection"
-  )
-
-  if (eager) {
-    .register_views(con, con$tables, progress = interactive())
-  }
-
-  # nothing has been requested from base_url yet on the lazy path, so this
-  # reports what is on offer rather than claiming the server answered
-  cli::cli_alert_success(
-    "SeqOut ({.url {base_url}}) \u2014 {length(con$tables)} table{?s} available"
-  )
-
-  con
+  con$state$drv <- drv
+  con$state$db <- db
+  db
 }
 
 #' Register the remote Parquet views
@@ -118,7 +127,10 @@ register_tables <- function(con, tables = NULL, progress = interactive()) {
 #' @noRd
 .register_views <- function(con, tables, progress = FALSE) {
   pending <- setdiff(tables, ls(con$views))
-  progress <- progress && length(pending) > 0
+  if (length(pending) == 0) {
+    return(invisible(ls(con$views)))
+  }
+  .duckdb(con)
   if (progress) {
     cli::cli_progress_bar(
       format = "Registering {cli::pb_current}/{cli::pb_total} {.val {tbl}} {cli::pb_bar} {cli::pb_eta}",
@@ -161,7 +173,12 @@ register_tables <- function(con, tables = NULL, progress = interactive()) {
 #' @export
 seqout_close <- function(con) {
   .check_connection(con)
-  DBI::dbDisconnect(con$db, shutdown = TRUE)
+  if (!is.null(con$state$db)) {
+    DBI::dbDisconnect(con$state$db, shutdown = TRUE)
+    con$state$db <- NULL
+    con$state$drv <- NULL
+    rm(list = ls(con$views), envir = con$views)
+  }
   cli::cli_alert_info("SeqOut connection closed.")
   invisible(NULL)
 }
@@ -173,13 +190,17 @@ close.seqout_connection <- function(con, ...) {
 
 #' @export
 print.seqout_connection <- function(x, ...) {
-  status <- tryCatch(
-    {
-      DBI::dbGetQuery(x$db, "SELECT 1")
-      "connected"
-    },
-    error = function(e) "disconnected"
-  )
+  status <- if (is.null(x$state$db)) {
+    "REST only (DuckDB opens on the first Parquet query)"
+  } else {
+    tryCatch(
+      {
+        DBI::dbGetQuery(x$state$db, "SELECT 1")
+        "connected"
+      },
+      error = function(e) "disconnected"
+    )
+  }
 
   cli::cli_inform(c(
     "{.cls seqout_connection}",
