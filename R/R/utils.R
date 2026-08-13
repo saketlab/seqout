@@ -12,8 +12,7 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' sample_frame(project_samples(con, "GSE114725"))
+#' sample_frame(project_samples("GSE114725"))
 #' }
 sample_frame <- function(samples) {
   rlang::check_required(samples)

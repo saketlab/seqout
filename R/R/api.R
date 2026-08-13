@@ -147,27 +147,64 @@ NULL
 
 #' @noRd
 
+#' A float8 as a string that survives the round trip
+#'
+#' The keyset is `(rank, accession) < (cursor_rank, cursor_acc)`, so the cursor
+#' has to be the server's value *exactly*. Left as a double, httr2 formats it
+#' with `getOption("digits")` -- seven significant digits -- and the paging goes
+#' subtly wrong in one of two directions: rounded up, the boundary row is
+#' returned again on the next page; rounded down, every row between the
+#' truncated and the true rank is skipped without trace. 17 significant digits
+#' is what an IEEE-754 double needs to round-trip through text.
+#' @noRd
+.f8 <- function(x) sprintf("%.17g", as.numeric(x))
+
+#' Walk the cursor until the pages or `max_pages` run out
+#'
+#' The server names the cursor fields `rank`/`accession` for a relevance sort
+#' and `sort_value`/`accession` for an explicit `sortby`; the request spells
+#' them `cursor_rank`/`cursor_acc`/`cursor_sort`. Reading the response with the
+#' request's names silently yields NULL, which re-requests page 1 forever, so
+#' the two vocabularies are mapped explicitly here.
+#'
+#' `max_pages` may be `Inf`, so pages accumulate in a list rather than a
+#' preallocated vector.
 #' @noRd
 .paginate_api <- function(con, path, params, max_pages = 1) {
-  pages <- vector("list", max_pages)
-  page <- 0
+  pages <- list()
+  rows <- 0
   result <- NULL
+  # An unbounded search is one request per 200 rows; say so rather than
+  # appearing to hang.
+  progress <- interactive() && max_pages > 1
+  if (progress) {
+    cli::cli_progress_bar(
+      format = "Fetching results {cli::pb_spin} {rows} so far",
+      clear = TRUE
+    )
+  }
 
   repeat {
     result <- do.call(.api_get, c(list(con = con, path = path), params))
-    page <- page + 1
-    pages[[page]] <- result$results
+    pages[[length(pages) + 1]] <- result$results
+    rows <- rows + length(result$results)
+    if (progress) cli::cli_progress_update()
 
     nc <- result$next_cursor
-    if (is.null(nc) || page >= max_pages) break
+    if (is.null(nc) || length(result$results) == 0 || length(pages) >= max_pages) {
+      break
+    }
 
-    params$cursor_rank <- nc$cursor_rank
-    params$cursor_acc <- nc$cursor_acc
-    if (!is.null(nc$cursor_sort)) params$cursor_sort <- nc$cursor_sort
+    params$cursor_acc <- nc$accession
+    if (!is.null(nc$sort_value)) {
+      params$cursor_sort <- nc$sort_value
+    } else {
+      params$cursor_rank <- .f8(nc$rank)
+    }
   }
 
-  all_results <- unlist(pages[seq_len(page)], recursive = FALSE)
-  out <- .records_to_tibble(all_results)
+  if (progress) cli::cli_progress_done()
+  out <- .records_to_tibble(unlist(pages, recursive = FALSE))
   attr(out, "total") <- result$total
   attr(out, "took_ms") <- result$took_ms
   out

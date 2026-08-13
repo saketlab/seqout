@@ -3,57 +3,73 @@
 \name{seqout_connect}
 \alias{seqout_connect}
 \alias{SeqoutConnect}
-\title{Connect to the SeqOut database}
+\title{Connect to SeqOut}
 \usage{
 seqout_connect(
+  backend = c("api", "parquet"),
   base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
   read_only = FALSE,
-  eager = FALSE
+  eager = FALSE,
+  quiet = FALSE
 )
 
 SeqoutConnect(
+  backend = c("api", "parquet"),
   base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
   read_only = FALSE,
-  eager = FALSE
+  eager = FALSE,
+  quiet = FALSE
 )
 }
 \arguments{
-\item{base_url}{Base URL of the SeqOut server. Defaults to the
+\item{backend}{\code{"api"}, the default, or \code{"parquet"}. See the description.}
+
+\item{base_url}{The address of the SeqOut server. The default is the
 \code{SEQOUT_BASE_URL} environment variable, or \code{"https://seqout.org"} when
-that is unset. The environment variable lets CI point at an origin that
-is not behind the public CDN without touching any code.}
+that variable is empty. The variable lets CI use an origin that is not
+behind the public CDN, with no change to the code.}
 
-\item{read_only}{If \code{TRUE}, the DuckDB connection is read-only.
-Defaults to \code{FALSE} so that \code{\link[=cache_table]{cache_table()}} can materialise views
-locally.}
+\item{read_only}{Make the DuckDB connection read-only. The default is
+\code{FALSE}, so that \code{\link[=cache_table]{cache_table()}} can write views to local storage. The
+\code{"api"} backend ignores this argument.}
 
-\item{eager}{Register every view up front rather than on first use.}
+\item{eager}{Register every Parquet view now, and not at the first use. The
+\code{"api"} backend ignores this argument.}
+
+\item{quiet}{Do not show the message at the start.}
 }
 \value{
-A \code{seqout_connection} object containing the DuckDB connection
-handle and configuration.
+A \code{seqout_connection} object.
 }
 \description{
-Creates a DuckDB connection with remote Parquet views registered for all
-SeqOut tables. Uses DuckDB's httpfs extension to query Parquet files hosted
-on seqout.org without downloading them entirely.
+\code{seqout} gets data in two ways. This function selects the way, and it points
+at the server.
 }
 \details{
-Registering a view makes DuckDB read that Parquet file's footer over HTTP, so
-registering all of them costs a round trip per table. Views are created on
-first reference instead; \code{\link[=register_tables]{register_tables()}} does them all when something
-needs the catalog populated, such as \code{dplyr::tbl()}.
+Most code does not call it. Every function has \code{con} as its last argument,
+and the default is the REST API at \url{https://seqout.org}. Call
+\code{seqout_connect()} to select the Parquet backend, or to use another server.
 
-\code{duckdb} is a suggested package, not a hard dependency, because it is a large
-source build wherever no binary matches. The DuckDB handle is opened the
-first time \code{con$db} is touched, so functions that only call the REST API
-(\code{\link[=seqout_search]{seqout_search()}}, \code{\link[=project_metadata]{project_metadata()}}, \code{\link[=download_script]{download_script()}}, ...) work
-without it. Anything Parquet-backed prompts to install it.
+The two backends answer the same functions:
+\itemize{
+\item \code{"api"}, the default, reads \url{https://seqout.org} with HTTP. It is always
+current. It needs no other package, and it does not open DuckDB.
+\item \code{"parquet"} reads the Parquet dump with DuckDB through \code{httpfs}. It
+answers SQL, and it works offline against a local dump. It is slower over
+a remote URL, and it lags the live index. It needs the \code{duckdb} package.
+}
+
+You must select the Parquet backend. The package does not change to it for
+you, because one lookup would become a scan of many gigabytes.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-query(con, "SELECT * FROM geo_series LIMIT 5")
+# The REST API is the default
+project("GSE297547")
+
+# Select Parquet for SQL and for offline work
+con <- seqout_connect("parquet")
+query("SELECT * FROM geo_series LIMIT 5", con = con)
 seqout_close(con)
 }
 }

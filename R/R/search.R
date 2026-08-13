@@ -1,156 +1,210 @@
-#' Full-text search across all databases
+#' Search every archive
 #'
-#' Searches GEO, SRA, ArrayExpress, and ENA using PostgreSQL full-text search
-#' on the server. Results are returned via the REST API since full-text ranking
-#' requires server-side tsvector indexes.
+#' `seqout_search()` searches seven public repositories at the same time: GEO,
+#' SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
-#' @param query Character. Search query string.
-#' @param db Optional. Restrict to a database: `"geo"`, `"sra"`,
-#'   `"arrayexpress"`, or `"ena"`.
-#' @param sortby Optional. Sort results by `"citations"`, `"journal"`, or
-#'   `"year"`.
-#' @param order Sort order: `"desc"` (default) or `"asc"`.
-#' @param cursor_rank,cursor_acc,cursor_sort Pagination cursors from a
-#'   previous result's `next_cursor`.
-#' @param max_pages Maximum number of pages to fetch. Defaults to 1.
-#'   Set to `Inf` to fetch all results (use with care).
+#' Give a query, filters, or both. A query alone searches the title, the summary
+#' and the design of every study, and the server ranks the results. Give the filters by name through `...`.
+#' The filters select the endpoint that answers: a filter that only the
+#' structured search accepts selects that search. If you give no such filter,
+#' the full-text search answers and ranks the results.
 #'
-#' @return A tibble of search results with columns varying by source database.
-#'   Attributes `total` and `took_ms` are attached.
-#' @export
-seqout_search <- function(con, query,
-                          db = NULL,
-                          sortby = NULL,
-                          order = "desc",
-                          cursor_rank = NULL,
-                          cursor_acc = NULL,
-                          cursor_sort = NULL,
-                          max_pages = 1) {
-  .check_connection(con)
-  check_required(query)
-  if (!is.null(db)) db <- match.arg(db, .valid_dbs)
-  order <- match.arg(order, c("desc", "asc"))
-
-  params <- .compact(list(
-    q = query, order = order, db = db, sortby = sortby,
-    cursor_rank = cursor_rank, cursor_acc = cursor_acc,
-    cursor_sort = cursor_sort
-  ))
-
-  .paginate_api(con, "/search", params, max_pages = max_pages)
-}
-
-#' Structured search with filters
+#' These are the filter names. They are the same names that the Python client
+#' accepts.
 #'
-#' Advanced search combining free-text query with structured filters.
+#' \describe{
+#'   \item{Both searches}{`organism`, `library_strategy`, `platform`}
+#'   \item{Full-text only}{`db`, `library_source`, `date_from`, `date_to`}
+#'   \item{Structured only}{`source`, `country`, `center`, `journal`,
+#'     `instrument_model`, `year_from`, `year_to`, `multi_platform`,
+#'     `assay_l1`, `assay_l2`, `geo_country_code_iso2`, `geo_lat`, `geo_lng`,
+#'     `geo_radius_km`}
+#' }
 #'
-#' @inheritParams seqout_search
-#' @param organism Filter by scientific name (e.g., `"Homo sapiens"`).
-#' @param library_strategy Filter by library strategy (e.g., `"RNA-Seq"`).
-#' @param platform Filter by sequencing platform.
-#' @param country Filter by country name.
-#' @param center Filter by sequencing center.
-#' @param year_from,year_to Filter by publication year range.
-#' @param source Filter by source database.
-#' @param journal Filter by journal name.
-#' @param instrument_model Filter by instrument model.
-#' @param assay_l1,assay_l2 Filter by assay level 1 or 2 classification.
-#' @param geo_country,geo_country_code Filter by geographic country.
-#' @param geo_city,geo_state,geo_district,geo_postcode Geographic filters.
-#' @param geo_lat,geo_lng,geo_radius_km Geographic radius search.
+#' A name that is not in this set causes an error. The error message shows the
+#' names that are correct.
 #'
-#' @return A tibble of search results.
-#' @export
-search_structured <- function(con, query = NULL,
-                              organism = NULL,
-                              library_strategy = NULL,
-                              platform = NULL,
-                              country = NULL,
-                              center = NULL,
-                              year_from = NULL,
-                              year_to = NULL,
-                              source = NULL,
-                              journal = NULL,
-                              instrument_model = NULL,
-                              sortby = NULL,
-                              order = "desc",
-                              assay_l1 = NULL,
-                              assay_l2 = NULL,
-                              geo_country = NULL,
-                              geo_country_code = NULL,
-                              geo_city = NULL,
-                              geo_state = NULL,
-                              geo_district = NULL,
-                              geo_postcode = NULL,
-                              geo_lat = NULL,
-                              geo_lng = NULL,
-                              geo_radius_km = NULL,
-                              cursor_rank = NULL,
-                              cursor_acc = NULL,
-                              cursor_sort = NULL,
-                              max_pages = 1) {
-  .check_connection(con)
-  order <- match.arg(order, c("desc", "asc"))
-
-  params <- .compact(list(
-    q = query, organism = organism, library_strategy = library_strategy,
-    platform = platform, country = country, center = center,
-    year_from = year_from, year_to = year_to, source = source,
-    journal = journal, instrument_model = instrument_model,
-    sortby = sortby, order = order,
-    assay_l1 = assay_l1, assay_l2 = assay_l2,
-    geo_country = geo_country, geo_country_code = geo_country_code,
-    geo_city = geo_city, geo_state = geo_state,
-    geo_district = geo_district, geo_postcode = geo_postcode,
-    geo_lat = geo_lat, geo_lng = geo_lng,
-    geo_radius_km = geo_radius_km,
-    cursor_rank = cursor_rank, cursor_acc = cursor_acc,
-    cursor_sort = cursor_sort
-  ))
-
-  .paginate_api(con, "/search/structured", params, max_pages = max_pages)
-}
-
-#' Read every page of search results
+#' `db` and `source` select one archive. The two names do the same thing.
 #'
-#' Follows the cursor until the results run out. Give `limit` unless you intend
-#' to read the whole set, which can be large.
+#' `date_from` and `date_to` take a day, as `yyyy-mm-dd`. They bound
+#' `updated_at`, the day when seqout last saw a change to the record.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
-#' @param query Search text.
-#' @param limit Stop after this many results. `NULL` reads everything.
-#' @param ... Filters passed to [seqout_search()], such as `db` or `sortby`.
+#' `year_from` and `year_to` take whole years. The date that they bound follows
+#' the endpoint that the other filters selected: the publication date in a
+#' structured search, `updated_at` in a full-text search. Give one more
+#' structured filter when you mean the publication year.
 #'
-#' @return A tibble of results.
+#' This function reads the REST API only. For the Parquet dump, write SQL with
+#' [query()]. SQL is a better tool for a filter or a count over the full index.
+#'
+#' @param query Character. The text to search for. It is not necessary if you
+#'   give a filter.
+#' @param ... The filters, by name, from the set above.
+#' @param sortby `"citations"`, `"journal"` or `"year"`. The default order is
+#'   relevance.
+#' @param order `"desc"`, the default, or `"asc"`.
+#' @param limit The maximum number of rows. The default, `NULL`, returns every
+#'   match. The server sends 200 rows in one page, so a large result set costs
+#'   more than one request. Give `limit` when a sample is sufficient.
+#' @inheritParams project
+#'
+#' @return A tibble of results, with a `took_ms` attribute.
+#'
+#' @seealso `vignette("searching")` for the filters and the costs.
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' iter_search(con, "lung cancer", db = "geo", limit = 100)
+#' seqout_search("liver cancer scRNA")
+#' seqout_search("liver cancer scRNA", db = "geo", sortby = "citations")
+#'
+#' # A structured filter selects the structured search
+#' seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2022)
+#'
+#' # A query is not necessary
+#' seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic")
+#'
+#' # Take a sample of a large result set
+#' seqout_search("cancer", limit = 50)
 #' }
-iter_search <- function(con, query, limit = NULL, ...) {
+seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
+                          limit = NULL, con = .con()) {
   .check_connection(con)
-  rlang::check_required(query)
-  pages <- if (is.null(limit)) 1000L else max(1L, ceiling(limit / 200))
-  out <- seqout_search(con, query, ..., max_pages = pages)
-  if (!is.null(limit) && nrow(out) > limit) out <- out[seq_len(limit), , drop = FALSE]
+  if (identical(con$backend, "parquet")) {
+    cli::cli_abort(c(
+      "{.fn seqout_search} reads the REST API; this connection is Parquet.",
+      i = "Drop {.arg con} to search, or use {.fn query} to write SQL over the dump."
+    ))
+  }
+  order <- match.arg(order, c("desc", "asc"))
+  if (!is.null(sortby)) {
+    sortby <- match.arg(sortby, c("citations", "journal", "year"))
+  }
+
+  filters <- .compact(list(...))
+  .check_filter_names(filters)
+  .check_iso_dates(filters)
+  if (is.null(query) && length(filters) == 0) {
+    cli::cli_abort("Give {.arg query}, at least one filter, or both.")
+  }
+
+  structured <- any(names(filters) %in% .structured_only)
+  if (structured) {
+    .reject_filters(filters, .fulltext_only)
+  }
+  # `db` and `source` name the same thing on the two endpoints.
+  if (structured && !is.null(filters$db)) {
+    filters$source <- filters$db
+    filters$db <- NULL
+  }
+  if (!structured && !is.null(filters$source)) {
+    filters$db <- filters$source
+    filters$source <- NULL
+  }
+
+  out <- .paginate_api(
+    con,
+    if (structured) "/search/structured" else "/search",
+    .compact(c(list(q = query, sortby = sortby, order = order), filters)),
+    # No limit means every page; a limit needs only enough pages to reach it.
+    max_pages = if (is.null(limit)) Inf else ceiling(limit / 200)
+  )
+  if (!is.null(limit) && nrow(out) > limit) {
+    keep <- attributes(out)[c("total", "took_ms")]
+    out <- out[seq_len(limit), , drop = FALSE]
+    attributes(out)[names(keep)] <- keep
+  }
   out
+}
+
+#' Filters both endpoints accept
+#' @noRd
+.shared_filters <- c("organism", "library_strategy", "platform")
+
+#' Filters only the full-text `/search` accepts
+#'
+#' `db` is deliberately absent: it is the full-text spelling of `source`, so a
+#' structured search translates it rather than rejecting it.
+#' @noRd
+.fulltext_only <- c("library_source", "date_from", "date_to")
+
+#' Filters only `/search/structured` accepts
+#' @noRd
+.structured_only <- c(
+  "country", "center", "journal", "instrument_model", "year_from", "year_to",
+  "multi_platform", "assay_l1", "assay_l2", "geo_country_code_iso2",
+  "geo_lat", "geo_lng", "geo_radius_km"
+)
+
+#' Every name `...` may carry
+#' @noRd
+.search_filters <- sort(c(
+  .shared_filters, .fulltext_only, .structured_only, "db", "source"
+))
+
+#' @noRd
+.check_filter_names <- function(filters) {
+  if (!length(filters)) {
+    return(invisible(NULL))
+  }
+  nms <- names(filters)
+  if (is.null(nms) || any(!nzchar(nms))) {
+    cli::cli_abort("Every filter in {.arg ...} must be named.")
+  }
+  bad <- setdiff(nms, .search_filters)
+  if (length(bad)) {
+    known <- .search_filters
+    cli::cli_abort(c(
+      "{.arg {bad}} {?is/are} not a search filter.",
+      i = "Available: {.arg {known}}."
+    ))
+  }
+  invisible(NULL)
+}
+
+#' @noRd
+.check_iso_dates <- function(filters) {
+  given <- intersect(names(filters), c("date_from", "date_to"))
+  bad <- given[!vapply(
+    filters[given],
+    function(v) is.character(v) && grepl("^\\d{4}-\\d{2}-\\d{2}$", v),
+    logical(1)
+  )]
+  if (length(bad) == 0) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(c(
+    "{.arg {bad}} must be an ISO date string, {.val yyyy-mm-dd}.",
+    i = "Got {.val {unlist(filters[bad])}}.",
+    i = "A {.cls Date} works too: {.code format(as.Date(x))}."
+  ))
+}
+
+#' @noRd
+.reject_filters <- function(filters, unsupported) {
+  bad <- intersect(names(filters), unsupported)
+  if (length(bad) == 0) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(c(
+    "{.arg {bad}} {?is/are} not available in a structured search.",
+    i = "Drop {cli::qty(length(bad))}{?it/them}, or drop the structured filters
+         to search full-text."
+  ))
 }
 
 #' Search results with the spelling correction the server suggests
 #'
 #' The correction rides on the first page only, so this costs one request.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
 #' @param query Search text.
 #' @param ... Filters passed to the search endpoint.
+#' @inheritParams project
 #'
 #' @return A list with `correction` and `results`.
 #'
 #' @export
-search_correction <- function(con, query, ...) {
+search_correction <- function(query, ..., con = .con()) {
   .check_connection(con)
   rlang::check_required(query)
   params <- .compact(list(q = query, ...))
@@ -163,18 +217,18 @@ search_correction <- function(con, query, ...) {
 
 #' Run several searches in one call
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
 #' @param queries A character vector of search terms.
 #' @param ... Filters applied to every search.
+#' @inheritParams project
 #'
 #' @return A named list of tibbles, one per query.
 #'
 #' @export
-bulk_search <- function(con, queries, ...) {
+bulk_search <- function(queries, ..., con = .con()) {
   .check_connection(con)
   rlang::check_required(queries)
   out <- lapply(queries, function(q) {
-    tryCatch(seqout_search(con, q, ...), error = function(e) tibble::tibble())
+    tryCatch(seqout_search(q, ..., con = con), error = function(e) tibble::tibble())
   })
   stats::setNames(out, queries)
 }

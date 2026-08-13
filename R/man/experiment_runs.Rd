@@ -5,14 +5,14 @@
 \alias{ExperimentRuns}
 \title{The runs of one experiment}
 \usage{
-experiment_runs(con, accession)
+experiment_runs(accession, con = .con())
 
-ExperimentRuns(con, accession)
+ExperimentRuns(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{An experiment accession (SRX, ERX, DRX, CRX, HRX).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of runs.

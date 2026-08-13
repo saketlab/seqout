@@ -5,15 +5,15 @@
 \alias{CacheTable}
 \title{Materialise a remote view as a local DuckDB table}
 \usage{
-cache_table(con, table)
+cache_table(table, con = .con())
 
-CacheTable(con, table)
+CacheTable(table, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{table}{Character. Name of the table/view to cache (e.g.,
 \code{"geo_series"}). Must be one of the registered SeqOut tables.}
+
+\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \value{
 The local table name (invisibly).

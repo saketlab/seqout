@@ -5,18 +5,18 @@
 \alias{DownloadSupplementary}
 \title{Download a project's supplementary files}
 \usage{
-download_supplementary(con, accession, dest_dir = NULL, quiet = FALSE)
+download_supplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 
-DownloadSupplementary(con, accession, dest_dir = NULL, quiet = FALSE)
+DownloadSupplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A project accession.}
 
 \item{dest_dir}{Directory to write into. Defaults to the accession.}
 
 \item{quiet}{Suppress progress messages.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 The paths of the downloaded files.

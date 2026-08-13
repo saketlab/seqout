@@ -5,16 +5,16 @@
 \alias{Query}
 \title{Run arbitrary SQL on the SeqOut DuckDB connection}
 \usage{
-query(con, sql, params = NULL)
+query(sql, params = NULL, con = .con())
 
-Query(con, sql, params = NULL)
+Query(sql, params = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{sql}{Character. SQL query to execute.}
 
 \item{params}{Optional. A list of parameters for parameterised queries.}
+
+\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \value{
 A tibble with query results.
@@ -25,9 +25,11 @@ Parquet views and any locally cached tables.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-query(con, "SELECT accession, title FROM geo_series LIMIT 10")
-query(con, "
+con <- seqout_connect("parquet")
+query("SELECT accession, title FROM geo_series LIMIT 10", con = con)
+
+seqout_default(con) # or make it the session default
+query("
   SELECT dominant_scientific_name AS organism, count(*) AS n
   FROM unified_metadata
   WHERE dominant_scientific_name IS NOT NULL

@@ -5,16 +5,16 @@
 \alias{Author}
 \title{Datasets linked to an author}
 \usage{
-author(con, name, limit = 200)
+author(name, limit = 200, con = .con())
 
-Author(con, name, limit = 200)
+Author(name, limit = 200, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{name}{The author name as it appears in the publication record.}
 
 \item{limit}{Maximum datasets to return.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of projects.
@@ -24,7 +24,6 @@ Every dataset an author is linked to through its publications.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-author(con, "Aviv Regev")
+author("Aviv Regev")
 }
 }

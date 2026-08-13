@@ -5,20 +5,20 @@
 \alias{ResolveAccession}
 \title{Resolve a sample/experiment accession to its parent project}
 \usage{
-resolve_accession(con, accession)
+resolve_accession(accession, con = .con())
 
-ResolveAccession(con, accession)
+ResolveAccession(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{accession}{A sample or experiment accession.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A character string with the parent project accession, or \code{NA} if
 not found.
 }
 \description{
-Uses DuckDB lookups to find the parent study for a given sample or experiment
-accession. Falls back to the REST API if not found locally.
+Resolve a sample/experiment accession to its parent project
 }

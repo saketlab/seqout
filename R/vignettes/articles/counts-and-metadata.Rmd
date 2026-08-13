@@ -40,7 +40,6 @@ install.packages(c("Matrix", "hdf5r"))
 ```{r setup}
 library(seqout)
 
-con <- seqout_connect()
 ACCESSION <- "GSE297547" # PBMCs from myasthenia gravis patients and controls
 ```
 
@@ -55,7 +54,7 @@ A unit is a group of files that read as one matrix: a 10x triplet
 `.h5ad`, an `.rds`, or a delimited table.
 
 ```{r manifest}
-counts <- seqout_counts(con, ACCESSION)
+counts <- seqout_counts(ACCESSION)
 m <- manifest(counts)
 
 cat(nrow(m), "units\n")
@@ -145,7 +144,7 @@ them, and the antibody file happens to sort first alphabetically.
 panel explicitly and you get it, with its own annotation.
 
 ```{r read-adt}
-adt <- seqout_counts(con, ACCESSION, assay = "adt")
+adt <- seqout_counts(ACCESSION, assay = "adt")
 adt_m <- seqout_matrix(adt, sample = seqout_units(adt)[[1]]$label)
 
 dim(adt_m$X)
@@ -163,14 +162,14 @@ were, what the condition was, or which paper this came from. That lives in the
 API.
 
 ```{r project}
-p <- project_metadata(con, ACCESSION, transpose = T)
+p <- project(ACCESSION, transpose = TRUE)
 p
 ```
 
 We can look at the experiment design:
 
 ```{r design}
-design <- sample_frame(project_samples(con, ACCESSION))
+design <- sample_frame(project_samples(ACCESSION))
 head(design)
 ```
 
@@ -282,7 +281,3 @@ paths <- seqout_counts_files(counts, sample = "GSM8994520") # files, no parsing
 The download is the expensive part, and a series can be tens of gigabytes.
 `matrices()` skips a unit it cannot read, so compare the number of results
 against the manifest.
-
-```{r close}
-seqout_close(con)
-```

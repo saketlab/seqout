@@ -5,12 +5,12 @@
 \alias{Tables}
 \title{List available tables and views}
 \usage{
-tables(con)
+tables(con = .con())
 
-Tables(con)
+Tables(con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
+\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \value{
 A tibble with \code{table_name}, \code{table_type} and \code{registered} columns.

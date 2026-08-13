@@ -5,16 +5,17 @@
 \alias{SearchCorrection}
 \title{Search results with the spelling correction the server suggests}
 \usage{
-search_correction(con, query, ...)
+search_correction(query, ..., con = .con())
 
-SearchCorrection(con, query, ...)
+SearchCorrection(query, ..., con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{query}{Search text.}
 
 \item{...}{Filters passed to the search endpoint.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A list with \code{correction} and \code{results}.

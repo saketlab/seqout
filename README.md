@@ -40,9 +40,15 @@ uv tool install seqout
 ```r
 library(seqout)
 
-con <- seqout_connect()
-find_projects(con, keywords = "liver cancer scRNA", organism = "Homo sapiens")
-project_samples(con, "GSE151530")
+# No connection needed; every function reads the REST API by default
+project("GSE151530")
+project_samples("GSE151530")
+
+seqout_search("liver cancer scRNA", organism = "Homo sapiens")
+
+# Opt in to Parquet for SQL over the whole index
+con <- seqout_connect("parquet")
+query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
 ```
 
 ## From a GEO accession to a single-cell matrix
@@ -66,9 +72,9 @@ counts.design
 ```
 
 ```r
-counts <- seqout_counts(con, "GSE297547")
+counts <- seqout_counts("GSE297547")
 manifest(counts)
 m <- seqout_matrix(counts, sample = "GSM8994520")
-sample_frame(project_samples(con, "GSE297547"))
+sample_frame(project_samples("GSE297547"))
 ```
 

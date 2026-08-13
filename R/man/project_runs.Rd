@@ -5,14 +5,18 @@
 \alias{ProjectRuns}
 \title{Get run download links for a study}
 \usage{
-project_runs(con, study)
+project_runs(study, full = FALSE, con = .con())
 
-ProjectRuns(con, study)
+ProjectRuns(study, full = FALSE, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{study}{Character. Study accession.}
+
+\item{full}{Read every run. The default is the server's 500-run preview,
+which is enough to inspect a study but not to download one. REST only.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble of run metadata with download links.

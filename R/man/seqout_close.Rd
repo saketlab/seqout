@@ -5,13 +5,14 @@
 \alias{SeqoutClose}
 \title{Close a SeqOut connection}
 \usage{
-seqout_close(con)
+seqout_close(con = .con())
 
-SeqoutClose(con)
+SeqoutClose(con = .con())
 }
 \arguments{
 \item{con}{A \code{seqout_connection} returned by \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \description{
-Close a SeqOut connection
+Only the Parquet backend holds a resource worth closing; on a REST
+connection this is a no-op.
 }

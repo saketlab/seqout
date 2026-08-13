@@ -3,7 +3,7 @@
 #' Distinct organisms across every archive. Served by the API: the organism
 #' tables were dropped from the Parquet export when it was reorganised.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param common_names Keep the common-name column.
 #'
 #' @return A tibble of organism names.
@@ -11,10 +11,9 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' organisms(con)
+#' organisms()
 #' }
-organisms <- function(con, common_names = FALSE) {
+organisms <- function(common_names = FALSE, con = .con()) {
   .check_connection(con)
   res <- .api_get(con, "/organisms")
   names_vec <- unlist(res$organisms %||% list(), use.names = FALSE)
@@ -29,7 +28,7 @@ organisms <- function(con, common_names = FALSE) {
 #'
 #' Monthly counts for one organism across the archives.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param organism Scientific name, for example `"Homo sapiens"`.
 #' @param db Restrict to one source: `"geo"`, `"sra"`, `"arrayexpress"` or
 #'   `"ena"`.
@@ -37,7 +36,7 @@ organisms <- function(con, common_names = FALSE) {
 #' @return A tibble of counts by month.
 #'
 #' @export
-organism_growth <- function(con, organism, db = NULL) {
+organism_growth <- function(organism, db = NULL, con = .con()) {
   .check_connection(con)
   rlang::check_required(organism)
   if (!is.null(db)) db <- match.arg(db, .valid_dbs)
@@ -56,7 +55,7 @@ organism_growth <- function(con, organism, db = NULL) {
 #'
 #' The organisms with the most records, most first.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param year_from Earliest year to count.
 #' @param year_to Latest year to count.
 #' @param limit Maximum organisms to return.
@@ -64,7 +63,7 @@ organism_growth <- function(con, organism, db = NULL) {
 #' @return A tibble of organisms and counts.
 #'
 #' @export
-organism_totals <- function(con, year_from = NULL, year_to = NULL, limit = 50) {
+organism_totals <- function(year_from = NULL, year_to = NULL, limit = 50, con = .con()) {
   .check_connection(con)
   records <- .api_get(
     con, "/stats/organism-totals",
@@ -75,7 +74,7 @@ organism_totals <- function(con, year_from = NULL, year_to = NULL, limit = 50) {
 
 #' Search organisms by name
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param query Search text, matched against scientific and common names.
 #' @param limit Maximum results.
 #'
@@ -84,10 +83,9 @@ organism_totals <- function(con, year_from = NULL, year_to = NULL, limit = 50) {
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' organism_search(con, "sapiens")
+#' organism_search("sapiens")
 #' }
-organism_search <- function(con, query, limit = 20) {
+organism_search <- function(query, limit = 20, con = .con()) {
   .check_connection(con)
   rlang::check_required(query)
   records <- .api_get(con, "/stats/organism-search", q = query, limit = limit)
@@ -96,7 +94,7 @@ organism_search <- function(con, query, limit = 20) {
 
 #' Common name for a scientific name
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param scientific_name A scientific name, for example `"Homo sapiens"`.
 #'
 #' @return A tibble with `tax_id`, `scientific_name` and `common_name`.
@@ -104,10 +102,9 @@ organism_search <- function(con, query, limit = 20) {
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' common_name(con, "Homo sapiens")
+#' common_name("Homo sapiens")
 #' }
-common_name <- function(con, scientific_name) {
+common_name <- function(scientific_name, con = .con()) {
   .check_connection(con)
   rlang::check_required(scientific_name)
   records <- .api_get(con, "/common-name", scientific_name = scientific_name)

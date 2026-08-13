@@ -5,14 +5,14 @@
 \alias{Dataset}
 \title{Everything reachable from one accession}
 \usage{
-dataset(con, accession)
+dataset(accession, con = .con())
 
-Dataset(con, accession)
+Dataset(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Any accession SeqOut holds.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A \code{seqout_dataset} object. Read fields with \code{$}.
@@ -41,8 +41,7 @@ and four that say where the data sits: \code{kind}, \code{project}, \code{geo}, 
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-d <- dataset(con, "GSE168652")
+d <- dataset("GSE168652")
 d$meta$title
 nrow(d$samples)
 nrow(d$runs)

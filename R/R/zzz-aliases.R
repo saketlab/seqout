@@ -82,14 +82,6 @@ ExperimentRuns <- experiment_runs
 #' @export
 FileRole <- file_role
 
-#' @rdname find_projects
-#' @export
-FindProjects <- find_projects
-
-#' @rdname geo_search
-#' @export
-GeoSearch <- geo_search
-
 #' @rdname global_contribution_filters
 #' @export
 GlobalContributionFilters <- global_contribution_filters
@@ -113,10 +105,6 @@ GsmSeries <- gsm_series
 #' @rdname is_filtered
 #' @export
 IsFiltered <- is_filtered
-
-#' @rdname iter_search
-#' @export
-IterSearch <- iter_search
 
 #' @rdname linked_geo
 #' @export
@@ -182,10 +170,6 @@ ProjectEnriched <- project_enriched
 #' @export
 ProjectExperiments <- project_experiments
 
-#' @rdname project_metadata
-#' @export
-ProjectMetadata <- project_metadata
-
 #' @rdname project_runs
 #' @export
 ProjectRuns <- project_runs
@@ -246,10 +230,6 @@ SampleFrame <- sample_frame
 #' @export
 SearchCorrection <- search_correction
 
-#' @rdname search_structured
-#' @export
-SearchStructured <- search_structured
-
 #' @rdname seqout_close
 #' @export
 SeqoutClose <- seqout_close
@@ -266,10 +246,6 @@ SeqoutCountsFiles <- seqout_counts_files
 #' @export
 SeqoutMatrix <- seqout_matrix
 
-#' @rdname seqout_sample
-#' @export
-SeqoutSample <- seqout_sample
-
 #' @rdname seqout_search
 #' @export
 SeqoutSearch <- seqout_search
@@ -285,3 +261,7 @@ Summaries <- summaries
 #' @rdname tables
 #' @export
 Tables <- tables
+#' @rdname seqout_default
+#' @export
+SeqoutDefault <- seqout_default
+

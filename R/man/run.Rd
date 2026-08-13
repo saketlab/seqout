@@ -5,14 +5,14 @@
 \alias{Run}
 \title{One sequencing run}
 \usage{
-run(con, accession)
+run(accession, con = .con())
 
-Run(con, accession)
+Run(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A run accession (SRR, ERR, DRR, CRR, HRR).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A one-row tibble, or an empty tibble when the run is unknown.
@@ -22,7 +22,6 @@ The run record with its file URLs, sizes and checksums.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-run(con, "SRR13927092")
+run("SRR13927092")
 }
 }

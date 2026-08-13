@@ -5,16 +5,17 @@
 \alias{BulkSearch}
 \title{Run several searches in one call}
 \usage{
-bulk_search(con, queries, ...)
+bulk_search(queries, ..., con = .con())
 
-BulkSearch(con, queries, ...)
+BulkSearch(queries, ..., con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{queries}{A character vector of search terms.}
 
 \item{...}{Filters applied to every search.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A named list of tibbles, one per query.

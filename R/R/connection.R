@@ -1,34 +1,58 @@
-#' Connect to the SeqOut database
+#' Connect to SeqOut
 #'
-#' Creates a DuckDB connection with remote Parquet views registered for all
-#' SeqOut tables. Uses DuckDB's httpfs extension to query Parquet files hosted
-#' on seqout.org without downloading them entirely.
+#' `seqout` gets data in two ways. This function selects the way, and it points
+#' at the server.
 #'
-#' @param base_url Base URL of the SeqOut server. Defaults to the
+#' Most code does not call it. Every function has `con` as its last argument,
+#' and the default is the REST API at <https://seqout.org>. Call
+#' `seqout_connect()` to select the Parquet backend, or to use another server.
+#'
+#' The two backends answer the same functions:
+#'
+#' * `"api"`, the default, reads <https://seqout.org> with HTTP. It is always
+#'   current. It needs no other package, and it does not open DuckDB.
+#' * `"parquet"` reads the Parquet dump with DuckDB through `httpfs`. It
+#'   answers SQL, and it works offline against a local dump. It is slower over
+#'   a remote URL, and it lags the live index. It needs the `duckdb` package.
+#'
+#' You must select the Parquet backend. The package does not change to it for
+#' you, because one lookup would become a scan of many gigabytes.
+#'
+#' @param backend `"api"`, the default, or `"parquet"`. See the description.
+#' @param base_url The address of the SeqOut server. The default is the
 #'   `SEQOUT_BASE_URL` environment variable, or `"https://seqout.org"` when
-#'   that is unset. The environment variable lets CI point at an origin that
-#'   is not behind the public CDN without touching any code.
-#' @param read_only If `TRUE`, the DuckDB connection is read-only.
-#'   Defaults to `FALSE` so that [cache_table()] can materialise views
-#'   locally.
-#' @param eager Register every view up front rather than on first use.
+#'   that variable is empty. The variable lets CI use an origin that is not
+#'   behind the public CDN, with no change to the code.
+#' @param read_only Make the DuckDB connection read-only. The default is
+#'   `FALSE`, so that [cache_table()] can write views to local storage. The
+#'   `"api"` backend ignores this argument.
+#' @param eager Register every Parquet view now, and not at the first use. The
+#'   `"api"` backend ignores this argument.
+#' @param quiet Do not show the message at the start.
 #'
-#' @return A `seqout_connection` object containing the DuckDB connection
-#'   handle and configuration.
+#' @return A `seqout_connection` object.
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' query(con, "SELECT * FROM geo_series LIMIT 5")
+#' # The REST API is the default
+#' project("GSE297547")
+#'
+#' # Select Parquet for SQL and for offline work
+#' con <- seqout_connect("parquet")
+#' query("SELECT * FROM geo_series LIMIT 5", con = con)
 #' seqout_close(con)
 #' }
-seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
+seqout_connect <- function(backend = c("api", "parquet"),
+                           base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
                            read_only = FALSE,
-                           eager = FALSE) {
+                           eager = FALSE,
+                           quiet = FALSE) {
+  backend <- match.arg(backend)
   base_url <- sub("/$", "", base_url)
 
   con <- new.env(parent = emptyenv())
+  con$backend <- backend
   con$base_url <- base_url
   con$data_url <- paste0(base_url, "/data")
   con$api_url <- paste0(base_url, "/api")
@@ -42,15 +66,84 @@ seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seq
 
   makeActiveBinding("db", function() .duckdb(con), con)
 
-  if (eager) {
+  if (backend == "parquet" && eager) {
     .register_views(con, con$tables, progress = interactive())
   }
 
-  cli::cli_alert_success(
-    "SeqOut ({.url {base_url}}) \u2014 {length(con$tables)} table{?s} available"
-  )
+  if (!quiet) {
+    if (backend == "api") {
+      cli::cli_alert_success("SeqOut ({.url {base_url}}) \u2014 REST backend")
+    } else {
+      cli::cli_alert_success(
+        "SeqOut ({.url {base_url}}) \u2014 Parquet backend, {length(con$tables)} table{?s}"
+      )
+    }
+  }
 
   con
+}
+
+#' The connection used when a call does not name one
+#'
+#' Holds the process-wide default so `.con()` can hand the same REST connection
+#' to every call without reopening it.
+#' @noRd
+.seqout_state <- new.env(parent = emptyenv())
+
+#' Set the connection every function falls back to
+#'
+#' Call this once to make a Parquet connection the default for the session,
+#' instead of passing `con =` to every call.
+#'
+#' @param con A `seqout_connection`, or `NULL` to go back to the built-in
+#'   REST default.
+#'
+#' @return The previous default, invisibly.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' seqout_default(seqout_connect("parquet"))
+#' project("GSE297547") # now reads Parquet
+#' seqout_default(NULL) # back to REST
+#' }
+seqout_default <- function(con) {
+  if (!is.null(con)) .check_connection(con)
+  old <- .seqout_state$default
+  .seqout_state$default <- con
+  invisible(old)
+}
+
+#' Resolve the connection for a call
+#'
+#' Every exported function defaults its `con` argument to `.con()`. The
+#' argument is lazy, so the default connection is only built if a call actually
+#' needs one -- loading the package opens nothing.
+#' @noRd
+.con <- function() {
+  if (is.null(.seqout_state$default)) {
+    .seqout_state$default <- seqout_connect("api", quiet = TRUE)
+  }
+  .seqout_state$default
+}
+
+#' Refuse a REST connection where only DuckDB can answer
+#'
+#' Some functions are SQL over the whole dump with no REST equivalent. Erroring
+#' beats silently opening DuckDB: that would turn one call into a multi-gigabyte
+#' scan the caller never asked for.
+#' @noRd
+.need_parquet <- function(con, what = NULL) {
+  .check_connection(con)
+  if (identical(con$backend, "parquet")) {
+    return(invisible(con))
+  }
+  what <- what %||% as.character(sys.call(-1)[[1]])
+  cli::cli_abort(c(
+    "{.fn {what}} needs the Parquet backend; this connection is REST.",
+    i = "Open one with {.code con <- seqout_connect(\"parquet\")}.",
+    i = "Then pass {.code con = con}, or make it the default with {.code seqout_default(con)}."
+  ))
 }
 
 #' Open the DuckDB handle, once, on first `con$db`
@@ -59,6 +152,7 @@ seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seq
   if (!is.null(con$state$db)) {
     return(con$state$db)
   }
+  .need_parquet(con, "This")
   rlang::check_installed(
     "duckdb",
     "to query the SeqOut Parquet tables (REST-only functions do not need it)."
@@ -97,21 +191,21 @@ seqout_connect <- function(base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seq
 #' Anything that reads the DuckDB catalog directly, such as `dplyr::tbl()`,
 #' needs them to exist first.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
 #' @param tables Which tables to register. Defaults to all of them.
 #' @param progress Show a progress bar. Defaults to `TRUE` interactively.
+#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #'
 #' @return The names of every registered view, invisibly.
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' register_tables(con, "unified_metadata")
+#' con <- seqout_connect("parquet")
+#' register_tables("unified_metadata", con = con)
 #' dplyr::tbl(con$db, "unified_metadata")
 #' }
-register_tables <- function(con, tables = NULL, progress = interactive()) {
-  .check_connection(con)
+register_tables <- function(tables = NULL, progress = interactive(), con = .con()) {
+  .need_parquet(con, "register_tables")
   tables <- tables %||% con$tables
   unknown <- setdiff(tables, con$tables)
   if (length(unknown) > 0) {
@@ -168,10 +262,13 @@ register_tables <- function(con, tables = NULL, progress = interactive()) {
 
 #' Close a SeqOut connection
 #'
+#' Only the Parquet backend holds a resource worth closing; on a REST
+#' connection this is a no-op.
+#'
 #' @param con A `seqout_connection` returned by [seqout_connect()].
 #'
 #' @export
-seqout_close <- function(con) {
+seqout_close <- function(con = .con()) {
   .check_connection(con)
   if (!is.null(con$state$db)) {
     DBI::dbDisconnect(con$state$db, shutdown = TRUE)
@@ -190,8 +287,17 @@ close.seqout_connection <- function(con, ...) {
 
 #' @export
 print.seqout_connection <- function(x, ...) {
+  if (identical(x$backend, "api")) {
+    cli::cli_inform(c(
+      "{.cls seqout_connection}",
+      " " = "Backend:   REST",
+      " " = "Server:    {.url {x$base_url}}"
+    ))
+    return(invisible(x))
+  }
+
   status <- if (is.null(x$state$db)) {
-    "REST only (DuckDB opens on the first Parquet query)"
+    "idle (DuckDB opens on the first query)"
   } else {
     tryCatch(
       {
@@ -204,6 +310,7 @@ print.seqout_connection <- function(x, ...) {
 
   cli::cli_inform(c(
     "{.cls seqout_connection}",
+    " " = "Backend:   Parquet",
     " " = "Server:    {.url {x$base_url}}",
     " " = "Status:    {status}",
     " " = "Tables:    {length(x$tables)}"

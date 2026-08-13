@@ -5,17 +5,19 @@
 \alias{Project}
 \title{Get project metadata}
 \usage{
-project(con, accession, transpose = FALSE)
+project(accession, transpose = FALSE, con = .con())
 
-Project(con, accession, transpose = FALSE)
+Project(accession, transpose = FALSE, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Character. Project accession (e.g., \code{"GSE1234"},
 \code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}).}
 
-\item{transpose}{Return one row per field instead of one wide row.}
+\item{transpose}{Return one row per field instead of one wide row. A project
+record runs to 25 columns, which prints unreadably.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble with project metadata, or a \code{field}/\code{value} tibble when
@@ -23,4 +25,9 @@ A tibble with project metadata, or a \code{field}/\code{value} tibble when
 }
 \description{
 Get project metadata
+}
+\examples{
+\dontrun{
+project("GSE297547", transpose = TRUE)
+}
 }

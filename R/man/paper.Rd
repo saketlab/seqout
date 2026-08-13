@@ -5,16 +5,16 @@
 \alias{Paper}
 \title{Find a publication and the projects linked to it}
 \usage{
-paper(con, pmid = NULL, doi = NULL)
+paper(pmid = NULL, doi = NULL, con = .con())
 
-Paper(con, pmid = NULL, doi = NULL)
+Paper(pmid = NULL, doi = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{pmid}{A PubMed ID.}
 
 \item{doi}{A DOI. Give one of \code{pmid} or \code{doi}.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of linked projects, empty when the publication is unknown.
@@ -24,7 +24,6 @@ The reverse lookup: from a paper to the datasets that name it.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-paper(con, pmid = "34764296")
+paper(pmid = "34764296")
 }
 }

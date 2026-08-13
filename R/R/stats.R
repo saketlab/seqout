@@ -4,16 +4,17 @@
 #' for `"projects"` and `"experiments"` modes. Falls back to the REST API
 #' for `"bases"` mode (byte-level data is not in the Parquet tables).
 #'
-#' @param con A `seqout_connection`.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param mode One of `"projects"`, `"experiments"`, or `"bases"`.
 #' @param db Optional. Restrict to a specific database.
 #' @return A tibble with growth data (columns depend on mode).
 #' @export
-growth_stats <- function(con, mode = "projects", db = NULL) {
+growth_stats <- function(mode = "projects", db = NULL, con = .con()) {
   .check_connection(con)
   mode <- match.arg(mode, c("projects", "experiments", "bases"))
 
-  if (mode %in% c("projects", "experiments")) {
+  # Byte-level counts are not in the Parquet tables, so "bases" is REST either way.
+  if (identical(con$backend, "parquet") && mode %in% c("projects", "experiments")) {
     if (mode == "projects") {
       if (!is.null(db)) {
         db <- match.arg(db, .valid_dbs)
@@ -70,7 +71,7 @@ growth_stats <- function(con, mode = "projects", db = NULL) {
 
 #' Get global geographic contributions
 #'
-#' @param con A `seqout_connection`.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param organism Optional. Filter by scientific name.
 #' @param assay_l1 Optional. Filter by assay level 1.
 #' @param assay_l2 Optional. Filter by assay level 2.
@@ -78,10 +79,10 @@ growth_stats <- function(con, mode = "projects", db = NULL) {
 #' @param address_type Optional. Filter by address type.
 #' @return A tibble with geographic contribution data.
 #' @export
-global_contributions <- function(con, organism = NULL, assay_l1 = NULL,
+global_contributions <- function(organism = NULL, assay_l1 = NULL,
                                  assay_l2 = NULL, place_type = NULL,
-                                 address_type = NULL) {
-  .check_connection(con)
+                                 address_type = NULL, con = .con()) {
+  .need_parquet(con, "global_contributions")
 
   clauses <- "country IS NOT NULL"
   params <- list()
@@ -122,14 +123,14 @@ global_contributions <- function(con, organism = NULL, assay_l1 = NULL,
 
 #' Get filter options for global contributions
 #'
-#' @param con A `seqout_connection`.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param country Optional. Scope filters to a country.
 #' @param organism Optional. Scope assay counts (requires `country`).
 #' @return A list of available filter values.
 #' @export
-global_contribution_filters <- function(con, country = NULL,
-                                        organism = NULL) {
-  .check_connection(con)
+global_contribution_filters <- function(country = NULL,
+                                        organism = NULL, con = .con()) {
+  .need_parquet(con, "global_contribution_filters")
 
   where <- "WHERE country IS NOT NULL"
   params <- list()

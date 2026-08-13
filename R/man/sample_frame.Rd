@@ -23,7 +23,6 @@ relied on.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-sample_frame(project_samples(con, "GSE114725"))
+sample_frame(project_samples("GSE114725"))
 }
 }

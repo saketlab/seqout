@@ -5,14 +5,14 @@
 \alias{Publications}
 \title{Get publications linked to study accessions}
 \usage{
-publications(con, accessions)
+publications(accessions, con = .con())
 
-Publications(con, accessions)
+Publications(accessions, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{accessions}{Character vector of study accessions.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with publication metadata (accession, source, pmid, title,

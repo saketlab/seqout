@@ -1,7 +1,8 @@
-fake_con <- function(registered = character(0)) {
+fake_con <- function(registered = character(0), backend = "parquet") {
   views <- new.env(parent = emptyenv())
   for (v in registered) assign(v, TRUE, envir = views)
   con <- new.env(parent = emptyenv())
+  con$backend <- backend
   con$base_url <- "https://example.org"
   con$data_url <- "https://example.org/data"
   con$api_url <- "https://example.org/api"

@@ -6,24 +6,22 @@
 \title{Read a GEO accession as a counts matrix}
 \usage{
 seqout_counts(
-  con,
   accession,
   assay = "rna",
   feature_type = NULL,
-  cache_dir = NULL
+  cache_dir = NULL,
+  con = .con()
 )
 
 SeqoutCounts(
-  con,
   accession,
   assay = "rna",
   feature_type = NULL,
-  cache_dir = NULL
+  cache_dir = NULL,
+  con = .con()
 )
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A GSE or GSM accession.}
 
 \item{assay}{Which assay to take when a sample carries several, as CITE-seq
@@ -35,6 +33,8 @@ and multiome studies do. Defaults to \code{"rna"}; \code{"adt"}, \code{"hto"} an
 
 \item{cache_dir}{Where downloads land. Defaults to a per-accession directory
 under \code{\link[tools:R_user_dir]{tools::R_user_dir()}}, reused across sessions.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A \code{seqout_counts} handle. Pass it to \code{\link[=manifest]{manifest()}}, \code{\link[=seqout_matrix]{seqout_matrix()}}
@@ -52,8 +52,7 @@ A unit is a group of files that read as one matrix: a 10x triplet
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-counts <- seqout_counts(con, "GSE297547")
+counts <- seqout_counts("GSE297547")
 manifest(counts)
 m <- seqout_matrix(counts, sample = "GSM8994520")
 }

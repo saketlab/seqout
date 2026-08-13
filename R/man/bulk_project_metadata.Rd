@@ -5,14 +5,14 @@
 \alias{BulkProjectMetadata}
 \title{Bulk project metadata}
 \usage{
-bulk_project_metadata(con, accessions)
+bulk_project_metadata(accessions, con = .con())
 
-BulkProjectMetadata(con, accessions)
+BulkProjectMetadata(accessions, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{accessions}{Character vector of project accessions.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with project metadata.

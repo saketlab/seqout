@@ -5,22 +5,20 @@
 \alias{ProjectSamples}
 \title{Get samples for a project}
 \usage{
-project_samples(con, accession)
+project_samples(accession, con = .con())
 
-ProjectSamples(con, accession)
+ProjectSamples(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Character. Project accession (e.g., \code{"GSE1234"},
 \code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble of sample metadata.
 }
 \description{
-GEO samples carry no series column, so the Parquet route has to resolve them
-through \code{samples_ref}, which scans the whole sample table. The series
-endpoint answers with the same columns in one request, so it goes first and
-Parquet backs it up.
+Get samples for a project
 }

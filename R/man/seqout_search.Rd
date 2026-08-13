@@ -3,57 +3,101 @@
 \name{seqout_search}
 \alias{seqout_search}
 \alias{SeqoutSearch}
-\title{Full-text search across all databases}
+\title{Search every archive}
 \usage{
 seqout_search(
-  con,
-  query,
-  db = NULL,
+  query = NULL,
+  ...,
   sortby = NULL,
   order = "desc",
-  cursor_rank = NULL,
-  cursor_acc = NULL,
-  cursor_sort = NULL,
-  max_pages = 1
+  limit = NULL,
+  con = .con()
 )
 
 SeqoutSearch(
-  con,
-  query,
-  db = NULL,
+  query = NULL,
+  ...,
   sortby = NULL,
   order = "desc",
-  cursor_rank = NULL,
-  cursor_acc = NULL,
-  cursor_sort = NULL,
-  max_pages = 1
+  limit = NULL,
+  con = .con()
 )
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
+\item{query}{Character. The text to search for. It is not necessary if you
+give a filter.}
 
-\item{query}{Character. Search query string.}
+\item{...}{The filters, by name, from the set above.}
 
-\item{db}{Optional. Restrict to a database: \code{"geo"}, \code{"sra"},
-\code{"arrayexpress"}, or \code{"ena"}.}
+\item{sortby}{\code{"citations"}, \code{"journal"} or \code{"year"}. The default order is
+relevance.}
 
-\item{sortby}{Optional. Sort results by \code{"citations"}, \code{"journal"}, or
-\code{"year"}.}
+\item{order}{\code{"desc"}, the default, or \code{"asc"}.}
 
-\item{order}{Sort order: \code{"desc"} (default) or \code{"asc"}.}
+\item{limit}{The maximum number of rows. The default, \code{NULL}, returns every
+match. The server sends 200 rows in one page, so a large result set costs
+more than one request. Give \code{limit} when a sample is sufficient.}
 
-\item{cursor_rank, cursor_acc, cursor_sort}{Pagination cursors from a
-previous result's \code{next_cursor}.}
-
-\item{max_pages}{Maximum number of pages to fetch. Defaults to 1.
-Set to \code{Inf} to fetch all results (use with care).}
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
-A tibble of search results with columns varying by source database.
-Attributes \code{total} and \code{took_ms} are attached.
+A tibble of results, with a \code{took_ms} attribute.
 }
 \description{
-Searches GEO, SRA, ArrayExpress, and ENA using PostgreSQL full-text search
-on the server. Results are returned via the REST API since full-text ranking
-requires server-side tsvector indexes.
+\code{seqout_search()} searches seven public repositories at the same time: GEO,
+SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
+}
+\details{
+Give a query, filters, or both. A query alone searches the title, the summary
+and the design of every study, and the server ranks the results. Give the filters by name through \code{...}.
+The filters select the endpoint that answers: a filter that only the
+structured search accepts selects that search. If you give no such filter,
+the full-text search answers and ranks the results.
+
+These are the filter names. They are the same names that the Python client
+accepts.
+
+\describe{
+\item{Both searches}{\code{organism}, \code{library_strategy}, \code{platform}}
+\item{Full-text only}{\code{db}, \code{library_source}, \code{date_from}, \code{date_to}}
+\item{Structured only}{\code{source}, \code{country}, \code{center}, \code{journal},
+\code{instrument_model}, \code{year_from}, \code{year_to}, \code{multi_platform},
+\code{assay_l1}, \code{assay_l2}, \code{geo_country_code_iso2}, \code{geo_lat}, \code{geo_lng},
+\code{geo_radius_km}}
+}
+
+A name that is not in this set causes an error. The error message shows the
+names that are correct.
+
+\code{db} and \code{source} select one archive. The two names do the same thing.
+
+\code{date_from} and \code{date_to} take a day, as \code{yyyy-mm-dd}. They bound
+\code{updated_at}, the day when seqout last saw a change to the record.
+
+\code{year_from} and \code{year_to} take whole years. The date that they bound follows
+the endpoint that the other filters selected: the publication date in a
+structured search, \code{updated_at} in a full-text search. Give one more
+structured filter when you mean the publication year.
+
+This function reads the REST API only. For the Parquet dump, write SQL with
+\code{\link[=query]{query()}}. SQL is a better tool for a filter or a count over the full index.
+}
+\examples{
+\dontrun{
+seqout_search("liver cancer scRNA")
+seqout_search("liver cancer scRNA", db = "geo", sortby = "citations")
+
+# A structured filter selects the structured search
+seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2022)
+
+# A query is not necessary
+seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic")
+
+# Take a sample of a large result set
+seqout_search("cancer", limit = 50)
+}
+}
+\seealso{
+\code{vignette("searching")} for the filters and the costs.
 }

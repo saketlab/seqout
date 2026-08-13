@@ -5,14 +5,15 @@
 \alias{LinkedStudy}
 \title{Find the sequencing study linked to a series}
 \usage{
-linked_study(con, accession)
+linked_study(accession, con = .con())
 
-LinkedStudy(con, accession)
+LinkedStudy(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A series accession (GSE, E-MTAB-N, E-GEAD-N).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 The linked study accession, or \code{NA_character_}.

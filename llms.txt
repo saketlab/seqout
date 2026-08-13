@@ -2,13 +2,14 @@
 
 > Python and R clients for seqout.org, a metadata index over NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA (CNCB-NGDC). Search every archive at once, resolve an accession to its records in the others, and read GEO supplementary files as counts matrices.
 
-The two clients are independent and versioned separately. Both answer from DuckDB
-over remote Parquet files at https://seqout.org/data or from the REST API at
-https://seqout.org/api. In Python the backend is chosen explicitly, with
-`connect(backend="api")` or `connect(backend="parquet")`, and never silently. In R
-`seqout_connect()` holds both, and each function uses whichever can answer it:
-DuckDB for lookup, filtering and stats, REST for full-text search, download scripts,
-BibTeX and run-level data.
+The two clients are independent and versioned separately. Both answer from the REST
+API at https://seqout.org/api or from DuckDB over remote Parquet files at
+https://seqout.org/data, and both default to REST. The backend is always chosen
+explicitly, never silently: `connect(backend="parquet")` in Python,
+`seqout_connect("parquet")` in R. Parquet answers SQL and works offline, and it is
+the only backend for the functions that scan the whole index; REST is current and
+needs no extra packages. In R a connection is optional entirely — every function
+takes `con` as its last argument and falls back to a shared REST connection.
 
 Install:
 
@@ -50,13 +51,18 @@ R:
 ```r
 library(seqout)
 
-con <- seqout_connect()
-find_projects(con, keywords = "liver cancer scRNA", organism = "Homo sapiens")
-project_samples(con, "GSE151530")
+# No connection needed; every function reads the REST API by default
+project("GSE151530")
+project_samples("GSE151530")
+seqout_search("liver cancer scRNA", db = "geo")
 
-counts <- seqout_counts(con, "GSE297547")
+counts <- seqout_counts("GSE297547")
 manifest(counts)
 seqout_matrix(counts, sample = "GSM8994520")
+
+# Opt in to Parquet for SQL over the whole index
+con <- seqout_connect("parquet")
+query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
 ```
 
 The command line has `seqout search`, `show`, `download`, `pmid`, `author` and
@@ -71,9 +77,14 @@ locally with a language model.
 
 In R, alongside search and project metadata, there are `download_*` helpers,
 `project_enriched()`, `project_citations(format = "bibtex")`, `assay_projects()`,
-`geo_search()`, `check_sra_bam()`, the discovery lists `list_assays()`,
-`list_organisms()` and `list_countries()`, and `query()` for raw SQL. Views are
-DuckDB tables, so `dplyr` and `dbplyr` work directly on a connection, and
+`check_sra_bam()`, the discovery lists `list_assays()`, `list_organisms()` and
+`list_countries()`, and `query()` for raw SQL. `seqout_search()` is the single search entry point. It takes the same filters as
+the Python client, given by name. The filters select the full-text or the
+structured search. It returns every match, not the first page; give `limit` to
+set a maximum. It reads the REST API only. For the Parquet dump, write SQL with
+`query()`. In R a connection is not necessary at all: every function has `con` as
+its last argument, and the default is a shared REST connection. `assay_projects()`, `sample_bam()`, `check_sra_bam()`, the discovery lists
+and `query()` need a Parquet connection and say so if given a REST one. Its views are DuckDB tables, so `dplyr` and `dbplyr` work directly on it, and
 `cache_table()` materialises one locally.
 
 ## Documentation
@@ -92,7 +103,8 @@ DuckDB tables, so `dplyr` and `dbplyr` work directly on a connection, and
 - [Utilities reference](https://seqout.org/cli/python/reference/utilities/): retries, resumable downloads and other helpers
 - [R package](https://seqout.org/cli/R/): reference index and articles
 - [R function reference](https://seqout.org/cli/R/reference/): every exported function, grouped by task
-- [Getting started in R](https://seqout.org/cli/R/articles/getting-started.html): connecting, searching, and reading a study
+- [Getting started in R](https://seqout.org/cli/R/articles/getting-started.html): the backends, and reading a study
+- [Searching in R](https://seqout.org/cli/R/articles/searching.html): the one search function, every filter, and the cost of a large result set
 - [Counts and metadata in R](https://seqout.org/cli/R/articles/counts-and-metadata.html): GEO supplementary files to a Seurat object
 
 ## Examples

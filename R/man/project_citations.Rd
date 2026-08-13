@@ -5,24 +5,29 @@
 \alias{ProjectCitations}
 \title{Get citations for a project}
 \usage{
-project_citations(con, accession, type = "original", format = "tibble")
+project_citations(
+  accession,
+  type = "original",
+  format = "tibble",
+  con = .con()
+)
 
-ProjectCitations(con, accession, type = "original", format = "tibble")
+ProjectCitations(accession, type = "original", format = "tibble", con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Character. Project accession (e.g., \code{"GSE1234"},
 \code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}).}
 
 \item{type}{One of \code{"original"} or \code{"all"}.}
 
 \item{format}{One of \code{"tibble"} (default) or \code{"bibtex"}.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble with citation data, or a character string of BibTeX.
 }
 \description{
-Uses DuckDB to parse publication data from the \code{study_publications} table.
-Falls back to the REST API for BibTeX format.
+Get citations for a project
 }

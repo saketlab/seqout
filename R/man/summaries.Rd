@@ -5,14 +5,14 @@
 \alias{Summaries}
 \title{Short project records for many accessions}
 \usage{
-summaries(con, accessions)
+summaries(accessions, con = .con())
 
-Summaries(con, accessions)
+Summaries(accessions, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accessions}{A character vector of project accessions.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble, one row per project.
@@ -22,7 +22,6 @@ One request for many projects, rather than one request each.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-summaries(con, c("GSE168652", "GSE100379"))
+summaries(c("GSE168652", "GSE100379"))
 }
 }

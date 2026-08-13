@@ -5,26 +5,25 @@
 \alias{ResolveStudy}
 \title{Find the study an accession belongs to}
 \usage{
-resolve_study(con, accession)
+resolve_study(accession, con = .con())
 
-ResolveStudy(con, accession)
+ResolveStudy(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A run, experiment or sample accession.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 The study accession, or \code{NA_character_} when nothing links back.
 }
 \description{
 Walks from a child accession (a run, experiment or sample) to the study or
-series that holds it. DuckDB answers first; the REST API is the fallback for
-accessions the Parquet dump does not cover.
+series that holds it.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-resolve_study(con, "SRR13927092")
+resolve_study("SRR13927092")
 }
 }

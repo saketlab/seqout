@@ -6,26 +6,24 @@
 \title{Get global geographic contributions}
 \usage{
 global_contributions(
-  con,
   organism = NULL,
   assay_l1 = NULL,
   assay_l2 = NULL,
   place_type = NULL,
-  address_type = NULL
+  address_type = NULL,
+  con = .con()
 )
 
 GlobalContributions(
-  con,
   organism = NULL,
   assay_l1 = NULL,
   assay_l2 = NULL,
   place_type = NULL,
-  address_type = NULL
+  address_type = NULL,
+  con = .con()
 )
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{organism}{Optional. Filter by scientific name.}
 
 \item{assay_l1}{Optional. Filter by assay level 1.}
@@ -35,6 +33,8 @@ GlobalContributions(
 \item{place_type}{Optional. Filter by place type.}
 
 \item{address_type}{Optional. Filter by address type.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with geographic contribution data.

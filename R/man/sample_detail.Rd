@@ -5,19 +5,27 @@
 \alias{SampleDetail}
 \title{Get detailed sample or experiment metadata}
 \usage{
-sample_detail(con, accession)
+sample_detail(accession, con = .con())
 
-SampleDetail(con, accession)
+SampleDetail(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
+\item{accession}{Sample or experiment accession
+(GSM/SRX/DRX/ERX/SRS/DRS/ERS/SAM*).}
 
-\item{accession}{Sample or experiment accession (GSM/SRX/DRX/ERX/SRS/DRS/ERS/SAM*).}
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble with detailed metadata.
 }
 \description{
-Returns full metadata for a sample or experiment accession. Uses DuckDB
-lookups across the relevant tables based on accession prefix.
+Accepts a sample or experiment accession from any archive SeqOut holds. On
+the Parquet backend the accession prefix picks the table; over REST it is one
+request either way.
+}
+\examples{
+\dontrun{
+sample_detail("GSM5677584")
+}
 }

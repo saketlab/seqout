@@ -20,7 +20,7 @@
 #'
 #' and four that say where the data sits: `kind`, `project`, `geo`, `sra`.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession Any accession SeqOut holds.
 #'
 #' @return A `seqout_dataset` object. Read fields with `$`.
@@ -28,13 +28,12 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' d <- dataset(con, "GSE168652")
+#' d <- dataset("GSE168652")
 #' d$meta$title
 #' nrow(d$samples)
 #' nrow(d$runs)
 #' }
-dataset <- function(con, accession) {
+dataset <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
 
@@ -106,13 +105,13 @@ names.seqout_dataset <- function(x) {
     project = .dataset_project(x),
     sra = .dataset_sra(x),
     geo = .dataset_geo(x),
-    meta = project_metadata(con, x$project),
+    meta = project(x$project, con = con),
     samples = .dataset_samples(x),
     experiments = .dataset_experiments(x),
     runs = .dataset_runs(x),
-    links = project_xref(con, x$project),
-    enriched = project_enriched(con, x$project),
-    pubs = publications(con, x$project),
+    links = project_xref(x$project, con = con),
+    enriched = project_enriched(x$project, con = con),
+    pubs = publications(x$project, con = con),
     detail = .dataset_detail(x)
   )
 }
@@ -124,9 +123,9 @@ names.seqout_dataset <- function(x) {
     return(fields$accession)
   }
   found <- if (startsWith(toupper(fields$accession), "GSM")) {
-    gsm_series(fields$con, fields$accession)
+    gsm_series(fields$accession, con = fields$con)
   } else {
-    resolve_study(fields$con, fields$accession)
+    resolve_study(fields$accession, con = fields$con)
   }
   if (!is.na(found) && nzchar(found)) {
     return(found)
@@ -144,7 +143,7 @@ names.seqout_dataset <- function(x) {
   if (.in_archive(project, .study_archives)) {
     return(project)
   }
-  linked_study(unclass(x)$con, project)
+  linked_study(project, con = unclass(x)$con)
 }
 
 #' @noRd
@@ -153,15 +152,15 @@ names.seqout_dataset <- function(x) {
   if (.in_archive(project, .geo_archives)) {
     return(project)
   }
-  linked_geo(unclass(x)$con, project)
+  linked_geo(project, con = unclass(x)$con)
 }
 
 #' @noRd
 .samples_of <- function(con, accession) {
   if (.in_archive(accession, .geo_archives)) {
-    project_samples(con, accession)
+    project_samples(accession, con = con)
   } else {
-    project_experiments(con, accession)
+    project_experiments(accession, con = con)
   }
 }
 
@@ -185,7 +184,7 @@ names.seqout_dataset <- function(x) {
   if (is.null(study) || is.na(study)) {
     return(tibble::tibble())
   }
-  project_experiments(unclass(x)$con, study)
+  project_experiments(study, con = unclass(x)$con)
 }
 
 #' @noRd
@@ -194,7 +193,7 @@ names.seqout_dataset <- function(x) {
   if (is.null(study) || is.na(study)) {
     return(tibble::tibble())
   }
-  project_runs(unclass(x)$con, study)
+  project_runs(study, con = unclass(x)$con)
 }
 
 #' @noRd
@@ -204,10 +203,10 @@ names.seqout_dataset <- function(x) {
     return(NULL)
   }
   if (identical(fields$kind, "run")) {
-    return(run(fields$con, fields$accession))
+    return(run(fields$accession, con = fields$con))
   }
   if (fields$kind %in% c("sample", "experiment", "biosample")) {
-    return(sample_detail(fields$con, fields$accession))
+    return(sample_detail(fields$accession, con = fields$con))
   }
   cli::cli_abort(c(
     "There is no detail record for {fields$accession} (a {fields$kind}).",

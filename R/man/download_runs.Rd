@@ -6,24 +6,22 @@
 \title{Download the read files of a study}
 \usage{
 download_runs(
-  con,
   study,
   dest_dir = NULL,
   mode = names(.run_url_columns),
-  quiet = FALSE
+  quiet = FALSE,
+  con = .con()
 )
 
 DownloadRuns(
-  con,
   study,
   dest_dir = NULL,
   mode = names(.run_url_columns),
-  quiet = FALSE
+  quiet = FALSE,
+  con = .con()
 )
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{study}{A study accession.}
 
 \item{dest_dir}{Directory to write into. Defaults to the study accession.}
@@ -31,6 +29,8 @@ DownloadRuns(
 \item{mode}{Which copy to take. Not every run offers every mode.}
 
 \item{quiet}{Suppress progress messages.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 The paths of the downloaded files.

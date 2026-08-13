@@ -5,15 +5,15 @@
 \alias{CheckSraBam}
 \title{Check BAM file availability in SRA for a set of study accessions}
 \usage{
-check_sra_bam(con, sra_accessions)
+check_sra_bam(sra_accessions, con = .con())
 
-CheckSraBam(con, sra_accessions)
+CheckSraBam(sra_accessions, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{sra_accessions}{Character vector of SRA study accessions (e.g.
-the \code{sra_accession} column from \code{\link[=geo_search]{geo_search()}}).}
+the \code{sra_accession} column from \code{\link[=seqout_search]{seqout_search()}}).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with columns \code{sra_accession} and \code{has_bam_sra} (logical).
@@ -27,15 +27,15 @@ NCBI file listing).
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
+con <- seqout_connect("parquet")
 
-results <- geo_search(con, "PBMC scRNA-seq")
+results <- seqout_search("PBMC scRNA-seq", source = "geo", con = con)
 
 library(dplyr)
 srps <- results |>
   filter(!is.na(sra_accession)) |>
   pull(sra_accession)
-bam_status <- check_sra_bam(con, srps[1:10])
+bam_status <- check_sra_bam(srps[1:10])
 
 results |>
   left_join(bam_status, by = "sra_accession") |>

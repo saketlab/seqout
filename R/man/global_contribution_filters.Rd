@@ -5,16 +5,16 @@
 \alias{GlobalContributionFilters}
 \title{Get filter options for global contributions}
 \usage{
-global_contribution_filters(con, country = NULL, organism = NULL)
+global_contribution_filters(country = NULL, organism = NULL, con = .con())
 
-GlobalContributionFilters(con, country = NULL, organism = NULL)
+GlobalContributionFilters(country = NULL, organism = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{country}{Optional. Scope filters to a country.}
 
 \item{organism}{Optional. Scope assay counts (requires \code{country}).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A list of available filter values.

@@ -5,19 +5,19 @@
 \alias{ListOrganisms}
 \title{List available organisms}
 \usage{
-list_organisms(con, limit = 50)
+list_organisms(limit = 50, con = .con())
 
-ListOrganisms(con, limit = 50)
+ListOrganisms(limit = 50, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{limit}{Maximum number of organisms to return. Default 50.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with \code{organism} and \code{n_projects} columns, sorted by count.
 }
 \description{
 Returns organisms with total experiment counts, useful for discovering
-valid values for the \code{organism} argument in \code{\link[=find_projects]{find_projects()}}.
+valid values for the \code{organism} argument of \code{\link[=seqout_search]{seqout_search()}}.
 }

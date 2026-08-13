@@ -5,14 +5,14 @@
 \alias{Classify}
 \title{What an accession is, asked of the server}
 \usage{
-classify(con, accession)
+classify(accession, con = .con())
 
-Classify(con, accession)
+Classify(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Any accession.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A one-row tibble.

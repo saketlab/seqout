@@ -5,17 +5,17 @@
 \alias{OrganismGrowth}
 \title{Organism growth over time}
 \usage{
-organism_growth(con, organism, db = NULL)
+organism_growth(organism, db = NULL, con = .con())
 
-OrganismGrowth(con, organism, db = NULL)
+OrganismGrowth(organism, db = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{organism}{Scientific name, for example \code{"Homo sapiens"}.}
 
 \item{db}{Restrict to one source: \code{"geo"}, \code{"sra"}, \code{"arrayexpress"} or
 \code{"ena"}.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of counts by month.

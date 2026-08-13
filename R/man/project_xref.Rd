@@ -5,19 +5,20 @@
 \alias{ProjectXref}
 \title{Get cross-references for a project}
 \usage{
-project_xref(con, accession)
+project_xref(accession, con = .con())
 
-ProjectXref(con, accession)
+ProjectXref(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Character. Project accession (e.g., \code{"GSE1234"},
 \code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble with cross-reference entries.
 }
 \description{
-Get cross-references for a project
+REST only: the Parquet dump holds no cross-reference table.
 }

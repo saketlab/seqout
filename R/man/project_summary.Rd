@@ -5,14 +5,14 @@
 \alias{ProjectSummary}
 \title{A short project record}
 \usage{
-project_summary(con, accession)
+project_summary(accession, con = .con())
 
-ProjectSummary(con, accession)
+ProjectSummary(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A project accession.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A one-row tibble.

@@ -5,18 +5,18 @@
 \alias{OrganismTotals}
 \title{Organism totals}
 \usage{
-organism_totals(con, year_from = NULL, year_to = NULL, limit = 50)
+organism_totals(year_from = NULL, year_to = NULL, limit = 50, con = .con())
 
-OrganismTotals(con, year_from = NULL, year_to = NULL, limit = 50)
+OrganismTotals(year_from = NULL, year_to = NULL, limit = 50, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{year_from}{Earliest year to count.}
 
 \item{year_to}{Latest year to count.}
 
 \item{limit}{Maximum organisms to return.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of organisms and counts.

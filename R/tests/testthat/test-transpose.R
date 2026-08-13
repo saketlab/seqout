@@ -43,9 +43,7 @@ test_that("more than one row is an error rather than a silent pick", {
   expect_error(seqout:::.as_fields(x), "single-row")
 })
 
-test_that("project and project_metadata both take transpose", {
+test_that("project takes transpose, defaulting off", {
   expect_true("transpose" %in% names(formals(project)))
-  expect_true("transpose" %in% names(formals(project_metadata)))
   expect_false(eval(formals(project)$transpose))
-  expect_false(eval(formals(project_metadata)$transpose))
 })

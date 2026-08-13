@@ -5,20 +5,20 @@
 \alias{ListAssays}
 \title{List available assay types}
 \usage{
-list_assays(con, level = "specific")
+list_assays(level = "specific", con = .con())
 
-ListAssays(con, level = "specific")
+ListAssays(level = "specific", con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{level}{One of \code{"broad"} (e.g., Transcriptomic, Genomic Sequencing)
 or \code{"specific"} (e.g., RNA-seq, ChIP-seq). Default \code{"specific"}.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with \code{assay} and \code{n_projects} columns, sorted by count.
 }
 \description{
 Returns assay categories with project counts, useful for discovering
-valid values for the \code{assay} argument in \code{\link[=find_projects]{find_projects()}}.
+valid values for the \code{assay} argument of \code{\link[=seqout_search]{seqout_search()}}.
 }

@@ -5,14 +5,15 @@
 \alias{LinkedGeo}
 \title{Find the series holding the processed files}
 \usage{
-linked_geo(con, accession)
+linked_geo(accession, con = .con())
 
-LinkedGeo(con, accession)
+LinkedGeo(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{A study accession (SRP, ERP, DRP, PRJ).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 The linked series accession, or \code{NA_character_}.

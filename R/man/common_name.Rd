@@ -5,14 +5,14 @@
 \alias{CommonName}
 \title{Common name for a scientific name}
 \usage{
-common_name(con, scientific_name)
+common_name(scientific_name, con = .con())
 
-CommonName(con, scientific_name)
+CommonName(scientific_name, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{scientific_name}{A scientific name, for example \code{"Homo sapiens"}.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with \code{tax_id}, \code{scientific_name} and \code{common_name}.
@@ -22,7 +22,6 @@ Common name for a scientific name
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-common_name(con, "Homo sapiens")
+common_name("Homo sapiens")
 }
 }

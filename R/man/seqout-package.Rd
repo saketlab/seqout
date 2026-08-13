@@ -6,6 +6,8 @@
 \alias{seqout-package}
 \title{seqout: Client for Querying the 'SeqOut' Genomics Metadata Database}
 \description{
+\if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
+
 Search and download genomics study metadata from 'SeqOut' \url{https://seqout.org}, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA.
 }
 \seealso{

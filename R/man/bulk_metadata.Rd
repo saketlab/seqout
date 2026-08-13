@@ -5,17 +5,17 @@
 \alias{BulkMetadata}
 \title{Bulk metadata download}
 \usage{
-bulk_metadata(con, accessions, output_dir = NULL)
+bulk_metadata(accessions, output_dir = NULL, con = .con())
 
-BulkMetadata(con, accessions, output_dir = NULL)
+BulkMetadata(accessions, output_dir = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{accessions}{Character vector of accessions (GSE/SRP/ERP/DRP/PRJNA).}
 
 \item{output_dir}{Directory to save CSV files. If \code{NULL}, returns a list
 of tibbles.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 If \code{output_dir} is \code{NULL}, a named list of tibbles. Otherwise,

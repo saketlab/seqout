@@ -25,7 +25,7 @@ Bind counts matrices across samples
 }
 \examples{
 \dontrun{
-counts <- seqout_counts(con, "GSE291735")
+counts <- seqout_counts("GSE291735")
 merged <- bind_counts(matrices(counts, sample = wt$sample),
   labels = wt$stage, max_cells = 1200
 )

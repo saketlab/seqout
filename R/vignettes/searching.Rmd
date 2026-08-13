@@ -1,0 +1,234 @@
+---
+title: "Searching"
+description: >
+  Search seven repositories with one function: the filters, the sort order
+  and the cost of a large result set.
+output:
+  rmarkdown::html_vignette:
+    self_contained: true
+    mathjax: null
+vignette: >
+  %\VignetteIndexEntry{Searching}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+api_reachable <- tryCatch(
+  curl::curl_fetch_memory(
+    "https://seqout.org/api/project/GSE151530",
+    curl::new_handle(timeout = 30)
+  )$status_code == 200L,
+  error = function(e) FALSE
+)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = api_reachable
+)
+```
+
+`seqout_search()` searches seven public repositories at the same time: GEO,
+SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
+
+Give it a query, filters, or both.
+
+```{r first-search}
+library(seqout)
+
+seqout_search("liver cancer scRNA", limit = 5)
+```
+
+A query alone searches the title, the summary and the design of every study.
+The server ranks the results.
+
+A query is not necessary if you give at least one filter:
+
+```{r filters-only}
+seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 5)
+```
+
+## Filters
+
+Give filters by name. The example below finds human RNA-seq studies about the
+liver.
+
+```{r filters}
+seqout_search(
+  "liver",
+  organism         = "Homo sapiens",
+  library_strategy = "RNA-Seq",
+  limit            = 5
+)
+```
+
+These are the filter names:
+
+| Filter | What it selects |
+|---|---|
+| `organism` | The scientific name, for example `"Homo sapiens"`. |
+| `library_strategy` | The library strategy, for example `"RNA-Seq"`. |
+| `library_source` | The library source. |
+| `platform` | The sequencing platform. |
+| `instrument_model` | The instrument model. |
+| `db`, `source` | One archive. Both names do the same thing. |
+| `country` | The country name. |
+| `center` | The sequencing center. |
+| `journal` | The journal name. |
+| `year_from`, `year_to` | The year bounds. |
+| `date_from`, `date_to` | The date bounds, as `yyyy-mm-dd`. |
+| `multi_platform` | Studies that use more than one platform. |
+| `assay_l1`, `assay_l2` | The assay class, broad or specific. |
+| `geo_country_code_iso2` | The country, as a two-letter code. |
+| `geo_lat`, `geo_lng`, `geo_radius_km` | A circle on the map. |
+
+The package refuses a name that is not in this table. The error message shows
+you the names that are correct.
+
+```{r bad-filter, error = TRUE}
+seqout_search("liver", min_samples = 10)
+```
+
+### The archives
+
+`db` and `source` accept `"geo"`, `"sra"`, `"arrayexpress"`, `"ena"`,
+`"gsa"`, `"dra"` and `"gea"`.
+
+```{r one-archive}
+seqout_search("hepatocellular carcinoma", db = "geo", limit = 5)
+```
+
+### The assay class
+
+Each study has an assay class with two levels. Level 1 is broad. Level 2 is
+specific.
+
+| `assay_l1` | Example of `assay_l2` |
+|---|---|
+| Transcriptomic | RNA-seq |
+| Genomic Sequencing | WGS |
+| Chromatin Binding | ChIP-seq |
+| Microarray | Expression Microarray |
+| DNA Methylation | Bisulfite-seq |
+
+The match is exact. Use the capital letters that the table shows.
+
+```{r assay}
+seqout_search("liver", assay_l2 = "scRNA-seq", limit = 5)
+```
+
+### The dates
+
+`year_from` and `year_to` take whole years.
+
+```{r years}
+seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2023, limit = 5)
+```
+
+`date_from` and `date_to` take a day. Write the day as `yyyy-mm-dd`. These two
+filters bound `updated_at`. `updated_at` is the day when seqout last saw a
+change to the record.
+
+```{r dates}
+seqout_search("liver cancer",
+  date_from = "2024-01-01", date_to = "2024-01-31", limit = 5
+)
+```
+
+## The order of the results
+
+The default order is relevance. Change it with `sortby`.
+
+```{r sortby}
+seqout_search("hepatocellular carcinoma", sortby = "citations", limit = 5)
+```
+
+`sortby` accepts `"citations"`, `"journal"` and `"year"`. `order` accepts
+`"desc"`, which is the default, and `"asc"`.
+
+## How many rows you get
+
+A search returns every match. The server sends 200 rows in one page, so a large
+result set costs more than one request.
+
+```{r all-rows}
+result <- seqout_search("hepatocellular carcinoma scRNA")
+nrow(result)
+```
+
+Set `limit` when a sample is sufficient. A limit of 50 costs one request.
+
+```{r limit}
+nrow(seqout_search("hepatocellular carcinoma scRNA", limit = 50))
+```
+
+## Two more functions
+
+`search_correction()` gives you the correction that the server suggests for a
+query with a spelling mistake. It costs one request.
+
+```{r correction}
+found <- search_correction("hepatocelular carcinima")
+found$correction$corrected_query
+```
+
+`bulk_search()` runs one search for each query in a vector. It gives you a
+named list of tibbles.
+
+```{r bulk}
+many <- bulk_search(
+  c("hepatocellular carcinoma", "pancreatic ductal adenocarcinoma"),
+  db = "geo", limit = 10
+)
+vapply(many, nrow, integer(1))
+```
+
+`bulk_search()` runs the searches one after the other. It also replaces a
+search that fails with an empty tibble. Give `limit` to keep the cost low.
+
+## From a result to a study
+
+A search gives you accessions. Use `project()` to read the full record of one
+of them.
+
+```{r project}
+top <- seqout_search("hepatocellular carcinoma", sortby = "citations", limit = 1)
+project(top$accession[1], transpose = TRUE)
+```
+
+`dataset()` does more. It starts from one accession and finds the samples, the
+experiments, the runs and the publications.
+
+```{r dataset}
+d <- dataset(top$accession[1])
+c(samples = nrow(d$samples), runs = nrow(d$runs))
+```
+
+## The Parquet backend
+
+`seqout_search()` reads the REST API. It does not read the Parquet dump.
+
+The Parquet dump answers SQL. Use SQL for a filter or a count over the full
+index: it does more than a search argument, and it is faster for a large scan.
+Open a Parquet connection, then write the query.
+
+```{r parquet, eval = FALSE}
+con <- seqout_connect("parquet")
+
+query("
+  SELECT dominant_scientific_name AS organism, count(*) AS n
+  FROM unified_metadata
+  WHERE n_samples >= 10
+  GROUP BY organism
+  ORDER BY n DESC
+  LIMIT 10
+", con = con)
+```
+
+The package tells you when you give a Parquet connection to `seqout_search()`.
+
+```{r parquet-error, eval = FALSE}
+seqout_search("liver", con = con)
+#> Error: `seqout_search()` reads the REST API; this connection is Parquet.
+#> ℹ Drop `con` to search, or use `query()` to write SQL over the dump.
+```

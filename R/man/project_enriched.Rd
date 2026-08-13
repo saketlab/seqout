@@ -5,19 +5,20 @@
 \alias{ProjectEnriched}
 \title{Get ontology-enriched sample metadata}
 \usage{
-project_enriched(con, accession)
+project_enriched(accession, con = .con())
 
-ProjectEnriched(con, accession)
+ProjectEnriched(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Character. Project accession (e.g., \code{"GSE1234"},
 \code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble with enriched sample metadata (v3 if available, else v1).
 }
 \description{
-Get ontology-enriched sample metadata
+REST only: the enrichment is computed server-side and is not in the dump.
 }

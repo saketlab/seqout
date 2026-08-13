@@ -5,19 +5,19 @@
 \alias{ListCountries}
 \title{List available countries}
 \usage{
-list_countries(con, limit = 50)
+list_countries(limit = 50, con = .con())
 
-ListCountries(con, limit = 50)
+ListCountries(limit = 50, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{limit}{Maximum number of countries to return. Default 50.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with \code{country} and \code{n_projects} columns, sorted by count.
 }
 \description{
 Returns countries with project counts, useful for discovering valid
-values for the \code{country} argument in \code{\link[=find_projects]{find_projects()}}.
+values for the \code{country} argument of \code{\link[=seqout_search]{seqout_search()}}.
 }

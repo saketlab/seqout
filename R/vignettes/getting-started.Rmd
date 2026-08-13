@@ -1,8 +1,7 @@
 ---
 title: "Getting started with seqout"
 description: >
-  Connect to SeqOut from R, search GEO, SRA, ENA, ArrayExpress, DDBJ and GSA,
-  and read a study's samples, experiments and runs.
+  Get datasets from GEO, SRA, ENA, ArrayExpress, DDBJ and GSA.
 output:
   rmarkdown::html_vignette:
     self_contained: true
@@ -28,6 +27,13 @@ knitr::opts_chunk$set(
 )
 ```
 
+`seqout` is an R client for [seqout.org](https://seqout.org). It gets metadata
+about high-throughput sequencing datasets from seven public repositories: GEO,
+SRA, ArrayExpress, ENA, GSA, DRA and GEA.
+
+Use it to search the repositories, to read a study and its samples, and to load
+GEO supplementary files as counts matrices.
+
 ## Installation
 
 ```{r install, eval=FALSE}
@@ -35,112 +41,114 @@ knitr::opts_chunk$set(
 pak::pak("saketlab/seqout/R")
 ```
 
-## Connect to SeqOut
+## A quick example
 
-All queries start by creating a connection. This sets up a local DuckDB
-instance that reads remote Parquet files from `seqout.org`, a full download
-is not required.
+Search the repositories:
 
-```{r connect}
+```{r quick-search}
 library(seqout)
 
-con <- seqout_connect()
+seqout_search("lung cancer single cell", db = "geo", limit = 5)
+```
+
+Then open a dataset. `dataset()` takes any accession and finds the related
+records across the archives: the metadata, the samples, the runs and the
+papers.
+
+```{r quick-dataset}
+d <- dataset("GSE168652")
+c(title = d$meta$title, samples = nrow(d$samples), runs = nrow(d$runs))
+```
+
+## Two backends
+
+`seqout` can get data in two ways.
+
+| Backend | How it works | When to use it |
+| --- | --- | --- |
+| REST API (default) | It calls the seqout.org web API. | Normal use. It is always up to date. |
+| Parquet | It reads Parquet data dumps with DuckDB. | Offline or local use, SQL, and large batch jobs. |
+
+The REST API is the default, and it needs no setup. The examples above show
+this: they call no other function first.
+
+Select the Parquet backend with `seqout_connect()`. It reads the Parquet files
+directly, from a remote server or from a local directory. It needs the `duckdb`
+package.
+
+```{r connect}
+con <- seqout_connect("parquet")
 con
 ```
 
-## Search for datasets
+Give the connection to a function with `con =`. Or make it the default for the
+session:
 
-Suppose we are interested in finding single-cell RNA-seq datasets
-related to liver cancer. `find_projects()` lets us search by
-keywords and apply structured filters — no SQL needed:
-
-```{r search-liver}
-results <- find_projects(con,
-  keywords = "liver cancer scRNA",
-  organism = "Homo sapiens",
-  sort_by  = "citations",
-  limit    = 10
-)
-results
+```{r default}
+seqout_default(con)
 ```
 
-Keywords are matched with AND logic: every word must appear somewhere in the
-project title or description. We can further narrow the search by adding
-filters:
+The sections below read Parquet because of that call. `seqout_default(NULL)`
+selects the REST API again.
+## Search
 
-```{r search-narrow}
-# Only GEO projects from 2020 onwards with at least 10 samples
-find_projects(con,
-  keywords    = "liver cancer scRNA",
-  organism    = "Homo sapiens",
-  source      = "geo",
-  year_from   = 2020,
-  min_samples = 10,
-  sort_by     = "citations"
-)
+`seqout_search()` is the only search function. Give it a query, filters, or both.
+
+```{r search}
+seqout_search("liver cancer scRNA", organism = "Homo sapiens", limit = 10)
 ```
 
-### Discover valid filter values
+For the filters, the sort order and the cost of a large result set, read
+[Searching](searching.html).
 
-Not sure what to pass for `assay` or `organism`? The `list_*` helpers
-return valid values with project counts:
+### Find the values a filter accepts
+
+The `list_*` helpers give you the values, with a count for each one. They read
+Parquet.
 
 ```{r list-values}
-# Specific assay types (RNA-seq, ChIP-seq, WGS, ...)
-list_assays(con)
-
-# Broad assay categories (Transcriptomic, Genomic Sequencing, ...)
-list_assays(con, level = "broad")
-
-# Top organisms
-list_organisms(con, limit = 10)
-
-# Top countries
-list_countries(con, limit = 10)
+list_assays()
+list_organisms(limit = 10)
+list_countries(limit = 10)
 ```
-
-
 ## Get detailed metadata for a project
 
-From our search above, `GSE151530` is a highly cited single-cell liver
-cancer study. Let's get its metadata.
-
-**Title and description:**
-
-```{r metadata-basic}
-project_metadata(con, "GSE151530")
-```
-
-**Full metadata** including contributors, organisms, instruments, and
-supplementary data links:
+`GSE151530` is a single-cell study of liver cancer with many citations.
+`project()` gives you the full record: the title, the description, the
+contributors, the organisms, the instruments and the supplementary files.
 
 ```{r metadata-full}
-meta <- project(con, "GSE151530")
+meta <- project("GSE151530")
 meta
+```
+
+A project record has 25 columns. That is too wide to read. `transpose = TRUE`
+gives you one row for each field:
+
+```{r metadata-transposed}
+project("GSE151530", transpose = TRUE)
 ```
 
 **Samples** in this project:
 
 ```{r samples}
-samples <- project_samples(con, "GSE151530")
+samples <- project_samples("GSE151530")
 samples
 ```
 
 
 ## Enriched (ontology-annotated) metadata
 
-SeqOut annotates samples with standardized ontology terms for tissue,
-disease, cell type, assay, and more. `project_enriched()` retrieves
-these annotations:
+SeqOut adds ontology terms to the samples. The terms give the tissue, the
+disease, the cell type and the assay. `project_enriched()` reads them:
 
 ```{r enriched}
-enriched <- project_enriched(con, "GSE151530")
+enriched <- project_enriched("GSE151530")
 enriched
 ```
 
-The enriched metadata includes columns like `tissue`, `disease`, `cell_type`,
-`assay`, `assay_category`, and `sample_type`, along with their
-corresponding ontology IDs and confidence scores:
+The result has a column for each term, with the ontology ID and the confidence
+score of that term:
 
 ```{r enriched-inspect}
 library(dplyr)
@@ -153,27 +161,26 @@ enriched |>
 
 ## Publications
 
-`publications()` parses the structured publication data — DOI, PubMed ID,
-journal, and citation count — for one or more accessions:
+`publications()` reads the publication record of one or more accessions. The
+record has the DOI, the PubMed ID, the journal and the citation count.
 
 ```{r publications}
-publications(con, c("GSE151530", "GSE98638"))
+publications(c("GSE151530", "GSE98638"))
 ```
 
-For a single project, `project_citations()` returns the same data:
+`project_citations()` gives the same data for one project:
 
 ```{r citations-tibble}
-project_citations(con, "GSE151530")
+project_citations("GSE151530")
 ```
 
 
 ## BibTeX export
 
-To get a ready-to-use BibTeX string for a project's publications, pass
-`format = "bibtex"`:
+Give `format = "bibtex"` to get a BibTeX string:
 
 ```{r bibtex}
-bib <- project_citations(con, "GSE151530", format = "bibtex")
+bib <- project_citations("GSE151530", format = "bibtex")
 cat(bib)
 ```
 
@@ -199,15 +206,15 @@ writeLines(bib, "GSE151530.bib")
 
 ## Growth of scRNA-seq and snRNA-seq datasets
 
-`assay_projects()` retrieves one row per project for each assay type,
-with the publication month. We can then aggregate and plot yearly trends
-with `dplyr` and `ggplot2`:
+`assay_projects()` gives one row for each project and assay type, with the
+month of publication. Use `dplyr` and `ggplot2` to count the projects by year
+and to plot them:
 
 ```{r sc-growth, fig.width=7, fig.height=5}
 library(dplyr)
 library(ggplot2)
 
-sc_projects <- assay_projects(con,
+sc_projects <- assay_projects(
   assay     = c("scRNA-seq", "snRNA-seq"),
   year_from = 2015,
   year_to   = 2025
@@ -235,30 +242,41 @@ ggplot(sc_growth, aes(x = year, y = n_projects, fill = assay_type)) +
 
 ## Finding PBMC scRNA-seq datasets with BAM files
 
-`geo_search()` searches GEO series free-text (title, summary, overall
-design) and returns the linked SRA accession. `check_sra_bam()` then
-checks whether the original submission to SRA/NCBI included aligned BAM
-files — useful when you want to skip alignment and work directly from
-pre-aligned reads.
+SQL answers this question better than a search argument. The query below finds
+the GEO series that match the text, with the SRA accession of each one.
+`check_sra_bam()` then tells you which submissions to SRA include aligned BAM
+files. Use it when you want to read the aligned reads and skip the alignment
+step.
 
 ```{r pbmc-search}
 library(dplyr)
 
-pbmc <- geo_search(con, "PBMC scRNA-seq", limit = 10000)
+pbmc <- query("
+  SELECT
+    u.canonical_accession AS accession,
+    u.title,
+    CAST(u.first_published AS DATE) AS published,
+    json_extract_string(u.aliases, '$.sra') AS sra_accession
+  FROM unified_metadata u
+  WHERE u.source = 'geo'
+    AND lower(u.title) LIKE '%pbmc%'
+    AND lower(u.title) LIKE '%single%cell%'
+  ORDER BY u.first_published DESC NULLS LAST
+")
 ```
 
-Export the full catalogue to CSV:
+Write the full list to a CSV file:
 
 ```{r pbmc-csv, eval=FALSE}
 write.csv(pbmc, "pbmc_scrna_geo.csv", row.names = FALSE)
 ```
 
-Now check which of those studies have BAM files deposited in SRA:
+Then find the studies that have BAM files in SRA:
 
 ```{r pbmc-bam}
 pbmc_with_sra <- pbmc |> filter(!is.na(sra_accession))
 
-bam_status <- check_sra_bam(con, pbmc_with_sra$sra_accession)
+bam_status <- check_sra_bam(pbmc_with_sra$sra_accession)
 
 pbmc_bam <- pbmc_with_sra |>
   left_join(bam_status, by = "sra_accession") |>
@@ -268,10 +286,10 @@ pbmc_bam <- pbmc_with_sra |>
 cat(nrow(pbmc_bam), "PBMC scRNA-seq studies with BAM in SRA\n")
 ```
 
-Fetch publication DOIs and join them on:
+Read the publication DOIs, and join them:
 
 ```{r pbmc-bam-table}
-pubs <- publications(con, pbmc_bam$accession)
+pubs <- publications(pbmc_bam$accession)
 
 catalogue <- pbmc_bam |>
   left_join(pubs |> select(accession, doi) |> distinct(), by = "accession") |>
@@ -304,11 +322,11 @@ catalogue |>
 
 ## Cumulative project deposits across databases
 
-For a broader view, `growth_stats()` returns monthly project counts
-per database. We can compute cumulative totals:
+`growth_stats()` gives the number of projects for each month and each archive.
+Add them up to get the running total:
 
 ```{r cumulative-growth, fig.width=7, fig.height=5}
-growth <- growth_stats(con, mode = "projects") |>
+growth <- growth_stats(mode = "projects") |>
   filter(db %in% c("geo", "sra")) |>
   arrange(db, month) |>
   group_by(db) |>
@@ -339,7 +357,7 @@ All the above functions run on DuckDB under the hood. You can also query
 the tables directly with SQL:
 
 ```{r sql}
-query(con, "
+query("
   SELECT dominant_scientific_name AS organism, count(*) AS n_projects
   FROM unified_metadata
   WHERE dominant_scientific_name IS NOT NULL
@@ -349,13 +367,13 @@ query(con, "
 ")
 ```
 
-Or use `dplyr`/`dbplyr` for lazy evaluation. `tbl()` reads the DuckDB catalog
-directly, so the view has to exist first:
+`dplyr` and `dbplyr` also work, and they read the data only when you ask for it.
+`tbl()` reads the DuckDB catalog, so the view must exist first:
 
 ```{r dplyr}
 library(dbplyr)
 
-register_tables(con, "unified_metadata")
+register_tables("unified_metadata")
 
 tbl(con$db, "unified_metadata") |>
   filter(
@@ -370,22 +388,26 @@ tbl(con$db, "unified_metadata") |>
 
 ## Cache tables locally
 
-For repeated analysis, we can materialise a remote view into local DuckDB storage
-to avoid repeated HTTP requests:
+`cache_table()` copies a remote view into local DuckDB storage. Use it when you
+read the same table more than once:
 
 ```{r cache}
-cache_table(con, "unified_metadata")
+cache_table("unified_metadata")
 
 # Subsequent queries hit local storage
-query(con, "SELECT count(*) AS n FROM unified_metadata_local")
+query("SELECT count(*) AS n FROM unified_metadata_local")
 
 # Clean up
-clear_cache(con)
+clear_cache()
 ```
 
 
 ## Close connection
 
+Only the Parquet backend holds anything worth closing. Put the REST default
+back and release the DuckDB handle:
+
 ```{r close}
+seqout_default(NULL)
 seqout_close(con)
 ```

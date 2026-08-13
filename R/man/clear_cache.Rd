@@ -5,12 +5,12 @@
 \alias{ClearCache}
 \title{Clear locally cached tables}
 \usage{
-clear_cache(con)
+clear_cache(con = .con())
 
-ClearCache(con)
+ClearCache(con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
+\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \value{
 Number of tables removed (invisibly).

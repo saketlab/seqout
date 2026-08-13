@@ -5,16 +5,16 @@
 \alias{RegisterTables}
 \title{Register the remote Parquet views}
 \usage{
-register_tables(con, tables = NULL, progress = interactive())
+register_tables(tables = NULL, progress = interactive(), con = .con())
 
-RegisterTables(con, tables = NULL, progress = interactive())
+RegisterTables(tables = NULL, progress = interactive(), con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{tables}{Which tables to register. Defaults to all of them.}
 
 \item{progress}{Show a progress bar. Defaults to \code{TRUE} interactively.}
+
+\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \value{
 The names of every registered view, invisibly.
@@ -26,8 +26,8 @@ needs them to exist first.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-register_tables(con, "unified_metadata")
+con <- seqout_connect("parquet")
+register_tables("unified_metadata", con = con)
 dplyr::tbl(con$db, "unified_metadata")
 }
 }

@@ -5,14 +5,15 @@
 \alias{ProjectExperiments}
 \title{Get experiments for a study}
 \usage{
-project_experiments(con, study)
+project_experiments(study, con = .con())
 
-ProjectExperiments(con, study)
+ProjectExperiments(study, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{study}{Character. Study accession (SRP/ERP/DRP/PRJ*).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 A tibble of experiment metadata.

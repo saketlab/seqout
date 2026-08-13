@@ -5,16 +5,16 @@
 \alias{GrowthStats}
 \title{Get database growth statistics}
 \usage{
-growth_stats(con, mode = "projects", db = NULL)
+growth_stats(mode = "projects", db = NULL, con = .con())
 
-GrowthStats(con, mode = "projects", db = NULL)
+GrowthStats(mode = "projects", db = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection}.}
-
 \item{mode}{One of \code{"projects"}, \code{"experiments"}, or \code{"bases"}.}
 
 \item{db}{Optional. Restrict to a specific database.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with growth data (columns depend on mode).

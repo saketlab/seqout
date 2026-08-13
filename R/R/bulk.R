@@ -2,15 +2,15 @@
 #'
 #' Retrieve accession, title, and description for multiple projects.
 #'
-#' @param con A `seqout_connection`.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accessions Character vector of project accessions.
 #' @return A tibble with project metadata.
 #' @export
-bulk_project_metadata <- function(con, accessions) {
+bulk_project_metadata <- function(accessions, con = .con()) {
   .check_connection(con)
   check_required(accessions)
 
-  if (length(accessions) <= 20) {
+  if (identical(con$backend, "parquet")) {
     tbl_map <- vapply(accessions, .accession_to_table, character(1))
     groups <- split(accessions, tbl_map)
 
@@ -42,14 +42,14 @@ bulk_project_metadata <- function(con, accessions) {
 #'
 #' Fetches detailed metadata for multiple accessions from the REST API.
 #'
-#' @param con A `seqout_connection`.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accessions Character vector of accessions (GSE/SRP/ERP/DRP/PRJNA).
 #' @param output_dir Directory to save CSV files. If `NULL`, returns a list
 #'   of tibbles.
 #' @return If `output_dir` is `NULL`, a named list of tibbles. Otherwise,
 #'   the paths of written CSV files (invisibly).
 #' @export
-bulk_metadata <- function(con, accessions, output_dir = NULL) {
+bulk_metadata <- function(accessions, output_dir = NULL, con = .con()) {
   .check_connection(con)
   check_required(accessions)
 

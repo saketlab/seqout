@@ -5,18 +5,18 @@
 \alias{AssayProjects}
 \title{Get projects by assay type with publication dates}
 \usage{
-assay_projects(con, assay, year_from = NULL, year_to = NULL)
+assay_projects(assay, year_from = NULL, year_to = NULL, con = .con())
 
-AssayProjects(con, assay, year_from = NULL, year_to = NULL)
+AssayProjects(assay, year_from = NULL, year_to = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{assay}{Character vector of assay terms to search for, e.g.
 \code{c("scRNA-seq", "snRNA-seq")}.}
 
 \item{year_from, year_to}{Optional integer. Restrict to projects published
 within this year range.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with columns \code{accession}, \code{assay_type}, and \code{published}
@@ -32,9 +32,9 @@ search against ontology-annotated assay values (e.g., \code{"scRNA-seq"} matches
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
+con <- seqout_connect("parquet")
 
-projects <- assay_projects(con,
+projects <- assay_projects(
   assay = c("scRNA-seq", "snRNA-seq"),
   year_from = 2015
 )

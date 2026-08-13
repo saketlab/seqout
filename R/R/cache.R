@@ -4,13 +4,13 @@
 #' DuckDB database. Subsequent queries on this table hit local storage instead
 #' of making HTTP requests — useful for repeated analysis on the same data.
 #'
-#' @param con A `seqout_connection`.
 #' @param table Character. Name of the table/view to cache (e.g.,
 #'   `"geo_series"`). Must be one of the registered SeqOut tables.
+#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return The local table name (invisibly).
 #' @export
-cache_table <- function(con, table) {
-  .check_connection(con)
+cache_table <- function(table, con = .con()) {
+  .need_parquet(con, "cache_table")
   check_required(table)
 
   if (!table %in% con$tables) {
@@ -21,6 +21,7 @@ cache_table <- function(con, table) {
 
   local_name <- paste0(table, "_local")
   .register_views(con, table)
+
 
   cli::cli_alert_info("Caching {.val {table}} locally as {.val {local_name}}...")
 
@@ -39,16 +40,18 @@ cache_table <- function(con, table) {
 #' Executes any SQL query against the DuckDB database, which includes remote
 #' Parquet views and any locally cached tables.
 #'
-#' @param con A `seqout_connection`.
 #' @param sql Character. SQL query to execute.
 #' @param params Optional. A list of parameters for parameterised queries.
+#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return A tibble with query results.
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' query(con, "SELECT accession, title FROM geo_series LIMIT 10")
-#' query(con, "
+#' con <- seqout_connect("parquet")
+#' query("SELECT accession, title FROM geo_series LIMIT 10", con = con)
+#'
+#' seqout_default(con) # or make it the session default
+#' query("
 #'   SELECT dominant_scientific_name AS organism, count(*) AS n
 #'   FROM unified_metadata
 #'   WHERE dominant_scientific_name IS NOT NULL
@@ -57,8 +60,8 @@ cache_table <- function(con, table) {
 #'   LIMIT 20
 #' ")
 #' }
-query <- function(con, sql, params = NULL) {
-  .check_connection(con)
+query <- function(sql, params = NULL, con = .con()) {
+  .need_parquet(con, "query")
   check_required(sql)
   .db_query(con, sql, params = params)
 }
@@ -70,11 +73,11 @@ query <- function(con, sql, params = NULL) {
 #' `registered` says whether the view exists in DuckDB yet; views are created on
 #' first use, so a fresh connection reports `FALSE` for most of them.
 #'
-#' @param con A `seqout_connection`.
+#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return A tibble with `table_name`, `table_type` and `registered` columns.
 #' @export
-tables <- function(con) {
-  .check_connection(con)
+tables <- function(con = .con()) {
+  .need_parquet(con, "tables")
   live <- .db_query(con, "
     SELECT table_name, table_type
     FROM information_schema.tables
@@ -95,11 +98,11 @@ tables <- function(con) {
 #'
 #' Removes all `*_local` tables created by [cache_table()].
 #'
-#' @param con A `seqout_connection`.
+#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return Number of tables removed (invisibly).
 #' @export
-clear_cache <- function(con) {
-  .check_connection(con)
+clear_cache <- function(con = .con()) {
+  .need_parquet(con, "clear_cache")
 
   tables <- DBI::dbGetQuery(con$db, "
     SELECT table_name FROM information_schema.tables

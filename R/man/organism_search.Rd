@@ -5,16 +5,16 @@
 \alias{OrganismSearch}
 \title{Search organisms by name}
 \usage{
-organism_search(con, query, limit = 20)
+organism_search(query, limit = 20, con = .con())
 
-OrganismSearch(con, query, limit = 20)
+OrganismSearch(query, limit = 20, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{query}{Search text, matched against scientific and common names.}
 
 \item{limit}{Maximum results.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of matching organisms.
@@ -24,7 +24,6 @@ Search organisms by name
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-organism_search(con, "sapiens")
+organism_search("sapiens")
 }
 }

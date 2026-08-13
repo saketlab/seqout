@@ -8,7 +8,7 @@
 #' (`matrix.mtx` with `barcodes.tsv` and `features.tsv`), a CellRanger `.h5`, an
 #' `.h5ad`, an `.rds`, or a delimited table.
 #'
-#' @param con A `seqout_connection` from [seqout_connect()].
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession A GSE or GSM accession.
 #' @param assay Which assay to take when a sample carries several, as CITE-seq
 #'   and multiome studies do. Defaults to `"rna"`; `"adt"`, `"hto"` and
@@ -24,13 +24,12 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect()
-#' counts <- seqout_counts(con, "GSE297547")
+#' counts <- seqout_counts("GSE297547")
 #' manifest(counts)
 #' m <- seqout_matrix(counts, sample = "GSM8994520")
 #' }
-seqout_counts <- function(con, accession, assay = "rna", feature_type = NULL,
-                          cache_dir = NULL) {
+seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
+                          cache_dir = NULL, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
 
@@ -94,7 +93,7 @@ print.seqout_counts <- function(x, ...) {
     rows <- .counts_file_rows(urls, x$accession)
     assign("n_samples", 1L, envir = x$cache)
   } else {
-    samples <- project_samples(con, x$accession)
+    samples <- project_samples(x$accession, con = con)
     assign("samples", samples, envir = x$cache)
     supp <- samples$supplementary_data
     by_sample <- if (is.character(supp)) {
@@ -201,9 +200,9 @@ print.seqout_counts <- function(x, ...) {
     WHERE t.accession IN (%s)
   ", table, paste(rep("?", length(accessions)), collapse = ", "))
 
-  df <- tryCatch(.db_query(con, sql, params = as.list(accessions)),
-    error = function(e) NULL
-  )
+  df <- if (identical(con$backend, "parquet")) {
+    tryCatch(.db_query(con, sql, params = as.list(accessions)), error = function(e) NULL)
+  }
   if (is.null(df)) {
     urls <- lapply(accessions, function(a) {
       .supplementary_urls(con, a, sample = !identical(table, "geo_series"))
@@ -325,7 +324,7 @@ seqout_matrix <- function(counts, sample = NULL) {
 #'
 #' @examples
 #' \dontrun{
-#' counts <- seqout_counts(con, "GSE291735")
+#' counts <- seqout_counts("GSE291735")
 #' counts_matrix(seqout_matrix(counts, sample = "GSM8994520"))
 #' }
 #'
@@ -353,7 +352,7 @@ cellxgene_counts <- function(x) .counts_X(x)
 #'
 #' @examples
 #' \dontrun{
-#' counts <- seqout_counts(con, "GSE291735")
+#' counts <- seqout_counts("GSE291735")
 #' merged <- bind_counts(matrices(counts, sample = wt$sample),
 #'   labels = wt$stage, max_cells = 1200
 #' )

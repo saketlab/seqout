@@ -5,18 +5,18 @@
 \alias{DownloadScript}
 \title{Get a download script for a study}
 \usage{
-download_script(con, study, mode = "fastq", file = NULL)
+download_script(study, mode = "fastq", file = NULL, con = .con())
 
-DownloadScript(con, study, mode = "fastq", file = NULL)
+DownloadScript(study, mode = "fastq", file = NULL, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{study}{A study accession.}
 
 \item{mode}{Download source.}
 
 \item{file}{Optional path to write the script to.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 The script as a character string, invisibly when \code{file} is given.

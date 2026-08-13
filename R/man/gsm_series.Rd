@@ -5,14 +5,15 @@
 \alias{GsmSeries}
 \title{Find the GEO series a sample belongs to}
 \usage{
-gsm_series(con, gsm)
+gsm_series(gsm, con = .con())
 
-GsmSeries(con, gsm)
+GsmSeries(gsm, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{gsm}{A GEO sample accession (GSM).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+pass a Parquet one to read the dump instead.}
 }
 \value{
 The GSE accession, or \code{NA_character_}.

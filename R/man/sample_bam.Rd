@@ -5,14 +5,14 @@
 \alias{SampleBam}
 \title{Check sample-level BAM availability for a GEO series}
 \usage{
-sample_bam(con, accession)
+sample_bam(accession, con = .con())
 
-SampleBam(con, accession)
+SampleBam(accession, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{accession}{Character. GEO series accession (e.g., \code{"GSE151530"}).}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble with columns \code{sample_accession} and \code{bam_urls} (a
@@ -24,7 +24,7 @@ supplementary data, along with the BAM file URLs.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-sample_bam(con, "GSE151530")
+con <- seqout_connect("parquet")
+sample_bam("GSE151530")
 }
 }

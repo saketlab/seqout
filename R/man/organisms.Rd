@@ -5,14 +5,14 @@
 \alias{Organisms}
 \title{List all organisms}
 \usage{
-organisms(con, common_names = FALSE)
+organisms(common_names = FALSE, con = .con())
 
-Organisms(con, common_names = FALSE)
+Organisms(common_names = FALSE, con = .con())
 }
 \arguments{
-\item{con}{A \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
-
 \item{common_names}{Keep the common-name column.}
+
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A tibble of organism names.
@@ -23,7 +23,6 @@ tables were dropped from the Parquet export when it was reorganised.
 }
 \examples{
 \dontrun{
-con <- seqout_connect()
-organisms(con)
+organisms()
 }
 }

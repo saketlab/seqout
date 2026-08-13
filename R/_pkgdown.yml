@@ -10,9 +10,9 @@ template:
   bslib:
     primary: "#0071e3"
     border-radius: "0.5rem"
-    font-family-sans-serif: '"SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-    headings-font-family: '"SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-    font-family-monospace: '"SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
+    base_font: {google: "Geist"}
+    heading_font: {google: "Geist"}
+    code_font: {google: "Geist Mono"}
   includes:
     in_header: |
       <script async src="https://www.googletagmanager.com/gtag/js?id=G-7MHP1LW5FD"></script>
@@ -56,8 +56,8 @@ template:
 
   opengraph:
     image:
-      src: https://seqout.org/cli/og-image.png
-      alt: seqout
+      src: man/figures/og-image.png
+      alt: seqout R package documentation
 
 home:
   title: "Genomics study metadata for R"
@@ -78,10 +78,14 @@ home:
 
 navbar:
   structure:
-    left:  [intro, reference, articles, news]
-    right: [search, github, lightswitch]
+    left:  [get_started, reference, articles, news]
+    right: [search, lightswitch, github, website]
 
   components:
+    get_started:
+      text: Get Started
+      href: articles/getting-started.html
+
     reference:
       text: Reference
       href: reference/index.html
@@ -91,11 +95,24 @@ navbar:
       href: https://github.com/saketlab/seqout
       aria-label: GitHub
 
+    website:
+      text: Saket Lab
+      href: https://saketlab.in/
+
+articles:
+- title: Guides
+  navbar: ~
+  contents:
+  - getting-started
+  - searching
+  - counts-and-metadata
+
 reference:
 - title: Connecting
-  desc: Open a connection and work with the local DuckDB cache
+  desc: Pick a backend (REST or Parquet) and work with the local DuckDB cache
   contents:
   - seqout_connect
+  - seqout_default
   - seqout_close
   - tables
   - register_tables
@@ -107,12 +124,8 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
-  - search_structured
   - search_correction
-  - iter_search
   - bulk_search
-  - find_projects
-  - geo_search
   - assay_projects
 
 - title: Datasets and projects
@@ -120,7 +133,6 @@ reference:
   contents:
   - dataset
   - project
-  - project_metadata
   - project_samples
   - project_experiments
   - project_runs
@@ -134,7 +146,6 @@ reference:
 - title: Samples, experiments and runs
   desc: Record-level metadata below the project
   contents:
-  - seqout_sample
   - sample_detail
   - sample_frame
   - experiment_runs
@@ -218,7 +229,7 @@ reference:
 
 authors:
   Saket Choudhary:
-    href: https://github.com/saketkc
+    href: https://saket-choudhary.me/
 
 footer:
   structure:

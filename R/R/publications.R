@@ -3,12 +3,12 @@
 #' Parses the JSON publications column from the `study_publications` table
 #' using DuckDB's JSON functions.
 #'
-#' @param con A `seqout_connection`.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accessions Character vector of study accessions.
 #' @return A tibble with publication metadata (accession, source, pmid, title,
 #'   journal, doi, citation_count, etc.).
 #' @export
-publications <- function(con, accessions) {
+publications <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)
   frames <- lapply(accessions, function(acc) {
