@@ -138,7 +138,6 @@ reference:
   - project_xref
   - project_enriched
   - summaries
-  - bulk_project_metadata
   - bulk_metadata
 
 - title: Samples, experiments and runs

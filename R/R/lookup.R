@@ -91,8 +91,15 @@ summaries <- function(accessions, con = .con()) {
   # for, so a report of what is missing reads as the caller wrote it.
   resolved <- vapply(accessions, function(a) .prj_study(con, a), character(1))
 
-  res <- .api_post(con, "/bulk/project-metadata", list(accessions = as.list(unname(resolved))))
-  out <- .records_to_tibble(.as_record_list(res))
+  out <- if (identical(con$backend, "parquet")) {
+    .summaries_from_db(con, unname(resolved))
+  } else {
+    .records_to_tibble(.as_record_list(
+      .api_post(con, "/bulk/project-metadata",
+        list(accessions = as.list(unname(resolved)))
+      )
+    ))
+  }
 
   # The endpoint answers only what it holds, so a row can go missing without a
   # word. Say so: a caller binding this beside its input would misalign.
@@ -105,6 +112,32 @@ summaries <- function(accessions, con = .con()) {
     ))
   }
   out
+}
+
+#' The same short records, read from the dump
+#'
+#' Each archive keeps its projects in its own table, so the accessions are
+#' grouped by the table that holds them and each group is asked for once.
+#' The dump carries no organism column here, so the result is three columns
+#' where the API answers four.
+#' @noRd
+.summaries_from_db <- function(con, accessions) {
+  groups <- split(accessions, vapply(accessions, .accession_to_table, character(1)))
+  frames <- lapply(names(groups), function(tbl) {
+    accs <- groups[[tbl]]
+    m <- .table_column_map(tbl)
+    sql <- sprintf(
+      "SELECT %s AS accession, %s AS title, %s AS description FROM %s WHERE %s IN (%s)",
+      m$acc_col, m$title_col, m$desc_col, tbl, m$acc_col,
+      paste(rep("?", length(accs)), collapse = ", ")
+    )
+    .db_query(con, sql, params = as.list(accs))
+  })
+  frames <- Filter(function(df) nrow(df) > 0, frames)
+  if (length(frames) == 0) {
+    return(tibble::tibble(accession = character(0)))
+  }
+  tibble::as_tibble(do.call(rbind, frames))
 }
 
 

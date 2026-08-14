@@ -1,43 +1,3 @@
-#' Bulk project metadata
-#'
-#' Retrieve accession, title, and description for multiple projects.
-#'
-#' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accessions Character vector of project accessions.
-#' @return A tibble with project metadata.
-#' @export
-bulk_project_metadata <- function(accessions, con = .con()) {
-  .check_connection(con)
-  check_required(accessions)
-
-  if (identical(con$backend, "parquet")) {
-    tbl_map <- vapply(accessions, .accession_to_table, character(1))
-    groups <- split(accessions, tbl_map)
-
-    results <- lapply(names(groups), function(tbl) {
-      accs <- groups[[tbl]]
-      m <- .table_column_map(tbl)
-      placeholders <- paste(rep("?", length(accs)), collapse = ", ")
-      sql <- sprintf(
-        "SELECT %s AS accession, %s AS title, %s AS description FROM %s WHERE %s IN (%s)",
-        m$acc_col, m$title_col, m$desc_col, tbl, m$acc_col, placeholders
-      )
-      .db_query(con, sql, params = as.list(accs))
-    })
-    results <- Filter(function(df) nrow(df) > 0, results)
-
-    if (length(results) == 0) {
-      return(tibble::tibble())
-    }
-    return(tibble::as_tibble(do.call(rbind, results)))
-  }
-
-  .records_to_tibble(.api_post(con, "/bulk/project-metadata",
-    body = list(accessions = accessions)
-  ))
-}
-
-
 #' Bulk metadata download
 #'
 #' Fetches detailed metadata for multiple accessions from the REST API.
@@ -54,7 +14,7 @@ bulk_metadata <- function(accessions, output_dir = NULL, con = .con()) {
   check_required(accessions)
 
   raw <- .api_post(con, "/bulk/metadata",
-    body = list(accessions = accessions), raw = TRUE
+    body = list(accessions = as.list(accessions)), raw = TRUE
   )
 
   tmp_zip <- tempfile(fileext = ".zip")

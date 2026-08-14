@@ -18,10 +18,6 @@ BindCounts <- bind_counts
 #' @export
 BulkMetadata <- bulk_metadata
 
-#' @rdname bulk_project_metadata
-#' @export
-BulkProjectMetadata <- bulk_project_metadata
-
 #' @rdname bulk_search
 #' @export
 BulkSearch <- bulk_search
