@@ -28,7 +28,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-`seqout_search()` searches seven public repositories at the same time: GEO,
+`search()` searches seven public repositories at the same time: GEO,
 SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
 
 Give it a query, filters, or both.
@@ -36,7 +36,7 @@ Give it a query, filters, or both.
 ```{r first-search}
 library(seqout)
 
-seqout_search("liver cancer scRNA", limit = 5)
+search("liver cancer scRNA", limit = 5)
 ```
 
 A query alone searches the title, the summary and the design of every study.
@@ -45,7 +45,7 @@ The server ranks the results.
 A query is not necessary if you give at least one filter:
 
 ```{r filters-only}
-seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 5)
+search(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 5)
 ```
 
 ## Filters
@@ -54,7 +54,7 @@ Give filters by name. The example below finds human RNA-seq studies about the
 liver.
 
 ```{r filters}
-seqout_search(
+search(
   "liver",
   organism         = "Homo sapiens",
   library_strategy = "RNA-Seq",
@@ -86,7 +86,7 @@ The package refuses a name that is not in this table. The error message shows
 you the names that are correct.
 
 ```{r bad-filter, error = TRUE}
-seqout_search("liver", min_samples = 10)
+search("liver", min_samples = 10)
 ```
 
 ### The archives
@@ -95,7 +95,7 @@ seqout_search("liver", min_samples = 10)
 `"gsa"`, `"dra"` and `"gea"`.
 
 ```{r one-archive}
-seqout_search("hepatocellular carcinoma", db = "geo", limit = 5)
+search("hepatocellular carcinoma", db = "geo", limit = 5)
 ```
 
 ### The assay class
@@ -114,7 +114,7 @@ specific.
 The match is exact. Use the capital letters that the table shows.
 
 ```{r assay}
-seqout_search("liver", assay_l2 = "scRNA-seq", limit = 5)
+search("liver", assay_l2 = "scRNA-seq", limit = 5)
 ```
 
 ### The dates
@@ -122,7 +122,7 @@ seqout_search("liver", assay_l2 = "scRNA-seq", limit = 5)
 `year_from` and `year_to` take whole years.
 
 ```{r years}
-seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2023, limit = 5)
+search("liver cancer", organism = "Homo sapiens", year_from = 2023, limit = 5)
 ```
 
 `date_from` and `date_to` take a day. Write the day as `yyyy-mm-dd`. These two
@@ -130,7 +130,7 @@ filters bound `updated_at`. `updated_at` is the day when seqout last saw a
 change to the record.
 
 ```{r dates}
-seqout_search("liver cancer",
+search("liver cancer",
   date_from = "2024-01-01", date_to = "2024-01-31", limit = 5
 )
 ```
@@ -140,7 +140,7 @@ seqout_search("liver cancer",
 The default order is relevance. Change it with `sortby`.
 
 ```{r sortby}
-seqout_search("hepatocellular carcinoma", sortby = "citations", limit = 5)
+search("hepatocellular carcinoma", sortby = "citations", limit = 5)
 ```
 
 `sortby` accepts `"citations"`, `"journal"` and `"year"`. `order` accepts
@@ -152,14 +152,14 @@ A search returns every match. The server sends 200 rows in one page, so a large
 result set costs more than one request.
 
 ```{r all-rows}
-result <- seqout_search("hepatocellular carcinoma scRNA")
+result <- search("hepatocellular carcinoma scRNA")
 nrow(result)
 ```
 
 Set `limit` when a sample is sufficient. A limit of 50 costs one request.
 
 ```{r limit}
-nrow(seqout_search("hepatocellular carcinoma scRNA", limit = 50))
+nrow(search("hepatocellular carcinoma scRNA", limit = 50))
 ```
 
 ## Two more functions
@@ -192,7 +192,7 @@ A search gives you accessions. Use `project()` to read the full record of one
 of them.
 
 ```{r project}
-top <- seqout_search("hepatocellular carcinoma", sortby = "citations", limit = 1)
+top <- search("hepatocellular carcinoma", sortby = "citations", limit = 1)
 project(top$accession[1], transpose = TRUE)
 ```
 
@@ -206,7 +206,7 @@ c(samples = nrow(d$samples), runs = nrow(d$runs))
 
 ## The Parquet backend
 
-`seqout_search()` reads the REST API. It does not read the Parquet dump.
+`search()` reads the REST API. It does not read the Parquet dump.
 
 The Parquet dump answers SQL. Use SQL for a filter or a count over the full
 index: it does more than a search argument, and it is faster for a large scan.
@@ -225,10 +225,10 @@ query("
 ", con = con)
 ```
 
-The package tells you when you give a Parquet connection to `seqout_search()`.
+The package tells you when you give a Parquet connection to `search()`.
 
 ```{r parquet-error, eval = FALSE}
-seqout_search("liver", con = con)
-#> Error: `seqout_search()` reads the REST API; this connection is Parquet.
+search("liver", con = con)
+#> Error: `search()` reads the REST API; this connection is Parquet.
 #> ℹ Drop `con` to search, or use `query()` to write SQL over the dump.
 ```

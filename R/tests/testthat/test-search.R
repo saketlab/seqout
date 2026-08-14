@@ -1,22 +1,22 @@
 rest_con <- function() seqout_connect("api", quiet = TRUE)
 
 test_that("a search needs a query or at least one filter", {
-  expect_error(seqout_search(con = rest_con()), "at least one filter")
+  expect_error(search(con = rest_con()), "at least one filter")
 })
 
 test_that("an unknown filter is refused, with the valid set listed", {
   expect_error(
-    seqout_search("liver", min_samples = 10, con = rest_con()),
+    search("liver", min_samples = 10, con = rest_con()),
     "min_samples"
   )
   expect_error(
-    seqout_search("liver", assay = "RNA-seq", con = rest_con()),
+    search("liver", assay = "RNA-seq", con = rest_con()),
     "not a search filter"
   )
 })
 
 test_that("filters must be named", {
-  expect_error(seqout_search("liver", "geo", con = rest_con()), "must be named")
+  expect_error(search("liver", "geo", con = rest_con()), "must be named")
 })
 
 test_that("the filter set is exactly what the Python client accepts", {
@@ -33,14 +33,14 @@ test_that("the filter set is exactly what the Python client accepts", {
 
 test_that("search is REST only; Parquet is pointed at query()", {
   expect_error(
-    seqout_search("liver", con = seqout_connect("parquet", quiet = TRUE)),
+    search("liver", con = seqout_connect("parquet", quiet = TRUE)),
     "query"
   )
 })
 
 test_that("mixing full-text-only and structured-only filters is an error", {
   expect_error(
-    seqout_search("liver",
+    search("liver",
       date_from = "2020-01-01", journal = "Nature",
       con = rest_con()
     ),
@@ -50,11 +50,11 @@ test_that("mixing full-text-only and structured-only filters is an error", {
 
 test_that("dates are validated before they leave R", {
   expect_error(
-    seqout_search("liver", date_from = "2020", con = rest_con()),
+    search("liver", date_from = "2020", con = rest_con()),
     "yyyy-mm-dd"
   )
   expect_error(
-    seqout_search("liver", date_from = as.Date("2020-01-01"), con = rest_con()),
+    search("liver", date_from = as.Date("2020-01-01"), con = rest_con()),
     "yyyy-mm-dd"
   )
 })
@@ -70,10 +70,10 @@ test_that("the endpoint is chosen from the filters, not by the caller", {
     }
   )
 
-  seqout_search("liver", con = rest_con())
-  seqout_search("liver", journal = "Nature", con = rest_con())
-  seqout_search("liver", source = "geo", con = rest_con())
-  seqout_search("liver", db = "geo", year_from = 2020, con = rest_con())
+  search("liver", con = rest_con())
+  search("liver", journal = "Nature", con = rest_con())
+  search("liver", source = "geo", con = rest_con())
+  search("liver", db = "geo", year_from = 2020, con = rest_con())
 
   expect_equal(seen[[1]]$path, "/search")
   expect_equal(seen[[2]]$path, "/search/structured")
@@ -95,8 +95,8 @@ test_that("limit asks for only the pages it needs; no limit asks for all", {
       tibble::tibble()
     }
   )
-  seqout_search("liver", limit = 500, con = rest_con())
-  seqout_search("liver", con = rest_con())
+  search("liver", limit = 500, con = rest_con())
+  search("liver", con = rest_con())
   expect_equal(seen[[1]], 3)
   expect_equal(seen[[2]], Inf)
 })

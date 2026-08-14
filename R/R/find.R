@@ -131,7 +131,7 @@ sample_bam <- function(accession, con = .con()) {
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param sra_accessions Character vector of SRA study accessions (e.g.
-#'   the `sra_accession` column from [seqout_search()]).
+#'   the `sra_accession` column from [search()]).
 #'
 #' @return A tibble with columns `sra_accession` and `has_bam_sra` (logical).
 #'   Studies with no runs in the database are returned with
@@ -142,7 +142,7 @@ sample_bam <- function(accession, con = .con()) {
 #' \dontrun{
 #' con <- seqout_connect("parquet")
 #'
-#' results <- seqout_search("PBMC scRNA-seq", source = "geo", con = con)
+#' results <- search("PBMC scRNA-seq", source = "geo", con = con)
 #'
 #' library(dplyr)
 #' srps <- results |>
@@ -181,7 +181,7 @@ check_sra_bam <- function(sra_accessions, con = .con()) {
 #' List available assay types
 #'
 #' Returns assay categories with project counts, useful for discovering
-#' valid values for the `assay` argument of [seqout_search()].
+#' valid values for the `assay` argument of [search()].
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param level One of `"broad"` (e.g., Transcriptomic, Genomic Sequencing)
@@ -207,7 +207,7 @@ list_assays <- function(level = "specific", con = .con()) {
 #' List available countries
 #'
 #' Returns countries with project counts, useful for discovering valid
-#' values for the `country` argument of [seqout_search()].
+#' values for the `country` argument of [search()].
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param limit Maximum number of countries to return. Default 50.
@@ -229,7 +229,7 @@ list_countries <- function(limit = 50, con = .con()) {
 #' List available organisms
 #'
 #' Returns organisms with total experiment counts, useful for discovering
-#' valid values for the `organism` argument of [seqout_search()].
+#' valid values for the `organism` argument of [search()].
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param limit Maximum number of organisms to return. Default 50.

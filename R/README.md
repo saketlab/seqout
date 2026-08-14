@@ -24,7 +24,7 @@ library(seqout)
 
 project("GSE151530")
 project_samples("GSE151530")
-seqout_search("liver cancer scRNA", db = "geo")
+search("liver cancer scRNA", db = "geo")
 ```
 
 ## Two backends

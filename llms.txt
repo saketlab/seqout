@@ -54,7 +54,7 @@ library(seqout)
 # No connection needed; every function reads the REST API by default
 project("GSE151530")
 project_samples("GSE151530")
-seqout_search("liver cancer scRNA", db = "geo")
+search("liver cancer scRNA", db = "geo")
 
 counts <- seqout_counts("GSE297547")
 manifest(counts)
@@ -78,7 +78,7 @@ locally with a language model.
 In R, alongside search and project metadata, there are `download_*` helpers,
 `project_enriched()`, `project_citations(format = "bibtex")`, `assay_projects()`,
 `check_sra_bam()`, the discovery lists `list_assays()`, `list_organisms()` and
-`list_countries()`, and `query()` for raw SQL. `seqout_search()` is the single search entry point. It takes the same filters as
+`list_countries()`, and `query()` for raw SQL. `search()` is the single search entry point. It takes the same filters as
 the Python client, given by name. The filters select the full-text or the
 structured search. It returns every match, not the first page; give `limit` to
 set a maximum. It reads the REST API only. For the Parquet dump, write SQL with

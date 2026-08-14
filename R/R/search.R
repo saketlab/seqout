@@ -1,6 +1,6 @@
 #' Search every archive
 #'
-#' `seqout_search()` searches seven public repositories at the same time: GEO,
+#' `search()` searches seven public repositories at the same time: GEO,
 #' SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
 #'
 #' Give a query, filters, or both. A query alone searches the title, the summary
@@ -55,24 +55,24 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' seqout_search("liver cancer scRNA")
-#' seqout_search("liver cancer scRNA", db = "geo", sortby = "citations")
+#' search("liver cancer scRNA")
+#' search("liver cancer scRNA", db = "geo", sortby = "citations")
 #'
 #' # A structured filter selects the structured search
-#' seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2022)
+#' search("liver cancer", organism = "Homo sapiens", year_from = 2022)
 #'
 #' # A query is not necessary
-#' seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic")
+#' search(organism = "Mus musculus", assay_l1 = "Transcriptomic")
 #'
 #' # Take a sample of a large result set
-#' seqout_search("cancer", limit = 50)
+#' search("cancer", limit = 50)
 #' }
-seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
+search <- function(query = NULL, ..., sortby = NULL, order = "desc",
                           limit = NULL, con = .con()) {
   .check_connection(con)
   if (identical(con$backend, "parquet")) {
     cli::cli_abort(c(
-      "{.fn seqout_search} reads the REST API; this connection is Parquet.",
+      "{.fn search} reads the REST API; this connection is Parquet.",
       i = "Drop {.arg con} to search, or use {.fn query} to write SQL over the dump."
     ))
   }
@@ -228,7 +228,7 @@ bulk_search <- function(queries, ..., con = .con()) {
   .check_connection(con)
   rlang::check_required(queries)
   out <- lapply(queries, function(q) {
-    tryCatch(seqout_search(q, ..., con = con), error = function(e) tibble::tibble())
+    tryCatch(search(q, ..., con = con), error = function(e) tibble::tibble())
   })
   stats::setNames(out, queries)
 }

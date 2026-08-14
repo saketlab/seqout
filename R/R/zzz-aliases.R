@@ -226,6 +226,10 @@ SampleDetail <- sample_detail
 #' @export
 SampleFrame <- sample_frame
 
+#' @rdname search
+#' @export
+Search <- search
+
 #' @rdname search_correction
 #' @export
 SearchCorrection <- search_correction
@@ -245,10 +249,6 @@ SeqoutCountsFiles <- seqout_counts_files
 #' @rdname seqout_matrix
 #' @export
 SeqoutMatrix <- seqout_matrix
-
-#' @rdname seqout_search
-#' @export
-SeqoutSearch <- seqout_search
 
 #' @rdname seqout_units
 #' @export

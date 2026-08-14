@@ -44,7 +44,7 @@ library(seqout)
 project("GSE151530")
 project_samples("GSE151530")
 
-seqout_search("liver cancer scRNA", organism = "Homo sapiens")
+search("liver cancer scRNA", organism = "Homo sapiens")
 
 # Opt in to Parquet for SQL over the whole index
 con <- seqout_connect("parquet")

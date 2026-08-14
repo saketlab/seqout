@@ -44,7 +44,7 @@ dataset <- function(accession, con = .con()) {
     cli::cli_abort(c(
       "{.val {accession}} is not an accession this library recognizes.",
       "i" = "Expected one of: {shapes}",
-      "i" = "To search for it as text instead, use {.fn seqout_search}."
+      "i" = "To search for it as text instead, use {.fn search}."
     ))
   }
 
@@ -133,7 +133,7 @@ names.seqout_dataset <- function(x) {
   cli::cli_abort(c(
     "Could not find the study that {fields$accession} (a {fields$kind}) belongs to.",
     "x" = "The archive serves no parent for it and it is not in the search index.",
-    "i" = "Start from the study or series accession, or search for it with {.fn seqout_search}."
+    "i" = "Start from the study or series accession, or search for it with {.fn search}."
   ))
 }
 
