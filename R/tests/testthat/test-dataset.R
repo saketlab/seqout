@@ -152,3 +152,22 @@ test_that("a GSM resolves to its series through the envelope's project_accession
   )
   expect_equal(seqout:::gsm_series("GSM8433846", con = fake_con(backend = "api")), "GSE273612")
 })
+
+test_that("a BioProject accession resolves to the record the archive files it under", {
+  local_mocked_bindings(
+    .api_get = function(con, path, ...) list(project_accession = "CRA027437"),
+    .package = "seqout"
+  )
+  d <- seqout_get(con = fake_con(backend = "api"), "PRJCA042384")
+  expect_equal(d$project, "CRA027437")
+})
+
+test_that("a non-PRJ accession is left alone, at no request", {
+  local_mocked_bindings(
+    .api_get = function(con, path, ...) stop("must not resolve"),
+    .package = "seqout"
+  )
+  expect_equal(seqout_get(con = fake_con(backend = "api"), "GSE273612")$project, "GSE273612")
+  # The dump serves no /prj/ route, so the accession stands.
+  expect_equal(seqout_get(con = fake_con(), "PRJCA042384")$project, "PRJCA042384")
+})

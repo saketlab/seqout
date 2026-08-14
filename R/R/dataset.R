@@ -119,11 +119,30 @@ names.seqout_dataset <- function(x) {
   )
 }
 
+#' The study or series a BioProject accession stands for
+#'
+#' A PRJ accession names the project, not the record: the archive files that
+#' under its own accession, and which one depends on the archive (PRJCA to a
+#' GSA CRA, PRJNA to a GEO series or an SRA study). `/prj/` answers the mapping
+#' in one request; it is what the website resolves through.
+#' @noRd
+.prj_study <- function(con, accession) {
+  if (!grepl("^PRJ", accession, ignore.case = TRUE) ||
+    !identical(con$backend, "api")) {
+    return(accession)
+  }
+  found <- tryCatch(
+    .api_get(con, paste0("/prj/", accession))$project_accession,
+    error = function(e) NULL
+  )
+  found %||% accession
+}
+
 #' @noRd
 .dataset_project <- function(x) {
   fields <- unclass(x)
   if (fields$kind %in% .root_entities) {
-    return(fields$accession)
+    return(.prj_study(fields$con, fields$accession))
   }
   found <- if (startsWith(toupper(fields$accession), "GSM")) {
     gsm_series(fields$accession, con = fields$con)
