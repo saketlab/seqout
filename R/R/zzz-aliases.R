@@ -70,10 +70,6 @@ DownloadScript <- download_script
 #' @export
 DownloadSupplementary <- download_supplementary
 
-#' @rdname experiment_runs
-#' @export
-ExperimentRuns <- experiment_runs
-
 #' @rdname file_role
 #' @export
 FileRole <- file_role
@@ -161,10 +157,6 @@ SampleBam <- sample_bam
 #' @rdname sample_frame
 #' @export
 SampleFrame <- sample_frame
-
-#' @rdname search_correction
-#' @export
-SearchCorrection <- search_correction
 
 #' @rdname seqout_close
 #' @export

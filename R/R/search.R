@@ -191,27 +191,6 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   ))
 }
 
-#' Search results with the spelling correction the server suggests
-#'
-#' The correction rides on the first page only, so this costs one request.
-#'
-#' @param query Search text.
-#' @param ... Filters passed to the search endpoint.
-#' @inheritParams project
-#'
-#' @return A list with `correction` and `results`.
-#'
-#' @export
-search_correction <- function(query, ..., con = .con()) {
-  .check_connection(con)
-  rlang::check_required(query)
-  params <- .compact(list(q = query, ...))
-  res <- do.call(.api_get, c(list(con, "/search"), params))
-  list(
-    correction = res$correction %||% NULL,
-    results = .records_to_tibble(.as_record_list(res$results %||% res))
-  )
-}
 
 #' Run several searches in one call
 #'

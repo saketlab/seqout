@@ -162,15 +162,7 @@ Set `limit` when a sample is sufficient. A limit of 50 costs one request.
 nrow(seqout_search("hepatocellular carcinoma scRNA", limit = 50))
 ```
 
-## Two more functions
-
-`search_correction()` gives you the correction that the server suggests for a
-query with a spelling mistake. It costs one request.
-
-```{r correction}
-found <- search_correction("hepatocelular carcinima")
-found$correction$corrected_query
-```
+## One more function
 
 `bulk_search()` runs one search for each query in a vector. It gives you a
 named list of tibbles.

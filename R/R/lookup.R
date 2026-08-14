@@ -107,18 +107,3 @@ project_summary <- function(accession, con = .con()) {
   .records_to_tibble(list(res))
 }
 
-
-#' The runs of one experiment
-#'
-#' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession An experiment accession (SRX, ERX, DRX, CRX, HRX).
-#'
-#' @return A tibble of runs.
-#'
-#' @export
-experiment_runs <- function(accession, con = .con()) {
-  .check_connection(con)
-  rlang::check_required(accession)
-  res <- .api_get(con, paste0("/experiment/", accession, "/runs"))
-  .records_to_tibble(.as_record_list(res$runs %||% res))
-}
