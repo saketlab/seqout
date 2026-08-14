@@ -1,7 +1,6 @@
 #' List all organisms
 #'
-#' Distinct organisms across every archive. Served by the API: the organism
-#' tables were dropped from the Parquet export when it was reorganised.
+#' Distinct organisms across every archive. Served by the API.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param common_names Keep the common-name column.

@@ -16,7 +16,6 @@ Depends:
 Imports:
     cli,
     curl,
-    DBI,
     httr2,
     methods,
     rlang,
@@ -25,6 +24,7 @@ Imports:
     tools,
     utils
 Suggests:
+    DBI,
     dplyr,
     dbplyr,
     DT,

@@ -35,7 +35,7 @@ cache_table <- function(table, con = .con()) {
 }
 
 
-#' Run arbitrary SQL on the SeqOut DuckDB connection
+#' Run arbitrary SQL on the Seqout DuckDB connection
 #'
 #' Executes any SQL query against the DuckDB database, which includes remote
 #' Parquet views and any locally cached tables.

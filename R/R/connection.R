@@ -1,4 +1,4 @@
-#' Connect to SeqOut
+#' Connect to Seqout
 #'
 #' `seqout` gets data in two ways. This function selects the way, and it points
 #' at the server.
@@ -19,7 +19,7 @@
 #' you, because one lookup would become a scan of many gigabytes.
 #'
 #' @param backend `"api"`, the default, or `"parquet"`. See the description.
-#' @param base_url The address of the SeqOut server. The default is the
+#' @param base_url The address of the Seqout server. The default is the
 #'   `SEQOUT_BASE_URL` environment variable, or `"https://seqout.org"` when
 #'   that variable is empty. The variable lets CI use an origin that is not
 #'   behind the public CDN, with no change to the code.
@@ -72,10 +72,10 @@ seqout_connect <- function(backend = c("api", "parquet"),
 
   if (!quiet) {
     if (backend == "api") {
-      cli::cli_alert_success("SeqOut ({.url {base_url}}) \u2014 REST backend")
+      cli::cli_alert_success("Seqout ({.url {base_url}}) \u2014 REST backend")
     } else {
       cli::cli_alert_success(
-        "SeqOut ({.url {base_url}}) \u2014 Parquet backend, {length(con$tables)} table{?s}"
+        "Seqout ({.url {base_url}}) \u2014 Parquet backend, {length(con$tables)} table{?s}"
       )
     }
   }
@@ -155,7 +155,11 @@ seqout_default <- function(con) {
   .need_parquet(con, "This")
   rlang::check_installed(
     "duckdb",
-    "to query the SeqOut Parquet tables (REST-only functions do not need it)."
+    "to query the Seqout Parquet tables (REST-only functions do not need it)."
+  )
+  rlang::check_installed(
+    "DBI",
+    "to query the Seqout Parquet tables (REST-only functions do not need it)."
   )
 
   drv <- duckdb::duckdb()
@@ -209,7 +213,7 @@ register_tables <- function(tables = NULL, progress = interactive(), con = .con(
   tables <- tables %||% con$tables
   unknown <- setdiff(tables, con$tables)
   if (length(unknown) > 0) {
-    cli::cli_abort("Not a SeqOut table: {.val {unknown}}.")
+    cli::cli_abort("Not a Seqout table: {.val {unknown}}.")
   }
   invisible(.register_views(con, tables, progress = progress))
 }
@@ -260,7 +264,7 @@ register_tables <- function(tables = NULL, progress = interactive(), con = .con(
   invisible(.register_views(con, named))
 }
 
-#' Close a SeqOut connection
+#' Close a Seqout connection
 #'
 #' Only the Parquet backend holds a resource worth closing; on a REST
 #' connection this is a no-op.
@@ -276,7 +280,7 @@ seqout_close <- function(con = .con()) {
     con$state$drv <- NULL
     rm(list = ls(con$views), envir = con$views)
   }
-  cli::cli_alert_info("SeqOut connection closed.")
+  cli::cli_alert_info("Seqout connection closed.")
   invisible(NULL)
 }
 

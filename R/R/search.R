@@ -9,13 +9,11 @@
 #' structured search accepts selects that search. If you give no such filter,
 #' the full-text search answers and ranks the results.
 #'
-#' These are the filter names. They are the same names that the Python client
-#' accepts.
-#'
 #' \describe{
 #'   \item{Both searches}{`organism`, `library_strategy`, `platform`}
 #'   \item{Full-text only}{`db`, `library_source`, `date_from`, `date_to`}
 #'   \item{Structured only}{`source`, `country`, `center`, `journal`,
+#'   TODO: We should make all these support for both searches too!
 #'     `instrument_model`, `year_from`, `year_to`, `multi_platform`,
 #'     `assay_l1`, `assay_l2`, `geo_country_code_iso2`, `geo_lat`, `geo_lng`,
 #'     `geo_radius_km`}

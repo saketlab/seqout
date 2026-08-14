@@ -1,4 +1,4 @@
-#' What SeqOut knows about an accession shape, in one place
+#' What Seqout knows about an accession shape, in one place
 #'
 #' Each row carries the pattern, what the accession refers to, and where the
 #' record lives. Everything else that dispatches on an accession reads this:
