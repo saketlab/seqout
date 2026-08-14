@@ -8,7 +8,7 @@
 #'
 #' @return The study accession, or `NA_character_` when nothing links back.
 #'
-#' @export
+#' @keywords internal
 #' @examples
 #' \dontrun{
 #' resolve_study("SRR13927092")
@@ -125,7 +125,7 @@ resolve_study <- function(accession, con = .con()) {
 #'
 #' @return The GSE accession, or `NA_character_`.
 #'
-#' @export
+#' @keywords internal
 gsm_series <- function(gsm, con = .con()) {
   .check_connection(con)
   rlang::check_required(gsm)
@@ -147,7 +147,9 @@ gsm_series <- function(gsm, con = .con()) {
   tryCatch(
     {
       result <- .api_get(con, paste0("/sample-detail/", gsm))
-      result$series %||% result$series_ref %||% NA_character_
+      # The detail envelope names the series `project_accession`.
+      result$project_accession %||% result$series %||% result$series_ref %||%
+        NA_character_
     },
     error = function(e) NA_character_
   )
@@ -164,7 +166,7 @@ gsm_series <- function(gsm, con = .con()) {
 #'
 #' @return The linked study accession, or `NA_character_`.
 #'
-#' @export
+#' @keywords internal
 linked_study <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
@@ -195,7 +197,7 @@ linked_study <- function(accession, con = .con()) {
 #'
 #' @return The linked series accession, or `NA_character_`.
 #'
-#' @export
+#' @keywords internal
 linked_geo <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)

@@ -19,5 +19,5 @@ A tibble with \code{organism} and \code{n_projects} columns, sorted by count.
 }
 \description{
 Returns organisms with total experiment counts, useful for discovering
-valid values for the \code{organism} argument of \code{\link[=search]{search()}}.
+valid values for the \code{organism} argument of \code{\link[=seqout_search]{seqout_search()}}.
 }

@@ -65,7 +65,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 #' @export
 print.seqout_counts <- function(x, ...) {
   n <- if (exists("units", envir = x$cache, inherits = FALSE)) {
-    length(get("units", envir = x$cache))
+    length(base::get("units", envir = x$cache))
   } else {
     "?"
   }
@@ -81,7 +81,7 @@ print.seqout_counts <- function(x, ...) {
 #' @noRd
 .counts_files <- function(x) {
   if (exists("files", envir = x$cache, inherits = FALSE)) {
-    return(get("files", envir = x$cache))
+    return(base::get("files", envir = x$cache))
   }
   con <- x$con
 
@@ -233,7 +233,7 @@ print.seqout_counts <- function(x, ...) {
       envir = x$cache
     )
   }
-  units <- get("units", envir = x$cache)
+  units <- base::get("units", envir = x$cache)
   if (preferred_only) Filter(function(u) isTRUE(u$preferred), units) else units
 }
 
@@ -503,7 +503,7 @@ matrices <- function(counts, sample = NULL) {
   )
 
   n_samples <- if (exists("n_samples", envir = counts$cache, inherits = FALSE)) {
-    get("n_samples", envir = counts$cache)
+    base::get("n_samples", envir = counts$cache)
   } else {
     0L
   }

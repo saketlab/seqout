@@ -7,7 +7,7 @@
 #'
 #' @return A one-row tibble, or an empty tibble when the run is unknown.
 #'
-#' @export
+#' @keywords internal
 #' @examples
 #' \dontrun{
 #' run("SRR13927092")

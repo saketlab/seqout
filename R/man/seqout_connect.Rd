@@ -3,7 +3,7 @@
 \name{seqout_connect}
 \alias{seqout_connect}
 \alias{SeqoutConnect}
-\title{Connect to SeqOut}
+\title{Connect to Seqout}
 \usage{
 seqout_connect(
   backend = c("api", "parquet"),
@@ -24,7 +24,7 @@ SeqoutConnect(
 \arguments{
 \item{backend}{\code{"api"}, the default, or \code{"parquet"}. See the description.}
 
-\item{base_url}{The address of the SeqOut server. The default is the
+\item{base_url}{The address of the Seqout server. The default is the
 \code{SEQOUT_BASE_URL} environment variable, or \code{"https://seqout.org"} when
 that variable is empty. The variable lets CI use an origin that is not
 behind the public CDN, with no change to the code.}

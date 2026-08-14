@@ -123,7 +123,7 @@ reference:
 - title: Searching
   desc: Free-text and structured search across every archive
   contents:
-  - search
+  - seqout_search
   - search_correction
   - bulk_search
   - assay_projects
@@ -131,7 +131,7 @@ reference:
 - title: Datasets and projects
   desc: Metadata for one accession or many
   contents:
-  - dataset
+  - seqout_get
   - project
   - project_samples
   - project_experiments

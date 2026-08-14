@@ -11,7 +11,7 @@ CheckSraBam(sra_accessions, con = .con())
 }
 \arguments{
 \item{sra_accessions}{Character vector of SRA study accessions (e.g.
-the \code{sra_accession} column from \code{\link[=search]{search()}}).}
+the \code{sra_accession} column from \code{\link[=seqout_search]{seqout_search()}}).}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
@@ -29,7 +29,7 @@ NCBI file listing).
 \dontrun{
 con <- seqout_connect("parquet")
 
-results <- search("PBMC scRNA-seq", source = "geo", con = con)
+results <- seqout_search("PBMC scRNA-seq", source = "geo", con = con)
 
 library(dplyr)
 srps <- results |>

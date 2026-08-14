@@ -3,7 +3,7 @@
 \name{query}
 \alias{query}
 \alias{Query}
-\title{Run arbitrary SQL on the SeqOut DuckDB connection}
+\title{Run arbitrary SQL on the Seqout DuckDB connection}
 \usage{
 query(sql, params = NULL, con = .con())
 

@@ -48,15 +48,15 @@ Search the repositories:
 ```{r quick-search}
 library(seqout)
 
-search("lung cancer single cell", db = "geo", limit = 5)
+seqout_search("lung cancer single cell", db = "geo", limit = 5)
 ```
 
-Then open a dataset. `dataset()` takes any accession and finds the related
+Then open a dataset. `seqout_get()` takes any accession and finds the related
 records across the archives: the metadata, the samples, the runs and the
 papers.
 
 ```{r quick-dataset}
-d <- dataset("GSE168652")
+d <- seqout_get("GSE168652")
 c(title = d$meta$title, samples = nrow(d$samples), runs = nrow(d$runs))
 ```
 
@@ -92,10 +92,10 @@ The sections below read Parquet because of that call. `seqout_default(NULL)`
 selects the REST API again.
 ## Search
 
-`search()` is the only search function. Give it a query, filters, or both.
+`seqout_search()` is the only search function. Give it a query, filters, or both.
 
 ```{r search}
-search("liver cancer scRNA", organism = "Homo sapiens", limit = 10)
+seqout_search("liver cancer scRNA", organism = "Homo sapiens", limit = 10)
 ```
 
 For the filters, the sort order and the cost of a large result set, read

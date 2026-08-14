@@ -8,7 +8,7 @@
 #'   pass a Parquet one to read the dump instead.
 #' @return A tibble with project metadata, or a `field`/`value` tibble when
 #'   `transpose = TRUE`.
-#' @export
+#' @keywords internal
 #' @examples
 #' \dontrun{
 #' project("GSE297547", transpose = TRUE)
@@ -63,7 +63,7 @@ project <- function(accession, transpose = FALSE, con = .con()) {
 #'
 #' @inheritParams project
 #' @return A tibble of sample metadata.
-#' @export
+#' @keywords internal
 project_samples <- function(accession, con = .con()) {
   .check_connection(con)
   check_required(accession)
@@ -109,7 +109,7 @@ project_samples <- function(accession, con = .con()) {
 #' @param study Character. Study accession (SRP/ERP/DRP/PRJ*).
 #' @inheritParams project
 #' @return A tibble of experiment metadata.
-#' @export
+#' @keywords internal
 project_experiments <- function(study, con = .con()) {
   .check_connection(con)
   check_required(study)
@@ -132,7 +132,7 @@ project_experiments <- function(study, con = .con()) {
 #'   which is enough to inspect a study but not to download one. REST only.
 #' @inheritParams project
 #' @return A tibble of run metadata with download links.
-#' @export
+#' @keywords internal
 project_runs <- function(study, full = FALSE, con = .con()) {
   .check_connection(con)
   check_required(study)
@@ -159,7 +159,7 @@ project_runs <- function(study, full = FALSE, con = .con()) {
 #'
 #' @inheritParams project
 #' @return A tibble with cross-reference entries.
-#' @export
+#' @keywords internal
 project_xref <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
@@ -173,7 +173,7 @@ project_xref <- function(accession, con = .con()) {
 #'
 #' @inheritParams project
 #' @return A tibble with enriched sample metadata (v3 if available, else v1).
-#' @export
+#' @keywords internal
 project_enriched <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
@@ -190,7 +190,7 @@ project_enriched <- function(accession, con = .con()) {
 #' @param type One of `"original"` or `"all"`.
 #' @param format One of `"tibble"` (default) or `"bibtex"`.
 #' @return A tibble with citation data, or a character string of BibTeX.
-#' @export
+#' @keywords internal
 project_citations <- function(accession, type = "original",
                               format = "tibble", con = .con()) {
   .check_connection(con)

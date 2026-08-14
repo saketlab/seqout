@@ -20,5 +20,5 @@ A tibble with \code{assay} and \code{n_projects} columns, sorted by count.
 }
 \description{
 Returns assay categories with project counts, useful for discovering
-valid values for the \code{assay} argument of \code{\link[=search]{search()}}.
+valid values for the \code{assay} argument of \code{\link[=seqout_search]{seqout_search()}}.
 }

@@ -15,8 +15,8 @@ counts matrices.
 from seqout import connect
 
 sq = connect()
-sq.search("liver cancer scRNA", organism="Homo sapiens")
-sq.get("GSE151530").samples
+sq.seqout_search("liver cancer scRNA", organism="Homo sapiens")
+sq.seqout_get("GSE151530").samples
 ```
 
 The package also installs a `seqout` command:
@@ -44,7 +44,7 @@ library(seqout)
 project("GSE151530")
 project_samples("GSE151530")
 
-search("liver cancer scRNA", organism = "Homo sapiens")
+seqout_search("liver cancer scRNA", organism = "Homo sapiens")
 
 # Opt in to Parquet for SQL over the whole index
 con <- seqout_connect("parquet")

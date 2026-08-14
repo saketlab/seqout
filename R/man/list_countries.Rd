@@ -19,5 +19,5 @@ A tibble with \code{country} and \code{n_projects} columns, sorted by count.
 }
 \description{
 Returns countries with project counts, useful for discovering valid
-values for the \code{country} argument of \code{\link[=search]{search()}}.
+values for the \code{country} argument of \code{\link[=seqout_search]{seqout_search()}}.
 }

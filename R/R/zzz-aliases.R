@@ -54,10 +54,6 @@ CountsMatrix <- counts_matrix
 #' @export
 SeqoutConnect <- seqout_connect
 
-#' @rdname dataset
-#' @export
-Dataset <- dataset
-
 #' @rdname download_files
 #' @export
 DownloadFiles <- download_files
@@ -98,21 +94,9 @@ GroupKey <- group_key
 #' @export
 GrowthStats <- growth_stats
 
-#' @rdname gsm_series
-#' @export
-GsmSeries <- gsm_series
-
 #' @rdname is_filtered
 #' @export
 IsFiltered <- is_filtered
-
-#' @rdname linked_geo
-#' @export
-LinkedGeo <- linked_geo
-
-#' @rdname linked_study
-#' @export
-LinkedStudy <- linked_study
 
 #' @rdname list_assays
 #' @export
@@ -154,41 +138,9 @@ Organisms <- organisms
 #' @export
 Paper <- paper
 
-#' @rdname project
-#' @export
-Project <- project
-
-#' @rdname project_citations
-#' @export
-ProjectCitations <- project_citations
-
-#' @rdname project_enriched
-#' @export
-ProjectEnriched <- project_enriched
-
-#' @rdname project_experiments
-#' @export
-ProjectExperiments <- project_experiments
-
-#' @rdname project_runs
-#' @export
-ProjectRuns <- project_runs
-
-#' @rdname project_samples
-#' @export
-ProjectSamples <- project_samples
-
 #' @rdname project_summary
 #' @export
 ProjectSummary <- project_summary
-
-#' @rdname project_xref
-#' @export
-ProjectXref <- project_xref
-
-#' @rdname publications
-#' @export
-Publications <- publications
 
 #' @rdname query
 #' @export
@@ -202,33 +154,13 @@ QuickAnnotation <- quick_annotation
 #' @export
 RegisterTables <- register_tables
 
-#' @rdname resolve_accession
-#' @export
-ResolveAccession <- resolve_accession
-
-#' @rdname resolve_study
-#' @export
-ResolveStudy <- resolve_study
-
-#' @rdname run
-#' @export
-Run <- run
-
 #' @rdname sample_bam
 #' @export
 SampleBam <- sample_bam
 
-#' @rdname sample_detail
-#' @export
-SampleDetail <- sample_detail
-
 #' @rdname sample_frame
 #' @export
 SampleFrame <- sample_frame
-
-#' @rdname search
-#' @export
-Search <- search
 
 #' @rdname search_correction
 #' @export
@@ -246,9 +178,17 @@ SeqoutCounts <- seqout_counts
 #' @export
 SeqoutCountsFiles <- seqout_counts_files
 
+#' @rdname seqout_get
+#' @export
+SeqoutGet <- seqout_get
+
 #' @rdname seqout_matrix
 #' @export
 SeqoutMatrix <- seqout_matrix
+
+#' @rdname seqout_search
+#' @export
+SeqoutSearch <- seqout_search
 
 #' @rdname seqout_units
 #' @export

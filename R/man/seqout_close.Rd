@@ -3,7 +3,7 @@
 \name{seqout_close}
 \alias{seqout_close}
 \alias{SeqoutClose}
-\title{Close a SeqOut connection}
+\title{Close a Seqout connection}
 \usage{
 seqout_close(con = .con())
 

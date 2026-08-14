@@ -7,7 +7,7 @@
 #' @param accessions Character vector of study accessions.
 #' @return A tibble with publication metadata (accession, source, pmid, title,
 #'   journal, doi, citation_count, etc.).
-#' @export
+#' @keywords internal
 publications <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)

@@ -18,8 +18,7 @@ Organisms(common_names = FALSE, con = .con())
 A tibble of organism names.
 }
 \description{
-Distinct organisms across every archive. Served by the API: the organism
-tables were dropped from the Parquet export when it was reorganised.
+Distinct organisms across every archive. Served by the API.
 }
 \examples{
 \dontrun{
