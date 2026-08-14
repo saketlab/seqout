@@ -85,25 +85,26 @@ classify <- function(accession, con = .con()) {
 summaries <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)
-  res <- .api_post(con, "/bulk/project-metadata", list(accessions = as.list(accessions)))
-  .records_to_tibble(.as_record_list(res))
+
+  # A BioProject accession has no record of its own; the endpoint answers the
+  # study the archive files it under. Names keep the accession that was asked
+  # for, so a report of what is missing reads as the caller wrote it.
+  resolved <- vapply(accessions, function(a) .prj_study(con, a), character(1))
+
+  res <- .api_post(con, "/bulk/project-metadata", list(accessions = as.list(unname(resolved))))
+  out <- .records_to_tibble(.as_record_list(res))
+
+  # The endpoint answers only what it holds, so a row can go missing without a
+  # word. Say so: a caller binding this beside its input would misalign.
+  missing <- names(resolved)[!resolved %in% out$accession]
+  if (length(missing) > 0) {
+    cli::cli_warn(c(
+      "{length(missing)} of {length(resolved)} accession{?s} {?has/have} no project record.",
+      i = "Missing: {.val {missing}}",
+      i = "A sample, experiment or run accession has none; ask for its study."
+    ))
+  }
+  out
 }
 
-
-#' A short project record
-#'
-#' Title, organisms, dates and counts, without the supplementary file list.
-#'
-#' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession A project accession.
-#'
-#' @return A one-row tibble.
-#'
-#' @export
-project_summary <- function(accession, con = .con()) {
-  .check_connection(con)
-  rlang::check_required(accession)
-  res <- .api_get(con, paste0("/project/", accession, "/metadata"))
-  .records_to_tibble(list(res))
-}
 

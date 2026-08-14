@@ -134,10 +134,6 @@ Organisms <- organisms
 #' @export
 Paper <- paper
 
-#' @rdname project_summary
-#' @export
-ProjectSummary <- project_summary
-
 #' @rdname query
 #' @export
 Query <- query

@@ -137,7 +137,6 @@ reference:
   - project_runs
   - project_xref
   - project_enriched
-  - project_summary
   - summaries
   - bulk_project_metadata
   - bulk_metadata
