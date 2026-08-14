@@ -1,35 +1,35 @@
-#' Sample characteristics as a table
+#' Spread the submitter's characteristics into one column each
 #'
-#' Flattens the free-text key/value pairs a submitter recorded for each sample
-#' into one row per sample, indexed by accession. The keys are chosen by the
-#' submitter, so the columns vary by study and are worth inspecting before being
-#' relied on.
-#'
-#' @param samples A tibble of samples, from [project_samples()].
-#'
-#' @return A tibble with one row per sample and a column per characteristic.
-#'
-#' @export
-#' @examples
-#' \dontrun{
-#' sample_frame(project_samples("GSE114725"))
-#' }
-sample_frame <- function(samples) {
-  rlang::check_required(samples)
+#' GEO nests them under `channels`, as tag/text pairs, which is unreadable in a
+#' tibble and awkward to filter on. The keys are the submitter's own, so they
+#' vary by study; one that collides with a record column is made unique rather
+#' than dropped.
+#' @noRd
+.unnest_characteristics <- function(samples) {
   if (!is.data.frame(samples) || nrow(samples) == 0) {
-    return(tibble::tibble())
+    return(samples)
   }
 
-  rows <- lapply(seq_len(nrow(samples)), function(i) {
-    row <- as.list(samples[i, ])
-    base <- list(
-      sample = row$accession %||% NA_character_,
-      title = row$title %||% NA_character_
-    )
-    c(base, .characteristics_of(row))
-  })
+  chars <- lapply(
+    seq_len(nrow(samples)),
+    function(i) .characteristics_of(as.list(samples[i, ]))
+  )
+  keys <- unique(unlist(lapply(chars, names), use.names = FALSE))
+  if (length(keys) == 0) {
+    return(samples)
+  }
 
-  .records_to_tibble(rows)
+  cols <- lapply(keys, function(k) {
+    vapply(chars, function(ch) .flatten_value(ch[[k]]), character(1))
+  })
+  names(cols) <- keys
+
+  out <- samples[, setdiff(names(samples), c("channels", "characteristics")),
+    drop = FALSE
+  ]
+  out <- cbind(out, tibble::as_tibble(cols))
+  names(out) <- make.unique(names(out))
+  tibble::as_tibble(out)
 }
 
 

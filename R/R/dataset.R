@@ -191,11 +191,11 @@ names.seqout_dataset <- function(x) {
   con <- unclass(x)$con
   native <- .samples_of(con, x$project)
   if (nrow(native) > 0) {
-    return(native)
+    return(.unnest_characteristics(native))
   }
   other <- if (identical(x$sra, x$project)) x$geo else x$sra
   if (!is.null(other) && !is.na(other) && !identical(other, x$project)) {
-    return(.samples_of(con, other))
+    return(.unnest_characteristics(.samples_of(con, other)))
   }
   native
 }

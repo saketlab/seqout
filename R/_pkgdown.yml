@@ -124,7 +124,6 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
-  - bulk_search
   - assay_projects
 
 - title: Datasets and projects
@@ -138,13 +137,11 @@ reference:
   - project_xref
   - project_enriched
   - summaries
-  - bulk_metadata
 
 - title: Samples, experiments and runs
   desc: Record-level metadata below the project
   contents:
   - sample_detail
-  - sample_frame
   - run
   - resolve_accession
 

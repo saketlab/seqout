@@ -46,7 +46,7 @@ test_that("a sample carrying no characteristics gives none", {
   expect_equal(seqout:::.characteristics_of(list(channels = NULL)), list())
 })
 
-test_that("sample_frame gives one row per sample, keyed by accession", {
+test_that("the characteristics become one column each, beside the record columns", {
   samples <- tibble::tibble(
     accession = c("GSM1", "GSM2"),
     title = c("a", "b"),
@@ -55,9 +55,11 @@ test_that("sample_frame gives one row per sample, keyed by accession", {
       channel_record(list(list(`@tag` = "tissue", `#text` = "liver")))
     )
   )
-  out <- sample_frame(samples)
-  expect_equal(out$sample, c("GSM1", "GSM2"))
+  out <- seqout:::.unnest_characteristics(samples)
+  expect_equal(out$accession, c("GSM1", "GSM2"))
   expect_equal(out$tissue, c("PBMC", "liver"))
+  # The nested column it came from is spent.
+  expect_false("channels" %in% names(out))
 })
 
 test_that("samples with different keys give the union of columns", {
@@ -69,13 +71,26 @@ test_that("samples with different keys give the union of columns", {
       channel_record(list(list(`@tag` = "age", `#text` = "45")))
     )
   )
-  out <- sample_frame(samples)
+  out <- seqout:::.unnest_characteristics(samples)
   expect_true(all(c("tissue", "age") %in% names(out)))
   expect_equal(out$tissue, c("PBMC", NA_character_))
 })
 
-test_that("no samples means an empty frame, not an error", {
-  expect_equal(nrow(sample_frame(tibble::tibble())), 0L)
+test_that("a characteristic that collides with a record column is kept, not dropped", {
+  samples <- tibble::tibble(
+    accession = "GSM1",
+    title = "a",
+    channels = list(channel_record(list(list(`@tag` = "title", `#text` = "submitter title"))))
+  )
+  out <- seqout:::.unnest_characteristics(samples)
+  expect_equal(out$title, "a")
+  expect_equal(out$title.1, "submitter title")
+})
+
+test_that("no samples, or none carrying characteristics, passes through unchanged", {
+  expect_equal(nrow(seqout:::.unnest_characteristics(tibble::tibble())), 0L)
+  plain <- tibble::tibble(accession = "SRX1", title = "a")
+  expect_equal(seqout:::.unnest_characteristics(plain), plain)
 })
 
 test_that("a nested field survives as a list column instead of being flattened", {

@@ -162,22 +162,6 @@ Set `limit` when a sample is sufficient. A limit of 50 costs one request.
 nrow(seqout_search("hepatocellular carcinoma scRNA", limit = 50))
 ```
 
-## One more function
-
-`bulk_search()` runs one search for each query in a vector. It gives you a
-named list of tibbles.
-
-```{r bulk}
-many <- bulk_search(
-  c("hepatocellular carcinoma", "pancreatic ductal adenocarcinoma"),
-  db = "geo", limit = 10
-)
-vapply(many, nrow, integer(1))
-```
-
-`bulk_search()` runs the searches one after the other. It also replaces a
-search that fails with an empty tibble. Give `limit` to keep the cost low.
-
 ## From a result to a study
 
 A search gives you accessions. Use `project()` to read the full record of one

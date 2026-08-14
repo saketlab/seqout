@@ -44,17 +44,3 @@ test_that("summaries reads the dump when the connection is Parquet", {
   expect_silent(summaries("GSE168652", con = fake_con()))
   expect_equal(asked, "GSE168652")
 })
-
-test_that("bulk_metadata sends a list, so one accession is not a bare string", {
-  sent <- NULL
-  local_mocked_bindings(
-    .api_post = function(con, path, body, raw = FALSE) {
-      sent <<- body$accessions
-      raw(0)
-    },
-    .package = "seqout"
-  )
-
-  suppressWarnings(try(bulk_metadata("GSE168652", con = fake_con(backend = "api")), silent = TRUE))
-  expect_equal(sent, list("GSE168652"))
-})

@@ -14,14 +14,6 @@ Author <- author
 #' @export
 BindCounts <- bind_counts
 
-#' @rdname bulk_metadata
-#' @export
-BulkMetadata <- bulk_metadata
-
-#' @rdname bulk_search
-#' @export
-BulkSearch <- bulk_search
-
 #' @rdname cache_table
 #' @export
 CacheTable <- cache_table
@@ -145,10 +137,6 @@ RegisterTables <- register_tables
 #' @rdname sample_bam
 #' @export
 SampleBam <- sample_bam
-
-#' @rdname sample_frame
-#' @export
-SampleFrame <- sample_frame
 
 #' @rdname seqout_close
 #' @export

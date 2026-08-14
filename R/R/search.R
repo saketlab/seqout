@@ -191,21 +191,3 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   ))
 }
 
-
-#' Run several searches in one call
-#'
-#' @param queries A character vector of search terms.
-#' @param ... Filters applied to every search.
-#' @inheritParams project
-#'
-#' @return A named list of tibbles, one per query.
-#'
-#' @export
-bulk_search <- function(queries, ..., con = .con()) {
-  .check_connection(con)
-  rlang::check_required(queries)
-  out <- lapply(queries, function(q) {
-    tryCatch(seqout_search(q, ..., con = con), error = function(e) tibble::tibble())
-  })
-  stats::setNames(out, queries)
-}
