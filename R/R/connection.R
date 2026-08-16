@@ -1,19 +1,11 @@
 #' Connect to SeqOut
 #'
-#' `seqout` gets data in two ways. This function selects the way, and it points
-#' at the server.
+#' There are currently two backends supported:
 #'
-#' Most code does not call it. Every function has `con` as its last argument,
-#' and the default is the REST API at <https://seqout.org>. Call
-#' `seqout_connect()` to select the Parquet backend, or to use another server.
-#'
-#' The two backends answer the same functions:
-#'
-#' * `"api"`, the default, reads <https://seqout.org> with HTTP. It is always
-#'   current. It needs no other package, and it does not open DuckDB.
+#' * `"api"`, the default, reads <https://seqout.org> with HTTP.
 #' * `"parquet"` reads the Parquet dump with DuckDB through `httpfs`. It
 #'   answers SQL, and it works offline against a local dump. It is slower over
-#'   a remote URL, and it lags the live index. It needs the `duckdb` package.
+#'   a remote URL, and it lags the live index. Requires the `duckdb` package.
 #'
 #' You must select the Parquet backend. The package does not change to it for
 #' you, because one lookup would become a scan of many gigabytes.
@@ -146,6 +138,21 @@ seqout_default <- function(con) {
   ))
 }
 
+#' The mirror of `.need_parquet()`, for endpoints with no table in the dump.
+#' @param why An extra hint naming what the dump is missing.
+#' @noRd
+.need_api <- function(con, what, why = NULL) {
+  .check_connection(con)
+  if (identical(con$backend, "api")) {
+    return(invisible(con))
+  }
+  cli::cli_abort(c(
+    "{.fn {what}} reads the REST API; this connection is Parquet.",
+    i = why,
+    i = "Drop {.arg con} to use the shared REST connection."
+  ))
+}
+
 #' Open the DuckDB handle, once, on first `con$db`
 #' @noRd
 .duckdb <- function(con) {
@@ -179,6 +186,7 @@ seqout_default <- function(con) {
   }
   DBI::dbExecute(db, "SET enable_http_metadata_cache = true")
   DBI::dbExecute(db, "SET enable_object_cache = true")
+  try(DBI::dbExecute(db, "SET http_keep_alive = false"), silent = TRUE)
 
   con$state$drv <- drv
   con$state$db <- db

@@ -178,6 +178,10 @@ ProjectRuns <- project_runs
 #' @export
 ProjectSamples <- project_samples
 
+#' @rdname project_single_cell
+#' @export
+ProjectSingleCell <- project_single_cell
+
 #' @rdname project_summary
 #' @export
 ProjectSummary <- project_summary
@@ -226,6 +230,14 @@ SampleDetail <- sample_detail
 #' @export
 SampleFrame <- sample_frame
 
+#' @rdname sample_microbes
+#' @export
+SampleMicrobes <- sample_microbes
+
+#' @rdname sample_search
+#' @export
+SampleSearch <- sample_search
+
 #' @rdname search_correction
 #' @export
 SearchCorrection <- search_correction
@@ -264,4 +276,3 @@ Tables <- tables
 #' @rdname seqout_default
 #' @export
 SeqoutDefault <- seqout_default
-

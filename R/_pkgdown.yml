@@ -124,6 +124,7 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
+  - sample_search
   - search_correction
   - bulk_search
   - assay_projects
@@ -138,6 +139,7 @@ reference:
   - project_runs
   - project_xref
   - project_enriched
+  - project_single_cell
   - project_summary
   - summaries
   - bulk_project_metadata
@@ -148,6 +150,7 @@ reference:
   contents:
   - sample_detail
   - sample_frame
+  - sample_microbes
   - experiment_runs
   - run
   - resolve_accession

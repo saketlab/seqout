@@ -69,13 +69,10 @@
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
                           limit = NULL, con = .con()) {
-  .check_connection(con)
-  if (identical(con$backend, "parquet")) {
-    cli::cli_abort(c(
-      "{.fn seqout_search} reads the REST API; this connection is Parquet.",
-      i = "Drop {.arg con} to search, or use {.fn query} to write SQL over the dump."
-    ))
-  }
+  .need_api(
+    con, "seqout_search",
+    why = "Use {.fn query} to write SQL over the dump."
+  )
   order <- match.arg(order, c("desc", "asc"))
   if (!is.null(sortby)) {
     sortby <- match.arg(sortby, c("citations", "journal", "year"))
@@ -106,7 +103,6 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     con,
     if (structured) "/search/structured" else "/search",
     .compact(c(list(q = query, sortby = sortby, order = order), filters)),
-    # No limit means every page; a limit needs only enough pages to reach it.
     max_pages = if (is.null(limit)) Inf else ceiling(limit / 200)
   )
   if (!is.null(limit) && nrow(out) > limit) {

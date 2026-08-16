@@ -10,3 +10,5 @@
 ^\.Rhistory$
 ^README\.md$
 ^vignettes/articles$
+^figure$
+^\.positai$
