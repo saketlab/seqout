@@ -41,8 +41,7 @@ test_that("seqout_default rejects non-connections", {
 test_that("parquet-only functions name the fix in the error", {
   rest <- seqout_connect("api", quiet = TRUE)
   expect_error(tables(con = rest), "seqout_connect")
-  expect_error(list_organisms(con = rest), "Parquet backend")
-  expect_error(global_contributions(con = rest), "Parquet backend")
+  expect_error(query("SELECT 1", con = rest), "Parquet backend")
 })
 
 test_that("seqout_connect rejects bad base_url gracefully", {

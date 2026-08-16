@@ -5,17 +5,22 @@
 \alias{AccessionKind}
 \title{What an accession refers to}
 \usage{
-accession_kind(accession)
+accession_kind(accession, archive = FALSE)
 
-AccessionKind(accession)
+AccessionKind(accession, archive = FALSE)
 }
 \arguments{
 \item{accession}{An accession from any archive SeqOut holds.}
+
+\item{archive}{Also name the archive that holds the record. The answer
+becomes a named vector of \code{kind} and \code{archive} rather than the kind alone.}
 }
 \value{
 One of \code{"series"}, \code{"study"}, \code{"experiment"}, \code{"sample"}, \code{"run"},
 \code{"biosample"} or \code{"submission"}, or \code{NA_character_} when the shape is not
-recognised.
+recognised. With \code{archive = TRUE}, a named character vector of \code{kind} and
+\code{archive}, the latter one of \code{"geo"}, \code{"sra"}, \code{"ena"}, \code{"ddbj"}, \code{"gsa"},
+\code{"arrayexpress"}, \code{"gea"}, \code{"bioproject"} or \code{"biosample"}.
 }
 \description{
 Names the kind of record an accession points at, using the accession shape
@@ -25,4 +30,8 @@ alone. No request is made, so this works offline and costs nothing.
 accession_kind("GSE168652")
 accession_kind("SRR13927092")
 accession_kind("not-an-accession")
+
+# The same shape can be filed by more than one archive
+accession_kind("PRJCA042384", archive = TRUE)
+accession_kind("PRJCA042384", archive = TRUE)[["archive"]]
 }

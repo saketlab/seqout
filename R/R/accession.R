@@ -36,6 +36,7 @@
   list(pattern = "^[SED]RS\\d+$", entity = "sample", archive = "sra"),
   list(pattern = "^[SED]RR\\d+$", entity = "run", archive = "sra"),
   list(pattern = "^[SED]RA\\d+$", entity = "submission", archive = "sra"),
+  list(pattern = "^SAMC\\d+$", entity = "biosample", archive = "gsa"),
   list(pattern = "^SAM[A-Z]*\\d+$", entity = "biosample", archive = "biosample"),
   list(
     pattern = "^E-GEAD-\\d+$", entity = "series", archive = "gea",
@@ -46,6 +47,11 @@
     pattern = "^E-[A-Z]{4}-\\d+$", entity = "series", archive = "arrayexpress",
     table = "arrayexpress_experiments", cols = c("accession", "title", "description"),
     child = "arrayexpress_samples|experiment_accession"
+  ),
+  list(
+    pattern = "^PRJC[A-Z]*\\d+$", entity = "study", archive = "gsa",
+    table = "sra_studies", cols = c("accession", "title", "abstract"),
+    child = "sra_experiments|study"
   ),
   list(
     pattern = "^PRJ[A-Z]+\\d+$", entity = "study", archive = "bioproject",
@@ -103,17 +109,29 @@
 #' alone. No request is made, so this works offline and costs nothing.
 #'
 #' @param accession An accession from any archive SeqOut holds.
+#' @param archive Also name the archive that holds the record. The answer
+#'   becomes a named vector of `kind` and `archive` rather than the kind alone.
 #'
 #' @return One of `"series"`, `"study"`, `"experiment"`, `"sample"`, `"run"`,
 #'   `"biosample"` or `"submission"`, or `NA_character_` when the shape is not
-#'   recognised.
+#'   recognised. With `archive = TRUE`, a named character vector of `kind` and
+#'   `archive`, the latter one of `"geo"`, `"sra"`, `"ena"`, `"ddbj"`, `"gsa"`,
+#'   `"arrayexpress"`, `"gea"`, `"bioproject"` or `"biosample"`.
 #'
 #' @export
 #' @examples
 #' accession_kind("GSE168652")
 #' accession_kind("SRR13927092")
 #' accession_kind("not-an-accession")
-accession_kind <- function(accession) {
+#'
+#' # The same shape can be filed by more than one archive
+#' accession_kind("PRJCA042384", archive = TRUE)
+#' accession_kind("PRJCA042384", archive = TRUE)[["archive"]]
+accession_kind <- function(accession, archive = FALSE) {
   row <- .accession_row(accession)
-  if (is.null(row)) NA_character_ else row$entity
+  kind <- if (is.null(row)) NA_character_ else row$entity
+  if (!archive) {
+    return(kind)
+  }
+  c(kind = kind, archive = if (is.null(row)) NA_character_ else row$archive)
 }

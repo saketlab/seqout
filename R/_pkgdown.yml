@@ -124,7 +124,6 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
-  - assay_projects
 
 - title: Datasets and projects
   desc: Metadata for one accession or many
@@ -149,7 +148,6 @@ reference:
   desc: Work out what an accession is and what it links to
   contents:
   - accession_kind
-  - classify
   - resolve_study
   - gsm_series
   - linked_study
@@ -186,35 +184,6 @@ reference:
   - author
   - publications
   - project_citations
-
-- title: Organisms
-  desc: Organism names, totals and growth
-  contents:
-  - organisms
-  - list_organisms
-  - organism_search
-  - organism_totals
-  - organism_growth
-  - common_name
-
-- title: Database statistics
-  desc: Growth and geographic contributions across archives
-  contents:
-  - growth_stats
-  - global_contributions
-  - global_contribution_filters
-
-- title: Discovery lists
-  desc: Valid values for the structured search filters
-  contents:
-  - list_assays
-  - list_countries
-
-- title: BAM availability
-  desc: Whether aligned reads were deposited alongside a study
-  contents:
-  - sample_bam
-  - check_sra_bam
 
 - title: Package
   contents:

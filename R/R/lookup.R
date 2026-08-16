@@ -49,25 +49,6 @@ author <- function(name, limit = 200, con = .con()) {
 }
 
 
-#' What an accession is, asked of the server
-#'
-#' [accession_kind()] answers offline from the shape alone; this asks the
-#' backend, which also names the source that holds it.
-#'
-#' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession Any accession.
-#'
-#' @return A one-row tibble.
-#'
-#' @export
-classify <- function(accession, con = .con()) {
-  .check_connection(con)
-  rlang::check_required(accession)
-  res <- .api_get(con, paste0("/accession/", accession, "/classify"))
-  .records_to_tibble(list(res))
-}
-
-
 #' Short project records for many accessions
 #'
 #' One request for many projects, rather than one request each.

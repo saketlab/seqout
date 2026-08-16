@@ -2,10 +2,6 @@
 #' @export
 AccessionKind <- accession_kind
 
-#' @rdname assay_projects
-#' @export
-AssayProjects <- assay_projects
-
 #' @rdname author
 #' @export
 Author <- author
@@ -18,21 +14,9 @@ BindCounts <- bind_counts
 #' @export
 CacheTable <- cache_table
 
-#' @rdname check_sra_bam
-#' @export
-CheckSraBam <- check_sra_bam
-
-#' @rdname classify
-#' @export
-Classify <- classify
-
 #' @rdname clear_cache
 #' @export
 ClearCache <- clear_cache
-
-#' @rdname common_name
-#' @export
-CommonName <- common_name
 
 #' @rdname counts_matrix
 #' @export
@@ -62,37 +46,13 @@ DownloadSupplementary <- download_supplementary
 #' @export
 FileRole <- file_role
 
-#' @rdname global_contribution_filters
-#' @export
-GlobalContributionFilters <- global_contribution_filters
-
-#' @rdname global_contributions
-#' @export
-GlobalContributions <- global_contributions
-
 #' @rdname group_key
 #' @export
 GroupKey <- group_key
 
-#' @rdname growth_stats
-#' @export
-GrowthStats <- growth_stats
-
 #' @rdname is_filtered
 #' @export
 IsFiltered <- is_filtered
-
-#' @rdname list_assays
-#' @export
-ListAssays <- list_assays
-
-#' @rdname list_countries
-#' @export
-ListCountries <- list_countries
-
-#' @rdname list_organisms
-#' @export
-ListOrganisms <- list_organisms
 
 #' @rdname manifest
 #' @export
@@ -101,22 +61,6 @@ Manifest <- manifest
 #' @rdname matrices
 #' @export
 Matrices <- matrices
-
-#' @rdname organism_growth
-#' @export
-OrganismGrowth <- organism_growth
-
-#' @rdname organism_search
-#' @export
-OrganismSearch <- organism_search
-
-#' @rdname organism_totals
-#' @export
-OrganismTotals <- organism_totals
-
-#' @rdname organisms
-#' @export
-Organisms <- organisms
 
 #' @rdname paper
 #' @export
@@ -133,10 +77,6 @@ QuickAnnotation <- quick_annotation
 #' @rdname register_tables
 #' @export
 RegisterTables <- register_tables
-
-#' @rdname sample_bam
-#' @export
-SampleBam <- sample_bam
 
 #' @rdname seqout_close
 #' @export
