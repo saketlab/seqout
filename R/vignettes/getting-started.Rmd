@@ -310,6 +310,7 @@ pbmc <- query("
     AND lower(u.title) LIKE '%pbmc%'
     AND lower(u.title) LIKE '%single%cell%'
   ORDER BY u.first_published DESC NULLS LAST
+  LIMIT 50
 ")
 ```
 
