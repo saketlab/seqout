@@ -105,7 +105,7 @@ articles:
   contents:
   - getting-started
   - searching
-  - counts-and-metadata
+  - articles/counts-and-metadata
 
 reference:
 - title: Connecting
