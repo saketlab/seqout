@@ -43,7 +43,7 @@ template:
         "url": "https://seqout.org/cli/R",
         "codeRepository": "https://github.com/saketlab/seqout",
         "license": "https://opensource.org/licenses/MIT",
-        "softwareVersion": "0.2.0",
+        "softwareVersion": "0.2.1",
         "programmingLanguage": "R"
       }
       </script>
