@@ -33,6 +33,7 @@ The fields are:
 \item{\code{runs}}{one record per sequencing run, with its file URLs}
 \item{\code{supplementary}}{one row per supplementary file, series and sample
 alike; \code{sample} is \code{NA} on the ones the series carries itself}
+\item{\code{bams}}{the alignment files a submitter sent, where there are any}
 \item{\code{pubs}}{the publications linked to the dataset}
 \item{\code{links}}{the same data in other archives}
 \item{\code{enriched}}{structured labels for the samples, where SeqOut has them}

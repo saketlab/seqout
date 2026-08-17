@@ -67,8 +67,7 @@
 .curl_download <- function(urls, paths, md5 = NULL, quiet = FALSE) {
   urls <- .with_scheme(urls)
   parts <- paste0(paths, ".part")
-  res <- curl::multi_download(urls, parts, resume = TRUE, progress = !quiet)
-  reason <- .download_reason(res)
+  reason <- .fetch_batched(urls, parts, resume = TRUE, quiet = quiet)
 
   retry <- !is.na(reason) & startsWith(urls, "ftp://")
   if (any(retry)) {
@@ -77,11 +76,22 @@
     }
     unlink(parts[retry])
     over_https <- sub("^ftp://", "https://", urls[retry])
-    again <- curl::multi_download(
-      over_https, parts[retry],
-      resume = FALSE, progress = !quiet
-    )
-    reason[retry] <- .download_reason(again)
+    reason[retry] <- .fetch_batched(over_https, parts[retry], resume = FALSE, quiet = quiet)
+  }
+
+  # An archive throttling a large request answers some of it and refuses the
+  # rest on connect. Those are not gone, they are deferred: asking again a
+  # moment later gets them, and whatever arrived already resumes.
+  for (attempt in seq_len(2)) {
+    again <- which(!is.na(reason) & !startsWith(reason, "HTTP "))
+    if (length(again) == 0) {
+      break
+    }
+    if (!quiet) {
+      cli::cli_alert_info("Retrying {length(again)} file{?s} the archive did not serve")
+    }
+    .retry_pause(attempt)
+    reason[again] <- .fetch_batched(urls[again], parts[again], resume = TRUE, quiet = quiet)
   }
 
   # A file takes its real name only once it is whole, so a half-written one is
@@ -117,6 +127,41 @@
   }
   invisible(paths)
 }
+
+#' Fetch in groups rather than queueing every file at once
+#'
+#' curl holds six connections per host, but it opens a handle for every URL
+#' given to it, and an archive handed several hundred at once starts refusing
+#' to accept them: a 412-file study failed 232 of them on connect while forty
+#' of the same URLs succeeded every time. So ask for a group, finish it, ask
+#' for the next.
+#' @noRd
+.fetch_batched <- function(urls, paths, resume, quiet) {
+  reason <- rep(NA_character_, length(urls))
+  groups <- split(seq_along(urls), ceiling(seq_along(urls) / .download_batch))
+  for (at in groups) {
+    res <- curl::multi_download(
+      urls[at], paths[at],
+      resume = resume, progress = !quiet, connecttimeout = .connect_timeout
+    )
+    reason[at] <- .download_reason(res)
+  }
+  reason
+}
+
+#' Wait before asking a throttled archive again
+#' @noRd
+.retry_pause <- function(attempt) Sys.sleep(2 * attempt)
+
+#' @noRd
+.download_batch <- 50L
+
+#' How long to wait for a throttled archive to accept a connection
+#'
+#' curl gives up after ten seconds by default, which reads a queue as a
+#' failure. The files behind it are usually served a moment later.
+#' @noRd
+.connect_timeout <- 60L
 
 #' Give a bare host/path an explicit scheme
 #'
@@ -536,4 +581,95 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   units <- c("B", "kB", "MB", "GB", "TB", "PB")
   i <- min(length(units), floor(log(n, 1000)) + 1)
   paste0(round(n / 1000^(i - 1), 1), " ", units[i])
+}
+
+#' Download the alignment files a submitter sent
+#'
+#' Distinct from [download_runs()], which fetches reads. These are the
+#' submitter's own BAMs, aligned to a reference they chose and often carrying
+#' work the reads alone do not reconstruct: barcode tags, methylation calls,
+#' long-read structural evidence. Realigning from fastq gives you neither those
+#' nor their coordinates.
+#'
+#' Most are held in requester-pays storage, which no anonymous client can read.
+#' Those are named rather than fetched, with the command that would get them.
+#'
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
+#' @param accession Any accession SeqOut holds. Resolved to its study, since
+#'   the archive files alignments against one.
+#' @param dest_dir Directory to write into. Defaults to the accession.
+#' @param quiet Suppress progress messages.
+#'
+#' @return The paths of the downloaded files, invisibly.
+#'
+#' @seealso [download_runs()] for the reads, and `seqout_get(x)$bams` to see
+#'   what exists before fetching any of it.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' seqout_get("SRP071083")$bams # 276 files, 410 GB, all requester-pays
+#' download_bams("SRP071083")
+#' }
+download_bams <- function(accession, dest_dir = NULL, quiet = FALSE, con = .con()) {
+  .check_connection(con)
+  rlang::check_required(accession)
+
+  accession <- trimws(accession)
+  if (is.null(dest_dir)) dest_dir <- accession
+
+  bams <- seqout_get(accession, con = con)$bams
+  if (!is.data.frame(bams) || nrow(bams) == 0) {
+    cli::cli_alert_warning("{accession} has no submitted alignment files.")
+    return(invisible(character(0)))
+  }
+
+  # The archive gives a direct URL for some and an anonymous mirror for others;
+  # the rest it will serve only to an account that agrees to pay the egress.
+  urls <- .first_nonempty(bams$url, bams$https_url)
+  open <- !is.na(urls)
+  if (any(!open)) {
+    .warn_paid_bams(bams[!open, , drop = FALSE], nrow(bams), accession)
+  }
+  if (!any(open)) {
+    return(invisible(character(0)))
+  }
+  .download_files(
+    urls[open], dest_dir,
+    names = .bam_names(bams)[open], md5 = bams$md5[open], quiet = quiet
+  )
+}
+
+#' @noRd
+.first_nonempty <- function(...) {
+  columns <- list(...)
+  out <- rep(NA_character_, length(columns[[1]]))
+  for (column in columns) {
+    value <- as.character(column %||% rep(NA_character_, length(out)))
+    take <- is.na(out) & !is.na(value) & nzchar(value)
+    out[take] <- value[take]
+  }
+  out
+}
+
+#' Name the files that could not be fetched, and how to fetch them
+#' @noRd
+.warn_paid_bams <- function(paid, total, accession) {
+  example <- paid$s3_url[!is.na(paid$s3_url)][1]
+  cli::cli_warn(c(
+    "{nrow(paid)} of {total} alignment file{?s} {cli::qty(nrow(paid))}{?is/are} in requester-pays storage and cannot be fetched anonymously.",
+    "i" = if (!is.na(example)) {
+      "Reading {?it/them} bills your own account: {.code aws s3 cp --request-payer requester {example} .}"
+    },
+    "i" = "The full list, with sizes and checksums, is {.code seqout_get(\"{accession}\")$bams}."
+  ))
+}
+
+#' Submitters name their own files, so two runs can send the same name
+#' @noRd
+.bam_names <- function(bams) {
+  out <- as.character(bams$filename)
+  dup <- duplicated(out) | duplicated(out, fromLast = TRUE)
+  out[dup] <- paste0(bams$run_accession[dup], "_", out[dup])
+  out
 }

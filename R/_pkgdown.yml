@@ -174,6 +174,7 @@ reference:
   contents:
   - download_supplementary
   - download_runs
+  - download_bams
 
 - title: Publications
   desc: Papers linked to studies, and studies linked to papers

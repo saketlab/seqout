@@ -26,6 +26,10 @@ CountsMatrix <- counts_matrix
 #' @export
 SeqoutConnect <- seqout_connect
 
+#' @rdname download_bams
+#' @export
+DownloadBams <- download_bams
+
 #' @rdname download_runs
 #' @export
 DownloadRuns <- download_runs

@@ -14,6 +14,7 @@
 #'   \item{`runs`}{one record per sequencing run, with its file URLs}
 #'   \item{`supplementary`}{one row per supplementary file, series and sample
 #'     alike; `sample` is `NA` on the ones the series carries itself}
+#'   \item{`bams`}{the alignment files a submitter sent, where there are any}
 #'   \item{`pubs`}{the publications linked to the dataset}
 #'   \item{`links`}{the same data in other archives}
 #'   \item{`enriched`}{structured labels for the samples, where SeqOut has them}
@@ -96,7 +97,7 @@ names.seqout_dataset <- function(x) {
 #' @noRd
 .dataset_fields <- c(
   "project", "sra", "geo", "meta", "samples", "experiments",
-  "runs", "supplementary", "links", "enriched", "pubs", "detail"
+  "runs", "supplementary", "bams", "links", "enriched", "pubs", "detail"
 )
 
 #' @noRd
@@ -112,6 +113,7 @@ names.seqout_dataset <- function(x) {
     experiments = .dataset_experiments(x),
     runs = .dataset_runs(x),
     supplementary = .dataset_supplementary(x),
+    bams = .dataset_bams(x),
     links = project_xref(x$project, con = con),
     enriched = project_enriched(x$project, con = con),
     pubs = publications(x$project, con = con),
@@ -304,6 +306,39 @@ names.seqout_dataset <- function(x) {
   }
   do.call(rbind, rows)
 }
+
+#' The alignment files a submitter sent, rather than the reads
+#'
+#' SRA keeps these apart from the read files: they are listed as `Original`
+#' entries beside the copies it made itself, and the archive publishes them
+#' under whatever the submitter called them. Aligned to a reference the
+#' submitter chose, so they are the paper's alignment rather than one of yours.
+#' The endpoint answers for a study accession, which is what `$sra` resolves to.
+#' @noRd
+.dataset_bams <- function(x) {
+  fields <- unclass(x)
+  study <- tryCatch(x$sra, error = function(e) NULL)
+  if (is.null(study) || is.na(study)) {
+    return(.bams_empty)
+  }
+  res <- tryCatch(
+    .api_get(fields$con, paste0("/project/", study, "/bams")),
+    error = function(e) NULL
+  )
+  rows <- .as_record_list(res$bams)
+  if (length(rows) == 0) {
+    return(.bams_empty)
+  }
+  .records_to_tibble(rows)
+}
+
+#' @noRd
+.bams_empty <- tibble::tibble(
+  run_accession = character(0), experiment_accession = character(0),
+  filename = character(0), url = character(0), size = character(0),
+  md5 = character(0), semantic_name = character(0),
+  https_url = character(0), s3_url = character(0)
+)
 
 #' @noRd
 .supp_empty <- tibble::tibble(

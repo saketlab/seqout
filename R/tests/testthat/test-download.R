@@ -1,5 +1,6 @@
 mock_curl <- function(fail_on = character(0), status_404 = character(0),
                       env = parent.frame()) {
+  testthat::local_mocked_bindings(.retry_pause = function(attempt) invisible(), .env = env)
   log <- new.env(parent = emptyenv())
   log$calls <- list()
   fake <- function(urls, destfiles, resume = FALSE, progress = FALSE, ...) {
@@ -48,15 +49,17 @@ test_that("only the failed ftp urls are retried", {
   expect_equal(log$calls[[2]], "https://ftp.ncbi.nlm.nih.gov/b.gz")
 })
 
-test_that("a failing https url is not retried, there is nowhere to fall back to", {
+test_that("a failing https url is asked again, but never rewritten", {
   url <- "https://example.org/a.gz"
   log <- mock_curl(fail_on = url)
   dir <- withr::local_tempdir()
   expect_error(
-    seqout:::.curl_download(url, file.path(dir, "a.gz")),
+    suppressMessages(seqout:::.curl_download(url, file.path(dir, "a.gz"))),
     "Download failed"
   )
-  expect_length(log$calls, 1)
+  # One first ask and two retries; no scheme fallback, there is nowhere to go.
+  expect_length(log$calls, 3)
+  expect_true(all(vapply(log$calls, identical, logical(1), url)))
 })
 
 test_that("nothing is retried when every download works", {
@@ -268,4 +271,61 @@ test_that("ENA's scheme-less paths are fetched over https, not guessed as ftp", 
   expect_equal(log$calls[[1]], "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR1/SRR1_1.fastq.gz")
   # An explicit scheme is left alone, so the ftp fallback still has work to do.
   expect_equal(seqout:::.with_scheme("ftp://h/a.gz"), "ftp://h/a.gz")
+})
+
+mock_bams <- function(bams, env = parent.frame()) {
+  got <- new.env(parent = emptyenv())
+  testthat::local_mocked_bindings(
+    seqout_get = function(accession, con = NULL) list(bams = bams),
+    .download_files = function(urls, dest_dir, names = NULL, md5 = NULL, ...) {
+      got$urls <- urls
+      got$names <- names
+      invisible(names)
+    },
+    .env = env
+  )
+  got
+}
+
+test_that("requester-pays alignments are named, not silently skipped", {
+  got <- mock_bams(tibble::tibble(
+    run_accession = c("SRR1", "SRR2"),
+    filename = c("a.bam", "b.bam"),
+    url = c("", ""),
+    https_url = c("https://h/a.bam", NA),
+    s3_url = c(NA, "s3://sra-pub-src-5/SRR2/b.bam"),
+    md5 = c("aaa", "bbb")
+  ))
+  warnings <- testthat::capture_warnings(download_bams("SRP1", quiet = TRUE))
+  expect_true(any(grepl("requester-pays", warnings)))
+  expect_true(any(grepl("--request-payer requester", warnings)))
+  expect_equal(got$urls, "https://h/a.bam")
+})
+
+test_that("a study whose alignments are all requester-pays downloads nothing", {
+  mock_bams(tibble::tibble(
+    run_accession = "SRR1", filename = "a.bam", url = "", https_url = NA,
+    s3_url = "s3://b/a.bam", md5 = "aaa"
+  ))
+  expect_equal(suppressWarnings(download_bams("SRP1", quiet = TRUE)), character(0))
+})
+
+test_that("submitters reusing a filename get it qualified by run", {
+  bams <- tibble::tibble(
+    run_accession = c("SRR1", "SRR2", "SRR3"),
+    filename = c("PG29.bam", "PG29.bam", "other.bam")
+  )
+  expect_equal(
+    seqout:::.bam_names(bams),
+    c("SRR1_PG29.bam", "SRR2_PG29.bam", "other.bam")
+  )
+})
+
+test_that("a study with no alignments says so rather than erroring", {
+  mock_bams(tibble::tibble())
+  # cli_alert_warning signals a message, not a warning condition.
+  expect_message(
+    expect_equal(download_bams("SRP1", quiet = TRUE), character(0)),
+    "no submitted alignment files"
+  )
 })
