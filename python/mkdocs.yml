@@ -10,6 +10,9 @@ repo_name: saketlab/seqout
 theme:
   name: material
   custom_dir: overrides
+  # No Google Fonts. Material then falls back to the system UI face and the
+  # system monospace, which is what the reader already has.
+  font: false
   logo: assets/favicon.svg
   favicon: assets/favicon.svg
   icon:
