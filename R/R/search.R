@@ -35,6 +35,10 @@
 #' @param limit The maximum number of rows. The default, `NULL`, returns every
 #'   match. The server sends 200 rows in one page, so a large result set costs
 #'   more than one request. Give `limit` when a sample is sufficient.
+#' @param structured Read `query` as a boolean expression, and take its terms
+#'   exactly: no ontology expansion, no spelling correction. A query that
+#'   already carries `()`, `""`, `*` or an uppercase `OR`/`AND`/`NOT` is read
+#'   that way anyway, so this is for forcing it on a query with no operators.
 #' @inheritParams project
 #'
 #' @return A tibble of results, with a `took_ms` attribute.
@@ -56,9 +60,15 @@
 #'
 #' # Take a sample of a large result set
 #' SeqoutSearch("cancer", limit = 50)
+#'
+#' # A boolean query is read as one without being asked
+#' SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*')
+#'
+#' # The same reading, forced on a query that carries no operators
+#' SeqoutSearch("liver cancer", structured = TRUE)
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
-                          limit = NULL, con = .con()) {
+                          limit = NULL, structured = FALSE, con = .con()) {
   .need_api(
     con, "seqout_search",
     why = "Use {.fn query} to write SQL over the dump."
@@ -66,6 +76,9 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   order <- match.arg(order, c("desc", "asc"))
   if (!is.null(sortby)) {
     sortby <- match.arg(sortby, c("citations", "journal", "year"))
+  }
+  if (!is.logical(structured) || length(structured) != 1 || is.na(structured)) {
+    cli::cli_abort("{.arg structured} must be {.code TRUE} or {.code FALSE}.")
   }
 
   filters <- .compact(list(...))
@@ -75,27 +88,28 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     cli::cli_abort("Give {.arg query}, at least one filter, or both.")
   }
 
-  structured <- any(names(filters) %in% .structured_only)
+  narrowed <- any(names(filters) %in% .structured_only)
+  .check_boolean_reachable(query, structured, filters, narrowed)
   # The date bounds and the sort are not parameters of the structured endpoint,
   # which would drop them without a word. Apply them here instead, off columns
   # that come back on every row, so a filter means one thing either way.
   local <- list()
-  if (structured) {
+  if (narrowed) {
     .reject_filters(filters, setdiff(.fulltext_only, .local_filters))
     local <- filters[intersect(names(filters), .local_filters)]
     filters <- filters[setdiff(names(filters), .local_filters)]
   }
   # `db` and `source` name the same thing on the two endpoints.
-  if (structured && !is.null(filters$db)) {
+  if (narrowed && !is.null(filters$db)) {
     filters$source <- filters$db
     filters$db <- NULL
   }
-  if (!structured && !is.null(filters$source)) {
+  if (!narrowed && !is.null(filters$source)) {
     filters$db <- filters$source
     filters$source <- NULL
   }
 
-  local_sort <- structured && !is.null(sortby)
+  local_sort <- narrowed && !is.null(sortby)
   # A row dropped or reordered in R has to be dropped or reordered before
   # `limit` counts, so this path reads every page and cuts at the end. Asking
   # for one page would return the first 200 rows minus whatever R removed.
@@ -103,9 +117,10 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
   out <- .paginate_api(
     con,
-    if (structured) "/search/structured" else "/search",
+    if (narrowed) "/search/structured" else "/search",
     .compact(c(
       list(q = query),
+      if (structured) list(structured = "true"),
       if (!local_sort) list(sortby = sortby, order = order),
       filters
     )),
@@ -255,6 +270,38 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     "{.arg {bad}} must be an ISO date string, {.val yyyy-mm-dd}.",
     i = "Got {.val {unlist(filters[bad])}}.",
     i = "A {.cls Date} works too: {.code format(as.Date(x))}."
+  ))
+}
+
+#' Does this query read as a boolean expression?
+#'
+#' The server decides this itself, and this has to agree with it or the warning
+#' below fires on the wrong queries. Mirrors `_TRIGGER` in the API's
+#' `boolean_query.py`: a group, a quoted phrase, a `*` wildcard, or a
+#' standalone uppercase `OR`/`AND`/`NOT`. Lowercase "colon or gut" is prose.
+#' @noRd
+.is_boolean_query <- function(q) {
+  !is.null(q) && grepl('[()"*]|\\b(OR|AND|NOT)\\b', q)
+}
+
+#' Refuse to flatten a boolean query into a bag of words
+#'
+#' Only the full-text endpoint parses booleans. The other one takes `q` as
+#' prose, so `liver NOT mouse` would quietly come back as everything matching
+#' "liver", "not" and "mouse" -- wrong, and wrong without a word. Unlike the
+#' date bounds, nothing here can be repaired in R.
+#' @noRd
+.check_boolean_reachable <- function(query, structured, filters, narrowed) {
+  if (!narrowed || !(structured || .is_boolean_query(query))) {
+    return(invisible(NULL))
+  }
+  with <- intersect(names(filters), .structured_only)
+  cli::cli_abort(c(
+    "A boolean {.arg query} cannot be combined with {.arg {with}}.",
+    "i" = "Only the full-text search reads {.code ()}, {.code \"\"}, {.code *}
+           and {.code OR}/{.code AND}/{.code NOT}; the other one would read
+           them as words.",
+    "i" = "Drop {.arg {with}}, or write {.arg query} as plain text."
   ))
 }
 

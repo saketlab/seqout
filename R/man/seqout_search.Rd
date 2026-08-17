@@ -11,6 +11,7 @@ seqout_search(
   sortby = NULL,
   order = "desc",
   limit = NULL,
+  structured = FALSE,
   con = .con()
 )
 
@@ -20,6 +21,7 @@ SeqoutSearch(
   sortby = NULL,
   order = "desc",
   limit = NULL,
+  structured = FALSE,
   con = .con()
 )
 }
@@ -37,6 +39,11 @@ relevance.}
 \item{limit}{The maximum number of rows. The default, \code{NULL}, returns every
 match. The server sends 200 rows in one page, so a large result set costs
 more than one request. Give \code{limit} when a sample is sufficient.}
+
+\item{structured}{Read \code{query} as a boolean expression, and take its terms
+exactly: no ontology expansion, no spelling correction. A query that
+already carries \verb{()}, \code{""}, \code{*} or an uppercase \code{OR}/\code{AND}/\code{NOT} is read
+that way anyway, so this is for forcing it on a query with no operators.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
 pass a Parquet one to read the dump instead.}
@@ -85,6 +92,12 @@ SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic")
 
 # Take a sample of a large result set
 SeqoutSearch("cancer", limit = 50)
+
+# A boolean query is read as one without being asked
+SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*')
+
+# The same reading, forced on a query that carries no operators
+SeqoutSearch("liver cancer", structured = TRUE)
 }
 }
 \seealso{

@@ -227,3 +227,51 @@ test_that("the rank cursor keeps full float8 precision", {
   expect_identical(as.numeric(seen[[2]]$cursor_rank), rank)
   expect_false(identical(seen[[2]]$cursor_rank, format(rank)))
 })
+
+test_that("what counts as boolean matches the server's own trigger", {
+  # Mirrors _TRIGGER in the API's boolean_query.py. If these disagree, the
+  # guard below fires on the wrong queries.
+  expect_true(seqout:::.is_boolean_query('("aging" OR "aged")'))
+  expect_true(seqout:::.is_boolean_query("liver NOT mouse"))
+  expect_true(seqout:::.is_boolean_query("immun*"))
+  expect_true(seqout:::.is_boolean_query('"hepatocellular carcinoma"'))
+
+  # Prose is prose: lowercase operators and bare words never trigger.
+  expect_false(seqout:::.is_boolean_query("colon or gut"))
+  expect_false(seqout:::.is_boolean_query("liver cancer"))
+  expect_false(seqout:::.is_boolean_query(NULL))
+})
+
+test_that("structured is forwarded, and only when asked for", {
+  seen <- list()
+  testthat::local_mocked_bindings(
+    .paginate_api = function(con, path, params, max_pages = 1) {
+      seen[[length(seen) + 1]] <<- params
+      tibble::tibble()
+    }
+  )
+
+  seqout_search("liver cancer", con = rest_con())
+  seqout_search("liver cancer", structured = TRUE, con = rest_con())
+
+  expect_null(seen[[1]]$structured)
+  expect_equal(seen[[2]]$structured, "true")
+})
+
+test_that("a boolean query is refused rather than flattened into words", {
+  # The structured endpoint has no boolean parser, so `liver NOT mouse` would
+  # come back as everything matching liver, not and mouse.
+  expect_error(
+    seqout_search("liver NOT mouse", assay_l1 = "Transcriptomic", con = rest_con()),
+    "boolean"
+  )
+  expect_error(
+    seqout_search("liver", structured = TRUE, assay_l1 = "Transcriptomic", con = rest_con()),
+    "boolean"
+  )
+})
+
+test_that("structured takes a single TRUE or FALSE", {
+  expect_error(seqout_search("liver", structured = "yes", con = rest_con()), "TRUE")
+  expect_error(seqout_search("liver", structured = NA, con = rest_con()), "TRUE")
+})

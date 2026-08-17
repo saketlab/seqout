@@ -54,6 +54,50 @@ SeqoutSearch(
 )
 ```
 
+## Structured search
+
+A query can be a boolean expression rather than a bag of words. Group terms
+with `()`, quote a phrase with `""`, end a term with `*` to match its prefix,
+and join them with an uppercase `OR`, `AND` or `NOT`.
+
+```{r boolean}
+SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*', limit = 5)
+```
+
+Adjacent terms are joined with an implicit `AND`, so `(gut OR colon) immun*`
+means "gut or colon, and something beginning with immun".
+
+A structured search takes your terms **exactly**. The ordinary search expands a
+query through the ontology graph and corrects a likely typo; a structured one
+does neither. That is the point of it: you get what you asked for, and nothing
+near it.
+
+The operators are what selects this reading, so you do not have to ask for it.
+Only uppercase counts, which leaves ordinary prose alone.
+
+```{r boolean-prose}
+nrow(SeqoutSearch("colon or gut", limit = 5))
+```
+
+That query has no operators, so it is read as words.
+
+Set `structured = TRUE` to force the exact reading on a query that carries no
+operators. The results differ, because the ordinary search expanded the terms
+and this one does not.
+
+```{r boolean-forced}
+SeqoutSearch("liver cancer", limit = 3)$accession
+SeqoutSearch("liver cancer", structured = TRUE, limit = 3)$accession
+```
+
+Only the full-text search reads operators. Combined with `assay_l1`,
+`assay_l2` or a `geo_*` filter, which no full-text search answers, a boolean
+query would come back silently flattened into words, so it is refused instead.
+
+```{r boolean-clash, error = TRUE}
+SeqoutSearch("liver NOT mouse", assay_l1 = "Transcriptomic")
+```
+
 ### The filters
 
 Every filter works with a query and without one, and every filter combines with
