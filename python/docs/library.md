@@ -241,6 +241,43 @@ with connect() as sq:
     rows = sq.summaries(["GSE168652", "GSE100379"])  # many projects, one request
 ```
 
+## Alignment files
+
+`Dataset.bams` lists the BAMs a submitter sent. These are not the reads: they
+are aligned to a reference the submitter chose, and often carry work the reads
+alone do not reconstruct — barcode tags, methylation calls, long-read
+structural evidence.
+
+Read the list before you fetch. A study can run to hundreds of gigabytes, and
+most files sit in requester-pays storage that no anonymous client can read.
+
+```python
+with connect() as sq:
+    bams = sq.get("ERP117016").bams
+
+    bams.total_bams        # 412
+    bams.total_bam_bytes   # 1_579_858_598
+    bams.openly_readable   # what this client can fetch
+    bams.requester_pays    # what needs an account that pays egress
+```
+
+`download_bams` fetches the open ones and names the rest, with the command that
+would get them, so a partly-open study still yields what it can:
+
+```python
+with connect() as sq:
+    paths = sq.download_bams("ERP117016", Path("bams/"))
+```
+
+Every row carries an md5, and each file is verified as it lands. A file that
+fails is deleted rather than kept, because a corrupt alignment still reads.
+Submitters name their own files, so two runs can send the same name; those are
+prefixed with the run accession.
+
+It reads the REST API and says so on a Parquet client: the dump has the SRA
+side of this but not the ArrayExpress one, so answering there would be silently
+partial.
+
 ## Cite a dataset
 
 `citations` returns BibTeX for the papers behind a dataset, ready to write to a

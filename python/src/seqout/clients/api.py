@@ -1,4 +1,7 @@
 import contextlib
+import hashlib
+import logging
+from collections import Counter
 import datetime
 import functools
 import itertools
@@ -13,6 +16,7 @@ from typing import Any, Literal, Self, TypeVar
 
 import requests
 
+from seqout.exception import SeqoutError
 from seqout.constants import (
     API_BASE_URL,
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
@@ -51,6 +55,9 @@ from seqout.models.api_models import (
     SearchCorrection,
     SearchParams,
     SearchResponse,
+    BamFile,
+    BamFiles,
+    BamsResponse,
     SearchTotal,
     SearchResult,
     SearchResults,
@@ -68,9 +75,29 @@ from seqout.utils import (
     _validate_study_runs_data,
 )
 
+logger = logging.getLogger(__name__)
+
 SearchParamsType = SearchParams | StructuredSearchParams
 _NOT_FOUND = 404
 T = TypeVar("T")
+
+
+def _md5_matches(path: Path, want: str) -> bool:
+    seen = hashlib.md5()  # noqa: S324 - the archive publishes md5, not a choice
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            seen.update(block)
+    return seen.hexdigest().lower() == want.strip().lower()
+
+
+def _unique_bam_names(bams: list[BamFile]) -> list[str]:
+    """Submitters name their own files, so two runs can send the same name."""
+    names = [b.filename or f"{b.run_accession}.bam" for b in bams]
+    seen = Counter(names)
+    return [
+        f"{b.run_accession}_{name}" if seen[name] > 1 and b.run_accession else name
+        for b, name in zip(bams, names, strict=True)
+    ]
 
 
 def _as_plan(
@@ -599,6 +626,118 @@ class SeqoutAPIClient(ShortNames):
             single_cell_modality=meta.single_cell_modality,
             published_at=published_at,
         )
+
+    def _download_many(
+        self,
+        url_to_dest: dict[str, Path],
+        num_workers: int | None,
+        chunk_size: int,
+        *,
+        with_pbar: bool,
+        md5s: dict[str, str] | None = None,
+    ) -> None:
+        num_workers = _normalize_num_workers(num_workers)
+
+        def fetch(url: str, dest_path: Path) -> None:
+            self._downloader(
+                url=url, dest_path=dest_path, chunk_size=chunk_size,
+                with_pbar=with_pbar,
+            )
+            want = (md5s or {}).get(url)
+            if want and not _md5_matches(dest_path, want):
+                # A corrupt alignment is worse than a missing one: it reads.
+                dest_path.unlink(missing_ok=True)
+                msg = f"checksum mismatch for {dest_path.name}; deleted"
+                raise SeqoutError(msg)
+
+        with ThreadPoolExecutor(num_workers) as pool:
+            futures = {
+                pool.submit(fetch, url, dest_path): url
+                for url, dest_path in url_to_dest.items()
+            }
+            for f in as_completed(futures):
+                f.result()
+
+    def fetch_bams(self, accession: str) -> BamFiles:
+        """
+        The alignment files a submitter sent for a study.
+
+        Not the reads: these are the submitter's own BAMs, aligned to a
+        reference they chose, and they often carry work the reads alone do not
+        reconstruct -- barcode tags, methylation calls, long-read structural
+        evidence.
+
+        Read this before downloading. A study can run to hundreds of gigabytes,
+        and most files are in requester-pays storage that no anonymous client
+        can fetch; `BamFiles.requester_pays` names those.
+        """
+        return self._sender(
+            url=f"{self._base_url}/project/{accession}/bams",
+            response_model=BamsResponse,
+        ).to_files()
+
+    def download_bams(
+        self,
+        accession: str,
+        out_dir: Path,
+        *,
+        num_workers: int | None = None,
+        chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        with_pbar: bool = True,
+    ) -> list[Path]:
+        """
+        Download the alignment files a study's submitter sent.
+
+        The files behind requester-pays storage are named rather than fetched,
+        with the command that would get them, so a study that is partly open
+        still yields what it can.
+
+        Submitters name their own files, so two runs can send the same name;
+        those are prefixed with the run accession to keep them apart.
+        """
+        bams = self.fetch_bams(accession)
+        if not bams.root:
+            logger.warning("%s has no submitted alignment files", accession)
+            return []
+
+        paid = bams.requester_pays
+        if paid:
+            example = next((b.s3_url for b in paid if b.s3_url), None)
+            logger.warning(
+                "%d of %d alignment file(s) are in requester-pays storage and "
+                "cannot be fetched anonymously.%s The full list, with sizes and "
+                "checksums, is fetch_bams(%r).",
+                len(paid),
+                len(bams.root),
+                f" Reading them bills your own account: "
+                f"aws s3 cp --request-payer requester {example} ."
+                if example
+                else "",
+                accession,
+            )
+
+        open_files = bams.openly_readable
+        if not open_files:
+            return []
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+        names = _unique_bam_names(open_files)
+        url_to_dest = {
+            _normalize_url(b.open_url): out_dir / name
+            for b, name in zip(open_files, names, strict=True)
+        }
+        self._download_many(
+            url_to_dest,
+            num_workers,
+            chunk_size,
+            with_pbar=with_pbar,
+            md5s={
+                _normalize_url(b.open_url): b.md5
+                for b in open_files
+                if b.md5
+            },
+        )
+        return list(url_to_dest.values())
 
     def fetch_citations(
         self,

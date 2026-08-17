@@ -4,7 +4,11 @@ import argparse
 import csv
 import datetime
 import io
+import contextlib
+import logging
+import functools
 import itertools
+import math
 import json
 import os
 import re
@@ -58,7 +62,7 @@ from seqout.utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from seqout.clients.api import SeqoutAPIClient
 
@@ -280,6 +284,33 @@ def main() -> None:
             ),
         )
     _add_parquet_flag(p_dl)
+
+    p_bams = sub.add_parser(
+        "bams",
+        help="list or download the alignment files a submitter sent",
+        description=(
+            "The submitter's own BAMs, aligned to a reference they chose. Not "
+            "the reads. Most sit in requester-pays storage that no anonymous "
+            "client can read, so this lists before it fetches."
+        ),
+    )
+    p_bams.add_argument("accession", help="a study accession, or one resolving to it")
+    p_bams.add_argument(
+        "-o",
+        "--out",
+        type=Path,
+        metavar="DIR",
+        help="download the openly readable files into DIR (default: list only)",
+    )
+    p_bams.add_argument(
+        "-m",
+        "--max",
+        dest="max_rows",
+        type=int,
+        default=20,
+        metavar="N",
+        help="rows to list (default: 20). Does not limit a download",
+    )
 
     p_search = sub.add_parser(
         "search",
@@ -583,6 +614,7 @@ def main() -> None:
             args.assay_l2,
             args.structured,
         ),
+        "bams": lambda: cmd_bams(args.accession, args.out, args.max_rows),
         "show": lambda: cmd_show(
             args.accession,
             parquet=args.parquet is not None,
@@ -1055,13 +1087,22 @@ def _read_key() -> str:
     return {"\x1b[C": "right", "\x1b[D": "left"}.get(ch, ch)
 
 
-def _paged_search(
+def _paged(
     console: Console,
-    query: str,
-    it: Iterator[SearchResult],
+    it: Iterator[Any],
     page_size: int,
+    *,
+    label: str,
+    make_table: Callable[[str, list], Table],
+    hint: str,
+    noun: str = "result",
     total: int | None = None,
 ) -> None:
+    """Page through rows with the arrow keys, pulling more only as needed.
+
+    The iterator stays lazy: a search that spans many pages fetches the next
+    one when the reader asks for it, not before.
+    """
     buffer: list = []
     exhausted = False
 
@@ -1073,11 +1114,11 @@ def _paged_search(
             except StopIteration:
                 exhausted = True
 
-    with console.status("[bold]Searching…[/]"):
+    with console.status("[bold]Working…[/]"):
         ensure(page_size)
 
     if not buffer:
-        console.print(f"[yellow]No results for[/] {query!r}.")
+        console.print(f"[yellow]Nothing for[/] {label}.")
         return
 
     page = 0
@@ -1087,18 +1128,15 @@ def _paged_search(
         pages = f"/{-(-len(buffer) // page_size)}" if exhausted else "+"
         # The count is known before page 1 is drawn, so say how much there is
         # to page through rather than making the reader find out by paging.
+        seen = total if total is not None else len(buffer)
         found = (
-            f" · {total} result{'s' if total != 1 else ''}"
-            if total is not None
+            f" · {seen} {noun}{'s' if seen != 1 else ''}"
+            if total is not None or exhausted
             else f" · {len(buffer)}+ so far"
-            if not exhausted
-            else f" · {len(buffer)} result{'s' if len(buffer) != 1 else ''}"
         )
         console.clear()
-        console.print(_results_table(f"{query!r} — page {page + 1}{pages}{found}", rows))
-        console.print(
-            "[dim]← prev · → next · q quit — `seqout show <accession>` to inspect[/]",
-        )
+        console.print(make_table(f"{label} — page {page + 1}{pages}{found}", rows))
+        console.print(hint)
         key = _read_key()
         if key in ("q", "\x1b", "\x03"):
             break
@@ -1108,6 +1146,24 @@ def _paged_search(
                 page += 1
         elif key == "left":
             page = max(0, page - 1)
+
+
+def _paged_search(
+    console: Console,
+    query: str,
+    it: Iterator[SearchResult],
+    page_size: int,
+    total: int | None = None,
+) -> None:
+    _paged(
+        console,
+        it,
+        page_size,
+        label=repr(query),
+        make_table=_results_table,
+        hint="[dim]← prev · → next · q quit — `seqout show <accession>` to inspect[/]",
+        total=total,
+    )
 
 
 def _merge_augmented(
@@ -1248,6 +1304,146 @@ def cmd_search(
     )
     console.print(_results_table(f"{label} — {shown} result(s)", results))
     console.print("[dim]Tip: `seqout show <accession>` to inspect a result.[/]")
+
+
+@contextlib.contextmanager
+def _quiet_logger(name: str) -> Iterator[None]:
+    """Mute one logger for a block, when the caller has already said it better."""
+    log = logging.getLogger(name)
+    before = log.disabled
+    log.disabled = True
+    try:
+        yield
+    finally:
+        log.disabled = before
+
+
+def _bams_table(
+    title: str, rows: list, exp_titles: dict[str, str] | None = None
+) -> Table:
+    """Columns as the website orders them: run, experiment, what it is, size."""
+    table = Table(title=title, title_style="bold", header_style="bold green")
+    # Seven columns is a lot for a terminal, so only the two that vary per row
+    # are allowed to take space; the title is clipped rather than wrapped,
+    # because a wrapped title turns every row into three.
+    table.add_column("run", no_wrap=True)
+    table.add_column("experiment", no_wrap=True)
+    table.add_column("title", overflow="ellipsis", max_width=28)
+    table.add_column("file", style="bold cyan", overflow="fold", ratio=2)
+    table.add_column("type", no_wrap=True)
+    table.add_column("size", justify="right", no_wrap=True)
+    table.add_column("readable", no_wrap=True)
+    for b in rows:
+        exp = b.experiment_accession or ""
+        table.add_row(
+            b.run_accession or "—",
+            exp or "—",
+            (exp_titles or {}).get(exp) or "—",
+            b.filename or "—",
+            b.semantic_name or "—",
+            _pretty_bytes(b.size or 0),
+            "[green]yes[/]" if b.open_url else "[yellow]requester-pays[/]",
+        )
+    return table
+
+
+def _experiment_titles(sq: Any, accession: str) -> dict[str, str]:
+    """Experiment accession -> its title, for the BAM listing's title column.
+
+    Best-effort: the listing is still worth showing without it.
+    """
+    try:
+        experiments = sq.fetch_study_experiments(accession)
+    except Exception:
+        return {}
+    rows = getattr(experiments, "root", experiments)
+    return {e.accession: e.title for e in rows if e.accession and e.title}
+
+
+def _by_size(bams: Any) -> list:
+    """Largest first: a study's bytes usually sit in a handful of files, and
+    the arrival order can put the smallest at the top, which reads as if the
+    header's total were wrong."""
+    return sorted(bams.root, key=lambda b: b.size or 0, reverse=True)
+
+
+def _pretty_bytes(n: int) -> str:
+    if n <= 0:
+        return "—"
+    units = ["B", "kB", "MB", "GB", "TB", "PB"]
+    i = min(len(units) - 1, int(math.log(n, 1000)))
+    return f"{n / 1000**i:.1f} {units[i]}"
+
+
+def cmd_bams(accession: str, out: Path | None, max_rows: int = 20) -> None:
+    console = Console()
+    acc = accession.strip()
+    try:
+        with connect_to_seqout(backend="api") as sq:
+            with console.status(f"[bold]Reading {acc}…[/]"):
+                bams = sq.get(acc).bams
+            if not bams.root:
+                console.print(f"[yellow]{acc} has no submitted alignment files.[/]")
+                return
+
+            size = _pretty_bytes(bams.total_bam_bytes)
+            titles = _experiment_titles(sq, sq.get(acc).sra or acc)
+            table_of = functools.partial(_bams_table, exp_titles=titles)
+            if out is None and sys.stdin.isatty() and sys.stdout.isatty():
+                _paged(
+                    console,
+                    iter(_by_size(bams)),
+                    max_rows,
+                    label=f"{acc} ({size})",
+                    make_table=table_of,
+                    hint="[dim]← prev · → next · q quit — -o DIR to download[/]",
+                    noun="file",
+                    total=bams.total_bams,
+                )
+                return
+
+            console.print(
+                table_of(
+                    f"{acc} — {bams.total_bams} alignment file(s), {size}",
+                    _by_size(bams)[:max_rows],
+                )
+            )
+            if len(bams.root) > max_rows:
+                console.print(
+                    f"[dim]Showing {max_rows} of {bams.total_bams}; -m N for more.[/]"
+                )
+
+            paid = bams.requester_pays
+            if paid:
+                example = next((b.s3_url for b in paid if b.s3_url), None)
+                console.print(
+                    f"[yellow]{len(paid)} of {bams.total_bams} file(s) are in "
+                    "requester-pays storage and cannot be fetched anonymously.[/]"
+                )
+                if example:
+                    console.print(
+                        "[dim]Reading them bills your own account:[/] "
+                        f"aws s3 cp --request-payer requester {example} ."
+                    )
+            open_files = bams.openly_readable
+            if out is None:
+                if open_files:
+                    console.print(
+                        f"[dim]-o DIR to download the "
+                        f"{len(open_files)} openly readable file(s).[/]"
+                    )
+                return
+            if not open_files:
+                console.print("[yellow]Nothing here can be fetched anonymously.[/]")
+                return
+
+            # The paid ones were reported above; the library would say it again.
+            with _quiet_logger("seqout.clients.api"):
+                paths = sq.download_bams(acc, out)
+            console.print(f"[green]Downloaded {len(paths)} file(s) to[/] {out}")
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
 
 
 SAMPLE_PREFIXES = (

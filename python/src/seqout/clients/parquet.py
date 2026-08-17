@@ -20,6 +20,7 @@ from seqout.dataset import ShortNames
 from seqout.exception import SeqoutError
 from seqout.helpers import _download_file
 from seqout.models.api_models import (
+    BamFiles,
     AuthorProjectsResponse,
     ExperimentSample,
     GeoSampleDetailedMetadata,
@@ -782,6 +783,19 @@ class SeqoutParquetClient(ShortNames):
             normalized_url = _normalize_url(url)
             url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
+
+    def fetch_bams(self, accession: str) -> BamFiles:
+        """
+        Not available on this backend: alignment files come from the REST API.
+
+        The dump's `run_download_links` carries the SRA side of this, but not
+        the ArrayExpress one, so answering here would be silently partial.
+        """
+        msg = (
+            "fetch_bams reads the REST API; this client is Parquet. "
+            "Open an API client for it: connect().get(...).bams"
+        )
+        raise SeqoutError(msg)
 
     def fetch_citations(
         self,

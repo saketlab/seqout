@@ -216,6 +216,27 @@ class Dataset:
         return self._sq.fetch_study_runs(study, full=True)
 
     @cached_property
+    def bams(self) -> Any:
+        """The alignment files the submitter sent, where there are any.
+
+        Not the reads. Read this before downloading: a study can run to
+        hundreds of gigabytes and most files are requester-pays.
+
+        The archive files alignments against the SRA-side study, so a GEO or
+        ArrayExpress accession is resolved to its linked study first. One with
+        no such link, or no alignments, answers with an empty list.
+        """
+        from seqout.models.api_models import BamFiles
+
+        study = self.sra
+        if not study:
+            return BamFiles([])
+        try:
+            return self._call("fetch_bams", study)
+        except Exception:
+            return BamFiles([])
+
+    @cached_property
     def links(self) -> ProjectCrossReferenceList:
         """Cross-references to the same data in other archives."""
         return self._call("fetch_cross_references", self.project)

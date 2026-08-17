@@ -279,6 +279,79 @@ class SearchResponse(BaseModel):
         return SearchResults(self.results)
 
 
+class BamFile(BaseModel):
+    """One alignment file a submitter sent, and where it can be read.
+
+    `url`/`https_url` are anonymous; `s3_url` is requester-pays and bills the
+    caller, so it is reported rather than fetched. Roughly one file in seven is
+    anonymously readable, and every one carries an md5.
+    """
+
+    run_accession: str | None = None
+    experiment_accession: str | None = None
+    filename: str | None = None
+    semantic_name: str | None = None
+    size: int | None = None
+    md5: str | None = None
+    url: str | None = None
+    https_url: str | None = None
+    s3_url: str | None = None
+
+    @property
+    def open_url(self) -> str | None:
+        """The URL any client can read, or None when it is requester-pays."""
+        return self.url or self.https_url or None
+
+    @field_validator("size", mode="before")
+    @classmethod
+    def _size_to_int(cls, v: Any) -> int | None:
+        return int(v) if v not in (None, "") else None
+
+    @field_validator("url", "https_url", "s3_url", mode="before")
+    @classmethod
+    def _blank_to_none(cls, v: Any) -> Any:
+        return v or None
+
+
+class BamFiles(BaseContainer[BamFile]):
+    """A study's alignment files.
+
+    `total_bams` and `total_bam_bytes` are the endpoint's own headline numbers;
+    both are exactly the rows summed, so they are computed rather than carried.
+    """
+
+    @property
+    def total_bams(self) -> int:
+        return len(self.root)
+
+    @property
+    def total_bam_bytes(self) -> int:
+        return sum(b.size or 0 for b in self.root)
+
+    @property
+    def openly_readable(self) -> list[BamFile]:
+        """The files this client can fetch without an account."""
+        return [b for b in self.root if b.open_url]
+
+    @property
+    def requester_pays(self) -> list[BamFile]:
+        """The files only a paying account can read."""
+        return [b for b in self.root if not b.open_url]
+
+
+class BamsResponse(BaseModel):
+    """The /project/{acc}/bams envelope."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    total_bams: int = 0
+    total_bam_bytes: int = 0
+    bams: list[BamFile] = []
+
+    def to_files(self) -> BamFiles:
+        return BamFiles(self.bams)
+
+
 class SearchTotal(BaseModel):
     """Just the count from /search/facets; the facet buckets are ignored."""
 

@@ -83,6 +83,63 @@ so you know how much there is before you start paging:
 
 Use the left and right arrow keys to change the page. Push `q` to quit.
 
+## bams
+
+`bams` lists the alignment files a submitter sent for a study. These are not
+the reads: they are aligned to a reference the submitter chose, and often carry
+work the reads alone do not reconstruct — barcode tags, methylation calls,
+long-read structural evidence.
+
+```bash
+seqout bams ERP117016
+```
+
+It lists before it fetches, because a study can run to hundreds of gigabytes
+and most files sit in requester-pays storage that no anonymous client can read:
+
+```
+                        ERP117016 (1.6 GB) — page 1/103 · 412 files
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━━━━━┓
+┃ run        ┃ experiment ┃ title                  ┃ file                  ┃ type ┃    size ┃ readable ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━━━━━┩
+│ ERR3507860 │ ERX3529074 │ NextSeq 500 sequencing │ S6113.E3.L2.1240k.bam │ bam  │ 27.0 MB │ yes      │
+│ ERR3507863 │ ERX3529077 │ NextSeq 500 sequencing │ S6113.E3.L5.1240k.bam │ bam  │ 26.2 MB │ yes      │
+└────────────┴────────────┴────────────────────────┴───────────────────────┴──────┴─────────┴──────────┘
+← prev · → next · q quit — -o DIR to download
+```
+
+The columns follow the project page on the website: the run and experiment the
+file belongs to, the experiment's title, the file itself, what kind of
+alignment it is, and its size. The title is read from the study's experiment
+records, so it costs one extra request and is left blank if that fails.
+
+The listing pages with the arrow keys, like `search`. Files are ordered largest
+first, so the top of the table and the total in the header agree: a study's
+bytes usually sit in a handful of files, and the archive's own order can put
+the smallest first.
+
+| Option | Effect |
+| --- | --- |
+| `-o`, `--out` | Download the openly readable files into this directory. |
+| `-m`, `--max` | Rows per page, or rows shown when the output is piped or saved (default: 20). It never limits a download. |
+
+Files behind requester-pays storage are named rather than fetched, with the
+command that would get them:
+
+```bash
+seqout bams SRP071083
+# 276 of 276 file(s) are in requester-pays storage and cannot be fetched anonymously.
+# Reading them bills your own account:
+#   aws s3 cp --request-payer requester s3://sra-pub-src-5/SRR3202509/PG29.bam .
+```
+
+Every file carries an md5 and is verified as it lands. One that fails is
+deleted rather than kept, because a corrupt alignment still reads.
+
+A GEO or ArrayExpress accession is resolved to its linked study first, since
+the archive files alignments against that. One with no such link, or no
+alignments, says so.
+
 ## show
 
 `show` displays the samples or the experiments of a project as a table.

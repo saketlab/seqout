@@ -282,3 +282,159 @@ class TestCitations:
         for client in (SeqoutAPIClient, SeqoutParquetClient):
             assert hasattr(client, "citations")
             assert hasattr(client, "fetch_citations")
+
+
+class TestBams:
+    """Alignment files: list before fetching, and keep the paid ones honest."""
+
+    def _files(self):
+        from seqout.models.api_models import BamFile, BamFiles
+
+        return BamFiles(
+            [
+                BamFile(filename="a.bam", size=10, url="https://x/a.bam", md5="aa"),
+                BamFile(filename="b.bam", size=5, s3_url="s3://pays/b.bam", md5="bb"),
+                BamFile(
+                    filename="dup.bam", size=1, url="https://x/1/dup.bam",
+                    run_accession="SRR1",
+                ),
+                BamFile(
+                    filename="dup.bam", size=1, url="https://x/2/dup.bam",
+                    run_accession="SRR2",
+                ),
+            ]
+        )
+
+    def test_the_totals_are_the_rows(self):
+        files = self._files()
+        assert files.total_bams == 4
+        assert files.total_bam_bytes == 17
+
+    def test_paid_and_open_are_told_apart(self):
+        files = self._files()
+        assert [b.filename for b in files.openly_readable] == ["a.bam", "dup.bam", "dup.bam"]
+        assert [b.filename for b in files.requester_pays] == ["b.bam"]
+
+    def test_a_repeated_filename_is_prefixed_with_its_run(self):
+        from seqout.clients.api import _unique_bam_names
+
+        names = _unique_bam_names(list(self._files().root))
+        assert names == ["a.bam", "b.bam", "SRR1_dup.bam", "SRR2_dup.bam"]
+
+    def test_a_study_of_only_paid_files_downloads_nothing(self, tmp_path):
+        from seqout.clients.api import SeqoutAPIClient
+        from seqout.models.api_models import BamFile, BamFiles
+
+        sq = SeqoutAPIClient()
+        sq.fetch_bams = lambda accession: BamFiles(
+            [BamFile(filename="p.bam", s3_url="s3://pays/p.bam", md5="cc")]
+        )
+        sq._download_many = lambda *a, **kw: pytest.fail("must not fetch")
+        assert sq.download_bams("SRP071083", tmp_path) == []
+
+    def test_a_checksum_mismatch_deletes_the_file(self, tmp_path):
+        from seqout.clients.api import _md5_matches
+
+        f = tmp_path / "x.bam"
+        f.write_bytes(b"hello")
+        assert _md5_matches(f, "5d41402abc4b2a76b9719d911017c592")
+        assert not _md5_matches(f, "deadbeef")
+
+    def test_the_parquet_client_refuses(self):
+        from seqout.clients.parquet import SeqoutParquetClient
+        from seqout.exception import SeqoutError
+
+        pq = SeqoutParquetClient.__new__(SeqoutParquetClient)
+        with pytest.raises(SeqoutError, match="reads the REST API"):
+            pq.fetch_bams("ERP117016")
+
+
+class TestPager:
+    """One pager drives both the search results and the alignment files."""
+
+    def _rows(self, n=7):
+        from seqout.models.api_models import BamFile
+
+        return [
+            BamFile(filename=f"f{i}.bam", size=(10 - i) * 1000, url="https://x/a")
+            for i in range(n)
+        ]
+
+    def _run(self, keys, rows, page_size=3, total=None):
+        from unittest.mock import patch
+
+        from rich.console import Console
+
+        from seqout.cli import cli
+
+        seen = []
+
+        def table(title, page):
+            seen.append((title, [b.filename for b in page]))
+            return cli._bams_table(title, page)
+
+        with (
+            patch.object(cli, "_read_key", side_effect=keys),
+            open("/dev/null", "w") as devnull,
+        ):
+            cli._paged(
+                Console(file=devnull),
+                iter(rows),
+                page_size,
+                label="ERP117016",
+                make_table=table,
+                hint="",
+                noun="file",
+                total=total,
+            )
+        return seen
+
+    def test_the_columns_carry_the_run_and_its_experiment(self):
+        from seqout.cli import cli
+        from seqout.models.api_models import BamFile
+
+        row = BamFile(
+            filename="a.bam", size=10, url="https://x/a.bam",
+            run_accession="ERR1", experiment_accession="ERX1", semantic_name="bam",
+        )
+        table = cli._bams_table("t", [row], exp_titles={"ERX1": "NextSeq 500"})
+        assert [c.header for c in table.columns] == [
+            "run", "experiment", "title", "file", "type", "size", "readable",
+        ]
+        cells = [list(c.cells) for c in table.columns]
+        assert cells[0] == ["ERR1"]
+        assert cells[1] == ["ERX1"]
+        assert cells[2] == ["NextSeq 500"]
+
+    def test_a_missing_experiment_title_is_a_dash_not_a_crash(self):
+        from seqout.cli import cli
+        from seqout.models.api_models import BamFile
+
+        table = cli._bams_table("t", [BamFile(filename="a.bam")], exp_titles={})
+        assert list(table.columns[2].cells) == ["—"]
+
+    def test_the_arrows_move_a_page_at_a_time(self):
+        seen = self._run(["right", "right", "left", "q"], self._rows())
+        assert [names for _, names in seen] == [
+            ["f0.bam", "f1.bam", "f2.bam"],
+            ["f3.bam", "f4.bam", "f5.bam"],
+            ["f6.bam"],
+            ["f3.bam", "f4.bam", "f5.bam"],
+        ]
+
+    def test_the_last_page_does_not_advance_past_the_end(self):
+        seen = self._run(["right", "right", "right", "q"], self._rows())
+        assert seen[-1][1] == ["f6.bam"]
+
+    def test_the_total_rides_in_the_title_from_page_one(self):
+        seen = self._run(["q"], self._rows(), total=412)
+        assert "412 files" in seen[0][0]
+
+    def test_the_page_count_firms_up_once_the_rows_run_out(self):
+        # "+" while more may be coming, "/N" once the iterator is exhausted.
+        seen = self._run(["right", "right", "q"], self._rows(), total=7)
+        assert "page 1+" in seen[0][0]
+        assert "page 3/3" in seen[-1][0]
+
+    def test_nothing_at_all_says_so_rather_than_drawing_an_empty_table(self):
+        assert self._run(["q"], []) == []
