@@ -50,8 +50,8 @@ test_that("registration is recorded on the connection's environment", {
   expect_setequal(ls(con$views), c("sra_runs", "ena_samples"))
 })
 
-test_that("register_tables rejects a name that is not a SeqOut table", {
-  expect_error(register_tables("not_a_table", con = fake_con()), "Not a SeqOut table")
+test_that("register_tables rejects a name that is not a Seqout table", {
+  expect_error(register_tables("not_a_table", con = fake_con()), "Not a Seqout table")
 })
 
 test_that("register_tables defaults to every table", {

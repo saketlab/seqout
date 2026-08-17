@@ -1,0 +1,114 @@
+---
+title: "Citations"
+description: >
+  Get BibTeX for the papers behind a dataset, for one accession or for a
+  bibliography.
+output:
+  rmarkdown::html_document:
+    self_contained: true
+    mathjax: null
+---
+
+```{r, include = FALSE}
+seqout::SeqoutDefault(NULL)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+A dataset is evidence, and evidence needs a citation. The archives already
+record which paper each dataset belongs to, so `Citations()` assembles the
+BibTeX entry from that record rather than making you find the paper by hand.
+
+```{r setup}
+library(seqout)
+```
+
+## One dataset
+
+`Citations()` takes a project accession and returns text.
+
+```{r one}
+cat(Citations("GSE151530"))
+```
+
+The key is the first author's family name and the year. Write it to a file the
+same way you write any text.
+
+```{r write, eval = FALSE}
+writeLines(Citations("GSE151530"), "GSE151530.bib")
+```
+
+## The paper, or every paper
+
+`type = "original"`, the default, gives the paper that the submitters wrote.
+`type = "all"` adds the papers that reanalysed the data afterwards. The second
+list is the one to read when you want to know what a dataset has been used for.
+
+```{r all}
+cat(Citations("GSE168652", type = "all"))
+```
+
+That study has one original paper and one later reanalysis.
+
+## A dataset with no paper
+
+Many datasets are deposited without a publication, and a great many are
+published later. `Citations()` returns `character(0)` for those, rather than an
+error, so a loop does not stop at the first gap.
+
+```{r none}
+length(Citations("CRA027437"))
+```
+
+## A bibliography
+
+Because the result is plain text, several accessions concatenate.
+
+```{r many}
+accessions <- c("GSE151530", "GSE168652", "SRP267291", "CRA027437")
+bib <- unlist(lapply(accessions, Citations))
+
+length(bib)
+```
+
+Four accessions, three entries: the one without a paper contributed nothing,
+and `unlist()` dropped it.
+
+```{r many-write, eval = FALSE}
+writeLines(bib, "study-bibliography.bib")
+```
+
+Test first when you need to know which accession gave which entry.
+
+```{r many-named}
+vapply(accessions, function(a) length(Citations(a)) > 0, logical(1))
+```
+
+## The same papers as data
+
+BibTeX is for a manuscript. When you want to sort, count or filter, read the
+publication records instead: `$pubs` carries the same papers as a tibble, with
+the journal and the citation count.
+
+```{r pubs}
+d <- SeqoutGet("GSE168652")
+d$pubs[, c("pmid", "title", "journal", "citation_count")]
+```
+
+[Metadata](metadata.html#publications) describes that field. To go the other
+way, from a paper or an author to the datasets, [Search](search.html) covers
+`Paper()` and `Author()`.
+
+## Both backends
+
+`Citations()` works on the Parquet dump as well as the REST API, so a
+bibliography can be built offline from a local dump.
+
+```{r parquet}
+con <- SeqoutConnect("parquet", quiet = TRUE)
+
+cat(Citations("GSE151530", con = con))
+```
+
+```{r close}
+SeqoutClose(con)
+```

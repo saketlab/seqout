@@ -98,6 +98,7 @@ articles:
   - articles/metadata
   - articles/counts
   - articles/downloads
+  - articles/citations
 
 reference:
 - title: Connecting
@@ -156,6 +157,7 @@ reference:
 - title: Publications
   desc: Papers linked to studies, and studies linked to papers
   contents:
+  - citations
   - paper
   - author
 

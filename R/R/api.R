@@ -28,12 +28,16 @@ NULL
   httr2::resp_body_json(resp)
 }
 
+#' @inheritParams .api_get
 #' @noRd
-.api_get_text <- function(con, path, ...) {
+.api_get_text <- function(con, path, ..., null_on = integer(0)) {
   .check_connection(con)
   resp <- .build_request(con, path) |>
     httr2::req_url_query(..., .multi = "explode") |>
     httr2::req_perform()
+  if (httr2::resp_status(resp) %in% null_on) {
+    return(NULL)
+  }
   .check_resp(resp, path)
   httr2::resp_body_string(resp)
 }

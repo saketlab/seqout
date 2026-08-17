@@ -49,6 +49,46 @@ author <- function(name, limit = 200, con = .con()) {
 }
 
 
+#' BibTeX for the papers behind a dataset
+#'
+#' The archive holds the link from a dataset to its paper, so the entry is
+#' assembled from the record rather than looked up by hand. The result is text,
+#' ready for [writeLines()] or a `.bib` file.
+#'
+#' `type = "original"` gives the paper the submitters wrote. `type = "all"`
+#' adds the papers that reanalysed the data afterwards.
+#'
+#' A dataset with no linked paper returns `character(0)`, not an error, so a
+#' loop over many accessions does not stop at the first one without a paper.
+#'
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
+#'   Both backends answer this.
+#' @param accession A project accession.
+#' @param type `"original"`, the default, or `"all"`.
+#'
+#' @return A character string of BibTeX entries, or `character(0)`.
+#'
+#' @seealso `seqout_get(x)$pubs` for the same papers as a tibble, and [paper()]
+#'   to go the other way, from a paper to the datasets.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' cat(Citations("GSE151530"))
+#'
+#' # Every paper that used the data, not only the one that produced it
+#' cat(Citations("GSE168652", type = "all"))
+#'
+#' writeLines(Citations("GSE151530"), "GSE151530.bib")
+#' }
+citations <- function(accession, type = "original", con = .con()) {
+  .check_connection(con)
+  rlang::check_required(accession)
+  type <- match.arg(type, c("original", "all"))
+  project_citations(accession, type = type, format = "bibtex", con = con)
+}
+
+
 #' Short project records for many accessions
 #'
 #' One request for many projects, rather than one request each.

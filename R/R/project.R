@@ -198,9 +198,10 @@ project_citations <- function(accession, type = "original",
 
   from_api <- function() {
     if (format == "bibtex") {
+      # A study with no paper is a 404 carrying a sentence, not a failure.
       return(.api_get_text(con, paste0("/project/", accession, "/cite"),
-        type = type, format = "bibtex"
-      ))
+        type = type, format = "bibtex", null_on = 404L
+      ) %||% character(0))
     }
     .records_to_tibble(.as_record_list(
       .api_get(con, paste0("/project/", accession, "/cite"),

@@ -14,6 +14,10 @@ BindCounts <- bind_counts
 #' @export
 CacheTable <- cache_table
 
+#' @rdname citations
+#' @export
+Citations <- citations
+
 #' @rdname clear_cache
 #' @export
 ClearCache <- clear_cache
