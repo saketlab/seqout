@@ -351,7 +351,17 @@ NULL
   con <- .open_maybe_gz(path)
   first <- readLines(con, n = 1L, warn = FALSE)
   close(con)
-  sep <- if (grepl("\t", first, fixed = TRUE)) "\t" else if (grepl(";", first, fixed = TRUE)) ";" else ","
+  sep <- if (grepl("\t", first, fixed = TRUE)) {
+    "\t"
+  } else if (grepl(";", first, fixed = TRUE)) {
+    ";"
+  } else if (!grepl(",", first, fixed = TRUE) && grepl("[ ]", first)) {
+    # write.table() output: whitespace-separated, and its header is one field
+    # short of the rows, which is what row.names = 1 absorbs.
+    ""
+  } else {
+    ","
+  }
 
   con <- .open_maybe_gz(path)
   on.exit(close(con), add = TRUE)

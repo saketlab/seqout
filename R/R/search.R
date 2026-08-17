@@ -319,4 +319,3 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
          or drop {.arg {with}}."
   ))
 }
-

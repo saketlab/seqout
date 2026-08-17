@@ -122,3 +122,20 @@ test_that("a series sample count decides an otherwise ambiguous table", {
   expect_equal(seqout:::.infer_kind(obs, 87L)$kind, "bulk")
   expect_equal(seqout:::.infer_kind(obs)$kind, "unknown")
 })
+
+test_that("sample selection keeps only annotated samples that ship a unit", {
+  rows <- tibble::tibble(
+    sample = c("GSM1", "GSM2", "GSM3"),
+    tissue = "Liver",
+    cells = c(100L, NA_integer_, 900L)
+  )
+  m <- tibble::tibble(
+    sample = c("GSM3", "GSM2", NA_character_),
+    unit = c("GSM3", "GSM2:rds", "GSE1"),
+    format = c("10x_mtx", "rds", "table")
+  )
+  out <- seqout:::.with_units(rows, m)
+  expect_equal(out$sample, c("GSM3", "GSM2"))
+  expect_equal(out$unit, c("GSM3", "GSM2:rds"))
+  expect_equal(names(out)[1:4], c("sample", "unit", "format", "cells"))
+})

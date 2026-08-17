@@ -137,3 +137,7 @@ Tables <- tables
 #' @export
 SeqoutDefault <- seqout_default
 
+
+#' @rdname counts_samples
+#' @export
+CountsSamples <- counts_samples

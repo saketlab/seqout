@@ -112,3 +112,72 @@ test_that("an h5ad reads, including its categorical obs columns", {
   expect_equal(res$obs$celltype, c("Tcell", "Bcell", "Tcell"))
   expect_equal(rownames(res$var), c("G1", "G2", "G3"))
 })
+
+test_that("a whitespace-delimited table with a short header reads", {
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "counts.txt.gz")
+  con <- gzfile(path, "wt")
+  # write.table() output: quoted names, no corner cell on the header.
+  writeLines(c('"C1" "C2" "C3"', '"GeneA" 1 2 3', '"GeneB" 4 5 6'), con)
+  close(con)
+  res <- seqout:::.read_table(path)
+  expect_equal(rownames(res$obs), c("C1", "C2", "C3"))
+  expect_equal(rownames(res$var), c("GeneA", "GeneB"))
+  expect_equal(dim(res$X), c(3L, 2L))
+})
+
+test_that("a tar expands to the readable unit inside it", {
+  skip_if_no("Matrix")
+  dir <- withr::local_tempdir()
+
+  # A tar holding one 10x triplet, the shape GEO ships as GSE..._RAW.tar.
+  inner <- file.path(dir, "GSM1_hpc")
+  dir.create(inner)
+  m <- Matrix::Matrix(c(1, 0, 0, 2, 3, 0, 0, 4, 5, 0, 6, 0), nrow = 3, sparse = TRUE)
+  Matrix::writeMM(m, file.path(inner, "matrix.mtx"))
+  writeLines(paste0("AAACCTGAGAAACC", c("AT", "GC", "TT", "GG"), "-1"),
+             file.path(inner, "barcodes.tsv"))
+  writeLines(c("GeneA", "GeneB", "GeneC"), file.path(inner, "features.tsv"))
+  writeLines("readme", file.path(inner, "notes.pdf"))  # a member with no role
+
+  tar_path <- file.path(dir, "GSM1_hpc.tar")
+  withr::with_dir(dir, utils::tar(tar_path, "GSM1_hpc"))
+
+  cache <- withr::local_tempdir()
+  file.copy(tar_path, file.path(cache, "GSM1_hpc.tar"))
+  counts <- list(accession = "GSE1", assay = "rna", cache_dir = cache)
+  unit <- list(
+    label = "GSM1", fmt = "tar", sample = "GSM1",
+    files = list(list(url = file.path(cache, "GSM1_hpc.tar"),
+                      role = "tar", name = "GSM1_hpc.tar")),
+    metadata_files = list()
+  )
+
+  expanded <- seqout:::.expand_tar(counts, unit)
+  expect_equal(expanded$fmt, "10x_mtx")
+  expect_setequal(vapply(expanded$files, function(f) f$role, character(1)),
+                  c("mtx", "barcodes", "features"))
+
+  # Extracting once is enough; a second call reuses the marker directory.
+  expect_true(dir.exists(paste0(file.path(cache, "GSM1_hpc.tar"), ".extracted")))
+  expect_equal(seqout:::.expand_tar(counts, unit)$fmt, "10x_mtx")
+})
+
+test_that("a tar with nothing readable inside is an error, not an empty unit", {
+  dir <- withr::local_tempdir()
+  inner <- file.path(dir, "GSM2")
+  dir.create(inner)
+  writeLines("readme", file.path(inner, "notes.pdf"))
+  tar_path <- file.path(dir, "GSM2.tar")
+  withr::with_dir(dir, utils::tar(tar_path, "GSM2"))
+
+  cache <- withr::local_tempdir()
+  file.copy(tar_path, file.path(cache, "GSM2.tar"))
+  counts <- list(accession = "GSE2", assay = "rna", cache_dir = cache)
+  unit <- list(
+    label = "GSM2", fmt = "tar", sample = "GSM2",
+    files = list(list(url = file.path(cache, "GSM2.tar"), role = "tar", name = "GSM2.tar")),
+    metadata_files = list()
+  )
+  expect_error(seqout:::.expand_tar(counts, unit), "no readable matrix inside")
+})

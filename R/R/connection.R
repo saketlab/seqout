@@ -184,7 +184,7 @@ seqout_default <- function(con) {
 
 #' Refuse a Parquet connection where only REST can answer
 #'
-#' The mirror of [.need_parquet()]: some tables are served and never dumped,
+#' The mirror of `.need_parquet()`: some tables are served and never dumped,
 #' so there is nothing for DuckDB to read.
 #' @param why An extra hint naming what the dump is missing.
 #' @noRd

@@ -268,6 +268,70 @@ manifest <- function(counts, preferred_only = FALSE) {
   )
 }
 
+#' Choose which samples of a study to read
+#'
+#' Filters a study's samples through [sample_search()] and keeps the ones that
+#' have a readable unit. Use it on a series that mixes tissues or assays.
+#'
+#' @param counts A `seqout_counts` handle from [seqout_counts()], built on a
+#'   GSE.
+#' @param ... Filters for [sample_search()], by name, such as
+#'   `tissue = "liver"`. `study_accession` comes from `counts`.
+#' @param min_cell_count Smallest cell count to keep. Samples with no recorded
+#'   count go too; `NULL` keeps everything.
+#'
+#' @return A tibble of the matching samples, sorted by highest cells first, 
+#' with the `unit`  and `format` [seqout_matrix()] would read.
+#'
+#' @seealso [manifest()] for every unit, unfiltered.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' counts <- seqout_counts("GSE182159")
+#' liver <- counts_samples(counts, tissue = "liver", min_cell_count = 1000)
+#' m <- seqout_matrix(counts, sample = liver$unit[1])
+#' }
+counts_samples <- function(counts, ..., min_cell_count = 1L) {
+  .check_counts(counts)
+  if (!startsWith(counts$accession, "GSE")) {
+    cli::cli_abort(c(
+      "{counts$accession} is a single sample.",
+      i = "Give {.fn seqout_counts} a GSE to select within it."
+    ))
+  }
+  rows <- sample_search(
+    study_accession = counts$accession, ...,
+    min_cell_count = min_cell_count, con = counts$con
+  )
+  out <- .with_units(rows, manifest(counts, preferred_only = TRUE))
+  if (nrow(out) == 0 && nrow(rows) > 0) {
+    cli::cli_warn(c(
+      "{nrow(rows)} sample{?s} matched the filters, but none ships a counts file.",
+      i = "See {.fn manifest} for what {counts$accession} does ship."
+    ))
+  }
+  out
+}
+
+#' Join the annotated samples to the unit each one would be read from
+#' @noRd
+.with_units <- function(rows, m) {
+  i <- match(rows$sample, m$sample)
+  out <- rows[!is.na(i), , drop = FALSE]
+  i <- i[!is.na(i)]
+  out$unit <- m$unit[i]
+  out$format <- m$format[i]
+
+  cells <- out[["cells"]]
+  if (is.null(cells) || all(is.na(cells))) cells <- out[["cell_count"]]
+  if (!is.null(cells)) {
+    out <- out[order(cells, decreasing = TRUE, na.last = TRUE), , drop = FALSE]
+  }
+  front <- intersect(c("sample", "unit", "format", "cells", "tissue"), names(out))
+  out[c(front, setdiff(names(out), front))]
+}
+
 #' The readable units behind the manifest
 #'
 #' @param counts A `seqout_counts` handle from [seqout_counts()].
@@ -475,19 +539,106 @@ matrices <- function(counts, sample = NULL) {
   ))
 }
 
+#' Read a tar archive by extracting its matrix members and regrouping them
+#'
+#' GEO ships plenty of series as a single `_RAW.tar`, so the matrices are inside
+#' the archive rather than beside it. Extract the members that carry a role,
+#' then hand them back through `.group_units()` so a tar full of loose 10x
+#' triplets assembles exactly as it would have if GEO had listed those files
+#' individually. Extraction happens once; the marker directory is the cache.
+#'
+#' Mirrors the Python client's `SeqoutCounts._expand_tar()`.
+#'
+#' @param counts A seqout_counts object.
+#' @param unit The tar unit to expand.
+#'
+#' @return The preferred unit found inside the archive.
+#' @noRd
+.expand_tar <- function(counts, unit) {
+  .fetch_unit(counts, unit)
+  tar_path <- .unit_paths(counts, .unit_urls(unit))[1]
+  dest <- paste0(tar_path, ".extracted")
+
+  if (!dir.exists(dest)) {
+    members <- utils::untar(tar_path, list = TRUE)
+    members <- members[file_role(members) != "skip"]
+    if (length(members) == 0) {
+      cli::cli_abort("{basename(tar_path)}: no readable matrix inside.")
+    }
+    # Extract to a scratch directory and rename, so an interrupted run never
+    # leaves a half-populated dest that later runs would trust.
+    tmp <- tempfile("untar", tmpdir = counts$cache_dir)
+    utils::untar(tar_path, files = members, exdir = tmp)
+    file.rename(tmp, dest)
+  }
+
+  paths <- list.files(dest, recursive = TRUE, full.names = TRUE)
+  roles <- file_role(paths)
+  keep <- which(roles != "skip")
+  if (length(keep) == 0) {
+    cli::cli_abort("{basename(tar_path)}: no readable matrix inside.")
+  }
+
+  rows <- lapply(keep, function(i) {
+    name <- basename(paths[i])
+    gsm <- regmatches(name, regexpr("GSM[0-9]+", name))
+    list(
+      url = paths[i], role = roles[i],
+      sample = if (length(gsm)) gsm else NA_character_,
+      platform = NA_character_,
+      member = substring(paths[i], nchar(dest) + 2L),
+      name = name
+    )
+  })
+
+  units <- .group_units(.records_to_tibble(rows), counts$accession, counts$assay)
+  if (length(units) == 0) {
+    cli::cli_abort("{basename(tar_path)}: no readable matrix inside.")
+  }
+  preferred <- Filter(function(u) isTRUE(u$preferred), units)
+  if (length(preferred) > 0) {
+    units <- preferred
+  }
+  if (length(units) > 1) {
+    cli::cli_alert_info(
+      "{basename(tar_path)} holds {length(units)} units; reading the first
+       ({units[[1]]$label}). Extracted to {.path {dest}}."
+    )
+  }
+  units[[1]]
+}
+
+#' Is this a local path rather than something to download?
+#'
+#' Members extracted out of a tar carry their on-disk path where a remote file
+#' carries a URL, so both fetching and path resolution have to tell them apart.
+#' @noRd
+.is_local_path <- function(x) {
+  !grepl("^[A-Za-z][A-Za-z0-9+.-]*://", x)
+}
+
+#' @noRd
+.unit_paths <- function(counts, urls) {
+  ifelse(.is_local_path(urls), urls, file.path(counts$cache_dir, basename(urls)))
+}
+
 #' @noRd
 .fetch_unit <- function(counts, unit) {
-  .download_files(.unit_urls(unit), counts$cache_dir)
+  urls <- .unit_urls(unit)
+  .download_files(urls[!.is_local_path(urls)], counts$cache_dir)
 }
 
 #' @noRd
 .read_unit <- function(counts, unit) {
+  if (identical(unit$fmt, "tar")) {
+    return(.read_unit(counts, .expand_tar(counts, unit)))
+  }
   .fetch_unit(counts, unit)
   file_roles <- vapply(unit$files, function(f) f$role, character(1))
   file_urls <- vapply(unit$files, function(f) f$url, character(1))
   file_names <- vapply(unit$files, function(f) f$name, character(1))
   first_role <- !duplicated(file_roles)
-  by_role <- as.list(file.path(counts$cache_dir, basename(file_urls[first_role])))
+  by_role <- as.list(.unit_paths(counts, file_urls[first_role]))
   names(by_role) <- file_roles[first_role]
 
   parsed <- switch(unit$fmt,

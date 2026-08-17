@@ -122,7 +122,8 @@ summaries <- function(accessions, con = .con()) {
     .summaries_from_db(con, unname(resolved))
   } else {
     .records_to_tibble(.as_record_list(
-      .api_post(con, "/bulk/project-metadata",
+      .api_post(
+        con, "/bulk/project-metadata",
         list(accessions = as.list(unname(resolved)))
       )
     ))
@@ -166,5 +167,3 @@ summaries <- function(accessions, con = .con()) {
   }
   tibble::as_tibble(do.call(rbind, frames))
 }
-
-
