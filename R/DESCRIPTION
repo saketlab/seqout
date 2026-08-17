@@ -10,7 +10,7 @@ Authors@R: c(
 Description: Search and download genomics study metadata from 'Seqout'
     <https://seqout.org>, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ
     (DRA and GEA), ArrayExpress and GSA.
-License: MIT + file LICENSE
+License: BSD_3_clause + file LICENSE
 URL: https://github.com/saketlab/seqout, https://seqout.org, https://seqout.org/cli/R/
 BugReports: https://github.com/saketlab/seqout/issues
 Depends:

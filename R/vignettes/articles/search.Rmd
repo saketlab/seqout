@@ -156,9 +156,9 @@ nrow(SeqoutSearch("liver", assay_l1 = "Transcriptomic", date_from = "2025-01-01"
 
 ## The vocabulary behind a query
 
-An ordinary search matches concepts, not words: a query for `"liver"` also
-finds `"hepatic"`, because an ontology graph joins the two. `Ontology()` shows
-what the graph joins.
+An ordinary search matches concepts, not words: a query for `"masld"` also
+finds studies that say `"nonalcoholic fatty liver disease"`, because an
+ontology graph joins the two. `Ontology()` shows what the graph joins.
 
 ```{r ontology}
 onto <- Ontology("liver")

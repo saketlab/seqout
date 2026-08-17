@@ -86,8 +86,9 @@ Use the left and right arrow keys to change the page. Push `q` to quit.
 ## onto
 
 `onto` looks terms up in the ontology graph that the search expands queries
-with. A search for `liver` also finds `hepatic` because the graph joins them;
-this prints what it joins, and the source identifier behind each term.
+with. A search for `masld` also finds studies that say `nonalcoholic fatty
+liver disease`, because the graph joins them; this prints what it joins, and
+the source identifier behind each term.
 
 ```bash
 seqout onto liver

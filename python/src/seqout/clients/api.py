@@ -981,8 +981,9 @@ class SeqoutAPIClient(ShortNames):
         """
         Look one term up in the ontology graph seqout searches with.
 
-        This is the vocabulary behind a plain keyword search: "liver" also
-        finds "hepatic" because the graph joins them. The answer gives the
+        This is the vocabulary behind a plain keyword search: "masld" also
+        finds "nonalcoholic fatty liver disease" because the graph joins them.
+        The answer gives the
         source identifiers (UBERON, MeSH, HGNC, Cellosaurus), the synonyms that
         a search expands to, and the terms below it in the hierarchy.
 

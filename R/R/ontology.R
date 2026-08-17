@@ -27,8 +27,9 @@
 #' What the ontology graph knows about a term
 #'
 #' A plain keyword search does not match words, it matches concepts: a query
-#' for `"liver"` also finds `"hepatic"`, because an ontology graph joins the
-#' two. This function looks one term up in that graph.
+#' for `"masld"` also finds studies that say `"nonalcoholic fatty liver
+#' disease"`, because an ontology graph joins the two. This function looks one
+#' term up in that graph.
 #'
 #' The result gives the source identifiers behind the term (UBERON, MeSH, HGNC,
 #' Cellosaurus), the synonyms a search expands it to, and the terms below it in

@@ -42,7 +42,7 @@ template:
         },
         "url": "https://seqout.org/cli/R",
         "codeRepository": "https://github.com/saketlab/seqout",
-        "license": "https://opensource.org/licenses/MIT",
+        "license": "https://opensource.org/licenses/BSD-3-Clause",
         "softwareVersion": "0.2.1",
         "programmingLanguage": "R"
       }

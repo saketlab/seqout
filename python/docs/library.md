@@ -234,8 +234,9 @@ move before a limit counts.
 ## The ontology behind a search
 
 A plain keyword search does not match words, it matches concepts: a query for
-`liver` also finds `hepatic`, because an ontology graph joins the two.
-`ontology` looks one term up in that graph and reports what it knows.
+`masld` also finds studies that say `nonalcoholic fatty liver disease`, because
+an ontology graph joins the two. `ontology` looks one term up in that graph and
+reports what it knows.
 
 ```python
 with connect() as sq:

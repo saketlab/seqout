@@ -26,8 +26,8 @@ CURIEs) and \code{has_children}. The \code{synonym_total}, \code{children_trunca
 }
 \description{
 A plain keyword search does not match words, it matches concepts: a query
-for \code{"liver"} also finds \code{"hepatic"}, because an ontology graph joins the
-two. This function looks one term up in that graph.
+for \code{"masld"} also finds studies that say \code{"nonalcoholic fatty liver disease"}, because an ontology graph joins the two. This function looks one
+term up in that graph.
 }
 \details{
 The result gives the source identifiers behind the term (UBERON, MeSH, HGNC,

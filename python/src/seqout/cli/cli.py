@@ -323,9 +323,10 @@ def main() -> None:
         "onto",
         help="look terms up in the ontology graph the search expands with",
         description=(
-            "The vocabulary behind a keyword search: a query for 'liver' also "
-            "finds 'hepatic' because the graph joins them. Prints the source "
-            "identifiers, the synonyms, and the terms below each one."
+            "The vocabulary behind a keyword search: a query for 'masld' also "
+            "finds 'nonalcoholic fatty liver disease' because the graph joins "
+            "them. Prints the source identifiers, the synonyms, and the terms "
+            "below each one."
         ),
     )
     p_onto.add_argument(
