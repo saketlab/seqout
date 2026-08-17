@@ -31,6 +31,8 @@ SHARED_METHODS = [
     "fetch_microbes",
     "single_cell",
     "microbes",
+    "ontology",
+    "fetch_ontology_term",
 ]
 
 

@@ -92,7 +92,6 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Command line: cli.md
-  - Metadata normalization: normalization.md
   - Python library: library.md
   - Parquet backend: parquet.md
   - Reference:

@@ -37,6 +37,10 @@ to drop one, which turned a typo into an unfiltered search that looked filtered.
 
 ::: seqout.models.cohort_models.Microbes
 
+::: seqout.models.api_models.OntologyTerm
+
+::: seqout.models.api_models.OntologyName
+
 ::: seqout.models.api_models.SearchResults
 
 ::: seqout.models.models.BaseContainer

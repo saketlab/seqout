@@ -154,6 +154,57 @@ A date bound works with any other filter.
 nrow(SeqoutSearch("liver", assay_l1 = "Transcriptomic", date_from = "2025-01-01"))
 ```
 
+## The vocabulary behind a query
+
+An ordinary search matches concepts, not words: a query for `"liver"` also
+finds `"hepatic"`, because an ontology graph joins the two. `Ontology()` shows
+what the graph joins.
+
+```{r ontology}
+onto <- Ontology("liver")
+onto
+```
+
+The first row is the term. The rows after it are its synonyms, which a search
+also matches, and then the terms below it in the hierarchy.
+
+`xrefs` is a list column, because one term can carry an identifier from more
+than one ontology. The prefix names the source: UBERON, MeSH, MONDO, HGNC or
+Cellosaurus.
+
+```{r ontology-xrefs}
+onto$xrefs[[1]]
+```
+
+A child with `has_children` set expands further.
+
+```{r ontology-children}
+kids <- onto[onto$relation == "child" & onto$has_children, "name"]
+head(kids, 5)
+```
+
+The server caps the synonyms at 500 and the children at 300. The
+`synonym_total` attribute gives the true count, and `children_truncated` says
+whether the children hit the cap.
+
+```{r ontology-attrs}
+attr(onto, "synonym_total")
+attr(onto, "children_truncated")
+```
+
+`max_hops` bounds the walk over the synonym links. Set `children = FALSE` to
+skip the hierarchy, which is much cheaper when you want the identifiers only.
+
+```{r ontology-cheap}
+Ontology("breast cancer", children = FALSE)$xrefs[[1]]
+```
+
+A term that the graph does not hold gives an empty tibble, not an error.
+
+```{r ontology-missing}
+nrow(Ontology("not a real term at all"))
+```
+
 ## Sort order
 
 Results come back by relevance. `sortby` takes `"citations"`, `"journal"` and

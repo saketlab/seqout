@@ -83,6 +83,47 @@ so you know how much there is before you start paging:
 
 Use the left and right arrow keys to change the page. Push `q` to quit.
 
+## onto
+
+`onto` looks terms up in the ontology graph that the search expands queries
+with. A search for `liver` also finds `hepatic` because the graph joins them;
+this prints what it joins, and the source identifier behind each term.
+
+```bash
+seqout onto liver
+```
+
+```
+                  liver — 3 synonym(s), 35 child(ren)
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ relation ┃ term                       ┃ identifiers                  ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ term     │ liver                      │ UBERON:0002107, MeSH:D008099 │
+│ synonym  │ iecur                      │ UBERON:0002107               │
+│ synonym  │ livers                     │ MeSH:D008099                 │
+│ child    │ bile ducts, intrahepatic ▸ │ MeSH:D001653                 │
+│ child    │ biliary ductule            │ UBERON:0004058               │
+└──────────┴────────────────────────────┴──────────────────────────────┘
+▸ marks a term that expands further · identifiers are source CURIEs
+```
+
+Identifiers are source CURIEs — `UBERON:0002107`, `MeSH:D008099`, `HGNC:5`,
+`CVCL_0030` — so the prefix names the ontology the term came from. A `▸` marks
+a child with children of its own.
+
+Several terms in one call each get their own table, and one the graph does not
+have is reported rather than treated as a failure:
+
+```bash
+seqout onto liver hpv16 "breast cancer"
+```
+
+| Option | Effect |
+| --- | --- |
+| `--hops` | How far to walk the synonym links, 1 to 4 (default: 2). It bounds the synonyms only; children are always direct children. |
+| `--no-children` | Skip the children, which is much faster when the identifiers are all you want. |
+| `-m`, `--max` | Synonyms and children listed per term (default: 25). |
+
 ## bams
 
 `bams` lists the alignment files a submitter sent for a study. These are not
@@ -293,9 +334,3 @@ For more information about Parquet sources, see
 The `parquet` subcommand manages the Parquet data dump. It has four commands:
 `download`, `query`, `show`, and `set-source`. See
 [Parquet backend](parquet.md).
-
-## Normalize sample metadata
-
-The `--norm` top-level option turns a project's raw sample metadata into
-structured labels with a local model. See
-[Metadata normalization](normalization.md).

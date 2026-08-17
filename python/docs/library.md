@@ -231,6 +231,54 @@ because the endpoint those filters select has neither parameter. Those calls
 read every page before they answer, since a row that moves in Python has to
 move before a limit counts.
 
+## The ontology behind a search
+
+A plain keyword search does not match words, it matches concepts: a query for
+`liver` also finds `hepatic`, because an ontology graph joins the two.
+`ontology` looks one term up in that graph and reports what it knows.
+
+```python
+with connect() as sq:
+    term = sq.ontology("liver")
+
+term.xrefs           # ['UBERON:0002107', 'MeSH:D008099'] -- the source IDs
+term.sources         # ['MeSH', 'UBERON'] -- the ontologies they come from
+term.synonyms        # what a search for "liver" also matches
+term.synonym_total   # how many there are, which can exceed len(synonyms)
+term.children        # the terms below it: 'caudate lobe of liver', ...
+```
+
+Each synonym and each child carries its own `xrefs`, and a child says whether
+it can expand further:
+
+```python
+for child in term.children:
+    print(child.name, child.xrefs, "▸" if child.has_children else "")
+```
+
+A term the graph does not have answers `None`, not an error, so a loop over
+many words does not stop at the first one it misses.
+
+```python
+known = [t for t in map(sq.ontology, words) if t is not None]
+```
+
+`max_hops` (1 to 4, default 2) bounds the walk over the synonym links only.
+Children are always the direct children of the resulting synonym cluster, at
+any `max_hops`. Pass `children=False` to skip the children query, which is much
+cheaper when the identifiers are all you want.
+
+```python
+sq.ontology("breast cancer", max_hops=1, children=False)
+```
+
+The server caps synonyms at 500 and children at 300. `synonym_total` gives the
+true synonym count, and `children_truncated` says whether the children hit
+their cap.
+
+It reads the REST API and says so on a Parquet client: the ontology graph is a
+separate database and is not in the dump.
+
 ## Find publications and authors
 
 ```python

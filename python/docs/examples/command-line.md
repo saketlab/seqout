@@ -55,14 +55,6 @@ seqout pmid 10.1038/ng.2214
 seqout author "Aviv Regev"
 ```
 
-## Normalize sample metadata
-
-```bash
-seqout --norm GSE12345
-```
-
-See [Metadata normalization](../normalization.md) for the model options.
-
 ## Parquet backend (offline)
 
 ```bash

@@ -105,10 +105,6 @@ The shorthands cover GEO, SRA, ENA, and DDBJ prefixes in both directions, plus p
 | Command | Description |
 | --- | --- |
 | `seqout --enriched <accession>` | Structured labels seqout.org has already prepared |
-| `seqout --norm <accession>` | Produce the same labels locally with a language model |
-
-`--norm` runs entirely on your machine and takes `--model engine/model`, `--port`, and
-`--base-url`. See [metadata normalization](docs/normalization.md).
 
 ### Parquet backend
 

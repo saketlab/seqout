@@ -319,6 +319,42 @@ def main() -> None:
         help="rows to list (default: 20). Does not limit a download",
     )
 
+    p_onto = sub.add_parser(
+        "onto",
+        help="look terms up in the ontology graph the search expands with",
+        description=(
+            "The vocabulary behind a keyword search: a query for 'liver' also "
+            "finds 'hepatic' because the graph joins them. Prints the source "
+            "identifiers, the synonyms, and the terms below each one."
+        ),
+    )
+    p_onto.add_argument(
+        "terms", nargs="+", help="one or more terms, e.g. liver 'HPV16'"
+    )
+    p_onto.add_argument(
+        "--hops",
+        dest="max_hops",
+        type=int,
+        default=2,
+        metavar="N",
+        help="how far to walk the synonym links, 1-4 (default: 2)",
+    )
+    p_onto.add_argument(
+        "--no-children",
+        dest="children",
+        action="store_false",
+        help="skip the hierarchy children, which is much faster",
+    )
+    p_onto.add_argument(
+        "-m",
+        "--max",
+        dest="max_rows",
+        type=int,
+        default=25,
+        metavar="N",
+        help="synonyms and children to list per term (default: 25)",
+    )
+
     p_search = sub.add_parser(
         "search",
         help="full-text search for projects",
@@ -622,6 +658,9 @@ def main() -> None:
             structured=args.structured,
         ),
         "bams": lambda: cmd_bams(args.accession, args.out, args.max_rows, args.save_to),
+        "onto": lambda: cmd_onto(
+            args.terms, args.max_hops, args.max_rows, children=args.children
+        ),
         "show": lambda: cmd_show(
             args.accession,
             parquet=args.parquet is not None,
@@ -1354,6 +1393,67 @@ def _bams_table(
             "[green]yes[/]" if b.open_url else "[yellow]requester-pays[/]",
         )
     return table
+
+
+def _onto_table(term: Any, max_rows: int) -> Table:
+    """One term's synonyms and children, each with the identifiers it carries."""
+    children = term.children or []
+    table = Table(
+        title=f"{term.name} — {term.synonym_total} synonym(s), "
+        + (
+            f"{len(children)}{'+' if term.children_truncated else ''} child(ren)"
+            if term.children is not None
+            else "children not fetched"
+        ),
+        title_style="bold",
+        header_style="bold green",
+    )
+    table.add_column("relation", no_wrap=True)
+    table.add_column("term", style="bold cyan", overflow="fold")
+    table.add_column("identifiers", overflow="fold", ratio=2)
+    table.add_row("[bold]term[/]", term.name, ", ".join(term.xrefs) or "—")
+    for kind, rows in (("synonym", term.synonyms), ("child", children)):
+        for row in rows[:max_rows]:
+            table.add_row(
+                f"[dim]{kind}[/]",
+                row.name + (" [dim]▸[/]" if row.has_children else ""),
+                ", ".join(row.xrefs) or "[dim]—[/]",
+            )
+        if len(rows) > max_rows:
+            table.add_row(
+                f"[dim]{kind}[/]", f"[dim]… {len(rows) - max_rows} more[/]", ""
+            )
+    return table
+
+
+def cmd_onto(terms: list[str], max_hops: int, max_rows: int, *, children: bool) -> None:
+    """Look terms up in the ontology graph that the search expands queries with."""
+    console = Console()
+    found = 0
+    try:
+        with connect_to_seqout(backend="api") as sq:
+            with console.status("[bold]Reading the ontology graph…[/]"):
+                looked_up = [
+                    (t, sq.ontology(t, max_hops, children=children)) for t in terms
+                ]
+            renderables: list[object] = []
+            for asked, term in looked_up:
+                if term is None:
+                    console.print(f"[yellow]{asked!r} is not in the ontology graph.[/]")
+                    continue
+                found += 1
+                renderables.append(_onto_table(term, max_rows))
+            if renderables:
+                _page(console, *renderables)
+                console.print(
+                    "[dim]▸ marks a term that expands further · "
+                    "identifiers are source CURIEs[/]"
+                )
+    except Exception as e:
+        console.print(f"[red]Failed:[/] {e}")
+        raise SystemExit(1) from e
+    if not found:
+        raise SystemExit(1)
 
 
 def _experiment_titles(sq: Any, accession: str) -> dict[str, str]:

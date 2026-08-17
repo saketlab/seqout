@@ -883,3 +883,44 @@ class GeoSampleDetailedMetadata(BaseModel):
     sample_type: str
     project: ProjectMetadataResult
     sample: ExperimentSample
+
+
+class OntologyName(BaseModel):
+    """One term in the ontology graph and the source IDs it carries."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    # Source CURIEs: UBERON:0002107, MeSH:D008099, HGNC:5, CVCL_0030.
+    xrefs: list[str] = []
+    # Sent for children only; a synonym is the same node, so it never has any.
+    has_children: bool = False
+
+
+class OntologyTerm(BaseModel):
+    """
+    What the ontology graph knows about one term.
+
+    `synonyms` is the MAPS_TO cluster reached within `max_hops`. `children` are
+    the DIRECT hierarchy children of that whole cluster, or None when the
+    lookup asked to skip them. Both are capped by the server: compare
+    `synonym_total` against `len(synonyms)`, and read `children_truncated`.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    xrefs: list[str] = []
+    has_children: bool = False
+    synonyms: list[OntologyName] = []
+    synonym_total: int = 0
+    children: list[OntologyName] | None = None
+    children_truncated: bool = False
+    max_hops: int | None = None
+    took_ms: float | None = None
+
+    @property
+    def sources(self) -> list[str]:
+        """The ontologies behind this term: the prefix of each xref, deduped."""
+        seen = {x.split(":")[0].split("_")[0] for x in self.xrefs}
+        return sorted(seen)

@@ -62,9 +62,3 @@ uv tool install "seqout[counts]"   # the command-line tool
 uv add "seqout[counts]"            # a project
 pip install "seqout[counts]"
 ```
-
-Some commands need extra software:
-
-- The `--norm` option runs a local language model. It needs a model server,
-  such as Ollama, llama.cpp, or LM Studio.
-

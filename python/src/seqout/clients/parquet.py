@@ -808,6 +808,14 @@ class SeqoutParquetClient(ShortNames):
         )
         raise SeqoutError(msg)
 
+    def fetch_ontology_term(self, term: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Not available on this backend: the ontology graph is not in the dump."""
+        msg = (
+            "fetch_ontology_term reads the REST API; this client is Parquet. "
+            "The ontology graph is a separate database and is not in the dump."
+        )
+        raise SeqoutError(msg)
+
     def fetch_bams(self, accession: str) -> BamFiles:  # noqa: ARG002
         """
         Not available on this backend: alignment files come from the REST API.

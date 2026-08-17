@@ -66,6 +66,10 @@ Manifest <- manifest
 #' @export
 Matrices <- matrices
 
+#' @rdname ontology
+#' @export
+Ontology <- ontology
+
 #' @rdname project_single_cell
 #' @export
 ProjectSingleCell <- project_single_cell

@@ -382,6 +382,10 @@ class ShortNames:
         """BibTeX for the papers behind a dataset. Empty when there are none."""
         return _call(self, "fetch_citations", accession, type=type)
 
+    def ontology(self, term: str, max_hops: int = 2, **kwargs: Any) -> Any:
+        """Look a term up in the ontology graph. None when it is not there."""
+        return _call(self, "fetch_ontology_term", term, max_hops, **kwargs)
+
     def summaries(self, accessions: list[str]) -> ProjectSummaryResultList:
         """Title / description / organisms for many projects in one request."""
         return _call(self, "bulk_fetch_project_summary", accessions)

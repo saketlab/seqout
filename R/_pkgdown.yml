@@ -117,6 +117,7 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
+  - ontology
   - sample_search
   - project_single_cell
   - sample_microbes

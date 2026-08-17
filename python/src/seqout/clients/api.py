@@ -46,6 +46,7 @@ from seqout.models.api_models import (
     ExperimentRunsResponse,
     ExperimentSampleList,
     GeoSampleDetailedMetadata,
+    OntologyTerm,
     ProjectCrossReferenceList,
     ProjectCrossReferenceResponse,
     ProjectLLMEnrichedSampleMetadataResponse,
@@ -968,6 +969,42 @@ class SeqoutAPIClient(ShortNames):
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == _NOT_FOUND:
                 return ""  # "no publications found" is an answer, not a failure
+            raise
+
+    def fetch_ontology_term(
+        self,
+        term: str,
+        max_hops: int = 2,
+        *,
+        children: bool = True,
+    ) -> OntologyTerm | None:
+        """
+        Look one term up in the ontology graph seqout searches with.
+
+        This is the vocabulary behind a plain keyword search: "liver" also
+        finds "hepatic" because the graph joins them. The answer gives the
+        source identifiers (UBERON, MeSH, HGNC, Cellosaurus), the synonyms that
+        a search expands to, and the terms below it in the hierarchy.
+
+        A term the graph does not have answers None, not an error, so a loop
+        over many words does not stop at the first one it misses.
+
+        Args:
+            term: The word or phrase to look up. Case does not matter.
+            max_hops: How far to walk the synonym links, 1 to 4. Bounds the
+                synonyms only -- children are always direct children.
+            children: Set False to skip the children, which is much cheaper.
+
+        """
+        try:
+            return self._sender(
+                url=f"{self._base_url}/ontology/term",
+                params={"term": term, "max_hops": max_hops, "children": children},
+                response_model=OntologyTerm,
+            )
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
+                return None
             raise
 
     def download_project_supplementary_data(
