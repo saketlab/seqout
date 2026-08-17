@@ -216,6 +216,48 @@ class Dataset:
         return self._sq.fetch_study_runs(study, full=True)
 
     @cached_property
+    def supplementary(self) -> Any:
+        """
+        The processed files a submitter uploaded: matrices, annotations, archives.
+
+        A series or study lists its own files and every sample's; `sample` is
+        None on the ones the series carries itself. A GEO sample lists only its
+        own, because reading them through the series would ask for a parent the
+        archive does not always serve and would answer with the whole series.
+
+        Read this before downloading. GEO writes a literal "NONE" for a sample
+        with no files, so an entry without a URL is dropped rather than turned
+        into a row that cannot be fetched.
+        """
+        from seqout.models.api_models import (  # noqa: PLC0415 - cycle
+            SupplementaryFile,
+            SupplementaryFiles,
+        )
+
+        def rows(raw: Any, sample: str | None) -> list:
+            if not raw:
+                return []
+            entries = raw if isinstance(raw, (list, tuple)) else [raw]
+            found = (SupplementaryFile.from_record(e, sample) for e in entries)
+            return [f for f in found if f is not None]
+
+        if self.kind == "sample":
+            record = getattr(self.detail, "sample", None) or self.detail
+            return SupplementaryFiles(
+                rows(getattr(record, "supplementary_data", None), self.accession)
+            )
+
+        out = rows(getattr(self.meta, "supplementary_data", None), None)
+        for sample in getattr(self.samples, "root", self.samples) or []:
+            out.extend(
+                rows(
+                    getattr(sample, "supplementary_data", None),
+                    getattr(sample, "accession", None),
+                )
+            )
+        return SupplementaryFiles(out)
+
+    @cached_property
     def bams(self) -> Any:
         """
         The alignment files the submitter sent, where there are any.

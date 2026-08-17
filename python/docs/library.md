@@ -338,6 +338,38 @@ and reagent and skin organisms are excluded unless `include_background=True`.
 All three read the REST API and say so on a Parquet client: neither the
 harmonised sample table nor the Pentimento tables are in the dump.
 
+## Supplementary files
+
+`Dataset.supplementary` lists the processed files a submitter uploaded: count
+matrices, annotations, archives. Read it before downloading — a GEO series can
+run to tens of gigabytes.
+
+```python
+with connect() as sq:
+    files = sq.get("GSE168652").supplementary
+
+    len(files)          # 3
+    files.series        # the ones the series carries itself
+    files.per_sample    # the ones belonging to one sample
+```
+
+`sample` is `None` on the series' own files and the accession on the rest. A
+GEO sample lists only its own, since reading them through the series would ask
+for a parent the archive does not always serve and would answer with the whole
+series:
+
+```python
+sq.get("GSM5155196").supplementary   # 1 file, that sample's
+```
+
+GEO writes a literal `"NONE"` for a sample that carries no files, so entries
+without a URL are dropped rather than turned into rows that cannot be fetched.
+SRA, ENA, DDBJ and GSA studies hold no processed files of their own and answer
+empty; their files live in the linked GEO or ArrayExpress record.
+
+To fetch them, `download_project_supplementary_data` takes the project metadata
+and a directory.
+
 ## Alignment files
 
 `Dataset.bams` lists the BAMs a submitter sent. These are not the reads: they

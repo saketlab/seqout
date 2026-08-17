@@ -142,3 +142,82 @@ class TestParquetRefuses:
         pq = SeqoutParquetClient.__new__(SeqoutParquetClient)
         with pytest.raises(SeqoutError, match="REST API"):
             getattr(pq, method)(**kwargs)
+
+
+class TestSupplementary:
+    """The processed files a submitter uploaded, listed before they are fetched."""
+
+    @pytest.fixture(autouse=True)
+    def _patch(self, monkeypatch):
+        # monkeypatch, not a bare assignment: Dataset is shared, and a property
+        # left on the class leaks into every other test in the run.
+        self._monkeypatch = monkeypatch
+
+    def _dataset(self, accession, *, meta=None, samples=None, detail=None):
+        from seqout.dataset import Dataset
+
+        class Client:
+            pass
+
+        for name, value in (
+            ("meta", meta),
+            ("samples", samples or []),
+            ("detail", detail),
+        ):
+            self._monkeypatch.setattr(
+                Dataset, name, property(lambda self, v=value: v), raising=False
+            )
+        return Dataset(Client(), accession)
+
+    def _record(self, **kw):
+        return type("Rec", (), kw)()
+
+    def test_a_series_lists_its_own_and_every_sample_s(self):
+        d = self._dataset(
+            "GSE1",
+            meta=self._record(supplementary_data=[("ftp://x/series.tar", "TAR")]),
+            samples=[
+                self._record(accession="GSM1", supplementary_data=["ftp://x/a.gz"]),
+                self._record(accession="GSM2", supplementary_data=["ftp://x/b.gz"]),
+            ],
+        )
+        out = d.supplementary
+        assert [f.file for f in out] == ["series.tar", "a.gz", "b.gz"]
+        # None on the series' own files is what tells them apart.
+        assert [f.sample for f in out.series] == [None]
+        assert [f.sample for f in out.per_sample] == ["GSM1", "GSM2"]
+
+    def test_the_type_survives_when_the_archive_gives_one(self):
+        d = self._dataset(
+            "GSE1", meta=self._record(supplementary_data=[("ftp://x/s.tar", "TAR")])
+        )
+        assert d.supplementary.root[0].type == "TAR"
+
+    def test_geos_literal_none_is_not_a_file(self):
+        # GEO records {"#text": "NONE"} for a sample that carries nothing.
+        d = self._dataset(
+            "GSE1",
+            meta=self._record(supplementary_data=None),
+            samples=[
+                self._record(
+                    accession="GSM1",
+                    supplementary_data=[{"#text": "NONE", "@type": "unknown"}],
+                )
+            ],
+        )
+        assert len(d.supplementary) == 0
+
+    def test_a_sample_lists_only_its_own(self):
+        # Reading them through the series would answer with the whole series.
+        d = self._dataset(
+            "GSM1",
+            detail=self._record(
+                sample=self._record(supplementary_data=["ftp://x/mine.gz"])
+            ),
+        )
+        out = d.supplementary
+        assert [(f.sample, f.file) for f in out] == [("GSM1", "mine.gz")]
+
+    def test_a_study_with_no_files_is_empty_not_an_error(self):
+        d = self._dataset("SRP1", meta=self._record(supplementary_data=None))
+        assert len(d.supplementary) == 0

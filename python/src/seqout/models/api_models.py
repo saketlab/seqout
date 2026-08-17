@@ -281,6 +281,53 @@ class SearchResponse(BaseModel):
         return SearchResults(self.results)
 
 
+class SupplementaryFile(BaseModel):
+    """
+    One processed file a submitter uploaded, and which record carries it.
+
+    `sample` is None on the files the series carries itself; the rest belong to
+    one sample. `type` is what the archive called it and is often absent.
+    """
+
+    sample: str | None = None
+    file: str | None = None
+    type: str | None = None
+    url: str
+
+    @classmethod
+    def from_record(cls, raw: Any, sample: str | None) -> SupplementaryFile | None:
+        """
+        Read one entry, whatever shape the archive wrote it in.
+
+        GEO writes a bare URL, a (url, type) pair, or the literal string
+        "NONE" for a sample that carries no files, so anything without a scheme
+        is dropped rather than turned into a row that cannot be fetched.
+        """
+        url, kind = (raw, None) if isinstance(raw, str) else (None, None)
+        if isinstance(raw, (list, tuple)) and raw:
+            url, kind = raw[0], (raw[1] if len(raw) > 1 else None)
+        elif isinstance(raw, dict):
+            url = raw.get("#text") or raw.get("url")
+            kind = raw.get("@type") or raw.get("type")
+        if not isinstance(url, str) or "://" not in url:
+            return None
+        return cls(sample=sample, file=url.rsplit("/", 1)[-1], type=kind, url=url)
+
+
+class SupplementaryFiles(BaseContainer[SupplementaryFile]):
+    """Every processed file of a dataset, the series' own and its samples'."""
+
+    @property
+    def series(self) -> list[SupplementaryFile]:
+        """The files the series carries itself."""
+        return [f for f in self.root if f.sample is None]
+
+    @property
+    def per_sample(self) -> list[SupplementaryFile]:
+        """The files that belong to one sample."""
+        return [f for f in self.root if f.sample is not None]
+
+
 class BamFile(BaseModel):
     """
     One alignment file a submitter sent, and where it can be read.

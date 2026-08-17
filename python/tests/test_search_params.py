@@ -574,9 +574,12 @@ class TestBamsNarrowing:
             def fetch_bams(self, study):
                 return rows
 
-        d = Dataset(Client(), accession)
-        type(d).sra = property(lambda self: "SRP1")
-        return d
+        # monkeypatch would be cleaner, but this class is only ever read here;
+        # the subclass keeps the patch off the shared Dataset.
+        class Narrowed(Dataset):
+            sra = property(lambda self: "SRP1")
+
+        return Narrowed(Client(), accession)
 
     def test_a_study_keeps_every_file(self):
         assert [b.filename for b in self._dataset("SRP1").bams.root] == [
