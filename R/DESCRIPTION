@@ -1,6 +1,6 @@
 Package: seqout
 Title: Client for Querying the 'SeqOut' Genomics Metadata Database
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Saket", "Choudhary", role = c("aut", "cre"),
            email = "saketc@iitb.ac.in",
