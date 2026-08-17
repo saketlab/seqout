@@ -34,10 +34,44 @@ Common options:
 | `-O`, `--organism` | Filter by an exact scientific name, such as `"Homo sapiens"`. |
 | `-S`, `--strategy` | Filter by library strategy, such as `RNA-Seq` (GEO and SRA only). |
 | `-P`, `--platform` | Filter by platform, such as `ILLUMINA` (GEO and SRA only). |
+| `-C`, `--source` | Filter by library source, such as `TRANSCRIPTOMIC` (SRA only). |
+| `--country` | Filter by the study's country, such as `Japan`. |
+| `--journal` | Filter by the linked paper's journal, such as `Nature`. |
+| `--instrument` | Filter by instrument, such as `"Illumina NovaSeq 6000"`. |
+| `--assay` | Filter by assay method: `RNA-seq`, `ATAC-seq`, `ChIP-seq`, and so on. |
+| `--assay-class` | Filter by broad assay class, such as `Transcriptomic`. |
+| `--multi-platform` | Keep only studies that used two or more platforms. |
+| `--exact` | Read the query as a boolean expression. See below. |
 | `-d`, `--date` | Filter by date. Use `2020`, `15-08-2020`, or a range like `2018:2022`. |
 | `--sort` | Sort by `citations`, `journal`, or `year`. |
 | `-m`, `--max` | Stop after this many results. |
 | `-o`, `--saveto` | Write the results to a file. The format comes from the file extension: `.json`, `.tsv`, or `.csv`. |
+
+The filters combine, and each one works with a query or without one:
+
+```bash
+seqout search liver --assay ATAC-seq --sort citations -m 10
+seqout search liver --country Japan --instrument "Illumina NovaSeq 6000"
+```
+
+### Structured search
+
+A query can be a boolean expression. Group terms with `()`, quote a phrase with
+`""`, end a term with `*` to match its prefix, and join them with an uppercase
+`OR`, `AND` or `NOT`. Quote the whole query so the shell does not read the
+parentheses itself:
+
+```bash
+seqout search '("aging" OR "aged") (gut OR colon) immun*'
+```
+
+A structured search takes your terms exactly, with no ontology expansion and no
+spelling correction. The operators select that reading on their own; `--exact`
+forces it on a query that has no operators of its own:
+
+```bash
+seqout search "liver cancer" --exact
+```
 
 On a terminal, the search shows one page of results. Use the left and right
 arrow keys to change the page. Push `q` to quit.

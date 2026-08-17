@@ -39,6 +39,7 @@ from seqout.clients.parquet import (
     SeqoutParquetClient,
 )
 from seqout.constants import PARQUET_DUMP_BASE_URL
+from seqout.search_plan import apply_plan, plan_search
 from seqout.models.api_models import (
     ExperimentSample,
     SearchCorrection,
@@ -326,6 +327,50 @@ def main() -> None:
         help="filter by library source, e.g. GENOMIC TRANSCRIPTOMIC (SRA only)",
     )
     p_search.add_argument(
+        "--country",
+        nargs="+",
+        metavar="NAME",
+        help="filter by the study's country, e.g. Japan",
+    )
+    p_search.add_argument(
+        "--journal",
+        nargs="+",
+        metavar="NAME",
+        help="filter by the linked paper's journal, e.g. Nature",
+    )
+    p_search.add_argument(
+        "--instrument",
+        dest="instrument_model",
+        nargs="+",
+        metavar="MODEL",
+        help='filter by instrument, e.g. "Illumina NovaSeq 6000"',
+    )
+    p_search.add_argument(
+        "--multi-platform",
+        dest="multi_platform",
+        action="store_true",
+        help="only studies that used two or more platforms",
+    )
+    p_search.add_argument(
+        "--assay",
+        dest="assay_l2",
+        metavar="ASSAY",
+        help="filter by assay method, e.g. RNA-seq ATAC-seq ChIP-seq",
+    )
+    p_search.add_argument(
+        "--assay-class",
+        dest="assay_l1",
+        metavar="CLASS",
+        help='filter by broad assay class, e.g. Transcriptomic',
+    )
+    p_search.add_argument(
+        "--exact",
+        dest="structured",
+        action="store_true",
+        help="read the query as a boolean expression and take its terms "
+        'exactly: no ontology expansion. Supports (), "", * and OR/AND/NOT',
+    )
+    p_search.add_argument(
         "-o",
         "--saveto",
         dest="save_to",
@@ -530,6 +575,13 @@ def main() -> None:
             args.platform,
             args.library_source,
             args.save_to,
+            args.country,
+            args.journal,
+            args.instrument_model,
+            args.multi_platform,
+            args.assay_l1,
+            args.assay_l2,
+            args.structured,
         ),
         "show": lambda: cmd_show(
             args.accession,
@@ -1094,30 +1146,45 @@ def cmd_search(
     platform: list[str] | None = None,
     library_source: list[str] | None = None,
     save_to: Path | None = None,
+    country: list[str] | None = None,
+    journal: list[str] | None = None,
+    instrument_model: list[str] | None = None,
+    multi_platform: bool = False,
+    assay_l1: str | None = None,
+    assay_l2: str | None = None,
+    structured: bool = False,
 ) -> None:
     console = Console()
     date_from, date_to = date_range or (None, None)
-    if not query and not any(
-        [db, organism, library_strategy, platform, library_source, date_range],
-    ):
+    filters = {
+        "db": db,
+        "organism": organism,
+        "library_strategy": library_strategy,
+        "library_source": library_source,
+        "platform": platform,
+        "country": country,
+        "journal": journal,
+        "instrument_model": instrument_model,
+        "multi_platform": multi_platform or None,
+        "assay_l1": assay_l1,
+        "assay_l2": assay_l2,
+        "date_from": date_from.isoformat() if date_from else None,
+        "date_to": date_to.isoformat() if date_to else None,
+    }
+    if not query and not any(filters.values()):
         console.print(
             "[red]Provide a search query or at least one filter[/] "
-            "(-O/-S/-P/-C/-d/--db).",
+            "(-O/-S/-P/-C/-d/--db/--country/--journal/--assay).",
         )
         raise SystemExit(1)
     label = query or "(filter-only)"  # query is optional in query-less search
     try:
-        params = SearchParams(
-            q=query,
-            db=db,
-            organism=organism,
-            library_strategy=library_strategy,
-            library_source=library_source,
-            platform=platform,
-            sortby=sortby,
-            date_from=date_from.isoformat() if date_from else None,
-            date_to=date_to.isoformat() if date_to else None,
+        # plan_search picks the endpoint from the filters and says what is left
+        # for the client to do, so the command line never names an endpoint.
+        plan = plan_search(
+            query, sortby=sortby, structured=structured or None, **filters
         )
+        params = plan.params
     except Exception as e:
         console.print(f"[red]Invalid query:[/] {e}")
         raise SystemExit(1) from e
@@ -1126,6 +1193,10 @@ def cmd_search(
         with connect_to_seqout(backend="api") as sq:
             # Page 0 carries spelling correction while later pages carry only results.
             correction, it = sq.search_with_correction(params)
+            if plan.has_local_work:
+                # The endpoint the filters chose has no sortby and no day
+                # bounds; apply them here rather than lose them.
+                it = iter(apply_plan(it, plan))
             _print_correction(console, correction)
             augmented = correction and correction.mode == "augmented"
             if augmented and correction.extra_results:

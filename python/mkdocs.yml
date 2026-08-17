@@ -14,9 +14,6 @@ theme:
   favicon: assets/favicon.svg
   icon:
     repo: fontawesome/brands/github
-  font:
-    text: Geist
-    code: Geist Mono
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default

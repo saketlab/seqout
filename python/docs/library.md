@@ -142,6 +142,93 @@ with connect() as sq:
         print(r.accession)
 ```
 
+### The filters
+
+Every filter works with a query and without one, and the filters combine.
+
+| Filter | What it selects |
+| --- | --- |
+| `db`, `source` | one archive |
+| `organism` | the organism of the study |
+| `library_strategy`, `library_source`, `platform`, `instrument_model` | how the library was made and read |
+| `assay_l1`, `assay_l2` | the assay class and the method |
+| `country`, `geo_country`, `geo_city`, `geo_state`, `geo_lat`, `geo_lng`, `geo_radius_km` | where the study comes from |
+| `journal` | the journal of the linked paper |
+| `multi_platform` | studies that used two or more platforms |
+| `date_from`, `date_to` | when the record last changed |
+| `published_after`, `published_before` | when the study was released |
+| `pub_date_after`, `pub_date_before` | when the linked paper was published |
+| `sample_tissue`, `sample_disease`, `sample_cell_type` | studies with a matching sample |
+
+Two endpoints answer a search and they take different filters, but you do not
+have to know which is which: the filters choose. A name that is not a filter is
+refused rather than ignored, so a typo cannot return an unfiltered search that
+looks filtered.
+
+```python
+sq.search("liver", organsim="Homo sapiens")
+# ValidationError: organsim - Extra inputs are not permitted
+```
+
+There is one exception to combining freely. `library_source` cannot be used
+together with `assay_l1`, `assay_l2` or a `geo_*` filter, because no search
+answers both.
+
+`year_from`, `year_to` and `center` are gone. The two year bounds meant the
+publication year on one endpoint and the last-updated year on the other, so use
+`date_from`/`date_to` for the record's date and `published_after`/
+`published_before` for the study's release date. `center` was ignored by the
+full-text search; every result row carries `center_name`, so filter on that.
+
+### Structured search
+
+A query can be a boolean expression rather than a bag of words. Group terms
+with `()`, quote a phrase with `""`, end a term with `*` to match its prefix,
+and join them with an uppercase `OR`, `AND` or `NOT`.
+
+```python
+sq.search('("aging" OR "aged") (gut OR colon) immun*')
+```
+
+Adjacent terms are joined with an implicit `AND`. A structured search takes
+your terms exactly: the ordinary search expands a query through the ontology
+graph and corrects a likely typo, and this one does neither.
+
+The operators are what selects this reading, so you do not have to ask for it,
+and only uppercase counts — `"colon or gut"` is prose. Pass `structured=True`
+to force the exact reading on a query with no operators of its own.
+
+```python
+sq.search("liver cancer")                     # expanded and corrected
+sq.search("liver cancer", structured=True)    # exactly these terms
+```
+
+Only the full-text search reads operators, so a boolean query combined with
+`assay_l1`, `assay_l2` or a `geo_*` filter is refused rather than silently read
+as words.
+
+### Sorting and paging
+
+`sortby` takes `"citations"`, `"journal"` or `"year"`, and `order` takes
+`"desc"` (the default) or `"asc"`. Both work with every filter.
+
+```python
+sq.search("hepatocellular carcinoma", sortby="citations")
+```
+
+`search` returns one page of 200 results. `iter_search` follows the cursor
+through every page, and takes a `limit`:
+
+```python
+top = list(sq.iter_search("liver", assay_l2="ATAC-seq", limit=50))
+```
+
+Some combinations are finished off in Python rather than by the server: a day
+bound or a sort asked for alongside `assay_l1`, `assay_l2` or a `geo_*` filter,
+because the endpoint those filters select has neither parameter. Those calls
+read every page before they answer, since a row that moves in Python has to
+move before a limit counts.
+
 ## Find publications and authors
 
 ```python

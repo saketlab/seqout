@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import (
     AliasChoices,
     BaseModel,
+    ConfigDict,
     Field,
     field_validator,
     model_validator,
@@ -29,16 +30,36 @@ def _join_authors(v: Any) -> Any:
 
 
 class SearchParams(BaseModel):
+    """Every parameter the full-text ``/search`` endpoint accepts.
+
+    ``extra="forbid"`` on purpose. Pydantic's default is to drop a field it
+    does not declare, which turned ``search("liver", assay_l1="…")`` into an
+    unfiltered search that looked filtered. A name this endpoint cannot answer
+    has to say so.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     q: str | None = None  # optional when at least one filter is set (query-less)
     db: Literal["geo", "sra", "arrayexpress", "ena", "gsa", "dra", "gea"] | None = None
     organism: str | None = None
     library_strategy: list[str] | None = None  # GEO/SRA only; NULL elsewhere
     library_source: list[str] | None = None  # SRA only; NULL elsewhere
     platform: list[str] | None = None  # GEO/SRA only; NULL elsewhere
+    country: list[str] | None = None
+    journal: list[str] | None = None
+    instrument_model: list[str] | None = None
+    multi_platform: bool | None = None
     sortby: Literal["citations", "journal", "year"] | None = None
     order: Literal["asc", "desc"] | None = "desc"
     date_from: str | None = None  # ISO yyyy-mm-dd; server filters on updated_at
     date_to: str | None = None
+    # Read q as a boolean expression and take its terms exactly: no ontology
+    # expansion, no spelling correction. A query already carrying (), "", * or
+    # an uppercase OR/AND/NOT is read that way anyway; this forces it on one
+    # that carries none. Unrelated to the /search/structured endpoint.
+    structured: bool | None = None
+    offset: int | None = None
     cursor_rank: float | None = None
     cursor_acc: str | None = None
     cursor_sort: str | None = None
@@ -61,24 +82,50 @@ class SearchParams(BaseModel):
 
 
 class StructuredSearchParams(BaseModel):
+    """Every parameter the ``/search/structured`` endpoint accepts.
+
+    Deliberately without ``sortby``, ``order``, ``date_from``, ``date_to``,
+    ``db`` and ``structured``: that endpoint has no such parameters, and FastAPI
+    drops a query parameter it does not declare, so declaring them here would
+    have moved a silent failure from this process to the server rather than
+    fixing it. ``extra="forbid"`` makes passing one an error that names it.
+    Use :class:`SearchParams` when you need them.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     q: str | None = None
     organism: str | None = None
     library_strategy: str | None = None
     platform: str | None = None
     country: str | None = None
-    center: str | None = None
-    year_from: int | None = None
-    year_to: int | None = None
     source: str | None = None
     journal: str | None = None
     instrument_model: str | None = None
     multi_platform: bool | None = None
     assay_l1: str | None = None
     assay_l2: str | None = None
+    geo_country: str | None = None
+    geo_country_code: str | None = None
     geo_country_code_iso2: str | None = None
+    geo_city: str | None = None
+    geo_state: str | None = None
+    geo_district: str | None = None
+    geo_postcode: str | None = None
     geo_lat: float | None = None
     geo_lng: float | None = None
     geo_radius_km: float | None = None
+    # Day-granularity bounds. published_* is the study's release date;
+    # pub_date_* is the linked paper's, and is best-effort — only papers with a
+    # full day-level date match.
+    published_after: str | None = None
+    published_before: str | None = None
+    pub_date_after: str | None = None
+    pub_date_before: str | None = None
+    # Narrow to studies with a matching sample, on the harmonised fields.
+    sample_tissue: str | None = None
+    sample_disease: str | None = None
+    sample_cell_type: str | None = None
     cursor_rank: float | None = None
     cursor_acc: str | None = None
 

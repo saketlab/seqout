@@ -2,7 +2,7 @@ import contextlib
 import datetime
 import functools
 import itertools
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import (
     Future,
     ThreadPoolExecutor,
@@ -31,6 +31,7 @@ from seqout.helpers import (
     _download_file,
     _send_req,
 )
+from seqout.search_plan import SearchPlan, apply_plan, plan_search
 from seqout.models.api_models import (
     AccessionClassification,
     AuthorProjectsResponse,
@@ -71,20 +72,25 @@ _NOT_FOUND = 404
 T = TypeVar("T")
 
 
-def _as_params(
+def _as_plan(
     params: SearchParamsType | str | None, filters: dict[str, Any]
-) -> SearchParamsType:
+) -> SearchPlan:
     """
     Let the search calls take a bare query string plus keyword filters.
 
     search("liver", organism="Homo sapiens") and the original
-    search(SearchParams(...)) both work.
+    search(SearchParams(...)) both work. Given filters, the endpoint is chosen
+    from them and anything it cannot do is left for the client -- see
+    seqout.search_plan. A params object built by hand is sent as it is, since
+    the caller has already chosen.
     """
     if isinstance(params, str):
-        return SearchParams(q=params, **filters)
+        return plan_search(params, **filters)
     if params is None:
-        return SearchParams(**filters)
-    return params
+        return plan_search(None, **filters)
+    return SearchPlan(
+        params=params, structured_endpoint=isinstance(params, StructuredSearchParams)
+    )
 
 
 class SeqoutAPIClient(ShortNames):
@@ -174,19 +180,25 @@ class SeqoutAPIClient(ShortNames):
         The correction (did you mean / augmented extra matches) only rides on
         the first page; this reuses that page so paging costs no extra request.
         """
-        params = _as_params(params, filters)
-        first = self._fetch_search_page(params)
-        return first.correction, self._iter_search_pages(params, first=first)
+        plan = _as_plan(params, filters)
+        first = self._fetch_search_page(plan.params)
+        rows = self._iter_search_pages(plan.params, first=first)
+        if plan.has_local_work:
+            rows = iter(apply_plan(rows, plan))
+        return first.correction, rows
 
     def search(
         self,
         params: SearchParamsType | str | None = None,
         **filters: Any,
     ) -> SearchResults:
-        """Full-text search. Takes a query string, or a params object."""
-        response = self._fetch_search_page(_as_params(params, filters))
-
-        return response.to_results()
+        """Search for projects. Takes a query string, or a params object."""
+        plan = _as_plan(params, filters)
+        if plan.has_local_work:
+            # A row dropped or reordered here has to move before the page does,
+            # so this reads every page rather than returning a short first one.
+            return SearchResults(apply_plan(self._iter_search_pages(plan.params), plan))
+        return self._fetch_search_page(plan.params).to_results()
 
     def iter_search(
         self,
@@ -195,7 +207,10 @@ class SeqoutAPIClient(ShortNames):
         **filters: Any,
     ) -> Iterator[SearchResult]:
         """Iterate every page of results, transparently following the cursor."""
-        iterator = self._iter_search_pages(_as_params(params, filters))
+        plan = _as_plan(params, filters)
+        iterator: Iterable[SearchResult] = self._iter_search_pages(plan.params)
+        if plan.has_local_work:
+            iterator = apply_plan(iterator, plan)
         if limit is None:
             yield from iterator
         else:
