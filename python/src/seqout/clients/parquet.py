@@ -4,7 +4,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, Self, get_args
+from typing import Any, Literal, Self, get_args
 
 import duckdb
 from duckdb import DuckDBPyConnection
@@ -783,6 +783,30 @@ class SeqoutParquetClient(ShortNames):
             normalized_url = _normalize_url(url)
             url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
+
+    def sample_search(self, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Refuse: the harmonised sample table is not in the dump."""
+        msg = (
+            "sample_search reads the REST API; this client is Parquet. "
+            "The harmonised sample table is not in the dump."
+        )
+        raise SeqoutError(msg)
+
+    def fetch_single_cell(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Not available on this backend: there is no Pentimento table in the dump."""
+        msg = (
+            "fetch_single_cell reads the REST API; this client is Parquet. "
+            "There is no Pentimento table in the dump."
+        )
+        raise SeqoutError(msg)
+
+    def fetch_microbes(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Not available on this backend: there is no Pentimento table in the dump."""
+        msg = (
+            "fetch_microbes reads the REST API; this client is Parquet. "
+            "There is no Pentimento table in the dump."
+        )
+        raise SeqoutError(msg)
 
     def fetch_bams(self, accession: str) -> BamFiles:  # noqa: ARG002
         """

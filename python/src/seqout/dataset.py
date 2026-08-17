@@ -318,6 +318,20 @@ class ShortNames:
         """Report what kind of accession this is, and which archive owns it."""
         return _call(self, "classify_accession", accession)
 
+    def sample_search(self, **kwargs: Any) -> Any:
+        """Search samples across every study, on the harmonised data."""
+        return _call(self, "sample_search", **kwargs)
+
+    def single_cell(
+        self, accession: str, limit: int | None = None, offset: int = 0
+    ) -> Any:
+        """Per-sample matrix dimensions and read-derived calls for a study."""
+        return _call(self, "fetch_single_cell", accession, limit=limit, offset=offset)
+
+    def microbes(self, accession: str, kind: str = "all", **kwargs: Any) -> Any:
+        """Report the microbial sequence in one sample's reads, by organism."""
+        return _call(self, "fetch_microbes", accession, kind=kind, **kwargs)
+
     def citations(
         self,
         accession: str,

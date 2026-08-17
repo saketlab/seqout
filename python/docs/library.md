@@ -241,6 +241,103 @@ with connect() as sq:
     rows = sq.summaries(["GSE168652", "GSE100379"])  # many projects, one request
 ```
 
+## Sample cohorts
+
+`sample_search` searches the samples of every study using harmonised data.
+
+At least one filter is required; an unfiltered call would return the whole
+corpus.
+
+```python
+with connect() as sq:
+    liver = sq.sample_search(
+        organism="Homo sapiens", sex="female", tissue="liver", age_min_years=50
+    )
+
+    len(liver)      # what came back
+    liver.total     # how many match, before limit
+    liver.filters   # what the server understood
+```
+
+The filters fall into four groups. The first three read the harmonised data;
+the fourth reads the reads.
+
+| Group | Filters |
+| --- | --- |
+| Harmonised field | `organism`, `tissue`, `disease`, `cell_type`, `assay`, `sex`, `strain`, `treatment`, and the other sample fields |
+| Harmonised ontology ID | `disease_ontology_id`, `tissue_ontology_id`, `cell_type_ontology_id`, `assay_ontology_id`, `development_stage_ontology_id` |
+| Range | `age_min_years`, `age_max_years`, `min_cell_count`, `max_cell_count`, `min_gene_count`, `max_gene_count` |
+| Read-derived | `single_cell_only`, `has_viral_reads`, `has_bacterial_reads`, `hpv_type`, `microbe`, `microbe_class`, `microbe_min_breadth`, `microbe_min_kmer_mass`, `microbe_validated_only` |
+
+An age filter excludes a sample whose age was never recorded, so
+`age_min_years=0` means "has a recorded age". A name that is not a filter is
+refused, with a suggestion when it is close to a real one.
+
+Give an ontology term as a CURIE. The search expands it through the ontology
+graph, so it also matches the subtypes of that term; pass
+`include_descendants=False` for the exact term only.
+
+```python
+sq.sample_search(disease_ontology_id="MONDO:0005061", limit=200)
+```
+
+A `microbe` filter narrows the cohort to samples carrying a matching detection
+and attaches the detections to each row, so "cervical single-cell RNA-seq with
+HPV quantification" is one call:
+
+```python
+hpv = sq.sample_search(
+    tissue="cervix", microbe="HPV", sort="cell_count", order="desc", limit=10
+)
+```
+
+The screening reference names the organisms HPV16, HPV18 and so on, so search
+`"HPV"` — `"papillomavirus"` matches nothing.
+
+## What the reads contain
+
+The harmonised fields report what the submitter declared. seqout also screens
+the reads themselves, and those calls often disagree.
+
+`single_cell` returns the matrix dimensions and the read-derived calls for each
+sample of a study:
+
+```python
+with connect() as sq:
+    sc = sq.single_cell("GSE168652")
+
+    sc.study.study_cells     # 25642
+    sc.n_samples_total       # 2
+    [(s.sample_accession, s.cells, s.sex_verdict) for s in sc]
+```
+
+`cells` counts matrix columns; for an unfiltered 10x matrix those are barcodes,
+so the number is an upper bound and a sum overcounts. `has_viral_reads` and
+`has_bacterial_reads` are `None` when the sample was never screened and `False`
+when the screen found no gated hit — not the same thing.
+
+`microbes` shows the detections behind those flags, one row per organism. It
+returns every detection, not only the ones that pass the gate, so a sample
+whose flag is `False` can still list organisms:
+
+```python
+m = sq.microbes("GSM5155196", kind="viral")
+
+[(o.organism, o.n_unitigs, o.max_breadth_frac) for o in m]
+# [('HPV16', 45, 0.1732), ('HPV35', 1, 0.0052), ('HHV7', 1, 0.0013)]
+
+m.measurable        # False means never screened, which rules nothing out
+m.detections        # per-run rows, before the rollup
+m.by_kingdom        # summed weight per kingdom
+m.control_kingdoms  # held out of the totals: the spike-in and the calibrator
+```
+
+The spike-in control and the negative control are never summed into the totals,
+and reagent and skin organisms are excluded unless `include_background=True`.
+
+All three read the REST API and say so on a Parquet client: neither the
+harmonised sample table nor the Pentimento tables are in the dump.
+
 ## Alignment files
 
 `Dataset.bams` lists the BAMs a submitter sent. These are not the reads: they

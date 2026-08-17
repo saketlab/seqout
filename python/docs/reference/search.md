@@ -25,6 +25,18 @@ to drop one, which turned a typo into an unfiltered search that looked filtered.
 
 ::: seqout.search_plan.is_boolean_query
 
+::: seqout.models.cohort_models.CohortSample
+
+::: seqout.models.cohort_models.Cohort
+
+::: seqout.models.cohort_models.SingleCellSample
+
+::: seqout.models.cohort_models.SingleCellSamples
+
+::: seqout.models.cohort_models.MicrobeOrganism
+
+::: seqout.models.cohort_models.Microbes
+
 ::: seqout.models.api_models.SearchResults
 
 ::: seqout.models.models.BaseContainer

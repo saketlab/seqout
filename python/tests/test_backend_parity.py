@@ -26,6 +26,11 @@ SHARED_METHODS = [
     "summaries",
     "citations",
     "fetch_citations",
+    "sample_search",
+    "fetch_single_cell",
+    "fetch_microbes",
+    "single_cell",
+    "microbes",
 ]
 
 

@@ -16,6 +16,8 @@ from typing import Any, Literal, Self, TypeVar
 
 import requests
 
+from seqout.cohort import PAGE as COHORT_PAGE
+from seqout.cohort import SORTABLE, check_filters
 from seqout.constants import (
     API_BASE_URL,
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
@@ -66,6 +68,16 @@ from seqout.models.api_models import (
     StudyRunsResult,
     StudyRunsResults,
 )
+from seqout.models.cohort_models import (
+    Cohort,
+    CohortResponse,
+    CohortSample,
+    Microbes,
+    MicrobesResponse,
+    SingleCellResponse,
+    SingleCellSamples,
+    SingleCellStudy,
+)
 from seqout.models.parquet_models import Study
 from seqout.search_plan import SearchPlan, apply_plan, plan_search
 from seqout.utils import (
@@ -78,6 +90,9 @@ from seqout.utils import (
 logger = logging.getLogger(__name__)
 
 _NOT_FOUND = 404
+
+# /project/{acc}/single-cell caps a page at 1000 rows.
+PENTIMENTO_PAGE = 1000
 
 SearchParamsType = SearchParams | StructuredSearchParams
 _NOT_FOUND = 404
@@ -672,6 +687,183 @@ class SeqoutAPIClient(ShortNames):
             }
             for f in as_completed(futures):
                 f.result()
+
+    def sample_search(
+        self,
+        *,
+        include_descendants: bool = True,
+        sort: str = "sample",
+        order: str = "asc",
+        limit: int | None = None,
+        **filters: Any,
+    ) -> Cohort:
+        """
+        Search samples across every study, on the harmonised data.
+
+        Not the submitter's free text: seqout has already read each sample's
+        description and written the tissue, disease, cell type, assay and age
+        into one vocabulary, so one filter reaches every study that recorded
+        the fact whatever words its submitter used. A sample that was never
+        harmonised cannot be found here.
+
+        At least one filter is required; an unfiltered call would return the
+        whole corpus. `Cohort.total` is the size of the match before `limit`,
+        and `Cohort.filters` is what the server understood.
+        """
+        filters = {k: v for k, v in filters.items() if v is not None}
+        if not filters:
+            msg = (
+                "give at least one filter: an unfiltered search would return "
+                "every harmonised sample."
+            )
+            raise ValueError(msg)
+        check_filters(filters)
+        if sort not in SORTABLE:
+            msg = f"sort must be one of {', '.join(SORTABLE)}"
+            raise ValueError(msg)
+        if order not in ("asc", "desc"):
+            msg = "order must be 'asc' or 'desc'"
+            raise ValueError(msg)
+        if limit is not None:
+            limit = max(1, int(limit))
+
+        rows: list[CohortSample] = []
+        offset = 0
+        page: CohortResponse | None = None
+        while True:
+            want = COHORT_PAGE if limit is None else min(COHORT_PAGE, limit - len(rows))
+            page = self._sender(
+                url=f"{self._base_url}/samples/search",
+                params={
+                    **filters,
+                    "include_descendants": include_descendants,
+                    "sort": sort,
+                    "order": order,
+                    "limit": want,
+                    "offset": offset,
+                },
+                response_model=CohortResponse,
+            )
+            rows.extend(page.samples)
+            # A stale next_offset would page forever.
+            if not page.samples or page.next_offset is None:
+                break
+            if limit is not None and len(rows) >= limit:
+                break
+            offset = page.next_offset
+
+        if limit is not None:
+            rows = rows[:limit]  # defend against a server that overshoots
+        return Cohort(
+            rows,
+            total=page.total if page else len(rows),
+            filters=page.filters if page else {},
+        )
+
+    def fetch_single_cell(
+        self,
+        accession: str,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> SingleCellSamples:
+        """
+        Per-sample matrix dimensions and read-derived calls for a study.
+
+        `cells` counts matrix columns; for an unfiltered 10x matrix those are
+        barcodes, so the number is an upper bound and a sum overcounts.
+        `has_*_reads` is None when the sample was never screened and False when
+        the screen found no gated hit.
+
+        A study with no Pentimento record answers with an empty result.
+        """
+        path = f"{self._base_url}/project/{accession.strip().upper()}/single-cell"
+
+        def page(want: int, at: int) -> SingleCellResponse | None:
+            try:
+                return self._sender(
+                    url=path,
+                    params={"limit": want, "offset": at},
+                    response_model=SingleCellResponse,
+                )
+            except requests.HTTPError as exc:
+                if exc.response is not None and exc.response.status_code == _NOT_FOUND:
+                    return None
+                raise
+
+        want = PENTIMENTO_PAGE if limit is None else min(limit, PENTIMENTO_PAGE)
+        first = page(want, offset)
+        if first is None:
+            return SingleCellSamples([])
+
+        rows = list(first.samples)
+        total = first.n_samples_detailed
+        if total is not None:
+            wanted = total - offset if limit is None else min(limit, total - offset)
+            while len(rows) < wanted:
+                more = page(
+                    min(PENTIMENTO_PAGE, wanted - len(rows)), offset + len(rows)
+                )
+                # A stale total would page forever.
+                if more is None or not more.samples:
+                    break
+                rows.extend(more.samples)
+
+        return SingleCellSamples(
+            rows,
+            study=SingleCellStudy.model_validate(first.model_dump()),
+            n_samples_total=total,
+        )
+
+    def fetch_microbes(
+        self,
+        accession: str,
+        kind: Literal["all", "viral", "bacterial", "both"] = "all",
+        *,
+        min_breadth: float | None = None,
+        min_kmer_mass: float | None = None,
+        validated_only: bool = False,
+        include_background: bool = False,
+        limit: int = 500,
+    ) -> Microbes:
+        """
+        Report the microbial sequence found in a sample's reads, by organism.
+
+        The spike-in control and the negative control are never summed into the
+        totals, and reagent and skin organisms are excluded unless
+        `include_background` is set.
+
+        Every detection is returned, not only the ones that pass the gate, so a
+        sample whose `has_viral_reads` is False can still list organisms here.
+        An empty result with `measurable` False means the sample was never
+        screened, which rules nothing out.
+        """
+        res = self._sender(
+            url=f"{self._base_url}/sample/{accession.strip().upper()}/microbes",
+            params={
+                "kind": kind,
+                "min_breadth": min_breadth,
+                "min_kmer_mass": min_kmer_mass,
+                "validated_only": validated_only,
+                "include_background": include_background,
+                "limit": limit,
+            },
+            response_model=MicrobesResponse,
+        )
+        if not res.measurable:
+            logger.warning(
+                "%s was never screened for microbes. The empty result reports "
+                "missing data and rules nothing out; see Microbes.measurable.",
+                accession,
+            )
+        return Microbes(
+            res.by_organism,
+            detections=res.detections,
+            measurable=res.measurable,
+            n_runs=res.n_runs,
+            totals=res.totals,
+            by_kingdom=res.by_kingdom,
+            control_kingdoms=res.control_kingdoms,
+        )
 
     def fetch_bams(self, accession: str) -> BamFiles:
         """
