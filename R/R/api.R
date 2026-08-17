@@ -92,18 +92,24 @@ NULL
   all_names <- unique(unlist(lapply(records, names)))
   cols <- lapply(all_names, function(nm) {
     vals <- lapply(records, function(r) r[[nm]])
-    nested <- vapply(
-      vals,
-      function(v) is.list(v) && any(vapply(v, is.list, logical(1))),
-      logical(1)
-    )
-    if (any(nested)) {
+    if (any(vapply(vals, .is_structured, logical(1)))) {
       return(vals)
     }
     vapply(vals, .flatten_value, character(1))
   })
   names(cols) <- all_names
   tibble::as_tibble(cols)
+}
+
+#' Is this value a record rather than a run of values?
+#'
+#' A list of lists is plainly one, and so is a named list: `attributes_json`
+#' arrives as `{"sex": "female", "tissue": "gut"}`, and pasting the values into
+#' `female; gut` keeps the answers while throwing away the questions. An
+#' unnamed list of scalars is a plain vector and still flattens.
+#' @noRd
+.is_structured <- function(v) {
+  is.list(v) && (any(vapply(v, is.list, logical(1))) || !is.null(names(v)))
 }
 
 #' @noRd

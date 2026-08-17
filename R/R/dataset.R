@@ -184,8 +184,57 @@ names.seqout_dataset <- function(x) {
   if (.in_archive(accession, .geo_archives)) {
     project_samples(accession, con = con)
   } else {
-    project_experiments(accession, con = con)
+    .study_samples(con, accession)
   }
+}
+
+#' The sample records of a study the SRA family files
+#'
+#' `/project/{acc}/samples` answers with an accession, a title and a species,
+#' and each sample's attributes are a further request away. The merged metadata
+#' rows carry both, with the attributes already unnested into
+#' `sample_attribute:` columns, for one request per five hundred runs. A study
+#' files many runs against one sample, so the rows reduce to one per sample.
+#' @noRd
+.study_samples <- function(con, accession) {
+  if (!identical(con$backend, "api")) {
+    return(project_samples(accession, con = con))
+  }
+  rows <- tryCatch(.metadata_rows(con, accession), error = function(e) list())
+  tbl <- .records_to_tibble(rows)
+  if (!"sample_accession" %in% names(tbl)) {
+    return(tryCatch(project_samples(accession, con = con), error = function(e) tibble::tibble()))
+  }
+  keep <- grepl("^sample_", names(tbl)) | names(tbl) %in% c("scientific_name", "taxon_id")
+  out <- tbl[!duplicated(tbl$sample_accession), keep, drop = FALSE]
+  names(out) <- sub("^sample_attribute:", "", names(out))
+  names(out) <- sub("^sample_accession$", "accession", names(out))
+  names(out) <- sub("^sample_(alias|description|title)$", "\\1", names(out))
+  names(out) <- make.unique(names(out))
+  tibble::as_tibble(out)
+}
+
+#' Every merged metadata row of a study, a page at a time
+#'
+#' `cursor` is an offset the endpoint echoes back rather than advances, so the
+#' caller counts. `truncated` says whether more remain.
+#' @noRd
+.metadata_rows <- function(con, accession) {
+  out <- list()
+  cursor <- 0L
+  repeat {
+    res <- .api_get(
+      con, paste0("/project/", accession, "/metadata/rows"),
+      limit = 500, cursor = cursor
+    )
+    rows <- .as_record_list(res$rows)
+    out <- c(out, rows)
+    if (!isTRUE(res$truncated) || length(rows) == 0) {
+      break
+    }
+    cursor <- cursor + length(rows)
+  }
+  out
 }
 
 #' @noRd
@@ -356,7 +405,10 @@ names.seqout_dataset <- function(x) {
     return(run(fields$accession, con = fields$con))
   }
   if (fields$kind %in% c("sample", "experiment", "biosample")) {
-    return(sample_detail(fields$accession, con = fields$con))
+    # The record reads the same way a row of $samples does: one column per
+    # attribute, whether the archive filed them as GEO channels or as a
+    # named attributes_json.
+    return(.unnest_characteristics(sample_detail(fields$accession, con = fields$con)))
   }
   cli::cli_abort(c(
     "There is no detail record for {fields$accession} (a {fields$kind}).",

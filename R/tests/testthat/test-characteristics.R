@@ -108,3 +108,24 @@ test_that("a flat list field still collapses to a string", {
   out <- seqout:::.records_to_tibble(list(list(organisms = list("a", "b"))))
   expect_equal(out$organisms, "a; b")
 })
+
+test_that("a named record keeps its keys instead of being pasted together", {
+  records <- list(list(
+    accession = "SRS1",
+    attributes_json = list(sex = "female", tissue = "gut")
+  ))
+  out <- seqout:::.records_to_tibble(records)
+  expect_true(is.list(out$attributes_json))
+  expect_equal(out$attributes_json[[1]]$tissue, "gut")
+})
+
+test_that("an unnamed run of scalars still flattens to one string", {
+  records <- list(list(accession = "SRS1", aliases = list("a", "b")))
+  out <- seqout:::.records_to_tibble(records)
+  expect_equal(out$aliases, "a; b")
+})
+
+test_that("SRA attributes unnest by name", {
+  row <- list(attributes_json = list(list(sex = "female", tissue = "gut")))
+  expect_equal(seqout:::.characteristics_of(row), list(sex = "female", tissue = "gut"))
+})

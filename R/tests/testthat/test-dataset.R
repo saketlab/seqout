@@ -171,3 +171,78 @@ test_that("a non-PRJ accession is left alone, at no request", {
   # The dump serves no /prj/ route, so the accession stands.
   expect_equal(seqout_get(con = fake_con(), "PRJCA042384")$project, "PRJCA042384")
 })
+
+test_that("an SRA study's samples are samples, one row each, with their attributes", {
+  local_mocked_bindings(
+    .api_get = function(con, path, ...) {
+      list(truncated = FALSE, rows = list(
+        list(
+          run_accession = "SRR1", experiment_accession = "SRX1",
+          sample_accession = "SRS1", sample_title = "kidney rep 1",
+          scientific_name = "Homo sapiens",
+          `sample_attribute:tissue` = "Embryonic Kidney",
+          `sample_attribute:sex` = "female"
+        ),
+        # A second run of the same sample must not become a second row.
+        list(
+          run_accession = "SRR2", experiment_accession = "SRX1",
+          sample_accession = "SRS1", sample_title = "kidney rep 1",
+          scientific_name = "Homo sapiens",
+          `sample_attribute:tissue` = "Embryonic Kidney",
+          `sample_attribute:sex` = "female"
+        )
+      ))
+    }
+  )
+  out <- seqout:::.study_samples(fake_con(backend = "api"), "SRP1")
+  expect_equal(nrow(out), 1L)
+  expect_equal(out$accession, "SRS1")
+  expect_equal(out$tissue, "Embryonic Kidney")
+  expect_equal(out$sex, "female")
+  # Run and experiment columns belong to $runs and $experiments.
+  expect_false(any(c("run_accession", "experiment_accession") %in% names(out)))
+})
+
+test_that("a study whose rows carry no sample falls back rather than returning junk", {
+  local_mocked_bindings(
+    .api_get = function(con, path, ...) list(truncated = FALSE, rows = list()),
+    project_samples = function(accession, con = NULL) tibble::tibble(accession = "SRS9")
+  )
+  expect_equal(seqout:::.study_samples(fake_con(backend = "api"), "SRP1")$accession, "SRS9")
+})
+
+test_that("$detail reads like a row of $samples, with attributes as columns", {
+  local_mocked_bindings(
+    sample_detail = function(accession, con = NULL) {
+      tibble::tibble(
+        accession = "SRS1",
+        title = "kidney",
+        attributes_json = list(list(sex = "female", tissue = "gut"))
+      )
+    }
+  )
+  d <- seqout_get("SRS3425205", con = fake_con(backend = "api"))$detail
+  expect_equal(d$sex, "female")
+  expect_equal(d$tissue, "gut")
+  # The nested column it came from is spent, so it does not linger beside them.
+  expect_false("attributes_json" %in% names(d))
+  expect_equal(d$accession, "SRS1")
+})
+
+test_that("unnesting $detail leaves the file list where $supplementary looks for it", {
+  local_mocked_bindings(
+    sample_detail = function(accession, con = NULL) {
+      tibble::tibble(
+        accession = "GSM1",
+        supplementary_data = list(list(list(`#text` = "https://h/a.gz", `@type` = "TXT"))),
+        # GEO files the pairs under a Characteristics key inside each channel.
+        channels = list(list(list(
+          Characteristics = list(list(`@tag` = "tissue", `#text` = "gut"))
+        )))
+      )
+    }
+  )
+  d <- seqout_get("GSM1", con = fake_con(backend = "api"))
+  expect_equal(d$detail$tissue, "gut")
+  expect_equal(d$supplementary$url, "https://h/a.gz")
+})

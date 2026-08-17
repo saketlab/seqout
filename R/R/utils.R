@@ -24,7 +24,8 @@
   })
   names(cols) <- keys
 
-  out <- samples[, setdiff(names(samples), c("channels", "characteristics")),
+  out <- samples[
+    , setdiff(names(samples), c("channels", "characteristics", "attributes_json")),
     drop = FALSE
   ]
   out <- cbind(out, tibble::as_tibble(cols))
@@ -35,11 +36,12 @@
 
 #' Characteristics of one sample row, whichever shape the backend used
 #'
-#' The API flattens them to a named list; Parquet keeps GEO's raw list of
-#' tag/text pairs; an ArrayExpress sample carries flat attributes instead.
+#' GEO files them as tag/text pairs under `channels`; the SRA family files them
+#' as a named `attributes_json`; ArrayExpress and GEA give flat columns and so
+#' arrive here with nothing to do.
 #' @noRd
 .characteristics_of <- function(row) {
-  raw <- row$characteristics %||% row$channels %||% NULL
+  raw <- row$characteristics %||% row$channels %||% row$attributes_json %||% NULL
   if (is.null(raw)) {
     return(list())
   }
