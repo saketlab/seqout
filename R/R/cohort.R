@@ -108,6 +108,11 @@
 
 #' Search samples across every project
 #'
+#' Searches the harmonised data, not the submitter's free text. SeqOut reads
+#' each sample's description and writes the tissue, the disease, the cell type,
+#' the assay and the age into one vocabulary, so one filter reaches every study
+#' that recorded the fact, whatever words its submitter used. A sample that was
+#' never harmonised cannot be found here.
 #'
 #' \describe{
 #'   \item{Substring}{`tissue`, `disease`, `cell_type`, `assay`,
@@ -118,7 +123,7 @@
 #'   \item{Exact}{`organism`, `sex`, `taxid`, `study_accession`. These compare
 #'     case-insensitively and never as a substring, because `"male"` as a
 #'     substring also matches `"female"`.}
-#'   \item{Ontology term}{`disease_ontology_id`, `tissue_ontology_id`,
+#'   \item{Harmonised ontology ID}{`disease_ontology_id`, `tissue_ontology_id`,
 #'     `cell_type_ontology_id`, `assay_ontology_id`,
 #'     `development_stage_ontology_id`. Give a CURIE such as
 #'     `"MONDO:0005061"`. See `include_descendants`.}
@@ -134,13 +139,12 @@
 #'     declared.}
 #' }
 #'
-#' A `microbe*` filternarrows the cohort to the samples that carry a
+#' A `microbe*` filter narrows the cohort to the samples that carry a
 #' matching detection, and attaches the detections to each row. That is what
 #' makes "cervical single-cell RNA-seq with HPV quantification" one call rather
 #' than a cohort search followed by one [sample_microbes()] call per sample.
 #'
-#' Requires REST. The ontology-annotated sample table is absent from the Parquet
-#' dump.
+#' Requires REST. The harmonised sample table is absent from the Parquet dump.
 #'
 #' @param ... The filters, by name, from the set above. At least one is
 #'   required; an unfiltered call would return the whole corpus.
@@ -192,7 +196,7 @@ sample_search <- function(..., include_descendants = TRUE, sort = "sample",
                           order = "asc", limit = NULL, con = .con()) {
   .need_api(
     con, "sample_search",
-    why = "The ontology-annotated sample table is not in the dump."
+    why = "The harmonised sample table is not in the dump."
   )
   sort <- match.arg(sort, .cohort_sortable)
   order <- match.arg(order, c("asc", "desc"))

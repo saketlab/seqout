@@ -14,8 +14,10 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-There are two search functions. `SeqoutSearch()` returns studies.
-`SampleSearch()` returns samples. Both read the REST API.
+There are four ways to search. `SeqoutSearch()` returns studies.
+`SampleSearch()` returns samples. `Paper()` and `Author()` search from the
+other direction: from a publication to the datasets that it names. All four
+read the REST API.
 
 ```{r setup}
 library(seqout)
@@ -91,22 +93,10 @@ as `"Transcriptomic"`. `assay_l2` is the method, such as `"RNA-seq"`,
 SeqoutSearch("liver", assay_l2 = "ATAC-seq", limit = 5)
 ```
 
-The dump lists the values that exist, with a count for each one.
-
-```{r assay-values, eval = FALSE}
-Query("
-  SELECT dominant_assay_l2 AS assay, count(*) AS n
-  FROM unified_metadata
-  WHERE assay IS NOT NULL
-  GROUP BY assay ORDER BY n DESC
-", con = SeqoutConnect("parquet"))
-```
-
 ### Dates
 
-`date_from` and `date_to` take a day, as `yyyy-mm-dd`. They bound `updated_at`,
-which is the day when seqout last saw a change to the record. They are the only
-time bounds, and they are the ones the website uses.
+`date_from` and `date_to` accept dates in `yyyy-mm-dd` format and filter 
+datasets by their `updated_at` date.
 
 ```{r dates}
 SeqoutSearch("liver cancer",
@@ -130,9 +120,6 @@ SeqoutSearch("hepatocellular carcinoma", sortby = "citations", limit = 5)
 ```
 
 ## How many rows you get
-
-A search returns every match. The server sends 200 rows in one page, so a large
-result set costs more than one request.
 
 ```{r all-rows}
 result <- SeqoutSearch("hepatocellular carcinoma scRNA")
@@ -167,11 +154,65 @@ c(samples = nrow(d$samples), runs = nrow(d$runs))
 
 [Metadata](metadata.html) describes the other fields.
 
+## Search by paper
+
+`Paper()` fetched datasets linked to a research paper via its PubMed identifier.
+
+```{r paper-pmid}
+Paper(pmid = "34764296")
+```
+
+The `via` column says how the link was made, so you can see whether the archive
+recorded the paper itself or seqout matched it.
+
+A DOI works the same way. Give one of `pmid` or `doi`, not both.
+
+```{r paper-doi}
+Paper(doi = "10.1038/s41467-021-26864-x")
+```
+
+A paper that seqout does not hold returns no rows rather than an error, so test
+`nrow()` before you use the result.
+
+```{r paper-unknown}
+nrow(Paper(pmid = "999999999"))
+```
+
+## Search by author
+
+`Author()` takes a name and returns every dataset linked to that author through
+its publications.
+
+```{r author}
+regev <- Author("Aviv Regev")
+
+nrow(regev)
+head(regev[, c("accession", "title", "journal", "citation_count")], 5)
+```
+
+The name must match the publication record, which spells authors out in full.
+`"Aviv Regev"` works; an initialised form such as `"Regev A"` does not.
+
+```{r author-initials}
+nrow(Author("Regev A"))
+```
+
+`limit` caps the number of datasets. The default is 200.
+
+```{r author-limit}
+nrow(Author("Aviv Regev", limit = 5))
+```
+
+A search for studies and a search for authors answer different questions. Use
+`SeqoutSearch()` when you know the subject, and `Author()` when you know the
+laboratory.
+
 ## Sample cohorts
 
-`SampleSearch()` searches the samples of every study. It reads the ontology
-terms that seqout adds to each sample, so a filter can name a tissue, a
-disease, an age or a cell count. At least one filter is required.
+`SampleSearch()` searches samples using their harmonised metadata.
+
+A sample that was never harmonised cannot be found here. At least one filter is
+required.
 
 ```{r cohort}
 liver <- SampleSearch(
@@ -191,22 +232,23 @@ the filters that the server applied.
 attr(liver, "total")
 ```
 
-The filters fall into four groups.
+The filters fall into four groups. The first three read the harmonised data.
+The fourth reads the reads.
 
 | Group | Filters |
 | --- | --- |
-| Text | `organism`, `tissue`, `disease`, `cell_type`, `assay`, `sex`, `strain`, `treatment`, and the other sample fields |
-| Ontology term | `disease_ontology_id`, `tissue_ontology_id`, `cell_type_ontology_id`, `assay_ontology_id`, `development_stage_ontology_id` |
+| Harmonised field | `organism`, `tissue`, `disease`, `cell_type`, `assay`, `sex`, `strain`, `treatment`, and the other sample fields |
+| Harmonised ontology ID | `disease_ontology_id`, `tissue_ontology_id`, `cell_type_ontology_id`, `assay_ontology_id`, `development_stage_ontology_id` |
 | Range | `age_min_years`, `age_max_years`, `min_cell_count`, `max_cell_count`, `min_gene_count`, `max_gene_count` |
 | Read-derived | `single_cell_only`, `has_viral_reads`, `has_bacterial_reads`, `hpv_type`, `microbe`, `microbe_class`, `microbe_min_breadth`, `microbe_min_kmer_mass`, `microbe_validated_only` |
 
 An age filter excludes a sample whose age was never recorded. `age_min_years =
 0` therefore means "has a recorded age".
 
-### Ontology terms and their subtypes
+### Ontology IDs and their subtypes
 
-Give an ontology term as a CURIE. The search expands the term through the
-ontology graph, so it also matches the subtypes of that term.
+Give a harmonised ontology ID as a CURIE. The search expands the term through
+the ontology graph, so it also matches the subtypes of that term.
 
 ```{r cohort-ontology}
 nrow(SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 200))

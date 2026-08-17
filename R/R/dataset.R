@@ -17,7 +17,8 @@
 #'   \item{`bams`}{the alignment files a submitter sent, where there are any}
 #'   \item{`pubs`}{the publications linked to the dataset}
 #'   \item{`links`}{the same data in other archives}
-#'   \item{`enriched`}{structured labels for the samples, where SeqOut has them}
+#'   \item{`enriched`}{the harmonised data for the samples: the submitter's free
+#'     text read into one vocabulary, with ontology IDs}
 #'   \item{`detail`}{the record for the accession itself, for a sample or run}
 #' }
 #'

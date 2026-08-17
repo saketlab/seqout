@@ -165,7 +165,7 @@ project_xref <- function(accession, con = .con()) {
   .records_to_tibble(.as_record_list(res$xref %||% res))
 }
 
-#' Get ontology-enriched sample metadata
+#' Get the harmonised sample metadata
 #'
 #' REST only: the enrichment is computed server-side and is not in the dump.
 #'

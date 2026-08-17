@@ -46,8 +46,8 @@ SeqoutSearch("cervical cancer single cell", db = "geo", limit = 5)
 ```
 
 `SampleSearch()` searches the samples instead of the studies. It reads the
-ontology terms that seqout adds, so a filter can name a tissue, a disease or an
-age.
+harmonised data, which is what seqout writes after it reads each sample's free
+text, so one filter can name a tissue, a disease or an age across every study.
 
 ```{r cohort}
 liver <- SampleSearch(
@@ -76,7 +76,7 @@ d$meta$title
 c(samples = nrow(d$samples), runs = nrow(d$runs), papers = nrow(d$pubs))
 ```
 
-The `enriched` field holds the ontology terms for each sample.
+The `enriched` field holds the harmonised data for each sample.
 
 ```{r enriched}
 d$enriched[, c("sample", "tissue", "disease", "assay")]

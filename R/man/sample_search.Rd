@@ -48,6 +48,13 @@ the size of the whole cohort and a \code{filters} attribute holding the filters
 the server applied.
 }
 \description{
+Searches the harmonised data, not the submitter's free text. SeqOut reads
+each sample's description and writes the tissue, the disease, the cell type,
+the assay and the age into one vocabulary, so one filter reaches every study
+that recorded the fact, whatever words its submitter used. A sample that was
+never harmonised cannot be found here.
+}
+\details{
 \describe{
 \item{Substring}{\code{tissue}, \code{disease}, \code{cell_type}, \code{assay},
 \code{assay_category}, \code{phenotype}, \code{treatment}, \code{development_stage},
@@ -57,7 +64,7 @@ the server applied.
 \item{Exact}{\code{organism}, \code{sex}, \code{taxid}, \code{study_accession}. These compare
 case-insensitively and never as a substring, because \code{"male"} as a
 substring also matches \code{"female"}.}
-\item{Ontology term}{\code{disease_ontology_id}, \code{tissue_ontology_id},
+\item{Harmonised ontology ID}{\code{disease_ontology_id}, \code{tissue_ontology_id},
 \code{cell_type_ontology_id}, \code{assay_ontology_id},
 \code{development_stage_ontology_id}. Give a CURIE such as
 \code{"MONDO:0005061"}. See \code{include_descendants}.}
@@ -72,15 +79,13 @@ means "has a recorded age".}
 reads themselves, which often disagrees with what the submitter
 declared.}
 }
-}
-\details{
-A \verb{microbe*} filternarrows the cohort to the samples that carry a
+
+A \verb{microbe*} filter narrows the cohort to the samples that carry a
 matching detection, and attaches the detections to each row. That is what
 makes "cervical single-cell RNA-seq with HPV quantification" one call rather
 than a cohort search followed by one \code{\link[=sample_microbes]{sample_microbes()}} call per sample.
 
-Requires REST. The ontology-annotated sample table is absent from the Parquet
-dump.
+Requires REST. The harmonised sample table is absent from the Parquet dump.
 }
 \examples{
 \dontrun{

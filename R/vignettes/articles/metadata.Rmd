@@ -2,7 +2,7 @@
 title: "Metadata"
 description: >
   One accession, every record below it: the study, the samples, the runs, the
-  ontology terms, the papers and the read-derived calls.
+  harmonised data, the papers and the read-derived calls.
 output:
   rmarkdown::html_document:
     self_contained: true
@@ -42,7 +42,7 @@ names(d)
 | `bams` | the alignment files the submitter sent |
 | `pubs` | the publications linked to the dataset |
 | `links` | the same dataset in the other archives |
-| `enriched` | the ontology terms for each sample |
+| `enriched` | the harmonised data for each sample |
 | `detail` | the record of the accession itself, for a sample or a run |
 | `kind`, `project`, `geo`, `sra` | where the data sits |
 
@@ -109,23 +109,25 @@ AccessionKind("SRR12012336")
 AccessionKind("E-MTAB-11467")
 ```
 
-## Ontology terms
+## Harmonised data
 
-seqout reads the free text of each sample and adds ontology terms to it. The
-terms give the tissue, the disease, the cell type, the assay and the
-development stage.
+Submitters describe a sample in their own words, and no two of them agree.
+seqout reads that free text and writes the harmonised data: one set of fields
+with one vocabulary, for the tissue, the disease, the cell type, the assay and
+the development stage.
 
 ```{r enriched}
 d$enriched[, c("sample", "tissue", "disease", "assay", "assay_category")]
 ```
 
-Each term carries its ontology ID.
+Each harmonised field also carries an ontology ID, so a term can be compared
+across studies and expanded to its subtypes.
 
 ```{r enriched-ids}
 d$enriched[, c("sample", "disease_ontology_id", "disease_ontology_name")]
 ```
 
-[Search](search.html) searches these terms across every study.
+[Search](search.html) searches the harmonised data across every study.
 
 ## Publications
 
@@ -136,18 +138,9 @@ citation count.
 d$pubs[, c("pmid", "title", "journal", "citation_count")]
 ```
 
-`Paper()` is the reverse lookup. It takes a PubMed ID or a DOI and returns the
-datasets that name that paper.
-
-```{r paper}
-Paper(pmid = "34764296")
-```
-
-`Author()` does the same for a name.
-
-```{r author}
-head(Author("Aviv Regev", limit = 5)[, c("accession", "title", "journal")], 5)
-```
+This field goes from a dataset to its papers. To go the other way, from a paper
+or an author to the datasets, use `Paper()` and `Author()`. [Search](search.html)
+covers both.
 
 ## Many accessions at once
 

@@ -36,7 +36,8 @@ alike; \code{sample} is \code{NA} on the ones the series carries itself}
 \item{\code{bams}}{the alignment files a submitter sent, where there are any}
 \item{\code{pubs}}{the publications linked to the dataset}
 \item{\code{links}}{the same data in other archives}
-\item{\code{enriched}}{structured labels for the samples, where SeqOut has them}
+\item{\code{enriched}}{the harmonised data for the samples: the submitter's free
+text read into one vocabulary, with ontology IDs}
 \item{\code{detail}}{the record for the accession itself, for a sample or run}
 }
 

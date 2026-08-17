@@ -2,7 +2,7 @@
 % Please edit documentation in R/project.R
 \name{project_enriched}
 \alias{project_enriched}
-\title{Get ontology-enriched sample metadata}
+\title{Get the harmonised sample metadata}
 \usage{
 project_enriched(accession, con = .con())
 }
