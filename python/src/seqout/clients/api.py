@@ -694,8 +694,11 @@ class SeqoutAPIClient(ShortNames):
 
         Submitters name their own files, so two runs can send the same name;
         those are prefixed with the run accession to keep them apart.
+
+        Takes any accession: a study downloads all of its alignments, an
+        experiment or run only its own.
         """
-        bams = self.fetch_bams(accession)
+        bams = self.get(accession).bams
         if not bams.root:
             logger.warning("%s has no submitted alignment files", accession)
             return []

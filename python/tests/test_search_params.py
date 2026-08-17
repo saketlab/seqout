@@ -438,3 +438,107 @@ class TestPager:
 
     def test_nothing_at_all_says_so_rather_than_drawing_an_empty_table(self):
         assert self._run(["q"], []) == []
+
+
+class TestBamsSaveTo:
+    """--save-to writes the URLs so the fetching can be someone else's job."""
+
+    def _bams(self):
+        from seqout.models.api_models import BamFile, BamFiles
+
+        return BamFiles(
+            [
+                BamFile(
+                    filename="small.bam", size=1, url="https://x/small.bam",
+                    md5="aa", run_accession="R1", experiment_accession="E1",
+                    semantic_name="bam",
+                ),
+                BamFile(
+                    filename="big.bam", size=99, s3_url="s3://pays/big.bam",
+                    md5="bb", run_accession="R2", experiment_accession="E2",
+                ),
+            ]
+        )
+
+    def test_csv_carries_every_url_and_the_checksum(self, tmp_path):
+        import csv as csvmod
+
+        from seqout.cli import cli
+
+        out = tmp_path / "b.csv"
+        cli._save_bams(self._bams(), {"E1": "NextSeq 500"}, out)
+        rows = list(csvmod.DictReader(out.open()))
+        assert [r["filename"] for r in rows] == ["big.bam", "small.bam"]  # size desc
+        assert rows[1]["url"] == "https://x/small.bam"
+        assert rows[1]["md5"] == "aa"
+        assert rows[1]["experiment_title"] == "NextSeq 500"
+
+    def test_the_paid_rows_are_written_too(self, tmp_path):
+        import csv as csvmod
+
+        from seqout.cli import cli
+
+        out = tmp_path / "b.csv"
+        cli._save_bams(self._bams(), {}, out)
+        paid = next(r for r in csvmod.DictReader(out.open()) if r["filename"] == "big.bam")
+        # Their s3_url is the whole reason to ask for the file.
+        assert paid["s3_url"] == "s3://pays/big.bam"
+        assert paid["requester_pays"] == "True"
+
+    def test_json_when_the_extension_says_so(self, tmp_path):
+        import json as jsonmod
+
+        from seqout.cli import cli
+
+        out = tmp_path / "b.json"
+        cli._save_bams(self._bams(), {}, out)
+        rows = jsonmod.loads(out.read_text())
+        assert [r["size"] for r in rows] == [99, 1]
+        assert rows[0]["requester_pays"] is True
+
+    def test_tsv_when_the_extension_says_so(self, tmp_path):
+        from seqout.cli import cli
+
+        out = tmp_path / "b.tsv"
+        cli._save_bams(self._bams(), {}, out)
+        assert "\t" in out.read_text().splitlines()[0]
+
+
+class TestBamsNarrowing:
+    """A run or experiment gets its own files, not the whole study's."""
+
+    def _dataset(self, accession):
+        from seqout.dataset import Dataset
+        from seqout.models.api_models import BamFile, BamFiles
+
+        rows = BamFiles(
+            [
+                BamFile(filename="a.bam", run_accession="SRR1", experiment_accession="SRX1"),
+                BamFile(filename="b.bam", run_accession="SRR2", experiment_accession="SRX1"),
+                BamFile(filename="c.bam", run_accession="SRR3", experiment_accession="SRX2"),
+            ]
+        )
+
+        class Client:
+            def fetch_bams(self, study):
+                return rows
+
+        d = Dataset(Client(), accession)
+        type(d).sra = property(lambda self: "SRP1")
+        return d
+
+    def test_a_study_keeps_every_file(self):
+        assert [b.filename for b in self._dataset("SRP1").bams.root] == [
+            "a.bam", "b.bam", "c.bam",
+        ]
+
+    def test_a_run_gets_only_its_own(self):
+        assert [b.filename for b in self._dataset("SRR2").bams.root] == ["b.bam"]
+
+    def test_an_experiment_gets_its_runs(self):
+        assert [b.filename for b in self._dataset("SRX1").bams.root] == [
+            "a.bam", "b.bam",
+        ]
+
+    def test_matching_ignores_case(self):
+        assert [b.filename for b in self._dataset("srr3").bams.root] == ["c.bam"]

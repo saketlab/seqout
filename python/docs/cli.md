@@ -121,7 +121,26 @@ the smallest first.
 | Option | Effect |
 | --- | --- |
 | `-o`, `--out` | Download the openly readable files into this directory. |
-| `-m`, `--max` | Rows per page, or rows shown when the output is piped or saved (default: 20). It never limits a download. |
+| `--save-to` | Write every row, with its URLs and checksums, to a file instead of downloading. The format comes from the extension: `.json`, `.tsv`, or `.csv`. |
+| `-m`, `--max` | Rows per page, or rows shown when the output is piped (default: 20). It never limits a download or a saved file. |
+
+### Take the URLs and fetch them yourself
+
+`--save-to` writes the whole listing, requester-pays rows included, since their
+`s3_url` is the reason to ask:
+
+```bash
+seqout bams SRP071083 --save-to bams.csv
+# Wrote 276 row(s) to bams.csv (276 requester-pays)
+```
+
+```
+run_accession,experiment_accession,experiment_title,filename,semantic_name,size,md5,url,https_url,s3_url,requester_pays
+SRR3202716,SRX1612223,Skimikin_population: Sample SK_7_100…,SK_7_100_201_RES_104.bam,bam,3962700695,fc6e6c07…,,,s3://sra-pub-src-4/SRR3202716/SK_7_100_201_RES_104.bam,True
+```
+
+That is enough to build an `aws s3 cp --request-payer requester` script, or to
+hand the checksums to whatever does the fetching.
 
 Files behind requester-pays storage are named rather than fetched, with the
 command that would get them:
@@ -135,6 +154,15 @@ seqout bams SRP071083
 
 Every file carries an md5 and is verified as it lands. One that fails is
 deleted rather than kept, because a corrupt alignment still reads.
+
+It takes any accession. A study lists all of its alignments; an experiment or a
+run lists only its own:
+
+```bash
+seqout bams ERP117016     # 412 files
+seqout bams ERX3529074    # the one experiment's
+seqout bams ERR3507860    # the one run's
+```
 
 A GEO or ArrayExpress accession is resolved to its linked study first, since
 the archive files alignments against that. One with no such link, or no

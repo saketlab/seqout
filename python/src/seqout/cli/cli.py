@@ -303,6 +303,14 @@ def main() -> None:
         help="download the openly readable files into DIR (default: list only)",
     )
     p_bams.add_argument(
+        "--save-to",
+        dest="save_to",
+        type=Path,
+        metavar="FILE",
+        help="write every row, with its URLs and checksums, to FILE instead of "
+        "downloading; format from the extension (.json, .tsv, else csv)",
+    )
+    p_bams.add_argument(
         "-m",
         "--max",
         dest="max_rows",
@@ -614,7 +622,9 @@ def main() -> None:
             args.assay_l2,
             args.structured,
         ),
-        "bams": lambda: cmd_bams(args.accession, args.out, args.max_rows),
+        "bams": lambda: cmd_bams(
+            args.accession, args.out, args.max_rows, args.save_to
+        ),
         "show": lambda: cmd_show(
             args.accession,
             parquet=args.parquet is not None,
@@ -1375,7 +1385,58 @@ def _pretty_bytes(n: int) -> str:
     return f"{n / 1000**i:.1f} {units[i]}"
 
 
-def cmd_bams(accession: str, out: Path | None, max_rows: int = 20) -> None:
+_BAM_COLS = (
+    "run_accession",
+    "experiment_accession",
+    "experiment_title",
+    "filename",
+    "semantic_name",
+    "size",
+    "md5",
+    "url",
+    "https_url",
+    "s3_url",
+    "requester_pays",
+)
+
+
+def _save_bams(bams: Any, exp_titles: dict[str, str], path: Path) -> None:
+    """Write every row with its URLs, so the fetching can be someone else's job.
+
+    The paid rows are written too: their `s3_url` is the whole point of asking.
+    """
+    rows = [
+        {
+            "run_accession": b.run_accession or "",
+            "experiment_accession": b.experiment_accession or "",
+            "experiment_title": exp_titles.get(b.experiment_accession or "", ""),
+            "filename": b.filename or "",
+            "semantic_name": b.semantic_name or "",
+            "size": b.size or "",
+            "md5": b.md5 or "",
+            "url": b.url or "",
+            "https_url": b.https_url or "",
+            "s3_url": b.s3_url or "",
+            "requester_pays": not b.open_url,
+        }
+        for b in _by_size(bams)
+    ]
+    if path.suffix.lower() == ".json":
+        path.write_text(json.dumps(rows, indent=2))
+        return
+    delimiter = "\t" if path.suffix.lower() == ".tsv" else ","
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=_BAM_COLS, delimiter=delimiter)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def cmd_bams(
+    accession: str,
+    out: Path | None,
+    max_rows: int = 20,
+    save_to: Path | None = None,
+) -> None:
     console = Console()
     acc = accession.strip()
     try:
@@ -1389,6 +1450,17 @@ def cmd_bams(accession: str, out: Path | None, max_rows: int = 20) -> None:
             size = _pretty_bytes(bams.total_bam_bytes)
             titles = _experiment_titles(sq, sq.get(acc).sra or acc)
             table_of = functools.partial(_bams_table, exp_titles=titles)
+
+            if save_to is not None:
+                _save_bams(bams, titles, save_to)
+                paid = len(bams.requester_pays)
+                console.print(
+                    f"[green]Wrote {bams.total_bams} row(s) to[/] {save_to}"
+                    + (f" [dim]({paid} requester-pays)[/]" if paid else "")
+                )
+                if out is None:
+                    return
+
             if out is None and sys.stdin.isatty() and sys.stdout.isatty():
                 _paged(
                     console,

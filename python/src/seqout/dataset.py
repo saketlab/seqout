@@ -225,6 +225,9 @@ class Dataset:
         The archive files alignments against the SRA-side study, so a GEO or
         ArrayExpress accession is resolved to its linked study first. One with
         no such link, or no alignments, answers with an empty list.
+
+        An experiment or run accession narrows the result to its own files
+        rather than handing back the whole study's.
         """
         from seqout.models.api_models import BamFiles
 
@@ -232,9 +235,23 @@ class Dataset:
         if not study:
             return BamFiles([])
         try:
-            return self._call("fetch_bams", study)
+            files = self._call("fetch_bams", study)
         except Exception:
             return BamFiles([])
+
+        # The endpoint answers per study, so narrowing happens here. Matching
+        # on the rows rather than on the accession's shape means a study
+        # accession keeps everything without having to be recognised as one.
+        want = self.accession.upper()
+        mine = [
+            b
+            for b in files.root
+            if want in {
+                (b.run_accession or "").upper(),
+                (b.experiment_accession or "").upper(),
+            }
+        ]
+        return BamFiles(mine) if mine else files
 
     @cached_property
     def links(self) -> ProjectCrossReferenceList:

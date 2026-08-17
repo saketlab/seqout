@@ -261,6 +261,15 @@ with connect() as sq:
     bams.requester_pays    # what needs an account that pays egress
 ```
 
+`Dataset.bams` and `download_bams` take any accession. A study answers with all
+of its alignments; an experiment or a run answers with only its own:
+
+```python
+with connect() as sq:
+    sq.get("ERP117016").bams    # 412 files
+    sq.get("ERR3507860").bams   # the one run's
+```
+
 `download_bams` fetches the open ones and names the rest, with the command that
 would get them, so a partly-open study still yields what it can:
 
