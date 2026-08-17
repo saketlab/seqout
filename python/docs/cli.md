@@ -45,7 +45,8 @@ Common options:
 | `-d`, `--date` | Filter by date. Use `2020`, `15-08-2020`, or a range like `2018:2022`. |
 | `--sort` | Sort by `citations`, `journal`, or `year`. |
 | `-m`, `--max` | Stop after this many results. |
-| `-o`, `--saveto` | Write the results to a file. The format comes from the file extension: `.json`, `.tsv`, or `.csv`. |
+| `-p`, `--page-size` | Results per page on screen. It does not limit a file written with `-o`. |
+| `-o`, `--saveto` | Write the results to a file. The format comes from the file extension: `.json`, `.tsv`, or `.csv`. Every match is written unless you give `-m`. |
 
 The filters combine, and each one works with a query or without one:
 
@@ -73,8 +74,14 @@ forces it on a query that has no operators of its own:
 seqout search "liver cancer" --exact
 ```
 
-On a terminal, the search shows one page of results. Use the left and right
-arrow keys to change the page. Push `q` to quit.
+On a terminal, the search shows one page of results with the total beside it,
+so you know how much there is before you start paging:
+
+```
+'liver cancer' — page 1/27 · 537 results
+```
+
+Use the left and right arrow keys to change the page. Push `q` to quit.
 
 ## show
 

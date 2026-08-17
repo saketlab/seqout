@@ -51,6 +51,7 @@ from seqout.models.api_models import (
     SearchCorrection,
     SearchParams,
     SearchResponse,
+    SearchTotal,
     SearchResult,
     SearchResults,
     StructuredSearchParams,
@@ -129,6 +130,37 @@ class SeqoutAPIClient(ShortNames):
             method="POST",
         )
 
+    # /search/facets counts the same match set, and its `q` is required, so a
+    # filter-only search has no cheap total. Everything else it takes is a
+    # subset of SearchParams.
+    _COUNTABLE = frozenset(
+        {
+            "q", "db", "structured", "organism", "country", "library_strategy",
+            "library_source", "instrument_model", "platform", "journal",
+            "multi_platform", "date_from", "date_to",
+        }
+    )
+
+    def _search_total(self, params: SearchParamsType) -> int | None:
+        """The exact number of matches, or None when it cannot be had cheaply.
+
+        The structured endpoint sends a total with the results, so this is only
+        for the full-text one, which defers its count to /search/facets.
+        """
+        if isinstance(params, StructuredSearchParams):
+            return None
+        sent = params.model_dump(exclude_none=True, by_alias=True)
+        if not sent.get("q"):
+            return None
+        try:
+            return self._sender(
+                url=f"{self._base_url}/search/facets",
+                params={k: v for k, v in sent.items() if k in self._COUNTABLE},
+                response_model=SearchTotal,
+            ).total
+        except Exception:
+            return None  # a count is a nicety; never fail the search for it
+
     def _fetch_search_page(
         self,
         params: SearchParamsType,
@@ -169,52 +201,55 @@ class SeqoutAPIClient(ShortNames):
             params = params.model_copy(update=update)
             response = self._fetch_search_page(params)
 
-    def search_with_correction(
+    def _search_with_correction(
         self,
         params: SearchParamsType | str | None = None,
         **filters: Any,
-    ) -> tuple[SearchCorrection | None, Iterator[SearchResult]]:
+    ) -> tuple[SearchCorrection | None, int | None, Iterator[SearchResult]]:
         """
-        Return page 0's spelling correction plus the full result iterator.
+        Page 0's correction and total, plus a lazy iterator over every result.
 
         The correction (did you mean / augmented extra matches) only rides on
         the first page; this reuses that page so paging costs no extra request.
+        `total` is the server's exact count where it sends one -- the full-text
+        endpoint defers it to /search/facets and sends None, so the caller
+        counts instead. Internal: the command line needs both and pages by
+        hand, but a library caller wants `search`, which reads to the end.
         """
         plan = _as_plan(params, filters)
-        first = self._fetch_search_page(plan.params)
+        # The count is a second request, so it rides alongside page 0 rather
+        # than after it: the wait is the slower of the two, not their sum.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            page = pool.submit(self._fetch_search_page, plan.params)
+            count = pool.submit(self._search_total, plan.params)
+            first, total = page.result(), count.result()
         rows = self._iter_search_pages(plan.params, first=first)
         if plan.has_local_work:
             rows = iter(apply_plan(rows, plan))
-        return first.correction, rows
+        return first.correction, total if total is not None else first.total, rows
 
     def search(
         self,
         params: SearchParamsType | str | None = None,
-        **filters: Any,
-    ) -> SearchResults:
-        """Search for projects. Takes a query string, or a params object."""
-        plan = _as_plan(params, filters)
-        if plan.has_local_work:
-            # A row dropped or reordered here has to move before the page does,
-            # so this reads every page rather than returning a short first one.
-            return SearchResults(apply_plan(self._iter_search_pages(plan.params), plan))
-        return self._fetch_search_page(plan.params).to_results()
-
-    def iter_search(
-        self,
-        params: SearchParamsType | str | None = None,
         limit: int | None = None,
         **filters: Any,
-    ) -> Iterator[SearchResult]:
-        """Iterate every page of results, transparently following the cursor."""
+    ) -> SearchResults:
+        """
+        Search for projects. Every match, not the first page.
+
+        Takes a query string with keyword filters, or a params object. The
+        server answers 200 rows at a time and this follows the cursor to the
+        end, so a broad query costs several requests -- give `limit` when a
+        sample of the results is enough.
+        """
         plan = _as_plan(params, filters)
-        iterator: Iterable[SearchResult] = self._iter_search_pages(plan.params)
+        rows: Iterable[SearchResult] = self._iter_search_pages(plan.params)
         if plan.has_local_work:
-            iterator = apply_plan(iterator, plan)
-        if limit is None:
-            yield from iterator
-        else:
-            yield from itertools.islice(iterator, limit)
+            # A row dropped or reordered here has to move before `limit` counts.
+            rows = apply_plan(rows, plan)
+        if limit is not None:
+            rows = itertools.islice(rows, limit)
+        return SearchResults(list(rows))
 
     def bulk_search(
         self,

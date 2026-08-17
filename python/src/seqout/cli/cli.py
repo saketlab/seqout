@@ -1060,6 +1060,7 @@ def _paged_search(
     query: str,
     it: Iterator[SearchResult],
     page_size: int,
+    total: int | None = None,
 ) -> None:
     buffer: list = []
     exhausted = False
@@ -1084,8 +1085,17 @@ def _paged_search(
         ensure((page + 1) * page_size)
         rows = buffer[page * page_size : (page + 1) * page_size]
         pages = f"/{-(-len(buffer) // page_size)}" if exhausted else "+"
+        # The count is known before page 1 is drawn, so say how much there is
+        # to page through rather than making the reader find out by paging.
+        found = (
+            f" · {total} result{'s' if total != 1 else ''}"
+            if total is not None
+            else f" · {len(buffer)}+ so far"
+            if not exhausted
+            else f" · {len(buffer)} result{'s' if len(buffer) != 1 else ''}"
+        )
         console.clear()
-        console.print(_results_table(f"{query!r} — page {page + 1}{pages}", rows))
+        console.print(_results_table(f"{query!r} — page {page + 1}{pages}{found}", rows))
         console.print(
             "[dim]← prev · → next · q quit — `seqout show <accession>` to inspect[/]",
         )
@@ -1192,7 +1202,7 @@ def cmd_search(
     try:
         with connect_to_seqout(backend="api") as sq:
             # Page 0 carries spelling correction while later pages carry only results.
-            correction, it = sq.search_with_correction(params)
+            correction, total, it = sq._search_with_correction(params)
             if plan.has_local_work:
                 # The endpoint the filters chose has no sortby and no day
                 # bounds; apply them here rather than lose them.
@@ -1205,10 +1215,18 @@ def cmd_search(
             if save_to is None and sys.stdin.isatty() and sys.stdout.isatty():
                 if max_results is not None:
                     it = itertools.islice(it, max_results)
-                _paged_search(console, label, it, limit)
+                _paged_search(console, label, it, limit, total)
                 return
             with console.status("[bold]Searching…[/]"):
-                results = list(itertools.islice(it, max_results or limit))
+                # A file is not a screen: -p sets the interactive page size and
+                # must not silently cut an export down to one page.
+                results = (
+                    list(itertools.islice(it, max_results))
+                    if max_results is not None
+                    else list(it)
+                    if save_to is not None
+                    else list(itertools.islice(it, limit))
+                )
     except Exception as e:
         console.print(f"[red]Search failed:[/] {e}")
         raise SystemExit(1) from e
@@ -1218,9 +1236,17 @@ def cmd_search(
         return
     if save_to is not None:
         _save_results(results, save_to)
-        console.print(f"[green]Saved {len(results)} result(s) to[/] {save_to}")
+        of_total = f" of {total}" if total is not None and total > len(results) else ""
+        console.print(
+            f"[green]Saved {len(results)}{of_total} result(s) to[/] {save_to}"
+        )
         return
-    console.print(_results_table(f"{label} — {len(results)} result(s)", results))
+    shown = (
+        f"{len(results)} of {total}"
+        if total is not None and total > len(results)
+        else str(len(results))
+    )
+    console.print(_results_table(f"{label} — {shown} result(s)", results))
     console.print("[dim]Tip: `seqout show <accession>` to inspect a result.[/]")
 
 

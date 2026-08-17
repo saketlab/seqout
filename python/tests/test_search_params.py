@@ -7,6 +7,8 @@ filtered. Every model here sets ``extra="forbid"`` so that fails loudly.
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from pydantic import ValidationError
 
@@ -210,3 +212,22 @@ class TestApplyPlan:
         plan = plan_search("liver")
         rows = self._rows()
         assert apply_plan(rows, plan) == rows
+
+
+class TestOneSearchFunction:
+    """search() is the only one, and it answers in full."""
+
+    def test_iter_search_is_gone(self):
+        from seqout.clients.api import SeqoutAPIClient
+
+        assert not hasattr(SeqoutAPIClient, "iter_search")
+        # The correction is a command-line need, not a second search.
+        assert not hasattr(SeqoutAPIClient, "search_with_correction")
+        assert hasattr(SeqoutAPIClient, "_search_with_correction")
+
+    def test_search_takes_a_limit(self):
+        from seqout.clients.api import SeqoutAPIClient
+
+        sig = inspect.signature(SeqoutAPIClient.search)
+        assert "limit" in sig.parameters
+        assert sig.parameters["limit"].default is None

@@ -134,12 +134,14 @@ params = SearchParams(q="lung cancer", db="geo", organism="Homo sapiens")
 results = sq.search(params)
 ```
 
-To read every result across all pages, use `iter_search`:
+`search` returns every match, not the first page. The server answers 200 rows
+at a time and the client follows the cursor to the end, so a broad query costs
+several requests. Give `limit` when a sample of the results is enough:
 
 ```python
 with connect() as sq:
-    for r in sq.iter_search("lung cancer", db="geo"):
-        print(r.accession)
+    everything = sq.search("lung cancer", db="geo")   # every match
+    a_taste = sq.search("lung cancer", db="geo", limit=25)
 ```
 
 ### The filters
@@ -216,11 +218,11 @@ as words.
 sq.search("hepatocellular carcinoma", sortby="citations")
 ```
 
-`search` returns one page of 200 results. `iter_search` follows the cursor
-through every page, and takes a `limit`:
+`search` is the only search function, and it always answers in full. Use
+`limit` to stop early:
 
 ```python
-top = list(sq.iter_search("liver", assay_l2="ATAC-seq", limit=50))
+top = sq.search("liver", assay_l2="ATAC-seq", sortby="citations", limit=50)
 ```
 
 Some combinations are finished off in Python rather than by the server: a day

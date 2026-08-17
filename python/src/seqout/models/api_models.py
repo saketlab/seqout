@@ -279,6 +279,14 @@ class SearchResponse(BaseModel):
         return SearchResults(self.results)
 
 
+class SearchTotal(BaseModel):
+    """Just the count from /search/facets; the facet buckets are ignored."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    total: int | None = None
+
+
 class SearchResults(BaseContainer[SearchResult]):
     """
     A list of search hits, with subsetting and summary helpers.
