@@ -17,7 +17,7 @@ pass a Parquet one to read the dump instead.}
 A tibble with detailed metadata.
 }
 \description{
-Accepts a sample or experiment accession from any archive SeqOut holds. On
+Accepts a sample or experiment accession from any archive Seqout holds. On
 the Parquet backend the accession prefix picks the table; over REST it is one
 request either way.
 }

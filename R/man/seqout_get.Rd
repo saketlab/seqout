@@ -10,7 +10,7 @@ seqout_get(accession, con = .con())
 SeqoutGet(accession, con = .con())
 }
 \arguments{
-\item{accession}{Any accession SeqOut holds.}
+\item{accession}{Any accession Seqout holds.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }

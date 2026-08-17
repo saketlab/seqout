@@ -5,7 +5,7 @@
 #' of making HTTP requests — useful for repeated analysis on the same data.
 #'
 #' @param table Character. Name of the table/view to cache (e.g.,
-#'   `"geo_series"`). Must be one of the registered SeqOut tables.
+#'   `"geo_series"`). Must be one of the registered Seqout tables.
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return The local table name (invisibly).
 #' @export
@@ -15,7 +15,7 @@ cache_table <- function(table, con = .con()) {
 
   if (!table %in% con$tables) {
     cli::cli_abort(
-      "{.val {table}} is not a registered SeqOut table. See {.fn tables}."
+      "{.val {table}} is not a registered Seqout table. See {.fn tables}."
     )
   }
 
@@ -69,7 +69,7 @@ query <- function(sql, params = NULL, con = .con()) {
 
 #' List available tables and views
 #'
-#' Every remote SeqOut table, plus any table cached locally by [cache_table()].
+#' Every remote Seqout table, plus any table cached locally by [cache_table()].
 #' `registered` says whether the view exists in DuckDB yet; views are created on
 #' first use, so a fresh connection reports `FALSE` for most of them.
 #'

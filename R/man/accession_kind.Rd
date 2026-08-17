@@ -10,7 +10,7 @@ accession_kind(accession, archive = FALSE)
 AccessionKind(accession, archive = FALSE)
 }
 \arguments{
-\item{accession}{An accession from any archive SeqOut holds.}
+\item{accession}{An accession from any archive Seqout holds.}
 
 \item{archive}{Also name the archive that holds the record. The answer
 becomes a named vector of \code{kind} and \code{archive} rather than the kind alone.}

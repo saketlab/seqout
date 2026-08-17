@@ -10,7 +10,7 @@ download_bams(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 DownloadBams(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 }
 \arguments{
-\item{accession}{Any accession SeqOut holds. Resolved to its study, since
+\item{accession}{Any accession Seqout holds. Resolved to its study, since
 the archive files alignments against one.}
 
 \item{dest_dir}{Directory to write into. Defaults to the accession.}

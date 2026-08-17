@@ -329,3 +329,80 @@ test_that("a study with no alignments says so rather than erroring", {
     "no submitted alignment files"
   )
 })
+
+test_that("download_dump builds one URL and one filename per table", {
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .remote_bytes = function(url) 1e6,
+    .download_files = function(urls, dest_dir, names = NULL, md5 = NULL,
+                               overwrite = FALSE, quiet = FALSE) {
+      seen <<- list(urls = urls, dest_dir = dest_dir, names = names)
+      file.path(dest_dir, names)
+    }
+  )
+
+  download_dump("dump", tables = c("geo_series", "unified_metadata"),
+    quiet = TRUE, con = fake_con()
+  )
+  expect_equal(seen$urls, paste0(
+    fake_con()$data_url, c("/geo_series.parquet", "/unified_metadata.parquet")
+  ))
+  expect_equal(seen$names, c("geo_series.parquet", "unified_metadata.parquet"))
+  expect_equal(seen$dest_dir, "dump")
+})
+
+test_that("download_dump defaults to every table", {
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .remote_bytes = function(url) 1e6,
+    .download_files = function(urls, dest_dir, names = NULL, ...) {
+      seen <<- names
+      character(0)
+    }
+  )
+  con <- fake_con()
+  download_dump("dump", quiet = TRUE, con = con)
+  expect_equal(length(seen), length(con$tables))
+})
+
+test_that("download_dump names a table it does not have", {
+  expect_error(
+    download_dump("dump", tables = "not_a_table", con = fake_con()),
+    "Not a Seqout table"
+  )
+})
+
+test_that("the size is reported before the transfer, and survives a silent HEAD", {
+  testthat::local_mocked_bindings(
+    .remote_bytes = function(url) 2.1e9,
+    .download_files = function(...) character(0)
+  )
+  expect_message(
+    download_dump("dump", tables = "geo_series", con = fake_con()),
+    "2.1 GB"
+  )
+
+  testthat::local_mocked_bindings(
+    .remote_bytes = function(url) NA_real_,
+    .download_files = function(...) character(0)
+  )
+  expect_message(
+    download_dump("dump", tables = c("geo_series", "sra_runs"), con = fake_con()),
+    "Fetching 2 tables"
+  )
+})
+
+test_that("download_dump reads the connection's own dump location", {
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .remote_bytes = function(url) NA_real_,
+    .download_files = function(urls, ...) {
+      seen <<- urls
+      character(0)
+    }
+  )
+  con <- fake_con()
+  con$data_url <- "/mnt/mirror"
+  download_dump("dump", tables = "geo_series", quiet = TRUE, con = con)
+  expect_equal(seen, "/mnt/mirror/geo_series.parquet")
+})

@@ -34,6 +34,10 @@ SeqoutConnect <- seqout_connect
 #' @export
 DownloadBams <- download_bams
 
+#' @rdname download_dump
+#' @export
+DownloadDump <- download_dump
+
 #' @rdname download_runs
 #' @export
 DownloadRuns <- download_runs

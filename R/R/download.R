@@ -195,6 +195,96 @@
   reason
 }
 
+#' Download the Parquet dump
+#'
+#' Fetches the `.parquet` files that back the Parquet backend, so that later
+#' work reads a local disk instead of the network. Point
+#' [seqout_connect()]`(data_dir =)` at the directory afterwards.
+#'
+#' The whole dump is tens of gigabytes and `geo_series.parquet` alone is over
+#' four, so the size is reported before anything is fetched. Name `tables` to
+#' take only what you need. A file already on disk is left alone, which makes a
+#' second call finish an interrupted first one.
+#'
+#' @param con A `seqout_connection`. Either backend works: the files are read
+#'   from the same place both point at.
+#' @param dest_dir Directory to write into. It is created if it is absent.
+#' @param tables Which tables to fetch. The default, `NULL`, fetches all of
+#'   them. See [tables()].
+#' @param overwrite Fetch a file even when it is already on disk.
+#' @param quiet Suppress progress messages.
+#'
+#' @return The paths of the downloaded files, invisibly.
+#'
+#' @seealso [seqout_connect()] to read the result, and [cache_table()] to keep
+#'   one table in local DuckDB storage instead.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' # The two tables most queries start from
+#' DownloadDump("~/seqout-dump", tables = c("unified_metadata", "geo_series"))
+#'
+#' con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+#' Query("SELECT count(*) FROM unified_metadata", con = con)
+#' }
+download_dump <- function(dest_dir = "seqout-dump", tables = NULL,
+                          overwrite = FALSE, quiet = FALSE, con = .con()) {
+  .check_connection(con)
+  tables <- tables %||% con$tables
+  unknown <- setdiff(tables, con$tables)
+  if (length(unknown) > 0) {
+    cli::cli_abort(c(
+      "Not a Seqout table: {.val {unknown}}.",
+      "i" = "See {.fn tables} for the names."
+    ))
+  }
+
+  urls <- paste0(con$data_url, "/", tables, ".parquet")
+  if (!quiet) {
+    .report_dump_size(urls, tables)
+  }
+  .download_files(
+    urls, dest_dir,
+    names = paste0(tables, ".parquet"),
+    overwrite = overwrite, quiet = quiet
+  )
+}
+
+#' Say how much this will cost before it starts
+#'
+#' A HEAD per file, which is cheap next to the transfer it is describing. The
+#' whole dump is far past the point where a caller should find out afterwards.
+#' A server that will not answer HEAD is not a reason to refuse the download.
+#' @noRd
+.report_dump_size <- function(urls, tables) {
+  bytes <- vapply(urls, .remote_bytes, numeric(1), USE.NAMES = FALSE)
+  total <- sum(bytes, na.rm = TRUE)
+  if (total <= 0) {
+    cli::cli_alert_info("Fetching {length(tables)} table{?s}.")
+    return(invisible(NULL))
+  }
+  size <- .pretty_bytes(total)
+  cli::cli_alert_info("Fetching {length(tables)} table{?s}, {size}.")
+  invisible(NULL)
+}
+
+#' @noRd
+.remote_bytes <- function(url) {
+  head <- tryCatch(
+    curl::curl_fetch_memory(url, curl::new_handle(nobody = TRUE, timeout = 30)),
+    error = function(e) NULL
+  )
+  if (is.null(head) || head$status_code >= 400) {
+    return(NA_real_)
+  }
+  n <- sub(
+    ".*[Cc]ontent-[Ll]ength: *([0-9]+).*", "\\1",
+    rawToChar(head$headers)
+  )
+  suppressWarnings(as.numeric(n))
+}
+
 #' Download the supplementary files of an accession
 #'
 #' The processed files a submitter uploaded: count matrices, annotations and
@@ -204,7 +294,7 @@
 #' the whole study.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession Any accession SeqOut holds.
+#' @param accession Any accession Seqout holds.
 #' @param dest_dir Directory to write into. Defaults to the accession.
 #' @param quiet Suppress progress messages.
 #'
@@ -332,7 +422,7 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
 #' downloaded file is verified against it.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession Any accession SeqOut holds.
+#' @param accession Any accession Seqout holds.
 #' @param dest_dir Directory to write into. Defaults to the accession.
 #' @param mode Which copy to take: `"fastq"`, `"sra"` (NCBI's full-quality
 #'   copy) or `"sra_lite"` (the same reads with binned quality scores). `NULL`
@@ -595,7 +685,7 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
 #' Those are named rather than fetched, with the command that would get them.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession Any accession SeqOut holds. Resolved to its study, since
+#' @param accession Any accession Seqout holds. Resolved to its study, since
 #'   the archive files alignments against one.
 #' @param dest_dir Directory to write into. Defaults to the accession.
 #' @param quiet Suppress progress messages.

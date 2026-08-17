@@ -22,7 +22,7 @@ DownloadRuns(
 )
 }
 \arguments{
-\item{accession}{Any accession SeqOut holds.}
+\item{accession}{Any accession Seqout holds.}
 
 \item{dest_dir}{Directory to write into. Defaults to the accession.}
 

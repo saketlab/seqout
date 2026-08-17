@@ -108,7 +108,7 @@
 #' Names the kind of record an accession points at, using the accession shape
 #' alone. No request is made, so this works offline and costs nothing.
 #'
-#' @param accession An accession from any archive SeqOut holds.
+#' @param accession An accession from any archive Seqout holds.
 #' @param archive Also name the archive that holds the record. The answer
 #'   becomes a named vector of `kind` and `archive` rather than the kind alone.
 #'

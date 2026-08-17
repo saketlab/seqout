@@ -16,7 +16,7 @@ Tables(con = .con())
 A tibble with \code{table_name}, \code{table_type} and \code{registered} columns.
 }
 \description{
-Every remote SeqOut table, plus any table cached locally by \code{\link[=cache_table]{cache_table()}}.
+Every remote Seqout table, plus any table cached locally by \code{\link[=cache_table]{cache_table()}}.
 \code{registered} says whether the view exists in DuckDB yet; views are created on
 first use, so a fresh connection reports \code{FALSE} for most of them.
 }

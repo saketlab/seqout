@@ -34,7 +34,7 @@ template:
           "price": "0",
           "priceCurrency": "USD"
         },
-        "description": "R client for the SeqOut genomics metadata database, covering NCBI GEO, SRA, ENA, ArrayExpress, DDBJ and GSA, with counts-matrix readers for GEO supplementary files",
+        "description": "R client for the Seqout genomics metadata database, covering NCBI GEO, SRA, ENA, ArrayExpress, DDBJ and GSA, with counts-matrix readers for GEO supplementary files",
         "author": {
           "@type": "Person",
           "name": "Saket Choudhary",
@@ -153,6 +153,7 @@ reference:
   - download_supplementary
   - download_runs
   - download_bams
+  - download_dump
 
 - title: Publications
   desc: Papers linked to studies, and studies linked to papers

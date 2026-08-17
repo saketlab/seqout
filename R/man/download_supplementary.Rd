@@ -10,7 +10,7 @@ download_supplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 DownloadSupplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 }
 \arguments{
-\item{accession}{Any accession SeqOut holds.}
+\item{accession}{Any accession Seqout holds.}
 
 \item{dest_dir}{Directory to write into. Defaults to the accession.}
 

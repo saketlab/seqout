@@ -11,7 +11,7 @@ CacheTable(table, con = .con())
 }
 \arguments{
 \item{table}{Character. Name of the table/view to cache (e.g.,
-\code{"geo_series"}). Must be one of the registered SeqOut tables.}
+\code{"geo_series"}). Must be one of the registered Seqout tables.}
 
 \item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }

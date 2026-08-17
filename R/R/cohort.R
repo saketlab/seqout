@@ -108,7 +108,7 @@
 
 #' Search samples across every project
 #'
-#' Searches the harmonised data, not the submitter's free text. SeqOut reads
+#' Searches the harmonised data, not the submitter's free text. Seqout reads
 #' each sample's description and writes the tissue, the disease, the cell type,
 #' the assay and the age into one vocabulary, so one filter reaches every study
 #' that recorded the fact, whatever words its submitter used. A sample that was

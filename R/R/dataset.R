@@ -25,7 +25,7 @@
 #' and four that say where the data sits: `kind`, `project`, `geo`, `sra`.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession Any accession SeqOut holds.
+#' @param accession Any accession Seqout holds.
 #'
 #' @return A `seqout_dataset` object. Read fields with `$`.
 #'
