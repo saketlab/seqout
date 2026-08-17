@@ -74,7 +74,6 @@ project_samples <- function(accession, con = .con()) {
   }
 
   if (identical(con$backend, "api")) {
-    # Each archive files its samples under a different route.
     path <- switch(row$archive,
       geo = paste0("/geo/series/", accession, "/samples"),
       arrayexpress = paste0("/arrayexpress/experiment/", accession, "/samples"),
@@ -88,8 +87,7 @@ project_samples <- function(accession, con = .con()) {
     accession <- .resolve_to_sra_study(con, accession)
   }
 
-  # GEO samples carry no series column, so this resolves them through
-  # `samples_ref`, which scans the whole sample table.
+  # GEO lacks a series column; `samples_ref` scans the whole sample table.
   sql <- if (identical(row$child, "geo_series_samples")) {
     paste(
       "SELECT s.* FROM geo_samples s WHERE s.accession IN",
@@ -177,9 +175,9 @@ project_xref <- function(accession, con = .con()) {
 project_enriched <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
-  res <- tryCatch(
-    .api_get(con, paste0("/project/", accession, "/enriched")),
-    error = function(e) NULL
+  res <- .api_get(
+    con, paste0("/project/", accession, "/enriched"),
+    null_on = 404L
   )
   .records_to_tibble(.as_record_list(res$samples %||% res))
 }
@@ -198,25 +196,33 @@ project_citations <- function(accession, type = "original",
   type <- match.arg(type, c("original", "all"))
   format <- match.arg(format, c("tibble", "bibtex"))
 
+  from_api <- function() {
+    if (format == "bibtex") {
+      return(.api_get_text(con, paste0("/project/", accession, "/cite"),
+        type = type, format = "bibtex"
+      ))
+    }
+    .records_to_tibble(.as_record_list(
+      .api_get(con, paste0("/project/", accession, "/cite"),
+        type = type, format = "json"
+      )
+    ))
+  }
+
   if (identical(con$backend, "parquet")) {
     if (format == "bibtex") {
       return(.bibtex_from_db(con, accession))
     }
-    return(.db_query(con, .publications_sql("WHERE sp.accession = ?"),
-      params = list(accession)
+    # `study_publications` is no longer in the dump.
+    return(tryCatch(
+      .db_query(con, .publications_sql("WHERE sp.accession = ?"),
+        params = list(accession)
+      ),
+      error = function(e) from_api()
     ))
   }
 
-  if (format == "bibtex") {
-    return(.api_get_text(con, paste0("/project/", accession, "/cite"),
-      type = type, format = "bibtex"
-    ))
-  }
-  .records_to_tibble(.as_record_list(
-    .api_get(con, paste0("/project/", accession, "/cite"),
-      type = type, format = "json"
-    )
-  ))
+  from_api()
 }
 
 #' @noRd

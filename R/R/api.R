@@ -156,8 +156,6 @@ NULL
 #' @noRd
 .valid_dbs <- c("geo", "sra", "arrayexpress", "ena")
 
-#' @noRd
-
 #' A float8 as a string that survives the round trip
 #'
 #' The keyset is `(rank, accession) < (cursor_rank, cursor_acc)`, so the cursor
@@ -185,8 +183,7 @@ NULL
   pages <- list()
   rows <- 0
   result <- NULL
-  # An unbounded search is one request per 200 rows; say so rather than
-  # appearing to hang.
+  # Unbounded searches can otherwise appear to hang between 200-row pages.
   progress <- interactive() && max_pages > 1
   if (progress) {
     cli::cli_progress_bar(

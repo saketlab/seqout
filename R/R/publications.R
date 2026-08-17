@@ -12,7 +12,7 @@ publications <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)
   frames <- lapply(accessions, function(acc) {
-    res <- tryCatch(.api_get(con, paste0("/project/", acc)), error = function(e) NULL)
+    res <- .api_get(con, paste0("/project/", acc), null_on = 404L)
     pubs <- res$publications
     if (is.null(pubs) || length(pubs) == 0) {
       return(NULL)

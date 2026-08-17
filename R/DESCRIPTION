@@ -7,7 +7,7 @@ Authors@R:
            comment = c(ORCID = "0000-0001-5202-7633"))
 Description: Search and download genomics study metadata from 'SeqOut'
     <https://seqout.org>, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ
-    (DRA and GEA), ArrayExpress and GSA. 
+    (DRA and GEA), ArrayExpress and GSA.
 License: MIT + file LICENSE
 URL: https://github.com/saketlab/seqout, https://seqout.org, https://seqout.org/cli/R/
 BugReports: https://github.com/saketlab/seqout/issues
@@ -26,6 +26,7 @@ Imports:
 Suggests:
     DBI,
     dplyr,
+    jsonlite,
     dbplyr,
     DT,
     duckdb,

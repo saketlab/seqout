@@ -42,21 +42,14 @@ behind the public CDN, with no change to the code.}
 A \code{seqout_connection} object.
 }
 \description{
-\code{seqout} gets data in two ways. This function selects the way, and it points
-at the server.
+There are currently two backends supported:
 }
 \details{
-Most code does not call it. Every function has \code{con} as its last argument,
-and the default is the REST API at \url{https://seqout.org}. Call
-\code{seqout_connect()} to select the Parquet backend, or to use another server.
-
-The two backends answer the same functions:
 \itemize{
-\item \code{"api"}, the default, reads \url{https://seqout.org} with HTTP. It is always
-current. It needs no other package, and it does not open DuckDB.
+\item \code{"api"}, the default, reads \url{https://seqout.org} with HTTP.
 \item \code{"parquet"} reads the Parquet dump with DuckDB through \code{httpfs}. It
 answers SQL, and it works offline against a local dump. It is slower over
-a remote URL, and it lags the live index. It needs the \code{duckdb} package.
+a remote URL, and it lags the live index. Requires the \code{duckdb} package.
 }
 
 You must select the Parquet backend. The package does not change to it for

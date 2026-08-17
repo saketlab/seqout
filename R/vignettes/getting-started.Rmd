@@ -13,18 +13,7 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-api_reachable <- tryCatch(
-  curl::curl_fetch_memory(
-    "https://seqout.org/api/project/GSE151530",
-    curl::new_handle(timeout = 30)
-  )$status_code == 200L,
-  error = function(e) FALSE
-)
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  eval = api_reachable
-)
+seqout::seqout_default(NULL)
 ```
 
 `seqout` is an R client for [seqout.org](https://seqout.org). It gets metadata
@@ -60,7 +49,7 @@ d <- seqout_get("GSE168652")
 c(title = d$meta$title, samples = nrow(d$samples), runs = nrow(d$runs))
 ```
 
-## Two backends
+## Backends
 
 `seqout` can get data in two ways.
 
@@ -81,18 +70,13 @@ con <- seqout_connect("parquet")
 con
 ```
 
-Give the connection to a function with `con =`. Or make it the default for the
-session:
+Give the connection to a function with `con =`, or make it the default for the
+session with `seqout_default(con)`. The next section does that.
 
-```{r default}
-seqout_default(con)
-```
-
-The sections below read Parquet because of that call. `seqout_default(NULL)`
-selects the REST API again.
 ## Search
 
 `seqout_search()` is the only search function. Give it a query, filters, or both.
+It reads the REST API, so it needs no connection.
 
 ```{r search}
 seqout_search("liver cancer scRNA", organism = "Homo sapiens", limit = 10)
@@ -107,7 +91,9 @@ For the filters, the sort order and the cost of a large result set, read
 `project()` gives you the full record: the title, the description, the
 contributors, the organisms, the instruments and the supplementary files.
 
-```{r metadata-full}
+```{r metadata-full, eval = FALSE}
+# eval disabled: SELECT * over the remote geo_series.parquet currently fails
+# with a Snappy decompression error from the dump.
 meta <- project("GSE151530")
 meta
 ```
@@ -115,7 +101,7 @@ meta
 A project record has 25 columns. That is too wide to read. `transpose = TRUE`
 gives you one row for each field:
 
-```{r metadata-transposed}
+```{r metadata-transposed, eval = FALSE}
 project("GSE151530", transpose = TRUE)
 ```
 
@@ -148,6 +134,63 @@ enriched |>
   head(10)
 ```
 
+
+## Sample cohorts across every project
+
+`sample_search()` allows searching through `enriched` metadata:
+
+```{r cohort}
+api <- seqout_connect("api")
+
+liver <- sample_search(
+  organism = "Homo sapiens",
+  sex = "female",
+  tissue = "liver",
+  age_min_years = 50,
+  con = api
+)
+
+liver |>
+  select(sample, study_accession, tissue, disease, assay, age) |>
+  head(10)
+```
+
+
+```{r cohort-total}
+attr(liver, "total")
+```
+
+
+It is also possible to search by ontology terms, and their subtypes:
+
+
+
+```{r cohort-ontology}
+sample_search(disease_ontology_id = "MONDO:0005061", limit = 200, con = api)
+```
+
+Set `include_descendants = FALSE` for the exact term only.
+
+### Filtering on what the reads contain
+
+seqout also supports a `Pentimento` mode where it infers sex, single-cell assay type and 
+viral/microbial content in the raw samples reads.
+
+For example you can search all cervical (scRNA-seq) samples with HPV infection:
+
+```{r cohort-microbes}
+hpv <- sample_search(
+  tissue = "cervix",
+  microbe = "HPV",
+  sort = "cell_count",
+  order = "desc",
+  con = api
+)
+
+hpv |>
+  select(sample, study_accession, cells, hpv_top_type, microbe_n_detections) |>
+  head(10)
+```
 
 ## Publications
 
