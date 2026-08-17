@@ -24,6 +24,6 @@ The reverse lookup: from a paper to the datasets that name it.
 }
 \examples{
 \dontrun{
-paper(pmid = "34764296")
+Paper(pmid = "34764296")
 }
 }

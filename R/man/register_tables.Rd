@@ -26,8 +26,8 @@ needs them to exist first.
 }
 \examples{
 \dontrun{
-con <- seqout_connect("parquet")
-register_tables("unified_metadata", con = con)
+con <- SeqoutConnect("parquet")
+RegisterTables("unified_metadata", con = con)
 dplyr::tbl(con$db, "unified_metadata")
 }
 }

@@ -24,9 +24,9 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' counts <- seqout_counts("GSE297547")
-#' manifest(counts)
-#' m <- seqout_matrix(counts, sample = "GSM8994520")
+#' counts <- SeqoutCounts("GSE297547")
+#' Manifest(counts)
+#' m <- SeqoutMatrix(counts, sample = "GSM8994520")
 #' }
 seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
                           cache_dir = NULL, con = .con()) {
@@ -324,8 +324,8 @@ seqout_matrix <- function(counts, sample = NULL) {
 #'
 #' @examples
 #' \dontrun{
-#' counts <- seqout_counts("GSE291735")
-#' counts_matrix(seqout_matrix(counts, sample = "GSM8994520"))
+#' counts <- SeqoutCounts("GSE291735")
+#' CountsMatrix(SeqoutMatrix(counts, sample = "GSM8994520"))
 #' }
 #'
 #' @export
@@ -352,8 +352,8 @@ cellxgene_counts <- function(x) .counts_X(x)
 #'
 #' @examples
 #' \dontrun{
-#' counts <- seqout_counts("GSE291735")
-#' merged <- bind_counts(matrices(counts, sample = wt$sample),
+#' counts <- SeqoutCounts("GSE291735")
+#' merged <- BindCounts(Matrices(counts, sample = wt$sample),
 #'   labels = wt$stage, max_cells = 1200
 #' )
 #' }

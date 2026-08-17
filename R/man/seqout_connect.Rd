@@ -61,8 +61,8 @@ you, because one lookup would become a scan of many gigabytes.
 project("GSE297547")
 
 # Select Parquet for SQL and for offline work
-con <- seqout_connect("parquet")
-query("SELECT * FROM geo_series LIMIT 5", con = con)
-seqout_close(con)
+con <- SeqoutConnect("parquet")
+Query("SELECT * FROM geo_series LIMIT 5", con = con)
+SeqoutClose(con)
 }
 }

@@ -47,11 +47,11 @@ cache_table <- function(table, con = .con()) {
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect("parquet")
-#' query("SELECT accession, title FROM geo_series LIMIT 10", con = con)
+#' con <- SeqoutConnect("parquet")
+#' Query("SELECT accession, title FROM geo_series LIMIT 10", con = con)
 #'
-#' seqout_default(con) # or make it the session default
-#' query("
+#' SeqoutDefault(con) # or make it the session default
+#' Query("
 #'   SELECT dominant_scientific_name AS organism, count(*) AS n
 #'   FROM unified_metadata
 #'   WHERE dominant_scientific_name IS NOT NULL

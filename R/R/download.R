@@ -213,9 +213,9 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' download_supplementary("GSE168652") # series files and every sample's
-#' download_supplementary("GSM8433846") # that one sample's
-#' download_supplementary("E-MTAB-11467") # processed archives and raw
+#' DownloadSupplementary("GSE168652") # series files and every sample's
+#' DownloadSupplementary("GSM8433846") # that one sample's
+#' DownloadSupplementary("E-MTAB-11467") # processed archives and raw
 #' }
 download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, con = .con()) {
   .check_connection(con)
@@ -344,9 +344,9 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
 #' @export
 #' @examples
 #' \dontrun{
-#' download_runs("SRR12012336") # one run
-#' download_runs("SRP267291") # every run of a study
-#' download_runs("SRP150719", mode = "fastq") # insist on ENA fastq
+#' DownloadRuns("SRR12012336") # one run
+#' DownloadRuns("SRP267291") # every run of a study
+#' DownloadRuns("SRP150719", mode = "fastq") # insist on ENA fastq
 #' }
 download_runs <- function(accession, dest_dir = NULL, mode = NULL,
                           quiet = FALSE, con = .con()) {
@@ -608,8 +608,8 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
 #' @export
 #' @examples
 #' \dontrun{
-#' seqout_get("SRP071083")$bams # 276 files, 410 GB, all requester-pays
-#' download_bams("SRP071083")
+#' SeqoutGet("SRP071083")$bams # 276 files, 410 GB, all requester-pays
+#' DownloadBams("SRP071083")
 #' }
 download_bams <- function(accession, dest_dir = NULL, quiet = FALSE, con = .con()) {
   .check_connection(con)

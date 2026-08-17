@@ -50,52 +50,44 @@ SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
 }
 \details{
 Give a query, filters, or both. A query alone searches the title, the summary
-and the design of every study, and the server ranks the results. Give the filters by name through \code{...}.
-The filters select the endpoint that answers: a filter that only the
-structured search accepts selects that search. If you give no such filter,
-the full-text search answers and ranks the results.
+and the design of every study, and the server ranks the results. Give the
+filters by name through \code{...}.
 
-\describe{
-\item{Both searches}{\code{organism}, \code{library_strategy}, \code{platform}}
-\item{Full-text only}{\code{db}, \code{library_source}, \code{date_from}, \code{date_to}}
-\item{Structured only}{\code{source}, \code{country}, \code{center}, \code{journal},
-TODO: We should make all these support for both searches too!
-\code{instrument_model}, \code{year_from}, \code{year_to}, \code{multi_platform},
-\code{assay_l1}, \code{assay_l2}, \code{geo_country_code_iso2}, \code{geo_lat}, \code{geo_lng},
-\code{geo_radius_km}}
-}
+Every filter works with a query and without one, and every filter combines
+with every other one, with a single exception: \code{library_source} cannot be
+used together with \code{assay_l1}, \code{assay_l2} or a \verb{geo_*} filter.
 
-A name that is not in this set causes an error. The error message shows the
-names that are correct.
+The set is \code{db}, \code{source}, \code{organism}, \code{library_strategy}, \code{library_source},
+\code{platform}, \code{country}, \code{journal}, \code{instrument_model}, \code{multi_platform},
+\code{date_from}, \code{date_to}, \code{assay_l1}, \code{assay_l2}, \code{geo_country_code_iso2},
+\code{geo_lat}, \code{geo_lng} and \code{geo_radius_km}. A name outside it causes an error,
+and the error message shows the names that are correct.
 
 \code{db} and \code{source} select one archive. The two names do the same thing.
 
 \code{date_from} and \code{date_to} take a day, as \code{yyyy-mm-dd}. They bound
-\code{updated_at}, the day when seqout last saw a change to the record.
-
-\code{year_from} and \code{year_to} take whole years. The date that they bound follows
-the endpoint that the other filters selected: the publication date in a
-structured search, \code{updated_at} in a full-text search. Give one more
-structured filter when you mean the publication year.
+\code{updated_at}, the day when seqout last saw a change to the record. They are
+the only time bounds.
 
 This function reads the REST API only. For the Parquet dump, write SQL with
 \code{\link[=query]{query()}}. SQL is a better tool for a filter or a count over the full index.
 }
 \examples{
 \dontrun{
-seqout_search("liver cancer scRNA")
-seqout_search("liver cancer scRNA", db = "geo", sortby = "citations")
+SeqoutSearch("liver cancer scRNA")
+SeqoutSearch("liver cancer scRNA", db = "geo", sortby = "citations")
 
-# A structured filter selects the structured search
-seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2022)
+# Filters combine freely
+SeqoutSearch("liver cancer", organism = "Homo sapiens", country = "Japan")
 
 # A query is not necessary
-seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic")
+SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic")
 
 # Take a sample of a large result set
-seqout_search("cancer", limit = 50)
+SeqoutSearch("cancer", limit = 50)
 }
 }
 \seealso{
-\code{vignette("searching")} for the filters and the costs.
+\code{\link[=sample_search]{sample_search()}} when the answer should be samples, and the
+Search article for the filters and the costs.
 }

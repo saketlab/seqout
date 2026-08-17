@@ -22,8 +22,8 @@ instead of passing \verb{con =} to every call.
 }
 \examples{
 \dontrun{
-seqout_default(seqout_connect("parquet"))
+SeqoutDefault(SeqoutConnect("parquet"))
 project("GSE297547") # now reads Parquet
-seqout_default(NULL) # back to REST
+SeqoutDefault(NULL) # back to REST
 }
 }

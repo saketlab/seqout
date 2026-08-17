@@ -85,7 +85,7 @@ dump.
 \examples{
 \dontrun{
 # Female human liver samples over 50, with the sample accessions
-sample_search(
+SampleSearch(
   organism = "Homo sapiens", sex = "female",
   tissue = "liver", age_min_years = 50
 )
@@ -93,17 +93,17 @@ sample_search(
 # Cervical samples with HPV quantification, in one call. The screening
 # reference names organisms HPV16, HPV18 and so on, so search "HPV".
 # "papillomavirus" matches nothing.
-hpv <- sample_search(
+hpv <- SampleSearch(
   tissue = "cervix", microbe = "HPV",
   sort = "cell_count", order = "desc"
 )
 attr(hpv, "total")
 
 # An ontology term and its subtypes
-sample_search(disease_ontology_id = "MONDO:0005061", limit = 100)
+SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 100)
 
 # The exact term only
-sample_search(
+SampleSearch(
   disease_ontology_id = "MONDO:0005061",
   include_descendants = FALSE, limit = 100
 )

@@ -27,8 +27,8 @@ observations; \code{cellxgene_counts()} the reverse.
 }
 \examples{
 \dontrun{
-counts <- seqout_counts("GSE291735")
-counts_matrix(seqout_matrix(counts, sample = "GSM8994520"))
+counts <- SeqoutCounts("GSE291735")
+CountsMatrix(SeqoutMatrix(counts, sample = "GSM8994520"))
 }
 
 }

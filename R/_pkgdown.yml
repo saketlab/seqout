@@ -7,12 +7,6 @@ template:
   bootstrap: 5
   light-switch: true
   preset: default
-  bslib:
-    primary: "#0071e3"
-    border-radius: "0.5rem"
-    base_font: {google: "Geist"}
-    heading_font: {google: "Geist"}
-    code_font: {google: "Geist Mono"}
   includes:
     in_header: |
       <script async src="https://www.googletagmanager.com/gtag/js?id=G-7MHP1LW5FD"></script>
@@ -60,7 +54,7 @@ template:
       alt: seqout R package documentation
 
 home:
-  title: "Genomics study metadata for R"
+  title: "Genomics datasets with R"
   description: >
     Query study metadata from NCBI GEO, SRA, ENA, ArrayExpress, DDBJ and GSA,
     resolve accessions across archives, and read GEO supplementary files as
@@ -69,10 +63,6 @@ home:
   links:
   - text: Python client
     href: https://seqout.org/cli/python/
-  - text: Both clients
-    href: https://seqout.org/cli/
-  - text: Browse source code
-    href: https://github.com/saketlab/seqout
   - text: Report a bug
     href: https://github.com/saketlab/seqout/issues
 
@@ -104,8 +94,10 @@ articles:
   navbar: ~
   contents:
   - getting-started
-  - searching
-  - counts-and-metadata
+  - articles/search
+  - articles/metadata
+  - articles/counts
+  - articles/downloads
 
 reference:
 - title: Connecting
@@ -128,33 +120,15 @@ reference:
   - project_single_cell
   - sample_microbes
 
-- title: Datasets and projects
-  desc: Metadata for one accession or many
+- title: Datasets
+  desc: >
+    One accession and everything below it. `SeqoutGet()` returns a lazy
+    object whose fields -- samples, runs, publications, links -- are fetched
+    on first use.
   contents:
   - seqout_get
-  - project
-  - project_samples
-  - project_experiments
-  - project_runs
-  - project_xref
-  - project_enriched
-  - summaries
-
-- title: Samples, experiments and runs
-  desc: Record-level metadata below the project
-  contents:
-  - sample_detail
-  - run
-  - resolve_accession
-
-- title: Resolving accessions
-  desc: Work out what an accession is and what it links to
-  contents:
   - accession_kind
-  - resolve_study
-  - gsm_series
-  - linked_study
-  - linked_geo
+  - summaries
 
 - title: Counts matrices
   desc: Read GEO supplementary files as a counts matrix
@@ -173,7 +147,7 @@ reference:
   - is_filtered
 
 - title: Downloads
-  desc: Fetch supplementary files, reads and download scripts
+  desc: Fetch supplementary files, sequencing reads and alignments
   contents:
   - download_supplementary
   - download_runs
@@ -184,8 +158,6 @@ reference:
   contents:
   - paper
   - author
-  - publications
-  - project_citations
 
 - title: Package
   contents:
@@ -194,6 +166,10 @@ reference:
 authors:
   Saket Choudhary:
     href: https://saket-choudhary.me/
+  Aniruddha Mukherjee:
+    href: https://amkhrjee.in/
+  Mukesh Reddy:
+    href: https://0xmukesh.github.io/
 
 footer:
   structure:

@@ -37,7 +37,7 @@ hit. In \code{flags}, \code{NULL} and \code{character(0)} carry the same distinc
 }
 \examples{
 \dontrun{
-sc <- project_single_cell("GSE168652")
+sc <- ProjectSingleCell("GSE168652")
 sc[, c("sample_accession", "cells", "genes")]
 attr(sc, "study")$study_cells
 }

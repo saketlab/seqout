@@ -27,11 +27,11 @@ Names the kind of record an accession points at, using the accession shape
 alone. No request is made, so this works offline and costs nothing.
 }
 \examples{
-accession_kind("GSE168652")
-accession_kind("SRR13927092")
-accession_kind("not-an-accession")
+AccessionKind("GSE168652")
+AccessionKind("SRR13927092")
+AccessionKind("not-an-accession")
 
 # The same shape can be filed by more than one archive
-accession_kind("PRJCA042384", archive = TRUE)
-accession_kind("PRJCA042384", archive = TRUE)[["archive"]]
+AccessionKind("PRJCA042384", archive = TRUE)
+AccessionKind("PRJCA042384", archive = TRUE)[["archive"]]
 }

@@ -24,6 +24,6 @@ Every dataset an author is linked to through its publications.
 }
 \examples{
 \dontrun{
-author("Aviv Regev")
+Author("Aviv Regev")
 }
 }

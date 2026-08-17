@@ -120,13 +120,13 @@
 #'
 #' @export
 #' @examples
-#' accession_kind("GSE168652")
-#' accession_kind("SRR13927092")
-#' accession_kind("not-an-accession")
+#' AccessionKind("GSE168652")
+#' AccessionKind("SRR13927092")
+#' AccessionKind("not-an-accession")
 #'
 #' # The same shape can be filed by more than one archive
-#' accession_kind("PRJCA042384", archive = TRUE)
-#' accession_kind("PRJCA042384", archive = TRUE)[["archive"]]
+#' AccessionKind("PRJCA042384", archive = TRUE)
+#' AccessionKind("PRJCA042384", archive = TRUE)[["archive"]]
 accession_kind <- function(accession, archive = FALSE) {
   row <- .accession_row(accession)
   kind <- if (is.null(row)) NA_character_ else row$entity

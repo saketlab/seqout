@@ -21,6 +21,6 @@ filename with its compression suffix and terminal role token stripped, so
 \code{GSM123_x_matrix.mtx.gz} and \code{GSM123_x_barcodes.tsv.gz} land together.
 }
 \examples{
-group_key("GSM123_pbmc_matrix.mtx.gz")
-group_key("GSM123/filtered_feature_bc_matrix/matrix.mtx.gz")
+GroupKey("GSM123_pbmc_matrix.mtx.gz")
+GroupKey("GSM123/filtered_feature_bc_matrix/matrix.mtx.gz")
 }

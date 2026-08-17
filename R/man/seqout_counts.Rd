@@ -52,8 +52,8 @@ A unit is a group of files that read as one matrix: a 10x triplet
 }
 \examples{
 \dontrun{
-counts <- seqout_counts("GSE297547")
-manifest(counts)
-m <- seqout_matrix(counts, sample = "GSM8994520")
+counts <- SeqoutCounts("GSE297547")
+Manifest(counts)
+m <- SeqoutMatrix(counts, sample = "GSM8994520")
 }
 }

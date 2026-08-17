@@ -75,7 +75,7 @@ totals; \code{bacterial_background} is excluded unless \code{include_background}
 }
 \examples{
 \dontrun{
-m <- sample_microbes("GSM5155196", kind = "viral")
+m <- SampleMicrobes("GSM5155196", kind = "viral")
 m[, c("organism", "n_unitigs", "max_breadth_frac")]
 attr(m, "measurable")
 attr(m, "detections")

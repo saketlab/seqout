@@ -21,8 +21,8 @@ Names the role of a file from its name alone, which is what lets the manifest
 be built before anything is downloaded.
 }
 \examples{
-file_role("GSM123_matrix.mtx.gz")
-file_role("GSM123_barcodes.tsv.gz")
-file_role("GSE1_cell_metadata.csv.gz")
-file_role("GSM1_fragments.tsv.gz")
+FileRole("GSM123_matrix.mtx.gz")
+FileRole("GSM123_barcodes.tsv.gz")
+FileRole("GSE1_cell_metadata.csv.gz")
+FileRole("GSM1_fragments.tsv.gz")
 }

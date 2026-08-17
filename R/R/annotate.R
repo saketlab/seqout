@@ -28,7 +28,7 @@
 #' expr <- Seurat::GetAssayData(obj, assay = "RNA", slot = "data") # Seurat v4
 #' expr <- SeuratObject::LayerData(Seurat::JoinLayers(obj), layer = "data") # v5
 #'
-#' labels <- quick_annotation(expr, obj$seurat_clusters, markers)
+#' labels <- QuickAnnotation(expr, obj$seurat_clusters, markers)
 #' obj$celltype <- labels[as.character(obj$seurat_clusters)]
 #' }
 #'

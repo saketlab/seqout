@@ -31,7 +31,7 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' d <- seqout_get("GSE168652")
+#' d <- SeqoutGet("GSE168652")
 #' d$meta$title
 #' nrow(d$samples)
 #' nrow(d$runs)

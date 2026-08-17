@@ -130,7 +130,7 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' sc <- project_single_cell("GSE168652")
+#' sc <- ProjectSingleCell("GSE168652")
 #' sc[, c("sample_accession", "cells", "genes")]
 #' attr(sc, "study")$study_cells
 #' }
@@ -260,7 +260,7 @@ project_single_cell <- function(accession, limit = NULL, offset = 0, con = .con(
 #' @export
 #' @examples
 #' \dontrun{
-#' m <- sample_microbes("GSM5155196", kind = "viral")
+#' m <- SampleMicrobes("GSM5155196", kind = "viral")
 #' m[, c("organism", "n_unitigs", "max_breadth_frac")]
 #' attr(m, "measurable")
 #' attr(m, "detections")

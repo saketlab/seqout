@@ -52,8 +52,8 @@ downloaded file is verified against it.
 }
 \examples{
 \dontrun{
-download_runs("SRR12012336") # one run
-download_runs("SRP267291") # every run of a study
-download_runs("SRP150719", mode = "fastq") # insist on ENA fastq
+DownloadRuns("SRR12012336") # one run
+DownloadRuns("SRP267291") # every run of a study
+DownloadRuns("SRP150719", mode = "fastq") # insist on ENA fastq
 }
 }

@@ -11,7 +11,7 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' paper(pmid = "34764296")
+#' Paper(pmid = "34764296")
 #' }
 paper <- function(pmid = NULL, doi = NULL, con = .con()) {
   .check_connection(con)
@@ -39,7 +39,7 @@ paper <- function(pmid = NULL, doi = NULL, con = .con()) {
 #' @export
 #' @examples
 #' \dontrun{
-#' author("Aviv Regev")
+#' Author("Aviv Regev")
 #' }
 author <- function(name, limit = 200, con = .con()) {
   .check_connection(con)
@@ -61,7 +61,7 @@ author <- function(name, limit = 200, con = .con()) {
 #' @export
 #' @examples
 #' \dontrun{
-#' summaries(c("GSE168652", "GSE100379"))
+#' Summaries(c("GSE168652", "GSE100379"))
 #' }
 summaries <- function(accessions, con = .con()) {
   .check_connection(con)

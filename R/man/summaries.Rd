@@ -22,6 +22,6 @@ One request for many projects, rather than one request each.
 }
 \examples{
 \dontrun{
-summaries(c("GSE168652", "GSE100379"))
+Summaries(c("GSE168652", "GSE100379"))
 }
 }

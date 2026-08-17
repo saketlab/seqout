@@ -4,33 +4,24 @@
 #' SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
 #'
 #' Give a query, filters, or both. A query alone searches the title, the summary
-#' and the design of every study, and the server ranks the results. Give the filters by name through `...`.
-#' The filters select the endpoint that answers: a filter that only the
-#' structured search accepts selects that search. If you give no such filter,
-#' the full-text search answers and ranks the results.
+#' and the design of every study, and the server ranks the results. Give the
+#' filters by name through `...`.
 #'
-#' \describe{
-#'   \item{Both searches}{`organism`, `library_strategy`, `platform`}
-#'   \item{Full-text only}{`db`, `library_source`, `date_from`, `date_to`}
-#'   \item{Structured only}{`source`, `country`, `center`, `journal`,
-#'   TODO: We should make all these support for both searches too!
-#'     `instrument_model`, `year_from`, `year_to`, `multi_platform`,
-#'     `assay_l1`, `assay_l2`, `geo_country_code_iso2`, `geo_lat`, `geo_lng`,
-#'     `geo_radius_km`}
-#' }
+#' Every filter works with a query and without one, and every filter combines
+#' with every other one, with a single exception: `library_source` cannot be
+#' used together with `assay_l1`, `assay_l2` or a `geo_*` filter.
 #'
-#' A name that is not in this set causes an error. The error message shows the
-#' names that are correct.
+#' The set is `db`, `source`, `organism`, `library_strategy`, `library_source`,
+#' `platform`, `country`, `journal`, `instrument_model`, `multi_platform`,
+#' `date_from`, `date_to`, `assay_l1`, `assay_l2`, `geo_country_code_iso2`,
+#' `geo_lat`, `geo_lng` and `geo_radius_km`. A name outside it causes an error,
+#' and the error message shows the names that are correct.
 #'
 #' `db` and `source` select one archive. The two names do the same thing.
 #'
 #' `date_from` and `date_to` take a day, as `yyyy-mm-dd`. They bound
-#' `updated_at`, the day when seqout last saw a change to the record.
-#'
-#' `year_from` and `year_to` take whole years. The date that they bound follows
-#' the endpoint that the other filters selected: the publication date in a
-#' structured search, `updated_at` in a full-text search. Give one more
-#' structured filter when you mean the publication year.
+#' `updated_at`, the day when seqout last saw a change to the record. They are
+#' the only time bounds.
 #'
 #' This function reads the REST API only. For the Parquet dump, write SQL with
 #' [query()]. SQL is a better tool for a filter or a count over the full index.
@@ -48,22 +39,23 @@
 #'
 #' @return A tibble of results, with a `took_ms` attribute.
 #'
-#' @seealso `vignette("searching")` for the filters and the costs.
+#' @seealso [sample_search()] when the answer should be samples, and the
+#'   Search article for the filters and the costs.
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' seqout_search("liver cancer scRNA")
-#' seqout_search("liver cancer scRNA", db = "geo", sortby = "citations")
+#' SeqoutSearch("liver cancer scRNA")
+#' SeqoutSearch("liver cancer scRNA", db = "geo", sortby = "citations")
 #'
-#' # A structured filter selects the structured search
-#' seqout_search("liver cancer", organism = "Homo sapiens", year_from = 2022)
+#' # Filters combine freely
+#' SeqoutSearch("liver cancer", organism = "Homo sapiens", country = "Japan")
 #'
 #' # A query is not necessary
-#' seqout_search(organism = "Mus musculus", assay_l1 = "Transcriptomic")
+#' SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic")
 #'
 #' # Take a sample of a large result set
-#' seqout_search("cancer", limit = 50)
+#' SeqoutSearch("cancer", limit = 50)
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
                           limit = NULL, con = .con()) {
@@ -84,8 +76,14 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   }
 
   structured <- any(names(filters) %in% .structured_only)
+  # The date bounds and the sort are not parameters of the structured endpoint,
+  # which would drop them without a word. Apply them here instead, off columns
+  # that come back on every row, so a filter means one thing either way.
+  local <- list()
   if (structured) {
-    .reject_filters(filters, .fulltext_only)
+    .reject_filters(filters, setdiff(.fulltext_only, .local_filters))
+    local <- filters[intersect(names(filters), .local_filters)]
+    filters <- filters[setdiff(names(filters), .local_filters)]
   }
   # `db` and `source` name the same thing on the two endpoints.
   if (structured && !is.null(filters$db)) {
@@ -97,12 +95,26 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     filters$source <- NULL
   }
 
+  local_sort <- structured && !is.null(sortby)
+  # A row dropped or reordered in R has to be dropped or reordered before
+  # `limit` counts, so this path reads every page and cuts at the end. Asking
+  # for one page would return the first 200 rows minus whatever R removed.
+  walk_all <- length(local) > 0 || local_sort
+
   out <- .paginate_api(
     con,
     if (structured) "/search/structured" else "/search",
-    .compact(c(list(q = query, sortby = sortby, order = order), filters)),
-    max_pages = if (is.null(limit)) Inf else ceiling(limit / 200)
+    .compact(c(
+      list(q = query),
+      if (!local_sort) list(sortby = sortby, order = order),
+      filters
+    )),
+    max_pages = if (is.null(limit) || walk_all) Inf else ceiling(limit / 200)
   )
+  out <- .apply_local_filters(out, local)
+  if (local_sort) {
+    out <- .sort_results(out, sortby, order)
+  }
   if (!is.null(limit) && nrow(out) > limit) {
     keep <- attributes(out)[c("total", "took_ms")]
     out <- out[seq_len(limit), , drop = FALSE]
@@ -111,9 +123,68 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   out
 }
 
-#' Filters both endpoints accept
+#' Apply the day bounds in R, on the column the server would have used
+#'
+#' The server's own clause is `matched.updated_at::date >= date_from`, and
+#' `updated_at` is on every result row, so this is the same answer rather than
+#' an approximation of it.
 #' @noRd
-.shared_filters <- c("organism", "library_strategy", "platform")
+.apply_local_filters <- function(out, local) {
+  if (length(local) == 0 || nrow(out) == 0) {
+    return(out)
+  }
+  if (!"updated_at" %in% names(out)) {
+    cli::cli_warn(
+      "No {.field updated_at} column came back; {.arg {names(local)}} not applied."
+    )
+    return(out)
+  }
+  seen <- as.Date(substr(as.character(out$updated_at), 1, 10))
+  keep <- !is.na(seen)
+  if (!is.null(local$date_from)) keep <- keep & seen >= as.Date(local$date_from)
+  if (!is.null(local$date_to)) keep <- keep & seen <= as.Date(local$date_to)
+  .keep_rows(out, keep)
+}
+
+#' Reorder in R what the structured endpoint has no `sortby` to do
+#' @noRd
+.sort_results <- function(out, sortby, order) {
+  column <- c(citations = "citation_count", journal = "journal", year = "updated_at")[[sortby]]
+  if (nrow(out) == 0 || !column %in% names(out)) {
+    return(out)
+  }
+  value <- out[[column]]
+  value <- if (identical(sortby, "citations")) {
+    v <- suppressWarnings(as.numeric(value))
+    ifelse(is.na(v), 0, v)
+  } else {
+    v <- as.character(value)
+    ifelse(is.na(v), "", v)
+  }
+  .keep_rows(out, order(value, decreasing = identical(order, "desc")))
+}
+
+#' Subset rows, carrying the attributes the caller reads
+#' @noRd
+.keep_rows <- function(out, i) {
+  keep <- attributes(out)[c("total", "took_ms")]
+  out <- out[i, , drop = FALSE]
+  attributes(out)[names(keep)] <- keep
+  out
+}
+
+#' Filters both endpoints accept
+#'
+#' `country`, `journal`, `instrument_model` and `multi_platform` are here
+#' because `/search` takes all four -- they are what the website's own sidebar
+#' sends it (`components/search-page-body.tsx`). Routing them to the structured
+#' endpoint, as this package used to, made `country` mean the contributor's
+#' postal address instead of the study's country.
+#' @noRd
+.shared_filters <- c(
+  "organism", "library_strategy", "platform", "country", "journal",
+  "instrument_model", "multi_platform"
+)
 
 #' Filters only the full-text `/search` accepts
 #'
@@ -122,11 +193,24 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 #' @noRd
 .fulltext_only <- c("library_source", "date_from", "date_to")
 
+#' Full-text-only filters this package applies itself
+#'
+#' The structured endpoint has no `date_from`/`date_to` and would ignore them
+#' silently. It does return `updated_at` on every row, which is the column the
+#' full-text endpoint bounds, so the same answer is reachable here.
+#' @noRd
+.local_filters <- c("date_from", "date_to")
+
 #' Filters only `/search/structured` accepts
+#'
+#' `year_from`/`year_to` and `center` used to be here and are gone. The two year
+#' bounds meant the publication year on this endpoint and `updated_at` on the
+#' other, so `date_from`/`date_to` are now the only time bounds -- the same call
+#' the website makes. `center_name` comes back on every row, so `center` is
+#' better done with a filter over the result.
 #' @noRd
 .structured_only <- c(
-  "country", "center", "journal", "instrument_model", "year_from", "year_to",
-  "multi_platform", "assay_l1", "assay_l2", "geo_country_code_iso2",
+  "assay_l1", "assay_l2", "geo_country_code_iso2",
   "geo_lat", "geo_lng", "geo_radius_km"
 )
 
@@ -174,16 +258,18 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   ))
 }
 
+#' The one pair of filters no search can answer at the same time
 #' @noRd
 .reject_filters <- function(filters, unsupported) {
   bad <- intersect(names(filters), unsupported)
   if (length(bad) == 0) {
     return(invisible(NULL))
   }
+  with <- intersect(names(filters), .structured_only)
   cli::cli_abort(c(
-    "{.arg {bad}} {?is/are} not available in a structured search.",
-    i = "Drop {cli::qty(length(bad))}{?it/them}, or drop the structured filters
-         to search full-text."
+    "{.arg {bad}} cannot be combined with {.arg {with}}.",
+    i = "No search answers both. Drop {cli::qty(length(bad))}{?it/them},
+         or drop {.arg {with}}."
   ))
 }
 

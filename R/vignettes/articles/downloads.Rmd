@@ -1,0 +1,198 @@
+---
+title: "Downloads"
+description: >
+  Fetch the processed files, the sequencing reads and the submitted alignments
+  of any accession, with checksums.
+output:
+  rmarkdown::html_document:
+    self_contained: true
+    mathjax: null
+---
+
+```{r, include = FALSE}
+seqout::SeqoutDefault(NULL)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Three functions write files to disk. Each one takes any accession and resolves
+it itself.
+
+| Function | What it fetches |
+| --- | --- |
+| `DownloadSupplementary()` | the processed files: count matrices, annotations, archives |
+| `DownloadRuns()` | the sequencing reads |
+| `DownloadBams()` | the alignment files the submitter sent |
+
+All three write into a directory named for the accession. Give `dest_dir` to
+change that. All three skip a file that is already on disk, so a second call
+completes the first one.
+
+```{r setup}
+library(seqout)
+```
+
+## Look before you fetch
+
+A study can be tens of gigabytes. `SeqoutGet()` lists what exists, and it
+downloads nothing.
+
+```{r listing}
+d <- SeqoutGet("GSE168652")
+
+head(d$supplementary, 4)
+```
+
+`sample` is `NA` on the files that the series carries itself. The others belong
+to one sample.
+
+The `runs` field lists the reads. A run table carries one column per copy, and
+a column is empty where the archive serves no such copy.
+
+```{r runs-listing}
+runs <- SeqoutGet("SRP150719")$runs
+
+nrow(runs)
+head(runs[, c("run_accession", "library_layout", "fastq_bytes", "fastq_ftp")], 3)
+```
+
+A paired run packs both mates into one cell, separated by a semicolon. The
+checksums follow the same order.
+
+## Processed files
+
+`DownloadSupplementary()` fetches the files that the submitter uploaded.
+
+```{r supp, eval = FALSE}
+DownloadSupplementary("GSE168652")
+```
+
+The accession decides the scope.
+
+| Accession | What it downloads |
+| --- | --- |
+| Series or study | its own files and every sample's |
+| GEO sample (GSM) | that sample's files only |
+| Experiment, run or BioSample | nothing; it names the project to ask for |
+
+An experiment, a run and a BioSample carry no processed files of their own. The
+function stops rather than widens to the whole study, because that would write
+a study to disk under the name of one record.
+
+```{r supp-error, error = TRUE}
+DownloadSupplementary("SRR12012336")
+```
+
+SRA, ENA, DDBJ and GSA studies hold no processed files. Their files sit in the
+linked GEO or ArrayExpress record, and the function follows those links for
+you.
+
+```{r supp-ae, eval = FALSE}
+DownloadSupplementary("E-MTAB-11467") # processed archives and raw files
+```
+
+## Sequencing reads
+
+`DownloadRuns()` fetches the reads. A run downloads its own files. An
+experiment or a sample downloads its runs'. A series or study downloads every
+run's.
+
+```{r runs, eval = FALSE}
+DownloadRuns("SRR12012336")
+```
+
+### Which copy you get
+
+The archives publish the same reads three ways.
+
+| `mode` | What it is |
+| --- | --- |
+| `"fastq"` | the ENA fastq files, with a published checksum |
+| `"sra"` | NCBI's full-quality SRA copy |
+| `"sra_lite"` | the same reads with binned quality scores |
+
+Not every run is served in every form. If you name no `mode`, the function
+takes the first copy each run offers, in the order above, and it warns you
+which copy it took. Name `mode` to insist on one.
+
+```{r runs-mode, eval = FALSE}
+DownloadRuns("SRP150719", mode = "fastq")
+```
+
+The `"lite"` copy is last, because binned quality scores are a loss that you
+should choose rather than be handed.
+
+A study accession downloads every run of the study. That, too, is a warning
+rather than an error, and it reports the number of runs and the total size
+before it starts.
+
+```{r runs-study, eval = FALSE}
+DownloadRuns("SRP267291") # 34 runs
+```
+
+Some runs are served only from requester-pays buckets. curl cannot read those,
+and they bill the caller, so `mode = "s3"` and `mode = "gcs"` are errors that
+name the anonymous copy instead.
+
+### Names on disk
+
+ENA already names its files for the run, so the `_1` and `_2` suffixes of a
+paired run are kept. Every downstream tool globs for them.
+
+NCBI serves the SRA copies under names that carry no usable extension, so those
+are named for their run instead: `SRR12012336.sra`, or `SRR12012336_1.sra` and
+`SRR12012336_2.sra` when a run has more than one file.
+
+### Checksums
+
+Where the archive publishes a checksum, which it does for every fastq, the file
+is verified against it before it takes its final name. A file that fails is
+deleted, not kept.
+
+Each file downloads to `<name>.part` first. An interrupted transfer therefore
+never leaves a truncated file under the name of a complete one.
+
+## Alignment files
+
+`DownloadBams()` fetches the BAMs that the submitter sent. These are not the
+same as the reads. The submitter aligned them to a reference of their own
+choice, and they often carry work that the reads alone do not reconstruct:
+barcode tags, methylation calls, long-read structural evidence.
+
+```{r bams-listing}
+b <- SeqoutGet("ERP117016")$bams
+
+nrow(b)
+head(b[, c("filename", "size", "md5")], 3)
+```
+
+```{r bams, eval = FALSE}
+DownloadBams("ERP117016")
+```
+
+Most submitted alignments sit in requester-pays storage, which no anonymous
+client can read. The function names those files rather than fetches them, and
+it prints the command that would get them.
+
+```{r bams-paid}
+paid <- SeqoutGet("SRP071083")$bams
+
+nrow(paid)
+head(paid[, c("filename", "size", "s3_url")], 3)
+```
+
+Read `$bams` first when you plan a large fetch. It carries the size and the
+checksum of every file, and it costs one request.
+
+## What the archives hold
+
+Not every archive holds every kind of file.
+
+| Archive | Processed files | Reads | Alignments |
+| --- | :---: | :---: | :---: |
+| GEO | yes, series and sample | through the linked SRA study | rare |
+| ArrayExpress and GEA | yes, processed and raw | through the linked ENA study | rare |
+| SRA, ENA, DDBJ | no | yes | sometimes |
+| GSA | no | yes | sometimes |
+
+`SeqoutGet()` follows the links between them, so one accession is enough
+whichever archive you start from.

@@ -1,0 +1,271 @@
+---
+title: "Search"
+description: >
+  Search seven archives with one function, filter the studies or the samples,
+  and know what a large result set costs.
+output:
+  rmarkdown::html_document:
+    self_contained: true
+    mathjax: null
+---
+
+```{r, include = FALSE}
+seqout::SeqoutDefault(NULL)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+There are two search functions. `SeqoutSearch()` returns studies.
+`SampleSearch()` returns samples. Both read the REST API.
+
+```{r setup}
+library(seqout)
+```
+
+## A query
+
+`SeqoutSearch()` searches GEO, SRA, ArrayExpress, ENA, GSA, DRA and GEA at the
+same time. A query matches the title, the summary and the design of every
+study. The server ranks the results.
+
+```{r first-search}
+SeqoutSearch("liver cancer scRNA", limit = 5)
+```
+
+The `source` column names the archive that holds each result.
+
+## Filters
+
+Give the filters by name. A query is not necessary when you give a filter.
+
+```{r filters-only}
+SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 5)
+```
+
+A query and a filter work together.
+
+```{r filters}
+SeqoutSearch(
+  "liver",
+  organism         = "Homo sapiens",
+  library_strategy = "RNA-Seq",
+  limit            = 5
+)
+```
+
+### The filters
+
+Every filter works with a query and without one, and every filter combines with
+every other one.
+
+| Filter | What it selects |
+| --- | --- |
+| `db`, `source` | one archive |
+| `organism` | the organism of the study |
+| `library_strategy`, `library_source`, `platform`, `instrument_model` | how the library was made and read |
+| `assay_l1`, `assay_l2` | the assay class and the method |
+| `country`, `geo_country_code_iso2`, `geo_lat`, `geo_lng`, `geo_radius_km` | where the study comes from |
+| `journal` | the journal of the linked paper |
+| `multi_platform` | studies that used two or more platforms |
+| `date_from`, `date_to` | when the record last changed |
+
+There is one exception. `library_source` cannot be used together with
+`assay_l1`, `assay_l2` or a `geo_*` filter, because no search answers both.
+
+```{r clash, error = TRUE}
+SeqoutSearch("liver", library_source = "TRANSCRIPTOMIC", assay_l1 = "Transcriptomic")
+```
+
+`db` and `source` name the same thing. Use either one to search a single
+archive. `db` on its own is the one filter that is not enough: give a query or
+one more filter with it.
+
+```{r one-archive}
+SeqoutSearch("hepatocellular carcinoma", db = "geo", limit = 5)
+```
+
+`assay_l1` and `assay_l2` name the assay. `assay_l1` is the broad class, such
+as `"Transcriptomic"`. `assay_l2` is the method, such as `"RNA-seq"`,
+`"ATAC-seq"` or `"ChIP-seq"`.
+
+```{r assay}
+SeqoutSearch("liver", assay_l2 = "ATAC-seq", limit = 5)
+```
+
+The dump lists the values that exist, with a count for each one.
+
+```{r assay-values, eval = FALSE}
+Query("
+  SELECT dominant_assay_l2 AS assay, count(*) AS n
+  FROM unified_metadata
+  WHERE assay IS NOT NULL
+  GROUP BY assay ORDER BY n DESC
+", con = SeqoutConnect("parquet"))
+```
+
+### Dates
+
+`date_from` and `date_to` take a day, as `yyyy-mm-dd`. They bound `updated_at`,
+which is the day when seqout last saw a change to the record. They are the only
+time bounds, and they are the ones the website uses.
+
+```{r dates}
+SeqoutSearch("liver cancer",
+  date_from = "2024-01-01", date_to = "2024-01-31", limit = 5
+)
+```
+
+A date bound works with any other filter.
+
+```{r dates-combined}
+nrow(SeqoutSearch("liver", assay_l1 = "Transcriptomic", date_from = "2025-01-01"))
+```
+
+## Sort order
+
+Results come back by relevance. `sortby` takes `"citations"`, `"journal"` and
+`"year"`. `order` takes `"desc"`, the default, and `"asc"`.
+
+```{r sortby}
+SeqoutSearch("hepatocellular carcinoma", sortby = "citations", limit = 5)
+```
+
+## How many rows you get
+
+A search returns every match. The server sends 200 rows in one page, so a large
+result set costs more than one request.
+
+```{r all-rows}
+result <- SeqoutSearch("hepatocellular carcinoma scRNA")
+nrow(result)
+```
+
+Set `limit` when a sample of the results is sufficient. A limit of 50 costs one
+request.
+
+```{r limit}
+nrow(SeqoutSearch("hepatocellular carcinoma scRNA", limit = 50))
+```
+
+The result carries the server time as an attribute.
+
+```{r took}
+attr(result, "took_ms")
+```
+
+## From a result to a dataset
+
+A search gives you accessions. `SeqoutGet()` takes one accession and finds
+everything below it.
+
+```{r dataset}
+top <- SeqoutSearch("hepatocellular carcinoma", sortby = "citations", limit = 1)
+d <- SeqoutGet(top$accession[1])
+
+d$meta$title
+c(samples = nrow(d$samples), runs = nrow(d$runs))
+```
+
+[Metadata](metadata.html) describes the other fields.
+
+## Sample cohorts
+
+`SampleSearch()` searches the samples of every study. It reads the ontology
+terms that seqout adds to each sample, so a filter can name a tissue, a
+disease, an age or a cell count. At least one filter is required.
+
+```{r cohort}
+liver <- SampleSearch(
+  organism = "Homo sapiens",
+  sex = "female",
+  tissue = "liver",
+  age_min_years = 50
+)
+
+head(liver[, c("sample", "study_accession", "tissue", "disease", "assay", "age")])
+```
+
+The `total` attribute holds the size of the whole cohort, and `filters` holds
+the filters that the server applied.
+
+```{r cohort-total}
+attr(liver, "total")
+```
+
+The filters fall into four groups.
+
+| Group | Filters |
+| --- | --- |
+| Text | `organism`, `tissue`, `disease`, `cell_type`, `assay`, `sex`, `strain`, `treatment`, and the other sample fields |
+| Ontology term | `disease_ontology_id`, `tissue_ontology_id`, `cell_type_ontology_id`, `assay_ontology_id`, `development_stage_ontology_id` |
+| Range | `age_min_years`, `age_max_years`, `min_cell_count`, `max_cell_count`, `min_gene_count`, `max_gene_count` |
+| Read-derived | `single_cell_only`, `has_viral_reads`, `has_bacterial_reads`, `hpv_type`, `microbe`, `microbe_class`, `microbe_min_breadth`, `microbe_min_kmer_mass`, `microbe_validated_only` |
+
+An age filter excludes a sample whose age was never recorded. `age_min_years =
+0` therefore means "has a recorded age".
+
+### Ontology terms and their subtypes
+
+Give an ontology term as a CURIE. The search expands the term through the
+ontology graph, so it also matches the subtypes of that term.
+
+```{r cohort-ontology}
+nrow(SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 200))
+```
+
+Set `include_descendants = FALSE` for the exact term only.
+
+```{r cohort-exact}
+nrow(SampleSearch(
+  disease_ontology_id = "MONDO:0005061",
+  include_descendants = FALSE, limit = 200
+))
+```
+
+### What the reads contain
+
+seqout screens the reads themselves. The screen calls the species, the sex and
+the assay, and it detects microbial sequence. These calls often disagree with
+what the submitter declared, so they are filters of their own.
+
+A `microbe` filter narrows the cohort to the samples that carry a matching
+detection, and attaches the detections to each row. One call therefore answers
+"cervical single-cell RNA-seq with HPV quantification".
+
+```{r cohort-microbes}
+hpv <- SampleSearch(
+  tissue = "cervix",
+  microbe = "HPV",
+  sort = "cell_count",
+  order = "desc",
+  limit = 10
+)
+
+hpv[, c("sample", "study_accession", "cells", "hpv_top_type", "microbe_n_detections")]
+```
+
+The screening reference names the organisms HPV16, HPV18 and so on. Search
+`"HPV"`, because `"papillomavirus"` matches nothing.
+
+[Metadata](metadata.html) shows the same calls for one study and one sample.
+
+## SQL over the dump
+
+Both search functions need the REST API. For a filter or a count over the whole
+index, write SQL against the Parquet dump instead.
+
+```{r parquet}
+con <- SeqoutConnect("parquet", quiet = TRUE)
+
+Query("
+  SELECT dominant_scientific_name AS organism, count(*) AS n
+  FROM unified_metadata
+  WHERE n_samples >= 10
+  GROUP BY organism
+  ORDER BY n DESC
+  LIMIT 10
+", con = con)
+```
+
+```{r close}
+SeqoutClose(con)
+```

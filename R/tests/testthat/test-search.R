@@ -19,16 +19,19 @@ test_that("filters must be named", {
   expect_error(seqout_search("liver", "geo", con = rest_con()), "must be named")
 })
 
-test_that("the filter set is exactly what the Python client accepts", {
+test_that("the filter set is the API's, less the names that meant two things", {
+  # `year_from`/`year_to` bounded the publication year on one endpoint and
+  # `updated_at` on the other, so `date_from`/`date_to` are the only time
+  # bounds now. `center` is gone because `center_name` is on every result row.
+  # The Python client still carries all three (models/api_models.py).
   expect_setequal(seqout:::.search_filters, c(
-    # SearchParams
-    "db", "organism", "library_strategy", "library_source", "platform",
+    "db", "source", "organism", "library_strategy", "library_source",
+    "platform", "country", "journal", "instrument_model", "multi_platform",
     "date_from", "date_to",
-    # StructuredSearchParams
-    "source", "country", "center", "journal", "instrument_model",
-    "year_from", "year_to", "multi_platform", "assay_l1", "assay_l2",
+    "assay_l1", "assay_l2",
     "geo_country_code_iso2", "geo_lat", "geo_lng", "geo_radius_km"
   ))
+  expect_false(any(c("year_from", "year_to", "center") %in% seqout:::.search_filters))
 })
 
 test_that("search is REST only; Parquet is pointed at query()", {
@@ -38,13 +41,13 @@ test_that("search is REST only; Parquet is pointed at query()", {
   )
 })
 
-test_that("mixing full-text-only and structured-only filters is an error", {
+test_that("library_source is the one filter assay_l1 cannot be combined with", {
   expect_error(
     seqout_search("liver",
-      date_from = "2020-01-01", journal = "Nature",
+      library_source = "TRANSCRIPTOMIC", assay_l1 = "Transcriptomic",
       con = rest_con()
     ),
-    "date_from"
+    "cannot be combined with"
   )
 })
 
@@ -71,12 +74,15 @@ test_that("the endpoint is chosen from the filters, not by the caller", {
   )
 
   seqout_search("liver", con = rest_con())
-  seqout_search("liver", journal = "Nature", con = rest_con())
+  seqout_search("liver", journal = "Nature", country = "Japan", con = rest_con())
   seqout_search("liver", source = "geo", con = rest_con())
-  seqout_search("liver", db = "geo", year_from = 2020, con = rest_con())
+  seqout_search("liver", db = "geo", assay_l1 = "Transcriptomic", con = rest_con())
 
   expect_equal(seen[[1]]$path, "/search")
-  expect_equal(seen[[2]]$path, "/search/structured")
+
+  # The website sends these to /search, so this package does too: routing them
+  # to the structured endpoint changed what `country` meant.
+  expect_equal(seen[[2]]$path, "/search")
 
   # db and source name the same thing; each endpoint gets its own spelling.
   expect_equal(seen[[3]]$path, "/search")
@@ -85,6 +91,47 @@ test_that("the endpoint is chosen from the filters, not by the caller", {
   expect_equal(seen[[4]]$path, "/search/structured")
   expect_equal(seen[[4]]$params$source, "geo")
   expect_null(seen[[4]]$params$db)
+})
+
+test_that("the day bounds survive a structured search, applied in R", {
+  seen <- list()
+  testthat::local_mocked_bindings(
+    .paginate_api = function(con, path, params, max_pages = 1) {
+      seen[[length(seen) + 1]] <<- list(path = path, params = params)
+      tibble::tibble(
+        accession = c("A", "B", "C"),
+        updated_at = c("2023-06-01", "2024-06-01", "2025-06-01")
+      )
+    }
+  )
+
+  out <- seqout_search("liver",
+    assay_l1 = "Transcriptomic", date_from = "2024-01-01",
+    con = rest_con()
+  )
+
+  # Never sent: the endpoint has no such parameter and would drop it in silence.
+  expect_null(seen[[1]]$params$date_from)
+  expect_equal(seen[[1]]$path, "/search/structured")
+  expect_equal(out$accession, c("B", "C"))
+})
+
+test_that("sortby reorders a structured search rather than being dropped", {
+  testthat::local_mocked_bindings(
+    .paginate_api = function(con, path, params, max_pages = 1) {
+      expect_null(params$sortby)
+      tibble::tibble(
+        accession = c("A", "B", "C"),
+        citation_count = c("7", "108", NA)
+      )
+    }
+  )
+
+  out <- seqout_search("liver",
+    assay_l1 = "Transcriptomic", sortby = "citations",
+    con = rest_con()
+  )
+  expect_equal(out$accession, c("B", "A", "C"))
 })
 
 test_that("limit asks for only the pages it needs; no limit asks for all", {

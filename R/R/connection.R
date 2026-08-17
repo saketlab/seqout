@@ -31,9 +31,9 @@
 #' project("GSE297547")
 #'
 #' # Select Parquet for SQL and for offline work
-#' con <- seqout_connect("parquet")
-#' query("SELECT * FROM geo_series LIMIT 5", con = con)
-#' seqout_close(con)
+#' con <- SeqoutConnect("parquet")
+#' Query("SELECT * FROM geo_series LIMIT 5", con = con)
+#' SeqoutClose(con)
 #' }
 seqout_connect <- function(backend = c("api", "parquet"),
                            base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
@@ -95,9 +95,9 @@ seqout_connect <- function(backend = c("api", "parquet"),
 #' @export
 #' @examples
 #' \dontrun{
-#' seqout_default(seqout_connect("parquet"))
+#' SeqoutDefault(SeqoutConnect("parquet"))
 #' project("GSE297547") # now reads Parquet
-#' seqout_default(NULL) # back to REST
+#' SeqoutDefault(NULL) # back to REST
 #' }
 seqout_default <- function(con) {
   if (!is.null(con)) .check_connection(con)
@@ -215,8 +215,8 @@ seqout_default <- function(con) {
 #' @export
 #' @examples
 #' \dontrun{
-#' con <- seqout_connect("parquet")
-#' register_tables("unified_metadata", con = con)
+#' con <- SeqoutConnect("parquet")
+#' RegisterTables("unified_metadata", con = con)
 #' dplyr::tbl(con$db, "unified_metadata")
 #' }
 register_tables <- function(tables = NULL, progress = interactive(), con = .con()) {

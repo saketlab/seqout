@@ -19,6 +19,6 @@ IsFiltered(name)
 Filtered output is preferred over raw when a sample ships both.
 }
 \examples{
-is_filtered("GSM1_filtered_feature_bc_matrix.h5")
-is_filtered("GSM1_raw_feature_bc_matrix.h5")
+IsFiltered("GSM1_filtered_feature_bc_matrix.h5")
+IsFiltered("GSM1_raw_feature_bc_matrix.h5")
 }

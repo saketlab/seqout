@@ -77,10 +77,10 @@ NULL
 #'
 #' @export
 #' @examples
-#' file_role("GSM123_matrix.mtx.gz")
-#' file_role("GSM123_barcodes.tsv.gz")
-#' file_role("GSE1_cell_metadata.csv.gz")
-#' file_role("GSM1_fragments.tsv.gz")
+#' FileRole("GSM123_matrix.mtx.gz")
+#' FileRole("GSM123_barcodes.tsv.gz")
+#' FileRole("GSE1_cell_metadata.csv.gz")
+#' FileRole("GSM1_fragments.tsv.gz")
 file_role <- function(name) {
   low <- tolower(basename(name))
   stem <- .strip_compression(low)
@@ -143,8 +143,8 @@ file_role <- function(name) {
 #'
 #' @export
 #' @examples
-#' group_key("GSM123_pbmc_matrix.mtx.gz")
-#' group_key("GSM123/filtered_feature_bc_matrix/matrix.mtx.gz")
+#' GroupKey("GSM123_pbmc_matrix.mtx.gz")
+#' GroupKey("GSM123/filtered_feature_bc_matrix/matrix.mtx.gz")
 group_key <- function(name) {
   low <- .strip_compression(tolower(basename(name)))
 
@@ -181,8 +181,8 @@ group_key <- function(name) {
 #'
 #' @export
 #' @examples
-#' is_filtered("GSM1_filtered_feature_bc_matrix.h5")
-#' is_filtered("GSM1_raw_feature_bc_matrix.h5")
+#' IsFiltered("GSM1_filtered_feature_bc_matrix.h5")
+#' IsFiltered("GSM1_raw_feature_bc_matrix.h5")
 is_filtered <- function(name) {
   low <- tolower(name)
   grepl("filtered", low, fixed = TRUE) & !grepl("unfiltered", low, fixed = TRUE)

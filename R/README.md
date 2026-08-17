@@ -22,10 +22,16 @@ install.packages("seqout", repos = "https://saketlab.r-universe.dev")
 ```r
 library(seqout)
 
-project("GSE151530")
-project_samples("GSE151530")
-seqout_search("liver cancer scRNA", db = "geo")
+SeqoutSearch("liver cancer scRNA", db = "geo")
+
+d <- SeqoutGet("GSE151530")
+d$meta$title
+d$samples
+d$pubs
 ```
+
+`SeqoutGet()` takes any accession and resolves the rest itself. Each field
+makes its request the first time you read it, and it keeps the answer.
 
 ## Two backends
 
@@ -37,20 +43,20 @@ seqout_search("liver cancer scRNA", db = "geo")
 The REST API is the default, and it needs no setup: the examples above call no
 other function first.
 
-Select the Parquet backend with `seqout_connect()`. Use SQL for a filter or a
+Select the Parquet backend with `SeqoutConnect()`. Use SQL for a filter or a
 count over the full index:
 
 ```r
-con <- seqout_connect("parquet")
+con <- SeqoutConnect("parquet")
 
-query("
+Query("
   SELECT dominant_scientific_name AS organism, count(*) AS n
   FROM unified_metadata
   WHERE n_samples >= 10
   GROUP BY organism ORDER BY n DESC LIMIT 10
 ", con = con)
 
-seqout_default(con) # or make it the default for the session
+SeqoutDefault(con) # or make it the default for the session
 ```
 
 ## From a GEO accession to a counts matrix
@@ -60,15 +66,25 @@ CellRanger `.h5`, an `.h5ad`, an `.rds` or a table. The manifest resolves them w
 downloading anything.
 
 ```r
-counts <- seqout_counts("GSE297547")
-manifest(counts)
-m <- seqout_matrix(counts, sample = "GSM8994520")
-sample_frame(project_samples("GSE297547"))
+counts <- SeqoutCounts("GSE297547")
+Manifest(counts)
+m <- SeqoutMatrix(counts, sample = "GSM8994520")
+```
+
+## Downloads
+
+```r
+DownloadSupplementary("GSE168652") # the processed files
+DownloadRuns("SRR12012336")        # the reads
+DownloadBams("ERP117016")          # the submitted alignments
 ```
 
 ## Next
 
 - [Getting started](articles/getting-started.html)
-- [Counts and metadata](articles/counts-and-metadata.html)
+- [Search](articles/search.html)
+- [Metadata](articles/metadata.html)
+- [Counts](articles/counts.html)
+- [Downloads](articles/downloads.html)
 - [Function reference](reference/index.html)
 - [Python client](https://seqout.org/cli/python/) for the same data

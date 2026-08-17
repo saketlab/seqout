@@ -1,0 +1,215 @@
+---
+title: "Metadata"
+description: >
+  One accession, every record below it: the study, the samples, the runs, the
+  ontology terms, the papers and the read-derived calls.
+output:
+  rmarkdown::html_document:
+    self_contained: true
+    mathjax: null
+---
+
+```{r, include = FALSE}
+seqout::SeqoutDefault(NULL)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+`SeqoutGet()` is the one entry point for metadata. It takes any accession and
+resolves the rest itself.
+
+```{r setup}
+library(seqout)
+
+d <- SeqoutGet("GSE168652")
+d
+```
+
+Each field makes its request the first time you read it, and it keeps the
+answer. A second read of the same field costs nothing. A field that you never
+touch costs nothing.
+
+```{r fields}
+names(d)
+```
+
+| Field | What it holds |
+| --- | --- |
+| `meta` | the project record: title, summary, design, dates, files |
+| `samples` | one row per sample |
+| `experiments` | one row per library preparation |
+| `runs` | one row per sequencing run, with the file URLs |
+| `supplementary` | one row per supplementary file, for the series and the samples |
+| `bams` | the alignment files the submitter sent |
+| `pubs` | the publications linked to the dataset |
+| `links` | the same dataset in the other archives |
+| `enriched` | the ontology terms for each sample |
+| `detail` | the record of the accession itself, for a sample or a run |
+| `kind`, `project`, `geo`, `sra` | where the data sits |
+
+## The study record
+
+```{r meta-names}
+names(d$meta)
+```
+
+A project record is too wide to print. Read the fields you want by name.
+
+```{r meta}
+d$meta$title
+d$meta$overall_design
+c(published = d$meta$published_at, organisms = d$meta$organisms)
+```
+
+## Samples, experiments and runs
+
+`samples` holds one row per sample. The sample attributes are unnested, so a
+submitter's own keys become columns.
+
+```{r samples}
+d$samples
+```
+
+The same field answers for SRA, ENA, DDBJ and GSA. `experiments` holds the
+library preparations, and `runs` holds the sequencing runs with their file
+URLs.
+
+```{r experiments}
+d$experiments[, c("accession", "library_strategy", "library_layout", "instrument_model")]
+```
+
+```{r runs}
+d$runs[, c("run_accession", "experiment_accession", "ncbi_sra_url_aws")]
+```
+
+A run table carries one column per copy of the reads. Not every run is served
+in every form, so a column can be empty. This study has no ENA fastq copy, and
+`fastq_ftp` is therefore `NA` for both runs.
+
+```{r runs-fastq}
+d$runs[, c("run_accession", "fastq_ftp", "ncbi_sra_normalized_bytes")]
+```
+
+[Downloads](downloads.html) chooses between these copies for you.
+
+## The same dataset in other archives
+
+A study is deposited more than once. `links` names the records that hold the
+same data.
+
+```{r links}
+d$links
+```
+
+`SeqoutGet()` accepts any of those accessions and returns the same dataset.
+`AccessionKind()` says what an accession is, without a request.
+
+```{r kind}
+AccessionKind("GSE168652")
+AccessionKind("SRR12012336")
+AccessionKind("E-MTAB-11467")
+```
+
+## Ontology terms
+
+seqout reads the free text of each sample and adds ontology terms to it. The
+terms give the tissue, the disease, the cell type, the assay and the
+development stage.
+
+```{r enriched}
+d$enriched[, c("sample", "tissue", "disease", "assay", "assay_category")]
+```
+
+Each term carries its ontology ID.
+
+```{r enriched-ids}
+d$enriched[, c("sample", "disease_ontology_id", "disease_ontology_name")]
+```
+
+[Search](search.html) searches these terms across every study.
+
+## Publications
+
+`pubs` holds the papers that name the dataset, with the journal and the
+citation count.
+
+```{r pubs}
+d$pubs[, c("pmid", "title", "journal", "citation_count")]
+```
+
+`Paper()` is the reverse lookup. It takes a PubMed ID or a DOI and returns the
+datasets that name that paper.
+
+```{r paper}
+Paper(pmid = "34764296")
+```
+
+`Author()` does the same for a name.
+
+```{r author}
+head(Author("Aviv Regev", limit = 5)[, c("accession", "title", "journal")], 5)
+```
+
+## Many accessions at once
+
+`Summaries()` reads short records for many projects in one request.
+
+```{r summaries}
+Summaries(c("GSE168652", "GSE151530", "SRP267291"))
+```
+
+## What the reads contain
+
+The fields above report what the submitter declared. seqout also screens the
+reads themselves. `ProjectSingleCell()` returns the matrix dimensions and the
+read-derived calls for each sample of a study.
+
+```{r single-cell}
+sc <- ProjectSingleCell("GSE168652")
+sc[, c("sample_accession", "cells", "genes", "assay_display", "sex_verdict")]
+```
+
+`cells` counts the columns of the matrix. For an unfiltered 10x matrix these
+are barcodes, so the number is an upper bound and a sum overcounts.
+
+`has_viral_reads` and `has_bacterial_reads` are `NA` when the sample was never
+screened, and `FALSE` when the screen found no gated hit.
+
+```{r flags}
+sc[, c("sample_accession", "has_viral_reads", "hpv_top_type", "n_flags")]
+```
+
+`SampleMicrobes()` shows the detections behind those flags, one row per
+organism. It shows every detection, and not only the ones that pass the gate,
+so a sample whose flag is `FALSE` can still list organisms here.
+
+```{r microbes}
+m <- SampleMicrobes("GSM5155196", kind = "viral")
+m[, c("organism", "n_unitigs", "max_breadth_frac")]
+```
+
+`max_breadth_frac` is the fraction of the reference that the reads cover. The
+HPV16 detection above covers 17% of it, which is below the gate, so
+`has_viral_reads` stays `FALSE`. Set `validated_only = TRUE` to keep only the
+detections that pass.
+
+The spike-in control and the negative control are never summed into the totals.
+Reagent and skin organisms are excluded, unless you set
+`include_background = TRUE`.
+
+## One sample or one run
+
+`SeqoutGet()` also takes a sample accession or a run accession. The `detail`
+field then holds the record of that accession itself.
+
+```{r detail}
+s <- SeqoutGet("GSM5155196")
+s$kind
+s$detail[, c("accession", "title", "tissue", "platform_ref")]
+```
+
+The other fields still answer for the study that the sample belongs to.
+
+```{r detail-project}
+s$project
+nrow(s$samples)
+```

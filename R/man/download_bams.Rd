@@ -35,8 +35,8 @@ Those are named rather than fetched, with the command that would get them.
 }
 \examples{
 \dontrun{
-seqout_get("SRP071083")$bams # 276 files, 410 GB, all requester-pays
-download_bams("SRP071083")
+SeqoutGet("SRP071083")$bams # 276 files, 410 GB, all requester-pays
+DownloadBams("SRP071083")
 }
 }
 \seealso{

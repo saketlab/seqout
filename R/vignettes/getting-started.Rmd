@@ -1,7 +1,8 @@
 ---
 title: "Getting started with seqout"
 description: >
-  Get datasets from GEO, SRA, ENA, ArrayExpress, DDBJ and GSA.
+  A short tour of the package: search the archives, read the metadata, load a
+  counts matrix, download files, and select a backend.
 output:
   rmarkdown::html_vignette:
     self_contained: true
@@ -13,287 +14,157 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-seqout::seqout_default(NULL)
+seqout::SeqoutDefault(NULL)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-`seqout` is an R client for [seqout.org](https://seqout.org). It gets metadata
-about high-throughput sequencing datasets from seven public repositories: GEO,
-SRA, ArrayExpress, ENA, GSA, DRA and GEA.
+`seqout` is an R client for [seqout.org](https://seqout.org). It can query and 
+read metadata of high-throughput sequencing studies from seven public archives: 
+GEO, SRA, ENA, ArrayExpress, DDBJ (DRA and GEA) and GSA.
 
-Use it to search the repositories, to read a study and its samples, and to load
-GEO supplementary files as counts matrices.
+This page shows each part of the package in a few lines. Each section links to
+a longer article.
 
-## Installation
-
-```{r install, eval=FALSE}
+```{r install, eval = FALSE}
 # install.packages("pak")
 pak::pak("saketlab/seqout/R")
 ```
 
-## A quick example
+The REST API is the default backend. It needs no setup and no key.
 
-Search the repositories:
-
-```{r quick-search}
+```{r setup}
 library(seqout)
-
-seqout_search("lung cancer single cell", db = "geo", limit = 5)
 ```
-
-Then open a dataset. `seqout_get()` takes any accession and finds the related
-records across the archives: the metadata, the samples, the runs and the
-papers.
-
-```{r quick-dataset}
-d <- seqout_get("GSE168652")
-c(title = d$meta$title, samples = nrow(d$samples), runs = nrow(d$runs))
-```
-
-## Backends
-
-`seqout` can get data in two ways.
-
-| Backend | How it works | When to use it |
-| --- | --- | --- |
-| REST API (default) | It calls the seqout.org web API. | Normal use. It is always up to date. |
-| Parquet | It reads Parquet data dumps with DuckDB. | Offline or local use, SQL, and large batch jobs. |
-
-The REST API is the default, and it needs no setup. The examples above show
-this: they call no other function first.
-
-Select the Parquet backend with `seqout_connect()`. It reads the Parquet files
-directly, from a remote server or from a local directory. It needs the `duckdb`
-package.
-
-```{r connect}
-con <- seqout_connect("parquet")
-con
-```
-
-Give the connection to a function with `con =`, or make it the default for the
-session with `seqout_default(con)`. The next section does that.
 
 ## Search
 
-`seqout_search()` is the only search function. Give it a query, filters, or both.
-It reads the REST API, so it needs no connection.
+`SeqoutSearch()` searches the seven archives at the same time. Give it a
+query, filters, or both. You can learn more about [how search works](https://seqout.org/howsearchworks).
 
 ```{r search}
-seqout_search("liver cancer scRNA", organism = "Homo sapiens", limit = 10)
+SeqoutSearch("cervical cancer single cell", db = "geo", limit = 5)
 ```
 
-For the filters, the sort order and the cost of a large result set, read
-[Searching](searching.html).
-
-## Get detailed metadata for a project
-
-`GSE151530` is a single-cell study of liver cancer with many citations.
-`project()` gives you the full record: the title, the description, the
-contributors, the organisms, the instruments and the supplementary files.
-
-```{r metadata-full, eval = FALSE}
-# eval disabled: SELECT * over the remote geo_series.parquet currently fails
-# with a Snappy decompression error from the dump.
-meta <- project("GSE151530")
-meta
-```
-
-A project record has 25 columns. That is too wide to read. `transpose = TRUE`
-gives you one row for each field:
-
-```{r metadata-transposed, eval = FALSE}
-project("GSE151530", transpose = TRUE)
-```
-
-**Samples** in this project:
-
-```{r samples}
-samples <- project_samples("GSE151530")
-samples
-```
-
-
-## Enriched (ontology-annotated) metadata
-
-SeqOut adds ontology terms to the samples. The terms give the tissue, the
-disease, the cell type and the assay. `project_enriched()` reads them:
-
-```{r enriched}
-enriched <- project_enriched("GSE151530")
-enriched
-```
-
-The result has a column for each term, with the ontology ID and the confidence
-score of that term:
-
-```{r enriched-inspect}
-library(dplyr)
-
-enriched |>
-  select(sample, tissue, disease, cell_type, assay, assay_category, sample_type) |>
-  head(10)
-```
-
-
-## Sample cohorts across every project
-
-`sample_search()` allows searching through `enriched` metadata:
+`SampleSearch()` searches the samples instead of the studies. It reads the
+ontology terms that seqout adds, so a filter can name a tissue, a disease or an
+age.
 
 ```{r cohort}
-api <- seqout_connect("api")
-
-liver <- sample_search(
-  organism = "Homo sapiens",
-  sex = "female",
-  tissue = "liver",
-  age_min_years = 50,
-  con = api
+liver <- SampleSearch(
+  organism = "Homo sapiens", tissue = "liver", age_min_years = 50,
+  limit = 5
 )
-
-liver |>
-  select(sample, study_accession, tissue, disease, assay, age) |>
-  head(10)
+liver[, c("sample", "study_accession", "tissue", "disease", "sex", "age")]
 ```
 
+Read [Search](articles/search.html) for the full filter set, the sort order and
+the cost of a large result set.
 
-```{r cohort-total}
-attr(liver, "total")
+## Read the metadata
+
+`SeqoutGet()` takes any accession. It finds the related records in the other
+archives itself. Each field makes its request the first time you read it, and
+it keeps the answer.
+
+```{r dataset}
+d <- SeqoutGet("GSE168652")
+d
 ```
 
-
-It is also possible to search by ontology terms, and their subtypes:
-
-
-
-```{r cohort-ontology}
-sample_search(disease_ontology_id = "MONDO:0005061", limit = 200, con = api)
+```{r dataset-fields}
+d$meta$title
+c(samples = nrow(d$samples), runs = nrow(d$runs), papers = nrow(d$pubs))
 ```
 
-Set `include_descendants = FALSE` for the exact term only.
+The `enriched` field holds the ontology terms for each sample.
 
-### Filtering on what the reads contain
-
-seqout also supports a `Pentimento` mode where it infers sex, single-cell assay type and 
-viral/microbial content in the raw samples reads.
-
-For example you can search all cervical (scRNA-seq) samples with HPV infection:
-
-```{r cohort-microbes}
-hpv <- sample_search(
-  tissue = "cervix",
-  microbe = "HPV",
-  sort = "cell_count",
-  order = "desc",
-  con = api
-)
-
-hpv |>
-  select(sample, study_accession, cells, hpv_top_type, microbe_n_detections) |>
-  head(10)
+```{r enriched}
+d$enriched[, c("sample", "tissue", "disease", "assay")]
 ```
 
-## Publications
+Read [Metadata](articles/metadata.html) for the other fields, the publication
+records and the read-derived calls.
 
-`publications()` reads the publication record of one or more accessions. The
-record has the DOI, the PubMed ID, the journal and the citation count.
+## From GEO to a counts matrix
 
-```{r publications}
-publications(c("GSE151530", "GSE98638"))
+`SeqoutCounts()` groups the supplementary files of a GEO accession into units.
+A unit is a group of files that read as one matrix. This call downloads
+nothing, because a GEO payload can be tens of gigabytes.
+
+```{r counts-manifest}
+counts <- SeqoutCounts("GSE297547")
+m <- Manifest(counts)
+
+nrow(m)
+head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 4)
 ```
 
-`project_citations()` gives the same data for one project:
+`SeqoutMatrix()` downloads one unit and reads it. The result holds the matrix
+in `X`, the cell annotation in `obs` and the gene annotation in `var`.
 
-```{r citations-tibble}
-project_citations("GSE151530")
+```{r counts-read, eval = FALSE}
+rna <- SeqoutMatrix(counts, sample = "GSM8994520")
+dim(rna$X)
 ```
 
+This vignette does not run that call, because the unit is 300 MB.
 
-## BibTeX export
+Read [Counts](articles/counts.html) for the unit rules, the choice of assay and
+the path into Seurat.
 
-Give `format = "bibtex"` to get a BibTeX string:
+## Download the files
 
-```{r bibtex}
-bib <- project_citations("GSE151530", format = "bibtex")
-cat(bib)
+The `supplementary` field lists the processed files of a study, one row per
+file.
+
+```{r supplementary}
+head(d$supplementary, 4)
 ```
 
-This produces entries like:
+Three functions write files to disk. `DownloadSupplementary()` takes the
+processed files, `DownloadRuns()` takes the reads, and `DownloadBams()` takes
+the alignments the submitter sent.
 
-```
-@article{Lichun2019,
-  author  = {Lichun Ma, Maria O Hernandez, ...},
-  title   = {Tumor Cell Biodiversity Drives Microenvironmental ...},
-  journal = {Cancer cell},
-  year    = {2019},
-  doi     = {10.1016/j.ccell.2019.08.007},
-  pmid    = {31588021}
-}
+```{r downloads, eval = FALSE}
+DownloadSupplementary("GSE168652")
+DownloadRuns("SRR12012336")
+DownloadBams("ERP117016")
 ```
 
-To save to a `.bib` file:
+Read [Downloads](articles/downloads.html) for the file choice, the checksums
+and the buckets that no anonymous client can read.
 
-```{r save-bibtex, eval=FALSE}
-writeLines(bib, "GSE151530.bib")
+## The two backends
+
+| Backend | How it works | When to use it |
+| --- | --- | --- |
+| `"api"` (the default) | It calls the seqout.org REST API. | Normal use. It is always current. |
+| `"parquet"` | It reads the Parquet dump with DuckDB. | SQL, offline work and large batch jobs. |
+
+You must select the Parquet backend. The package does not change to it for
+you, because one lookup would become a scan of many gigabytes. It needs the
+`duckdb` package.
+
+```{r parquet}
+con <- SeqoutConnect("parquet", quiet = TRUE)
+
+Query("SELECT count(*) AS n FROM geo_series", con = con)
 ```
 
-
-## Using SQL and dplyr directly
-
-All the above functions run on DuckDB under the hood. You can also query
-the tables directly with SQL:
-
-```{r sql}
-query("
-  SELECT dominant_scientific_name AS organism, count(*) AS n_projects
-  FROM unified_metadata
-  WHERE dominant_scientific_name IS NOT NULL
-  GROUP BY organism
-  ORDER BY n_projects DESC
-  LIMIT 10
-")
-```
-
-`dplyr` and `dbplyr` also work, and they read the data only when you ask for it.
-`tbl()` reads the DuckDB catalog, so the view must exist first:
-
-```{r dplyr}
-library(dbplyr)
-
-register_tables("unified_metadata")
-
-tbl(con$db, "unified_metadata") |>
-  filter(
-    dominant_scientific_name == "Homo sapiens",
-    country == "Japan"
-  ) |>
-  count(dominant_assay_l2, sort = TRUE) |>
-  head(10) |>
-  collect()
-```
-
-
-## Cache tables locally
-
-`cache_table()` copies a remote view into local DuckDB storage. Use it when you
-read the same table more than once:
-
-```{r cache}
-cache_table("unified_metadata")
-
-# Subsequent queries hit local storage
-query("SELECT count(*) AS n FROM unified_metadata_local")
-
-# Clean up
-clear_cache()
-```
-
-
-## Close connection
-
-Only the Parquet backend holds anything worth closing. Put the REST default
-back and release the DuckDB handle:
+Give the connection to a function with `con =`, or make it the default for the
+session with `SeqoutDefault(con)`.
 
 ```{r close}
-seqout_default(NULL)
-seqout_close(con)
+SeqoutClose(con)
 ```
+
+The two backends do not hold the same data. `SeqoutSearch()`,
+`SampleSearch()` and the read-derived tables need the REST API. SQL and the
+local cache need Parquet.
+
+## Where to go next
+
+* [Search](articles/search.html) — the filters, the sort order and the cohorts.
+* [Metadata](articles/metadata.html) — the fields of a dataset and the papers.
+* [Counts](articles/counts.html) — GEO supplementary files as a matrix.
+* [Downloads](articles/downloads.html) — reads, alignments and processed files.

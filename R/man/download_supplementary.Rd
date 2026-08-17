@@ -30,8 +30,8 @@ the whole study.
 }
 \examples{
 \dontrun{
-download_supplementary("GSE168652") # series files and every sample's
-download_supplementary("GSM8433846") # that one sample's
-download_supplementary("E-MTAB-11467") # processed archives and raw
+DownloadSupplementary("GSE168652") # series files and every sample's
+DownloadSupplementary("GSM8433846") # that one sample's
+DownloadSupplementary("E-MTAB-11467") # processed archives and raw
 }
 }
