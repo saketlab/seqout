@@ -217,7 +217,8 @@ class Dataset:
 
     @cached_property
     def bams(self) -> Any:
-        """The alignment files the submitter sent, where there are any.
+        """
+        The alignment files the submitter sent, where there are any.
 
         Not the reads. Read this before downloading: a study can run to
         hundreds of gigabytes and most files are requester-pays.
@@ -229,7 +230,7 @@ class Dataset:
         An experiment or run accession narrows the result to its own files
         rather than handing back the whole study's.
         """
-        from seqout.models.api_models import BamFiles
+        from seqout.models.api_models import BamFiles  # noqa: PLC0415 - cycle
 
         study = self.sra
         if not study:
@@ -246,7 +247,8 @@ class Dataset:
         mine = [
             b
             for b in files.root
-            if want in {
+            if want
+            in {
                 (b.run_accession or "").upper(),
                 (b.experiment_accession or "").upper(),
             }
@@ -317,7 +319,9 @@ class ShortNames:
         return _call(self, "classify_accession", accession)
 
     def citations(
-        self, accession: str, type: str = "original"
+        self,
+        accession: str,
+        type: str = "original",  # noqa: A002
     ) -> str:
         """BibTeX for the papers behind a dataset. Empty when there are none."""
         return _call(self, "fetch_citations", accession, type=type)

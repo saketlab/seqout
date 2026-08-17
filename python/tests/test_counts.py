@@ -257,7 +257,7 @@ def test_triplet_group_key_does_not_collide_on_missing_sample():
         for part in _TRIPLET_PARTS
     ]
     units = group(files, "GSE1")
-    assert len(units) == 2, [u.label for u in units]  # noqa: PLR2004
+    assert len(units) == 2, [u.label for u in units]
 
 
 def test_read_table_transposes_genes_by_samples(tmp_path):
@@ -474,15 +474,15 @@ def test_pure_python_and_r_rds_paths_agree(tmp_path):
 
     _write_r_objects(tmp_path)
     for name in ("seurat.rds", "sce.rds", "plain.rds"):
-        pure = cr._rds_via_rdata(tmp_path / name)  # noqa: SLF001, compares both internal paths
+        pure = cr._rds_via_rdata(tmp_path / name)
         if pure is None:
             pytest.skip("rdata not installed")
-        original = cr._rds_via_rdata  # noqa: SLF001
-        cr._rds_via_rdata = lambda _p: None  # noqa: SLF001, force the R fallback
+        original = cr._rds_via_rdata
+        cr._rds_via_rdata = lambda _p: None
         try:
             viar = cr.read_rds(tmp_path / name)
         finally:
-            cr._rds_via_rdata = original  # noqa: SLF001
+            cr._rds_via_rdata = original
         assert np.array_equal(pure[0].toarray(), viar[0].toarray()), name
         assert list(pure[1].index) == list(viar[1].index), name
         assert list(pure[2].index) == list(viar[2].index), name
@@ -665,15 +665,15 @@ def test_download_accepts_a_transport_compressed_body(tmp_path, monkeypatch):
 
     body = b"RDX3\nX\n" + b"payload" * 500
 
-    def fake_get(url, headers=None, **_kw):  # noqa: ARG001
+    def fake_get(url, headers=None, **_kw):
         assert headers["Accept-Encoding"] == "identity", "must ask for raw bytes"
         return _FakeResponse(
             body, {"Content-Length": "17", "Content-Encoding": "x-gzip"}
         )
 
-    monkeypatch.setattr(helpers._session, "get", fake_get)  # noqa: SLF001
+    monkeypatch.setattr(helpers._session, "get", fake_get)
     dest = tmp_path / "x.rds"
-    helpers._download_file(  # noqa: SLF001
+    helpers._download_file(
         "http://example/x.rds",
         dest,
         chunk_size=64,
@@ -688,13 +688,13 @@ def test_download_accepts_a_transport_compressed_body(tmp_path, monkeypatch):
 def test_download_still_checks_size_when_not_encoded(tmp_path, monkeypatch):
     from seqout import helpers
 
-    def fake_get(url, headers=None, **_kw):  # noqa: ARG001
+    def fake_get(url, headers=None, **_kw):
         # HTTP Content-Length can claim 999 bytes while transfer sends 10
         return _FakeResponse(b"0123456789", {"Content-Length": "999"})
 
-    monkeypatch.setattr(helpers._session, "get", fake_get)  # noqa: SLF001
+    monkeypatch.setattr(helpers._session, "get", fake_get)
     with pytest.raises(OSError, match="expected 999"):
-        helpers._download_file(  # noqa: SLF001
+        helpers._download_file(
             "http://example/x.bin",
             tmp_path / "x.bin",
             chunk_size=64,
@@ -809,9 +809,7 @@ def test_progress_can_be_silenced(tmp_path):
             "GSE1", client=_Client(), cache_dir=tmp_path / "c", progress=constructed
         )
         seen.clear()
-        c._fetch(  # noqa: SLF001
-            [f"{FTP}/f_{constructed}_{per_call}.tsv"], progress=per_call
-        )
+        c._fetch([f"{FTP}/f_{constructed}_{per_call}.tsv"], progress=per_call)
         assert seen["with_pbar"] is expected, (constructed, per_call)
 
 

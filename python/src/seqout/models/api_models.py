@@ -30,7 +30,8 @@ def _join_authors(v: Any) -> Any:
 
 
 class SearchParams(BaseModel):
-    """Every parameter the full-text ``/search`` endpoint accepts.
+    """
+    Every parameter the full-text ``/search`` endpoint accepts.
 
     ``extra="forbid"`` on purpose. Pydantic's default is to drop a field it
     does not declare, which turned ``search("liver", assay_l1="…")`` into an
@@ -82,7 +83,8 @@ class SearchParams(BaseModel):
 
 
 class StructuredSearchParams(BaseModel):
-    """Every parameter the ``/search/structured`` endpoint accepts.
+    """
+    Every parameter the ``/search/structured`` endpoint accepts.
 
     Deliberately without ``sortby``, ``order``, ``date_from``, ``date_to``,
     ``db`` and ``structured``: that endpoint has no such parameters, and FastAPI
@@ -280,7 +282,8 @@ class SearchResponse(BaseModel):
 
 
 class BamFile(BaseModel):
-    """One alignment file a submitter sent, and where it can be read.
+    """
+    One alignment file a submitter sent, and where it can be read.
 
     `url`/`https_url` are anonymous; `s3_url` is requester-pays and bills the
     caller, so it is reported rather than fetched. Roughly one file in seven is
@@ -314,7 +317,8 @@ class BamFile(BaseModel):
 
 
 class BamFiles(BaseContainer[BamFile]):
-    """A study's alignment files.
+    """
+    A study's alignment files.
 
     `total_bams` and `total_bam_bytes` are the endpoint's own headline numbers;
     both are exactly the rows summed, so they are computed rather than carried.

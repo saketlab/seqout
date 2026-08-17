@@ -55,9 +55,12 @@ def test_the_full_text_filters_survive_the_dump():
 def test_structured_reads_the_query_as_a_boolean_expression():
     # Unrelated to the /search/structured endpoint: this is boolean parsing of
     # q, forced on a query that carries no operators of its own.
-    assert SearchParams(q="liver cancer", structured=True).model_dump(
-        exclude_none=True
-    )["structured"] is True
+    assert (
+        SearchParams(q="liver cancer", structured=True).model_dump(exclude_none=True)[
+            "structured"
+        ]
+        is True
+    )
 
 
 def test_the_endpoint_only_declares_what_it_answers():
@@ -178,12 +181,27 @@ class TestPlan:
 class TestApplyPlan:
     def _rows(self):
         return [
-            SearchResult(accession="A", title="a", updated_at="2023-06-01",
-                         citation_count=7, journal="Cell"),
-            SearchResult(accession="B", title="b", updated_at="2024-06-01",
-                         citation_count=108, journal="Ature"),
-            SearchResult(accession="C", title="c", updated_at="2025-06-01",
-                         citation_count=0, journal="Zoo"),
+            SearchResult(
+                accession="A",
+                title="a",
+                updated_at="2023-06-01",
+                citation_count=7,
+                journal="Cell",
+            ),
+            SearchResult(
+                accession="B",
+                title="b",
+                updated_at="2024-06-01",
+                citation_count=108,
+                journal="Ature",
+            ),
+            SearchResult(
+                accession="C",
+                title="c",
+                updated_at="2025-06-01",
+                citation_count=0,
+                journal="Zoo",
+            ),
         ]
 
     def test_the_day_bounds_use_the_column_the_server_would_have(self):
@@ -295,11 +313,15 @@ class TestBams:
                 BamFile(filename="a.bam", size=10, url="https://x/a.bam", md5="aa"),
                 BamFile(filename="b.bam", size=5, s3_url="s3://pays/b.bam", md5="bb"),
                 BamFile(
-                    filename="dup.bam", size=1, url="https://x/1/dup.bam",
+                    filename="dup.bam",
+                    size=1,
+                    url="https://x/1/dup.bam",
                     run_accession="SRR1",
                 ),
                 BamFile(
-                    filename="dup.bam", size=1, url="https://x/2/dup.bam",
+                    filename="dup.bam",
+                    size=1,
+                    url="https://x/2/dup.bam",
                     run_accession="SRR2",
                 ),
             ]
@@ -312,7 +334,11 @@ class TestBams:
 
     def test_paid_and_open_are_told_apart(self):
         files = self._files()
-        assert [b.filename for b in files.openly_readable] == ["a.bam", "dup.bam", "dup.bam"]
+        assert [b.filename for b in files.openly_readable] == [
+            "a.bam",
+            "dup.bam",
+            "dup.bam",
+        ]
         assert [b.filename for b in files.requester_pays] == ["b.bam"]
 
     def test_a_repeated_filename_is_prefixed_with_its_run(self):
@@ -394,12 +420,22 @@ class TestPager:
         from seqout.models.api_models import BamFile
 
         row = BamFile(
-            filename="a.bam", size=10, url="https://x/a.bam",
-            run_accession="ERR1", experiment_accession="ERX1", semantic_name="bam",
+            filename="a.bam",
+            size=10,
+            url="https://x/a.bam",
+            run_accession="ERR1",
+            experiment_accession="ERX1",
+            semantic_name="bam",
         )
         table = cli._bams_table("t", [row], exp_titles={"ERX1": "NextSeq 500"})
         assert [c.header for c in table.columns] == [
-            "run", "experiment", "title", "file", "type", "size", "readable",
+            "run",
+            "experiment",
+            "title",
+            "file",
+            "type",
+            "size",
+            "readable",
         ]
         cells = [list(c.cells) for c in table.columns]
         assert cells[0] == ["ERR1"]
@@ -449,13 +485,21 @@ class TestBamsSaveTo:
         return BamFiles(
             [
                 BamFile(
-                    filename="small.bam", size=1, url="https://x/small.bam",
-                    md5="aa", run_accession="R1", experiment_accession="E1",
+                    filename="small.bam",
+                    size=1,
+                    url="https://x/small.bam",
+                    md5="aa",
+                    run_accession="R1",
+                    experiment_accession="E1",
                     semantic_name="bam",
                 ),
                 BamFile(
-                    filename="big.bam", size=99, s3_url="s3://pays/big.bam",
-                    md5="bb", run_accession="R2", experiment_accession="E2",
+                    filename="big.bam",
+                    size=99,
+                    s3_url="s3://pays/big.bam",
+                    md5="bb",
+                    run_accession="R2",
+                    experiment_accession="E2",
                 ),
             ]
         )
@@ -480,7 +524,8 @@ class TestBamsSaveTo:
 
         out = tmp_path / "b.csv"
         cli._save_bams(self._bams(), {}, out)
-        paid = next(r for r in csvmod.DictReader(out.open()) if r["filename"] == "big.bam")
+        rows = csvmod.DictReader(out.open())
+        paid = next(r for r in rows if r["filename"] == "big.bam")
         # Their s3_url is the whole reason to ask for the file.
         assert paid["s3_url"] == "s3://pays/big.bam"
         assert paid["requester_pays"] == "True"
@@ -513,9 +558,15 @@ class TestBamsNarrowing:
 
         rows = BamFiles(
             [
-                BamFile(filename="a.bam", run_accession="SRR1", experiment_accession="SRX1"),
-                BamFile(filename="b.bam", run_accession="SRR2", experiment_accession="SRX1"),
-                BamFile(filename="c.bam", run_accession="SRR3", experiment_accession="SRX2"),
+                BamFile(
+                    filename="a.bam", run_accession="SRR1", experiment_accession="SRX1"
+                ),
+                BamFile(
+                    filename="b.bam", run_accession="SRR2", experiment_accession="SRX1"
+                ),
+                BamFile(
+                    filename="c.bam", run_accession="SRR3", experiment_accession="SRX2"
+                ),
             ]
         )
 
@@ -529,7 +580,9 @@ class TestBamsNarrowing:
 
     def test_a_study_keeps_every_file(self):
         assert [b.filename for b in self._dataset("SRP1").bams.root] == [
-            "a.bam", "b.bam", "c.bam",
+            "a.bam",
+            "b.bam",
+            "c.bam",
         ]
 
     def test_a_run_gets_only_its_own(self):
@@ -537,7 +590,8 @@ class TestBamsNarrowing:
 
     def test_an_experiment_gets_its_runs(self):
         assert [b.filename for b in self._dataset("SRX1").bams.root] == [
-            "a.bam", "b.bam",
+            "a.bam",
+            "b.bam",
         ]
 
     def test_matching_ignores_case(self):

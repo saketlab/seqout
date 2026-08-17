@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import datetime
-import io
-import contextlib
-import logging
 import functools
+import io
 import itertools
-import math
 import json
+import logging
+import math
 import os
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import questionary
 from rich.console import Console
@@ -43,17 +43,16 @@ from seqout.clients.parquet import (
     SeqoutParquetClient,
 )
 from seqout.constants import PARQUET_DUMP_BASE_URL
-from seqout.search_plan import apply_plan, plan_search
 from seqout.models.api_models import (
     ExperimentSample,
     SearchCorrection,
-    SearchParams,
     SearchResult,
     StudyExperimentsResult,
     StudyRunsResult,
     StudyRunsResults,
 )
 from seqout.models.parquet_models import GeoSample
+from seqout.search_plan import apply_plan, plan_search
 from seqout.seqout import connect_to_seqout
 from seqout.utils import (
     StudyRunDownloadMode,
@@ -400,7 +399,7 @@ def main() -> None:
         "--assay-class",
         dest="assay_l1",
         metavar="CLASS",
-        help='filter by broad assay class, e.g. Transcriptomic',
+        help="filter by broad assay class, e.g. Transcriptomic",
     )
     p_search.add_argument(
         "--exact",
@@ -617,14 +616,12 @@ def main() -> None:
             args.country,
             args.journal,
             args.instrument_model,
-            args.multi_platform,
             args.assay_l1,
             args.assay_l2,
-            args.structured,
+            multi_platform=args.multi_platform,
+            structured=args.structured,
         ),
-        "bams": lambda: cmd_bams(
-            args.accession, args.out, args.max_rows, args.save_to
-        ),
+        "bams": lambda: cmd_bams(args.accession, args.out, args.max_rows, args.save_to),
         "show": lambda: cmd_show(
             args.accession,
             parquet=args.parquet is not None,
@@ -1108,7 +1105,8 @@ def _paged(
     noun: str = "result",
     total: int | None = None,
 ) -> None:
-    """Page through rows with the arrow keys, pulling more only as needed.
+    """
+    Page through rows with the arrow keys, pulling more only as needed.
 
     The iterator stays lazy: a search that spans many pages fetches the next
     one when the reader asks for it, not before.
@@ -1225,9 +1223,10 @@ def cmd_search(
     country: list[str] | None = None,
     journal: list[str] | None = None,
     instrument_model: list[str] | None = None,
-    multi_platform: bool = False,
     assay_l1: str | None = None,
     assay_l2: str | None = None,
+    *,
+    multi_platform: bool = False,
     structured: bool = False,
 ) -> None:
     console = Console()
@@ -1268,7 +1267,7 @@ def cmd_search(
     try:
         with connect_to_seqout(backend="api") as sq:
             # Page 0 carries spelling correction while later pages carry only results.
-            correction, total, it = sq._search_with_correction(params)
+            correction, total, it = sq._search_with_correction(params)  # noqa: SLF001
             if plan.has_local_work:
                 # The endpoint the filters chose has no sortby and no day
                 # bounds; apply them here rather than lose them.
@@ -1358,7 +1357,8 @@ def _bams_table(
 
 
 def _experiment_titles(sq: Any, accession: str) -> dict[str, str]:
-    """Experiment accession -> its title, for the BAM listing's title column.
+    """
+    Experiment accession -> its title, for the BAM listing's title column.
 
     Best-effort: the listing is still worth showing without it.
     """
@@ -1371,9 +1371,12 @@ def _experiment_titles(sq: Any, accession: str) -> dict[str, str]:
 
 
 def _by_size(bams: Any) -> list:
-    """Largest first: a study's bytes usually sit in a handful of files, and
-    the arrival order can put the smallest at the top, which reads as if the
-    header's total were wrong."""
+    """
+    Order the files largest first.
+
+    A study's bytes usually sit in a handful of files, and the arrival order can
+    put the smallest at the top, which reads as if the header's total were wrong.
+    """
     return sorted(bams.root, key=lambda b: b.size or 0, reverse=True)
 
 
@@ -1401,7 +1404,8 @@ _BAM_COLS = (
 
 
 def _save_bams(bams: Any, exp_titles: dict[str, str], path: Path) -> None:
-    """Write every row with its URLs, so the fetching can be someone else's job.
+    """
+    Write every row with its URLs, so the fetching can be someone else's job.
 
     The paid rows are written too: their `s3_url` is the whole point of asking.
     """

@@ -20,8 +20,8 @@ from seqout.dataset import ShortNames
 from seqout.exception import SeqoutError
 from seqout.helpers import _download_file
 from seqout.models.api_models import (
-    BamFiles,
     AuthorProjectsResponse,
+    BamFiles,
     ExperimentSample,
     GeoSampleDetailedMetadata,
     InstituteFacet,
@@ -784,7 +784,7 @@ class SeqoutParquetClient(ShortNames):
             url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
-    def fetch_bams(self, accession: str) -> BamFiles:
+    def fetch_bams(self, accession: str) -> BamFiles:  # noqa: ARG002
         """
         Not available on this backend: alignment files come from the REST API.
 
@@ -799,8 +799,8 @@ class SeqoutParquetClient(ShortNames):
 
     def fetch_citations(
         self,
-        accession: str,
-        type: Literal["original", "all"] = "original",
+        accession: str,  # noqa: ARG002 - the signature it stands in for
+        type: Literal["original", "all"] = "original",  # noqa: A002, ARG002
     ) -> str:
         """
         Not available on this backend: BibTeX comes from the REST API.

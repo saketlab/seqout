@@ -1,10 +1,10 @@
 import contextlib
-import hashlib
-import logging
-from collections import Counter
 import datetime
 import functools
+import hashlib
 import itertools
+import logging
+from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import (
     Future,
@@ -16,7 +16,6 @@ from typing import Any, Literal, Self, TypeVar
 
 import requests
 
-from seqout.exception import SeqoutError
 from seqout.constants import (
     API_BASE_URL,
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
@@ -31,14 +30,17 @@ from seqout.dataset import (
     _STUDY_PREFIXES,
     ShortNames,
 )
+from seqout.exception import SeqoutError
 from seqout.helpers import (
     _download_file,
     _send_req,
 )
-from seqout.search_plan import SearchPlan, apply_plan, plan_search
 from seqout.models.api_models import (
     AccessionClassification,
     AuthorProjectsResponse,
+    BamFile,
+    BamFiles,
+    BamsResponse,
     ExperimentRunsResponse,
     ExperimentSampleList,
     GeoSampleDetailedMetadata,
@@ -55,12 +57,9 @@ from seqout.models.api_models import (
     SearchCorrection,
     SearchParams,
     SearchResponse,
-    BamFile,
-    BamFiles,
-    BamsResponse,
-    SearchTotal,
     SearchResult,
     SearchResults,
+    SearchTotal,
     StructuredSearchParams,
     StudyExperimentsResults,
     StudyRunsResponse,
@@ -68,6 +67,7 @@ from seqout.models.api_models import (
     StudyRunsResults,
 )
 from seqout.models.parquet_models import Study
+from seqout.search_plan import SearchPlan, apply_plan, plan_search
 from seqout.utils import (
     _extract_download_info_for_study_run,
     _normalize_num_workers,
@@ -76,6 +76,8 @@ from seqout.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+_NOT_FOUND = 404
 
 SearchParamsType = SearchParams | StructuredSearchParams
 _NOT_FOUND = 404
@@ -162,14 +164,25 @@ class SeqoutAPIClient(ShortNames):
     # subset of SearchParams.
     _COUNTABLE = frozenset(
         {
-            "q", "db", "structured", "organism", "country", "library_strategy",
-            "library_source", "instrument_model", "platform", "journal",
-            "multi_platform", "date_from", "date_to",
+            "q",
+            "db",
+            "structured",
+            "organism",
+            "country",
+            "library_strategy",
+            "library_source",
+            "instrument_model",
+            "platform",
+            "journal",
+            "multi_platform",
+            "date_from",
+            "date_to",
         }
     )
 
     def _search_total(self, params: SearchParamsType) -> int | None:
-        """The exact number of matches, or None when it cannot be had cheaply.
+        """
+        Count the matches exactly, or answer None when that costs too much.
 
         The structured endpoint sends a total with the results, so this is only
         for the full-text one, which defers its count to /search/facets.
@@ -640,7 +653,9 @@ class SeqoutAPIClient(ShortNames):
 
         def fetch(url: str, dest_path: Path) -> None:
             self._downloader(
-                url=url, dest_path=dest_path, chunk_size=chunk_size,
+                url=url,
+                dest_path=dest_path,
+                chunk_size=chunk_size,
                 with_pbar=with_pbar,
             )
             want = (md5s or {}).get(url)
@@ -660,7 +675,7 @@ class SeqoutAPIClient(ShortNames):
 
     def fetch_bams(self, accession: str) -> BamFiles:
         """
-        The alignment files a submitter sent for a study.
+        Fetch the alignment files a submitter sent for a study.
 
         Not the reads: these are the submitter's own BAMs, aligned to a
         reference they chose, and they often carry work the reads alone do not
@@ -734,18 +749,14 @@ class SeqoutAPIClient(ShortNames):
             num_workers,
             chunk_size,
             with_pbar=with_pbar,
-            md5s={
-                _normalize_url(b.open_url): b.md5
-                for b in open_files
-                if b.md5
-            },
+            md5s={_normalize_url(b.open_url): b.md5 for b in open_files if b.md5},
         )
         return list(url_to_dest.values())
 
     def fetch_citations(
         self,
         accession: str,
-        type: Literal["original", "all"] = "original",
+        type: Literal["original", "all"] = "original",  # noqa: A002 - the endpoint's own name
     ) -> str:
         """
         BibTeX for the papers behind a dataset.
@@ -763,7 +774,7 @@ class SeqoutAPIClient(ShortNames):
                 params={"type": type, "format": "bibtex"},
             )
         except requests.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 404:
+            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
                 return ""  # "no publications found" is an answer, not a failure
             raise
 

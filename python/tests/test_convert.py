@@ -29,7 +29,7 @@ class FakeSq:
     SRX2 <- SRR3        (sample SRS2, GSM20)
     """
 
-    def fetch_study_runs(self, _study, *, full=False):  # noqa: ARG002
+    def fetch_study_runs(self, _study, *, full=False):
         return [
             SimpleNamespace(
                 run_accession="SRR1",
@@ -104,7 +104,7 @@ class FakeSq:
             ],
         )
 
-    def find_publication(self, *, pmid=None, doi=None):  # noqa: ARG002
+    def find_publication(self, *, pmid=None, doi=None):
         return SimpleNamespace(
             projects=[
                 SimpleNamespace(accession="GSE1", source="geo"),

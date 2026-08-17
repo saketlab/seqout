@@ -74,7 +74,15 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ANN", "PLC0415", "INP001", "D"]
+# A test exists to poke at internals with literal values, so the rules that
+# guard a public API's shape do not apply to one.
+"tests/**" = [
+    "S101", "ANN", "PLC0415", "INP001", "D",
+    "ARG",      # a stub's signature has to match what it stands in for
+    "PLR2004",  # the expected value is the point of the assertion
+    "PTH123",   # open() on a throwaway path reads fine
+    "SLF001",   # mocking _sender is how a client gets tested offline
+]
 
 [tool.ruff.format]
 quote-style = "double"

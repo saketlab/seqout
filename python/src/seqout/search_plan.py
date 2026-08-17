@@ -1,4 +1,5 @@
-"""Pick the endpoint from the filters, and do in Python what it cannot do.
+"""
+Pick the endpoint from the filters, and do in Python what it cannot do.
 
 Two endpoints answer a project search and they take different filter sets, so
 without this the caller has to know which one owns which filter. That is an
@@ -18,14 +19,17 @@ the same way:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Iterable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from seqout.models.api_models import (
     SearchParams,
     SearchResult,
     StructuredSearchParams,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 # Defined here rather than imported from the client, which imports this module.
 SearchParamsType = SearchParams | StructuredSearchParams
@@ -91,7 +95,7 @@ _BOOLEAN = re.compile(r'[()"*]|\b(?:OR|AND|NOT)\b')
 
 
 def is_boolean_query(q: str | None) -> bool:
-    """Would the server read this query as a boolean expression?"""
+    """Say whether the server would read this query as a boolean expression."""
     return bool(q) and bool(_BOOLEAN.search(q))
 
 
@@ -108,7 +112,8 @@ class SearchPlan:
 
     @property
     def has_local_work(self) -> bool:
-        """Do the results need filtering or reordering after they arrive?
+        """
+        Say whether the results need filtering or reordering after they arrive.
 
         When they do, every page has to be read before a limit can be applied:
         a row dropped or moved here has to move before the count does.
@@ -173,7 +178,7 @@ def _within(updated_at: str | None, date_from: str | None, date_to: str | None) 
     return not (date_to and day > date_to)
 
 
-def _sort_key(sortby: str):
+def _sort_key(sortby: str) -> Callable[[SearchResult], Any]:
     if sortby == "citations":
         return lambda r: r.citation_count or 0
     if sortby == "journal":
