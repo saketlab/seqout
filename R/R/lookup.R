@@ -61,8 +61,11 @@ author <- function(name, limit = 200, con = .con()) {
 #' A dataset with no linked paper returns `character(0)`, not an error, so a
 #' loop over many accessions does not stop at the first one without a paper.
 #'
+#' Reads the REST API. The dump has no record of the papers that reanalysed a
+#' dataset, and only about a third of its `pubmed_metadata` rows carry a
+#' publication date, so an entry built from it would be quietly less complete.
+#'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#'   Both backends answer this.
 #' @param accession A project accession.
 #' @param type `"original"`, the default, or `"all"`.
 #'
@@ -82,7 +85,10 @@ author <- function(name, limit = 200, con = .con()) {
 #' writeLines(Citations("GSE151530"), "GSE151530.bib")
 #' }
 citations <- function(accession, type = "original", con = .con()) {
-  .check_connection(con)
+  .need_api(
+    con, "citations",
+    why = "The dump has no reanalysis papers and often no publication date."
+  )
   rlang::check_required(accession)
   type <- match.arg(type, c("original", "all"))
   project_citations(accession, type = type, format = "bibtex", con = con)

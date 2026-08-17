@@ -241,6 +241,25 @@ with connect() as sq:
     rows = sq.summaries(["GSE168652", "GSE100379"])  # many projects, one request
 ```
 
+## Cite a dataset
+
+`citations` returns BibTeX for the papers behind a dataset, ready to write to a
+`.bib` file. `type="all"` adds the papers that reanalysed the data afterwards.
+
+```python
+with connect() as sq:
+    print(sq.citations("GSE151530"))
+    Path("refs.bib").write_text(sq.citations("GSE168652", type="all"))
+```
+
+A dataset with no linked paper answers with an empty string, not an error, so a
+loop over many accessions does not stop at the first gap.
+
+It reads the REST API and says so on a Parquet client. The dump has no record
+of the reanalysis papers, and only about a third of its publication rows carry
+a date, so an entry built from it would be missing its year without saying so.
+For the same papers as data rather than text, read `Dataset.pubs`.
+
 ## The lower-level methods
 
 `get` calls these. Use them when you want one specific request. Each is tied to

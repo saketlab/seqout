@@ -600,6 +600,31 @@ class SeqoutAPIClient(ShortNames):
             published_at=published_at,
         )
 
+    def fetch_citations(
+        self,
+        accession: str,
+        type: Literal["original", "all"] = "original",
+    ) -> str:
+        """
+        BibTeX for the papers behind a dataset.
+
+        The archive holds the link from a dataset to its paper, so the entry is
+        assembled from the record rather than looked up by hand. `type="all"`
+        adds the papers that reanalysed the data afterwards.
+
+        A dataset with no linked paper answers with an empty string, not an
+        error, so a loop over many accessions does not stop at the first gap.
+        """
+        try:
+            return self._sender(
+                url=f"{self._base_url}/project/{accession}/cite",
+                params={"type": type, "format": "bibtex"},
+            )
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                return ""  # "no publications found" is an answer, not a failure
+            raise
+
     def download_project_supplementary_data(
         self,
         metadata: ProjectMetadataResult,

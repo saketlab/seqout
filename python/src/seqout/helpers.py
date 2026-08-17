@@ -81,9 +81,9 @@ def _send_req[T: BaseModel](
     num_retries: int,
     max_wait: int,
     stream: bool = False,
-    response_model: type[T],
+    response_model: type[T] | None = None,
     **kwargs: Any,
-) -> T:
+) -> T | str:
     for attempt in range(num_retries):
         try:
             r = _session.request(
@@ -98,6 +98,10 @@ def _send_req[T: BaseModel](
             )
 
             r.raise_for_status()
+            # No model means the endpoint answers text, not JSON: /cite sends
+            # BibTeX, which has nothing to validate.
+            if response_model is None:
+                return r.text
             return response_model.model_validate(r.json())
         except requests.RequestException as exc:
             if not _is_retryable(exc) or attempt == num_retries - 1:

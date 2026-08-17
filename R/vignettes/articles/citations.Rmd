@@ -98,17 +98,20 @@ d$pubs[, c("pmid", "title", "journal", "citation_count")]
 way, from a paper or an author to the datasets, [Search](search.html) covers
 `Paper()` and `Author()`.
 
-## Both backends
+## The REST API only
 
-`Citations()` works on the Parquet dump as well as the REST API, so a
-bibliography can be built offline from a local dump.
+`Citations()` reads the REST API, and says so on a Parquet connection.
 
-```{r parquet}
+```{r parquet, error = TRUE}
 con <- SeqoutConnect("parquet", quiet = TRUE)
-
-cat(Citations("GSE151530", con = con))
+Citations("GSE151530", con = con)
 ```
 
-```{r close}
+```{r close, include = FALSE}
 SeqoutClose(con)
 ```
+
+The dump could answer a version of this, and deliberately does not. It has no
+record of the papers that reanalysed a dataset, and only about a third of its
+publication rows carry a date, so an entry built from it would be missing its
+year without saying so. A citation is not worth getting nearly right.

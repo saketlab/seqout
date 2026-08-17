@@ -14,8 +14,7 @@ Citations(accession, type = "original", con = .con())
 
 \item{type}{\code{"original"}, the default, or \code{"all"}.}
 
-\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.
-Both backends answer this.}
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
 A character string of BibTeX entries, or \code{character(0)}.
@@ -31,6 +30,10 @@ adds the papers that reanalysed the data afterwards.
 
 A dataset with no linked paper returns \code{character(0)}, not an error, so a
 loop over many accessions does not stop at the first one without a paper.
+
+Reads the REST API. The dump has no record of the papers that reanalysed a
+dataset, and only about a third of its \code{pubmed_metadata} rows carry a
+publication date, so an entry built from it would be quietly less complete.
 }
 \examples{
 \dontrun{

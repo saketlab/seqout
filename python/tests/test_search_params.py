@@ -231,3 +231,54 @@ class TestOneSearchFunction:
         sig = inspect.signature(SeqoutAPIClient.search)
         assert "limit" in sig.parameters
         assert sig.parameters["limit"].default is None
+
+
+class TestCitations:
+    """BibTeX comes from the API on both clients, or not at all."""
+
+    def test_the_api_client_asks_for_bibtex(self):
+        from seqout.clients.api import SeqoutAPIClient
+
+        sq = SeqoutAPIClient()
+        seen = {}
+
+        def fake(url, params, **kw):
+            seen.update(url=url, params=params)
+            return "@article{X2020,\n}"
+
+        sq._sender = fake
+        out = sq.fetch_citations("GSE151530", type="all")
+        assert seen["url"].endswith("/project/GSE151530/cite")
+        assert seen["params"] == {"type": "all", "format": "bibtex"}
+        assert out.startswith("@article")
+
+    def test_a_dataset_with_no_paper_is_empty_not_an_error(self):
+        import requests
+
+        from seqout.clients.api import SeqoutAPIClient
+
+        sq = SeqoutAPIClient()
+        response = requests.Response()
+        response.status_code = 404
+
+        def fake(**kw):
+            raise requests.HTTPError(response=response)
+
+        sq._sender = fake
+        assert sq.fetch_citations("CRA027437") == ""
+
+    def test_the_parquet_client_refuses_rather_than_approximating(self):
+        from seqout.clients.parquet import SeqoutParquetClient
+        from seqout.exception import SeqoutError
+
+        pq = SeqoutParquetClient.__new__(SeqoutParquetClient)
+        with pytest.raises(SeqoutError, match="reads the REST API"):
+            pq.fetch_citations("GSE151530")
+
+    def test_both_clients_expose_the_short_name(self):
+        from seqout.clients.api import SeqoutAPIClient
+        from seqout.clients.parquet import SeqoutParquetClient
+
+        for client in (SeqoutAPIClient, SeqoutParquetClient):
+            assert hasattr(client, "citations")
+            assert hasattr(client, "fetch_citations")

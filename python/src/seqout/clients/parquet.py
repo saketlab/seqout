@@ -783,6 +783,25 @@ class SeqoutParquetClient(ShortNames):
             url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
+    def fetch_citations(
+        self,
+        accession: str,
+        type: Literal["original", "all"] = "original",
+    ) -> str:
+        """
+        Not available on this backend: BibTeX comes from the REST API.
+
+        The dump has no record of the papers that reanalysed a dataset, and
+        only about a third of its `pubmed_metadata` rows carry a publication
+        date, so an entry built here would be quietly less complete than the
+        one the API renders. A citation is not worth getting nearly right.
+        """
+        msg = (
+            "citations reads the REST API; this client is Parquet. "
+            "Open an API client for it: connect().citations(...)"
+        )
+        raise SeqoutError(msg)
+
     def download_project_supplementary_data(
         self,
         metadata: ProjectMetadataResult,

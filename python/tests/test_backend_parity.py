@@ -24,6 +24,8 @@ SHARED_METHODS = [
     "author",
     "classify",
     "summaries",
+    "citations",
+    "fetch_citations",
 ]
 
 

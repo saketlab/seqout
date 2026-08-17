@@ -278,6 +278,12 @@ class ShortNames:
         """Report what kind of accession this is, and which archive owns it."""
         return _call(self, "classify_accession", accession)
 
+    def citations(
+        self, accession: str, type: str = "original"
+    ) -> str:
+        """BibTeX for the papers behind a dataset. Empty when there are none."""
+        return _call(self, "fetch_citations", accession, type=type)
+
     def summaries(self, accessions: list[str]) -> ProjectSummaryResultList:
         """Title / description / organisms for many projects in one request."""
         return _call(self, "bulk_fetch_project_summary", accessions)

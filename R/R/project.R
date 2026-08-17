@@ -211,8 +211,9 @@ project_citations <- function(accession, type = "original",
   }
 
   if (identical(con$backend, "parquet")) {
+    # BibTeX is API-only; see citations(). The dump answers the tibble form.
     if (format == "bibtex") {
-      return(.bibtex_from_db(con, accession))
+      return(from_api())
     }
     # `study_publications` is no longer in the dump.
     return(tryCatch(
@@ -233,71 +234,6 @@ project_citations <- function(accession, type = "original",
     cli::cli_abort("Cannot determine table for accession {.val {accession}}")
   }
   row$table
-}
-
-#' @noRd
-.bibtex_from_db <- function(con, accession) {
-  sql <- "
-    SELECT
-      json_extract_string(j, '$.authors') AS authors,
-      json_extract_string(j, '$.title') AS title,
-      json_extract_string(j, '$.journal') AS journal,
-      json_extract_string(j, '$.pub_date') AS pub_date,
-      json_extract_string(j, '$.doi') AS doi,
-      json_extract_string(j, '$.pmid') AS pmid
-    FROM study_publications sp,
-         LATERAL (
-           SELECT unnest(from_json(sp.publications, '[\"json\"]'::JSON)) AS j
-         )
-    WHERE sp.accession = ?
-  "
-
-  df <- tryCatch(
-    .db_query(con, sql, params = list(accession)),
-    error = function(e) {
-      return(.api_get_text(con, paste0("/project/", accession, "/cite"),
-        type = "original", format = "bibtex"
-      ))
-    }
-  )
-
-  if (is.character(df)) {
-    return(df)
-  }
-  if (nrow(df) == 0) {
-    return("")
-  }
-
-  entries <- vapply(seq_len(nrow(df)), function(i) {
-    r <- df[i, ]
-    year <- sub("^(\\d{4}).*", "\\1", r$pub_date %||% "")
-    first_author <- sub(",.*", "", sub(" .*", "", r$authors %||% "Unknown"))
-    key <- paste0(first_author, year)
-
-    fields <- character()
-    if (!is.na(r$authors) && nzchar(r$authors)) {
-      fields <- c(fields, sprintf("  author  = {%s}", r$authors))
-    }
-    if (!is.na(r$title) && nzchar(r$title)) {
-      fields <- c(fields, sprintf("  title   = {%s}", r$title))
-    }
-    if (!is.na(r$journal) && nzchar(r$journal)) {
-      fields <- c(fields, sprintf("  journal = {%s}", r$journal))
-    }
-    if (nzchar(year)) {
-      fields <- c(fields, sprintf("  year    = {%s}", year))
-    }
-    if (!is.na(r$doi) && nzchar(r$doi)) {
-      fields <- c(fields, sprintf("  doi     = {%s}", r$doi))
-    }
-    if (!is.na(r$pmid) && nzchar(r$pmid)) {
-      fields <- c(fields, sprintf("  pmid    = {%s}", r$pmid))
-    }
-
-    paste0("@article{", key, ",\n", paste(fields, collapse = ",\n"), "\n}")
-  }, character(1))
-
-  paste(entries, collapse = "\n\n")
 }
 
 #' @noRd
