@@ -30,10 +30,6 @@ SeqoutConnect <- seqout_connect
 #' @export
 DownloadRuns <- download_runs
 
-#' @rdname download_script
-#' @export
-DownloadScript <- download_script
-
 #' @rdname download_supplementary
 #' @export
 DownloadSupplementary <- download_supplementary

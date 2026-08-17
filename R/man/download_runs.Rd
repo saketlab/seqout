@@ -26,8 +26,9 @@ DownloadRuns(
 
 \item{dest_dir}{Directory to write into. Defaults to the accession.}
 
-\item{mode}{Which copy to take: \code{"fastq"}, \code{"sra_lite"}, \code{"sra"},
-\code{"sra_normalized"} or \code{"ncbi_sra"}. \code{NULL} takes the first each run offers.}
+\item{mode}{Which copy to take: \code{"fastq"}, \code{"sra"} (NCBI's full-quality
+copy) or \code{"sra_lite"} (the same reads with binned quality scores). \code{NULL}
+takes the first each run offers, in that order.}
 
 \item{quiet}{Suppress progress messages.}
 
@@ -42,8 +43,12 @@ downloads its runs', a series or study downloads every run's.
 }
 \details{
 Not every run is served in every form. Left to itself the function takes the
-first copy each run offers, preferring ENA fastq, then NCBI's \code{lite} and
-full SRA copies, and says which it took. Name \code{mode} to insist on one.
+first copy each run offers, preferring ENA fastq, then NCBI's full-quality
+SRA copy, then its \code{lite} copy, and says which it took. Name \code{mode} to insist
+on one.
+
+Where the archive publishes a checksum, which it does for every fastq, the
+downloaded file is verified against it.
 }
 \examples{
 \dontrun{

@@ -215,3 +215,57 @@ test_that("a study serving no copy at all errors rather than downloading nothing
   mock_runs(fake_runs(library_layout = c("PAIRED", "PAIRED")))
   expect_error(download_runs("SRP1", quiet = TRUE), "No run of SRP1 is served")
 })
+
+test_that("a body that does not match its checksum is a failure, not a file", {
+  url <- "https://example.org/a.gz"
+  mock_curl()
+  dir <- withr::local_tempdir()
+  expect_error(
+    .download_files(url, dir, md5 = "0000000000000000000000000000dead", quiet = TRUE),
+    "checksum mismatch"
+  )
+  expect_false(file.exists(file.path(dir, "a.gz")))
+  # A corrupt body must not be resumed into on the next call.
+  expect_false(file.exists(file.path(dir, "a.gz.part")))
+})
+
+test_that("a matching checksum lets the file through", {
+  mock_curl()
+  dir <- withr::local_tempdir()
+  # mock_curl writes "x\n" for every successful download.
+  want <- unname(tools::md5sum(withr::local_tempfile(lines = "x")))
+  paths <- .download_files("https://example.org/a.gz", dir, md5 = want, quiet = TRUE)
+  expect_true(file.exists(paths))
+})
+
+test_that("fastq checksums are paired with fastq urls, and dropped when they do not line up", {
+  runs <- tibble::tibble(
+    run_accession = c("SRR1", "SRR2"),
+    fastq_ftp = c("ftp://h/a_1.gz;ftp://h/a_2.gz", "ftp://h/b_1.gz"),
+    fastq_md5 = c("aaa;bbb", "ccc;ddd")
+  )
+  picked <- seqout:::.pick_run_files(runs, seqout:::.run_auto_order)
+  expect_equal(picked$md5[[1]], c("aaa", "bbb"))
+  expect_equal(picked$md5[[2]], NA_character_)
+})
+
+test_that("the sra mode prefers the anonymous AWS mirror over the NCBI host", {
+  runs <- tibble::tibble(
+    run_accession = "SRR1",
+    ncbi_sra_url = "https://sra-downloadb/lite",
+    ncbi_sra_url_aws = "https://sra-pub-run-odp/full",
+    ncbi_sra_lite_url = "https://sra-downloadb/lite"
+  )
+  picked <- seqout:::.pick_run_files(runs, seqout:::.run_auto_order)
+  expect_equal(picked$source, "sra")
+  expect_equal(picked$column, "ncbi_sra_url_aws")
+})
+
+test_that("ENA's scheme-less paths are fetched over https, not guessed as ftp", {
+  log <- mock_curl()
+  dir <- withr::local_tempdir()
+  .download_files("ftp.sra.ebi.ac.uk/vol1/fastq/SRR1/SRR1_1.fastq.gz", dir, quiet = TRUE)
+  expect_equal(log$calls[[1]], "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR1/SRR1_1.fastq.gz")
+  # An explicit scheme is left alone, so the ftp fallback still has work to do.
+  expect_equal(seqout:::.with_scheme("ftp://h/a.gz"), "ftp://h/a.gz")
+})

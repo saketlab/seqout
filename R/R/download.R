@@ -10,12 +10,14 @@
 #'
 #' @return The paths of the files in `dest_dir`, invisibly.
 #' @noRd
-.download_files <- function(urls, dest_dir, names = NULL, overwrite = FALSE, quiet = FALSE) {
+.download_files <- function(urls, dest_dir, names = NULL, md5 = NULL,
+                            overwrite = FALSE, quiet = FALSE) {
   rlang::check_required(urls)
   rlang::check_required(dest_dir)
   keep <- !is.na(urls) & nzchar(urls) & !duplicated(urls)
   urls <- urls[keep]
   names <- names[keep]
+  md5 <- md5[keep]
   if (length(urls) == 0) {
     return(invisible(character(0)))
   }
@@ -28,7 +30,7 @@
     if (!quiet) {
       cli::cli_alert_info("Downloading {sum(missing)} file{?s} to {.path {dest_dir}}")
     }
-    .curl_download(urls[missing], paths[missing], quiet = quiet)
+    .curl_download(urls[missing], paths[missing], md5 = md5[missing], quiet = quiet)
   }
   invisible(paths)
 }
@@ -62,7 +64,8 @@
 #' NCBI serves the same paths both ways. Networks that block outbound port 21
 #' are common enough that an ftp:// failure is not the end of the attempt.
 #' @noRd
-.curl_download <- function(urls, paths, quiet = FALSE) {
+.curl_download <- function(urls, paths, md5 = NULL, quiet = FALSE) {
+  urls <- .with_scheme(urls)
   parts <- paste0(paths, ".part")
   res <- curl::multi_download(urls, parts, resume = TRUE, progress = !quiet)
   reason <- .download_reason(res)
@@ -86,8 +89,20 @@
   # unless the server answered with an error page: appending to that would
   # produce a file that is neither the error nor the data.
   ok <- is.na(reason)
+  # A server can answer 200 with a body that is short: a proxy that gave up, a
+  # disk that filled. Nothing in the response says so, and the archive publishes
+  # a checksum for exactly this, so where there is one it decides.
+  if (!is.null(md5) && any(ok)) {
+    at <- which(ok)
+    want <- tolower(md5[at])
+    got <- unname(tools::md5sum(parts[at]))
+    bad <- !is.na(want) & nzchar(want) & !is.na(got) & got != want
+    reason[at[bad]] <- "checksum mismatch"
+    ok <- is.na(reason)
+  }
   file.rename(parts[ok], paths[ok])
-  unlink(parts[!ok][startsWith(reason[!ok], "HTTP ")])
+  # An error page or a corrupt body is not something to resume into.
+  unlink(parts[!ok][grepl("^(HTTP |checksum)", reason[!ok])])
 
   if (any(!ok)) {
     cli::cli_abort(c(
@@ -101,6 +116,21 @@
     ))
   }
   invisible(paths)
+}
+
+#' Give a bare host/path an explicit scheme
+#'
+#' ENA publishes `fastq_ftp` with no scheme at all --
+#' `ftp.sra.ebi.ac.uk/vol1/fastq/...` -- and curl reads the leading `ftp.` as a
+#' request for FTP. That fails outright on any network blocking port 21, and the
+#' fallback below never fires because the string does not begin `ftp://`. The
+#' same paths are served over HTTPS from the same host, with range requests, so
+#' name the scheme rather than leave it to be guessed.
+#' @noRd
+.with_scheme <- function(urls) {
+  bare <- !grepl("^[a-z][a-z0-9+.-]*://", urls, ignore.case = TRUE)
+  urls[bare] <- paste0("https://", urls[bare])
+  urls
 }
 
 #' Why each download failed, `NA` where it did not
@@ -249,14 +279,19 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
 #' downloads its runs', a series or study downloads every run's.
 #'
 #' Not every run is served in every form. Left to itself the function takes the
-#' first copy each run offers, preferring ENA fastq, then NCBI's `lite` and
-#' full SRA copies, and says which it took. Name `mode` to insist on one.
+#' first copy each run offers, preferring ENA fastq, then NCBI's full-quality
+#' SRA copy, then its `lite` copy, and says which it took. Name `mode` to insist
+#' on one.
+#'
+#' Where the archive publishes a checksum, which it does for every fastq, the
+#' downloaded file is verified against it.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession Any accession SeqOut holds.
 #' @param dest_dir Directory to write into. Defaults to the accession.
-#' @param mode Which copy to take: `"fastq"`, `"sra_lite"`, `"sra"`,
-#'   `"sra_normalized"` or `"ncbi_sra"`. `NULL` takes the first each run offers.
+#' @param mode Which copy to take: `"fastq"`, `"sra"` (NCBI's full-quality
+#'   copy) or `"sra_lite"` (the same reads with binned quality scores). `NULL`
+#'   takes the first each run offers, in that order.
 #' @param quiet Suppress progress messages.
 #'
 #' @return The paths of the downloaded files, invisibly.
@@ -275,13 +310,13 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
 
   accession <- trimws(accession)
   if (!is.null(mode)) {
-    mode <- match.arg(mode, names(.run_url_columns))
-    if (mode %in% .run_cloud_modes) {
+    if (mode %in% .run_paid_modes) {
       cli::cli_abort(c(
-        "{.val {mode}} serves requester-pays cloud objects, which curl cannot fetch.",
-        "i" = "Get a script for the cloud tools with {.code download_script({.val {accession}}, mode = {.val {mode}})}."
+        "{.val {mode}} names the same reads in a requester-pays bucket, which curl cannot fetch.",
+        "i" = "Use {.val sra} for the same copy over anonymous HTTPS."
       ))
     }
+    mode <- match.arg(mode, names(.run_modes))
   }
   if (is.null(dest_dir)) dest_dir <- accession
 
@@ -296,7 +331,7 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   if (!any(found)) {
     cli::cli_abort(c(
       "No run of {accession} is served as {.val {mode %||% 'any downloadable copy'}}.",
-      "i" = "URL columns present: {.val {intersect(names(runs), unlist(.run_url_columns))}}"
+      "i" = "URL columns present: {.val {intersect(names(runs), unlist(.run_modes))}}"
     ))
   }
 
@@ -305,6 +340,7 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
     unlist(picked$urls[found], use.names = FALSE),
     dest_dir,
     names = unlist(picked$names[found], use.names = FALSE),
+    md5 = unlist(picked$md5[found], use.names = FALSE),
     quiet = quiet
   )
 }
@@ -326,7 +362,7 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   }
   kind <- accession_kind(accession)
   if (kind %in% .root_entities) {
-    size <- .pretty_bytes(.run_bytes(runs, picked$source))
+    size <- .pretty_bytes(.run_bytes(runs, picked$column))
     scale <- paste0(sum(found), " run", if (sum(found) != 1) "s" else "")
     if (!is.na(size)) {
       scale <- paste0(scale, ", ", size)
@@ -345,32 +381,55 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   }
 }
 
+#' The three forms a run's reads come in, and where each is served
+#'
+#' The run table carries eight URL columns, but they hold three things. The
+#' archives publish the reads as ENA fastq, as NCBI's full-quality `normalized`
+#' SRA copy, and as its `lite` copy, whose quality scores are binned. The rest
+#' of the columns are the same two SRA objects under different hosts:
+#' `ncbi_sra_url_aws` is byte-for-byte the normalized URL (355,481 of 355,481
+#' rows sampled) and `ncbi_sra_url` is the lite one (340,470 of 340,554). So a
+#' mode names the copy and the columns under it name the hosts, best first.
+#'
+#' `ncbi_sra_url_aws` leads because it is anonymous, egress-free worldwide and
+#' answers range requests, so a part-finished file resumes.
 #' @noRd
-.run_url_columns <- list(
+.run_modes <- list(
   fastq = "fastq_ftp",
-  sra_lite = "ncbi_sra_lite_url",
-  sra = "sra_ftp",
-  sra_normalized = "ncbi_sra_normalized_url",
-  ncbi_sra = "ncbi_sra_url",
-  s3 = "ncbi_sra_lite_s3_url",
-  gcs = "ncbi_sra_lite_gs_url"
+  sra = c("ncbi_sra_url_aws", "ncbi_sra_normalized_url", "sra_ftp"),
+  sra_lite = c("ncbi_sra_lite_url", "ncbi_sra_url")
 )
 
 #' Preference order when the caller names no mode
 #'
-#' ENA fastq first: it needs no conversion. Then NCBI's lite copy, which bins
-#' the quality scores but is much the smaller, then the full copies.
+#' Fastq first: it needs no conversion. Then the full-quality SRA copy. The
+#' lite copy last, because binned quality scores are a loss the caller should
+#' choose rather than be handed.
 #' @noRd
-.run_auto_order <- c("fastq", "sra_lite", "sra", "sra_normalized", "ncbi_sra")
+.run_auto_order <- c("fastq", "sra", "sra_lite")
 
-#' Modes whose URLs are cloud object keys, not anything curl can fetch
+#' Modes that were once offered and now are not
+#'
+#' `s3` and `gcs` name the same objects behind requester-pays buckets, which
+#' curl cannot fetch and which bill the caller.
 #' @noRd
-.run_cloud_modes <- c("s3", "gcs")
+.run_paid_modes <- c("s3", "gcs")
+
+#' Checksums and sizes, by the column the URL came from
+#'
+#' Only the archives' own copies are published with a checksum; NCBI serves the
+#' SRA copies without one.
+#' @noRd
+.run_md5_of <- c(fastq_ftp = "fastq_md5", sra_ftp = "sra_md5")
 
 #' @noRd
-.run_size_columns <- list(
-  fastq = "fastq_bytes", sra = "sra_bytes",
-  sra_lite = "ncbi_sra_lite_bytes", sra_normalized = "ncbi_sra_normalized_bytes"
+.run_bytes_of <- c(
+  fastq_ftp = "fastq_bytes",
+  sra_ftp = "sra_bytes",
+  ncbi_sra_url_aws = "ncbi_sra_normalized_bytes",
+  ncbi_sra_normalized_url = "ncbi_sra_normalized_bytes",
+  ncbi_sra_lite_url = "ncbi_sra_lite_bytes",
+  ncbi_sra_url = "ncbi_sra_lite_bytes"
 )
 
 #' The run accession of each row, whichever column carries it
@@ -393,24 +452,45 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   ids <- .run_ids(runs)
   urls <- vector("list", nrow(runs))
   dest <- vector("list", nrow(runs))
+  md5 <- vector("list", nrow(runs))
   source <- rep(NA_character_, nrow(runs))
+  column <- rep(NA_character_, nrow(runs))
 
   for (mode in modes) {
-    column <- .run_url_columns[[mode]]
-    if (is.null(column) || !column %in% names(runs)) {
-      next
-    }
-    values <- as.character(runs[[column]])
-    take <- which(is.na(source) & !is.na(values) & nzchar(values))
-    for (i in take) {
-      # A paired run packs both mates into one cell.
-      found <- unlist(strsplit(values[i], ";", fixed = TRUE))
-      urls[[i]] <- found
-      dest[[i]] <- .run_dest_names(ids[i], found, mode)
-      source[i] <- mode
+    for (from in .run_modes[[mode]] %||% character(0)) {
+      if (!from %in% names(runs)) {
+        next
+      }
+      values <- as.character(runs[[from]])
+      take <- which(is.na(source) & !is.na(values) & nzchar(values))
+      for (i in take) {
+        # A paired run packs both mates into one cell, and its checksums the
+        # same way, in the same order.
+        found <- unlist(strsplit(values[i], ";", fixed = TRUE))
+        urls[[i]] <- found
+        dest[[i]] <- .run_dest_names(ids[i], found, mode)
+        md5[[i]] <- .run_md5(runs, i, from, length(found))
+        source[i] <- mode
+        column[i] <- from
+      }
     }
   }
-  list(ids = ids, urls = urls, names = dest, source = source)
+  list(ids = ids, urls = urls, names = dest, md5 = md5, source = source, column = column)
+}
+
+#' The published checksum of each file of one run, `NA` where there is none
+#' @noRd
+.run_md5 <- function(runs, i, from, n) {
+  column <- unname(.run_md5_of[from])
+  if (is.na(column) || !column %in% names(runs)) {
+    return(rep(NA_character_, n))
+  }
+  found <- unlist(strsplit(as.character(runs[[column]][i]), ";", fixed = TRUE))
+  # Only trust a checksum list that lines up with the URL list.
+  if (length(found) != n) {
+    return(rep(NA_character_, n))
+  }
+  found
 }
 
 #' What each run file is called on disk
@@ -433,16 +513,16 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
 
 #' Total bytes of the chosen copies, `NA` where the archive gives no size
 #' @noRd
-.run_bytes <- function(runs, source) {
-  totals <- vapply(seq_along(source), function(i) {
-    if (is.na(source[i])) {
+.run_bytes <- function(runs, column) {
+  totals <- vapply(seq_along(column), function(i) {
+    if (is.na(column[i])) {
       return(NA_real_)
     }
-    column <- .run_size_columns[[source[i]]]
-    if (is.null(column) || !column %in% names(runs)) {
+    from <- unname(.run_bytes_of[column[i]])
+    if (is.na(from) || !from %in% names(runs)) {
       return(NA_real_)
     }
-    parts <- strsplit(as.character(runs[[column]][i]), ";", fixed = TRUE)[[1]]
+    parts <- strsplit(as.character(runs[[from]][i]), ";", fixed = TRUE)[[1]]
     sum(suppressWarnings(as.numeric(parts)), na.rm = TRUE)
   }, numeric(1))
   sum(totals, na.rm = TRUE)
@@ -456,30 +536,4 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   units <- c("B", "kB", "MB", "GB", "TB", "PB")
   i <- min(length(units), floor(log(n, 1000)) + 1)
   paste0(round(n / 1000^(i - 1), 1), " ", units[i])
-}
-
-#' Get a download script for a study
-#'
-#' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param study A study accession.
-#' @param mode Download source.
-#' @param file Optional path to write the script to.
-#'
-#' @return The script as a character string, invisibly when `file` is given.
-#'
-#' @export
-download_script <- function(study, mode = "fastq", file = NULL, con = .con()) {
-  .check_connection(con)
-  rlang::check_required(study)
-  mode <- match.arg(mode, names(.run_url_columns))
-
-  result <- .api_get_text(con, paste0("/project/", study, "/download/", mode))
-
-  if (!is.null(file)) {
-    writeLines(result, file)
-    Sys.chmod(file, "0755")
-    cli::cli_alert_success("Wrote download script to {.path {file}}")
-    return(invisible(result))
-  }
-  result
 }
