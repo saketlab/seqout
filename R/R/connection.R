@@ -146,6 +146,23 @@ seqout_default <- function(con) {
   ))
 }
 
+#' Refuse a Parquet connection where only REST can answer
+#'
+#' The mirror of [.need_parquet()]: some tables are served and never dumped,
+#' so there is nothing for DuckDB to read.
+#' @noRd
+.need_api <- function(con, what, why = NULL) {
+  .check_connection(con)
+  if (identical(con$backend, "api")) {
+    return(invisible(con))
+  }
+  cli::cli_abort(c(
+    "{.fn {what}} reads the REST API; this connection is Parquet.",
+    i = why,
+    i = "Drop {.arg con} to use the shared REST connection."
+  ))
+}
+
 #' Open the DuckDB handle, once, on first `con$db`
 #' @noRd
 .duckdb <- function(con) {

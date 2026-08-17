@@ -58,6 +58,18 @@ Manifest <- manifest
 #' @export
 Matrices <- matrices
 
+#' @rdname project_single_cell
+#' @export
+ProjectSingleCell <- project_single_cell
+
+#' @rdname sample_microbes
+#' @export
+SampleMicrobes <- sample_microbes
+
+#' @rdname sample_search
+#' @export
+SampleSearch <- sample_search
+
 #' @rdname paper
 #' @export
 Paper <- paper

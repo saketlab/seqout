@@ -124,6 +124,9 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
+  - sample_search
+  - project_single_cell
+  - sample_microbes
 
 - title: Datasets and projects
   desc: Metadata for one accession or many

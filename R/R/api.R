@@ -13,12 +13,17 @@ NULL
     httr2::req_error(is_error = function(resp) FALSE)
 }
 
+#' @param null_on Status codes returned as `NULL` instead of aborting. Match on
+#'   the code; cli line-wraps a long abort, so matching its wording is unsafe.
 #' @noRd
-.api_get <- function(con, path, ...) {
+.api_get <- function(con, path, ..., null_on = integer(0)) {
   .check_connection(con)
   resp <- .build_request(con, path) |>
     httr2::req_url_query(..., .multi = "explode") |>
     httr2::req_perform()
+  if (httr2::resp_status(resp) %in% null_on) {
+    return(NULL)
+  }
   .check_resp(resp, path)
   httr2::resp_body_json(resp)
 }
