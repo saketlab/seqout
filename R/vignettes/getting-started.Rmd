@@ -154,6 +154,14 @@ Query("SELECT count(*) AS n FROM geo_series", con = con)
 Give the connection to a function with `con =`, or make it the default for the
 session with `SeqoutDefault(con)`.
 
+By default the Parquet backend reads the published dump over HTTP. Point
+`data_dir` at a directory of `.parquet` files to read a copy of your own, which
+is what makes offline work and a large batch job fast.
+
+```{r data-dir, eval = FALSE}
+con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+```
+
 ```{r close}
 SeqoutClose(con)
 ```

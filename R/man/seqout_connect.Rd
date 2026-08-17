@@ -8,6 +8,7 @@
 seqout_connect(
   backend = c("api", "parquet"),
   base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
+  data_dir = NULL,
   read_only = FALSE,
   eager = FALSE,
   quiet = FALSE
@@ -16,6 +17,7 @@ seqout_connect(
 SeqoutConnect(
   backend = c("api", "parquet"),
   base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
+  data_dir = NULL,
   read_only = FALSE,
   eager = FALSE,
   quiet = FALSE
@@ -28,6 +30,12 @@ SeqoutConnect(
 \code{SEQOUT_BASE_URL} environment variable, or \code{"https://seqout.org"} when
 that variable is empty. The variable lets CI use an origin that is not
 behind the public CDN, with no change to the code.}
+
+\item{data_dir}{Where the \code{.parquet} files are, when they are not the
+published dump: a directory that holds \code{geo_series.parquet} and its
+siblings, or the URL of another dump. Give the directory that holds the
+files themselves. The default, \code{NULL}, reads \code{"<base_url>/data"}. The
+\code{"api"} backend ignores this argument.}
 
 \item{read_only}{Make the DuckDB connection read-only. The default is
 \code{FALSE}, so that \code{\link[=cache_table]{cache_table()}} can write views to local storage. The
@@ -63,6 +71,11 @@ project("GSE297547")
 # Select Parquet for SQL and for offline work
 con <- SeqoutConnect("parquet")
 Query("SELECT * FROM geo_series LIMIT 5", con = con)
+SeqoutClose(con)
+
+# A dump of your own, on disk
+con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+Query("SELECT count(*) FROM geo_series", con = con)
 SeqoutClose(con)
 }
 }

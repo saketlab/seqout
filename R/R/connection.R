@@ -1,3 +1,35 @@
+#' A dump on disk, checked before DuckDB is asked for it
+#'
+#' A missing directory would otherwise surface as one warning per table, 29 of
+#' them, none saying the path is wrong. A URL is passed through untouched:
+#' `read_parquet()` takes either, and only a local path can be tested here.
+#' @noRd
+.check_data_dir <- function(data_dir, backend) {
+  if (is.null(data_dir)) {
+    return(NULL)
+  }
+  if (!is.character(data_dir) || length(data_dir) != 1 || is.na(data_dir)) {
+    cli::cli_abort("{.arg data_dir} must be one directory or URL.")
+  }
+  if (identical(backend, "api")) {
+    cli::cli_warn(c(
+      "{.arg data_dir} does nothing on the {.val api} backend.",
+      "i" = "Use {.code SeqoutConnect(\"parquet\", data_dir = ...)} to read it."
+    ))
+    return(NULL)
+  }
+  data_dir <- sub("/$", "", path.expand(data_dir))
+  remote <- grepl("^[a-z][a-z0-9+.-]*://", data_dir, ignore.case = TRUE)
+  if (!remote && !dir.exists(data_dir)) {
+    cli::cli_abort(c(
+      "{.arg data_dir} is not a directory: {.path {data_dir}}.",
+      "i" = "It should hold the {.file .parquet} files themselves,
+             {.file geo_series.parquet} and its siblings."
+    ))
+  }
+  data_dir
+}
+
 #' Connect to Seqout
 #'
 #' There are currently two backends supported:
@@ -15,6 +47,11 @@
 #'   `SEQOUT_BASE_URL` environment variable, or `"https://seqout.org"` when
 #'   that variable is empty. The variable lets CI use an origin that is not
 #'   behind the public CDN, with no change to the code.
+#' @param data_dir Where the `.parquet` files are, when they are not the
+#'   published dump: a directory that holds `geo_series.parquet` and its
+#'   siblings, or the URL of another dump. Give the directory that holds the
+#'   files themselves. The default, `NULL`, reads `"<base_url>/data"`. The
+#'   `"api"` backend ignores this argument.
 #' @param read_only Make the DuckDB connection read-only. The default is
 #'   `FALSE`, so that [cache_table()] can write views to local storage. The
 #'   `"api"` backend ignores this argument.
@@ -34,19 +71,26 @@
 #' con <- SeqoutConnect("parquet")
 #' Query("SELECT * FROM geo_series LIMIT 5", con = con)
 #' SeqoutClose(con)
+#'
+#' # A dump of your own, on disk
+#' con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+#' Query("SELECT count(*) FROM geo_series", con = con)
+#' SeqoutClose(con)
 #' }
 seqout_connect <- function(backend = c("api", "parquet"),
                            base_url = Sys.getenv("SEQOUT_BASE_URL", "https://seqout.org"),
+                           data_dir = NULL,
                            read_only = FALSE,
                            eager = FALSE,
                            quiet = FALSE) {
   backend <- match.arg(backend)
   base_url <- sub("/$", "", base_url)
+  data_dir <- .check_data_dir(data_dir, backend)
 
   con <- new.env(parent = emptyenv())
   con$backend <- backend
   con$base_url <- base_url
-  con$data_url <- paste0(base_url, "/data")
+  con$data_url <- data_dir %||% paste0(base_url, "/data")
   con$api_url <- paste0(base_url, "/api")
   con$tables <- .seqout_tables()
   con$views <- new.env(parent = emptyenv())

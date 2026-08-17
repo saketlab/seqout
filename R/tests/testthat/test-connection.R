@@ -58,3 +58,47 @@ test_that(".check_connection rejects non-connection objects", {
     "seqout_connection"
   )
 })
+
+test_that("data_dir points the views at a dump of your own", {
+  dir <- withr::local_tempdir()
+  con <- seqout_connect("parquet", data_dir = dir, quiet = TRUE)
+  expect_equal(con$data_url, dir)
+
+  # base_url still builds the API URL, so the two cannot be confused.
+  expect_equal(con$api_url, "https://seqout.org/api")
+})
+
+test_that("data_dir defaults to the published dump", {
+  con <- seqout_connect("parquet", quiet = TRUE)
+  expect_equal(con$data_url, "https://seqout.org/data")
+})
+
+test_that("a trailing slash and a ~ are both accepted", {
+  dir <- withr::local_tempdir()
+  con <- seqout_connect("parquet", data_dir = paste0(dir, "/"), quiet = TRUE)
+  expect_equal(con$data_url, dir)
+})
+
+test_that("a URL is passed through, since only a path can be checked", {
+  con <- seqout_connect("parquet",
+    data_dir = "https://example.org/dump", quiet = TRUE
+  )
+  expect_equal(con$data_url, "https://example.org/dump")
+})
+
+test_that("a data_dir that is not there fails now, not once per table", {
+  expect_error(
+    seqout_connect("parquet", data_dir = "/no/such/dump"),
+    "not a directory"
+  )
+  expect_error(seqout_connect("parquet", data_dir = 42), "one directory or URL")
+})
+
+test_that("data_dir on the api backend says so instead of being ignored", {
+  dir <- withr::local_tempdir()
+  expect_warning(
+    con <- seqout_connect("api", data_dir = dir, quiet = TRUE),
+    "does nothing"
+  )
+  expect_equal(con$data_url, "https://seqout.org/data")
+})
