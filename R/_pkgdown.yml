@@ -172,7 +172,6 @@ reference:
 - title: Downloads
   desc: Fetch supplementary files, reads and download scripts
   contents:
-  - download_files
   - download_supplementary
   - download_runs
   - download_script

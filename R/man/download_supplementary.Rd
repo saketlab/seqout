@@ -3,14 +3,14 @@
 \name{download_supplementary}
 \alias{download_supplementary}
 \alias{DownloadSupplementary}
-\title{Download a project's supplementary files}
+\title{Download the supplementary files of an accession}
 \usage{
 download_supplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 
 DownloadSupplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 }
 \arguments{
-\item{accession}{A project accession.}
+\item{accession}{Any accession SeqOut holds.}
 
 \item{dest_dir}{Directory to write into. Defaults to the accession.}
 
@@ -19,9 +19,19 @@ DownloadSupplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
-The paths of the downloaded files.
+The paths of the downloaded files, invisibly.
 }
 \description{
 The processed files a submitter uploaded: count matrices, annotations and
-archives.
+archives. A series or study downloads its own files and every sample's; a GEO
+sample downloads only its own. An experiment, run or BioSample carries no
+files of its own, so it names the project to ask for rather than widening to
+the whole study.
+}
+\examples{
+\dontrun{
+download_supplementary("GSE168652") # series files and every sample's
+download_supplementary("GSM8433846") # that one sample's
+download_supplementary("E-MTAB-11467") # processed archives and raw
+}
 }

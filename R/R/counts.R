@@ -417,7 +417,7 @@ matrices <- function(counts, sample = NULL) {
 
   urls <- unique(unlist(lapply(units, .unit_urls), use.names = FALSE))
   if (length(urls) > 0) {
-    download_files(urls, counts$cache_dir)
+    .download_files(urls, counts$cache_dir)
   }
 
   out <- list()
@@ -477,7 +477,7 @@ matrices <- function(counts, sample = NULL) {
 
 #' @noRd
 .fetch_unit <- function(counts, unit) {
-  download_files(.unit_urls(unit), counts$cache_dir)
+  .download_files(.unit_urls(unit), counts$cache_dir)
 }
 
 #' @noRd
