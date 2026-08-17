@@ -1,6 +1,6 @@
 [project]
 name = "seqout"
-version = "1.0.0"
+version = "0.2.1"
 description = "Search genomics study metadata across GEO, SRA, ENA, DDBJ, ArrayExpress, GEA and GSA, and read GEO supplementary files as counts matrices"
 readme = "README.md"
 license = "BSD-3-Clause"
