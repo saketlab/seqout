@@ -3,38 +3,52 @@
 \name{download_runs}
 \alias{download_runs}
 \alias{DownloadRuns}
-\title{Download the read files of a study}
+\title{Download the read files of an accession}
 \usage{
 download_runs(
-  study,
+  accession,
   dest_dir = NULL,
-  mode = names(.run_url_columns),
+  mode = NULL,
   quiet = FALSE,
   con = .con()
 )
 
 DownloadRuns(
-  study,
+  accession,
   dest_dir = NULL,
-  mode = names(.run_url_columns),
+  mode = NULL,
   quiet = FALSE,
   con = .con()
 )
 }
 \arguments{
-\item{study}{A study accession.}
+\item{accession}{Any accession SeqOut holds.}
 
-\item{dest_dir}{Directory to write into. Defaults to the study accession.}
+\item{dest_dir}{Directory to write into. Defaults to the accession.}
 
-\item{mode}{Which copy to take. Not every run offers every mode.}
+\item{mode}{Which copy to take: \code{"fastq"}, \code{"sra_lite"}, \code{"sra"},
+\code{"sra_normalized"} or \code{"ncbi_sra"}. \code{NULL} takes the first each run offers.}
 
 \item{quiet}{Suppress progress messages.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
-The paths of the downloaded files.
+The paths of the downloaded files, invisibly.
 }
 \description{
-Download the read files of a study
+Takes any accession: a run downloads its own files, an experiment or sample
+downloads its runs', a series or study downloads every run's.
+}
+\details{
+Not every run is served in every form. Left to itself the function takes the
+first copy each run offers, preferring ENA fastq, then NCBI's \code{lite} and
+full SRA copies, and says which it took. Name \code{mode} to insist on one.
+}
+\examples{
+\dontrun{
+download_runs("SRR12012336") # one run
+download_runs("SRP267291") # every run of a study
+download_runs("SRP150719", mode = "fastq") # insist on ENA fastq
+}
 }

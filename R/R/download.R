@@ -10,16 +10,18 @@
 #'
 #' @return The paths of the files in `dest_dir`, invisibly.
 #' @noRd
-.download_files <- function(urls, dest_dir, overwrite = FALSE, quiet = FALSE) {
+.download_files <- function(urls, dest_dir, names = NULL, overwrite = FALSE, quiet = FALSE) {
   rlang::check_required(urls)
   rlang::check_required(dest_dir)
-  urls <- unique(urls[!is.na(urls) & nzchar(urls)])
+  keep <- !is.na(urls) & nzchar(urls) & !duplicated(urls)
+  urls <- urls[keep]
+  names <- names[keep]
   if (length(urls) == 0) {
     return(invisible(character(0)))
   }
   dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
 
-  paths <- .dest_paths(urls, dest_dir)
+  paths <- if (is.null(names)) .dest_paths(urls, dest_dir) else file.path(dest_dir, names)
   missing <- if (overwrite) rep(TRUE, length(urls)) else !file.exists(paths)
 
   if (any(missing)) {
@@ -241,49 +243,220 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
   unname(urls[!is.na(urls)])
 }
 
-#' Download the read files of a study
+#' Download the read files of an accession
+#'
+#' Takes any accession: a run downloads its own files, an experiment or sample
+#' downloads its runs', a series or study downloads every run's.
+#'
+#' Not every run is served in every form. Left to itself the function takes the
+#' first copy each run offers, preferring ENA fastq, then NCBI's `lite` and
+#' full SRA copies, and says which it took. Name `mode` to insist on one.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param study A study accession.
-#' @param dest_dir Directory to write into. Defaults to the study accession.
-#' @param mode Which copy to take. Not every run offers every mode.
+#' @param accession Any accession SeqOut holds.
+#' @param dest_dir Directory to write into. Defaults to the accession.
+#' @param mode Which copy to take: `"fastq"`, `"sra_lite"`, `"sra"`,
+#'   `"sra_normalized"` or `"ncbi_sra"`. `NULL` takes the first each run offers.
 #' @param quiet Suppress progress messages.
 #'
-#' @return The paths of the downloaded files.
+#' @return The paths of the downloaded files, invisibly.
 #'
 #' @export
-download_runs <- function(study, dest_dir = NULL,
-                          mode = names(.run_url_columns),
-                          quiet = FALSE,
-                          con = .con()) {
+#' @examples
+#' \dontrun{
+#' download_runs("SRR12012336") # one run
+#' download_runs("SRP267291") # every run of a study
+#' download_runs("SRP150719", mode = "fastq") # insist on ENA fastq
+#' }
+download_runs <- function(accession, dest_dir = NULL, mode = NULL,
+                          quiet = FALSE, con = .con()) {
   .check_connection(con)
-  rlang::check_required(study)
-  mode <- match.arg(mode)
-  if (is.null(dest_dir)) dest_dir <- study
+  rlang::check_required(accession)
 
-  runs <- project_runs(study, full = TRUE, con = con)
-  if (nrow(runs) == 0) {
-    cli::cli_alert_warning("{study} has no runs.")
+  accession <- trimws(accession)
+  if (!is.null(mode)) {
+    mode <- match.arg(mode, names(.run_url_columns))
+    if (mode %in% .run_cloud_modes) {
+      cli::cli_abort(c(
+        "{.val {mode}} serves requester-pays cloud objects, which curl cannot fetch.",
+        "i" = "Get a script for the cloud tools with {.code download_script({.val {accession}}, mode = {.val {mode}})}."
+      ))
+    }
+  }
+  if (is.null(dest_dir)) dest_dir <- accession
+
+  runs <- seqout_get(accession, con = con)$runs
+  if (!is.data.frame(runs) || nrow(runs) == 0) {
+    cli::cli_alert_warning("{accession} has no runs.")
     return(invisible(character(0)))
   }
-  column <- .run_url_columns[[mode]]
-  if (!column %in% names(runs)) {
+
+  picked <- .pick_run_files(runs, mode %||% .run_auto_order)
+  found <- !is.na(picked$source)
+  if (!any(found)) {
     cli::cli_abort(c(
-      "The runs of {study} carry no {.val {mode}} URLs.",
-      "i" = "Available: {.val {intersect(names(runs), unlist(.run_url_columns))}}"
+      "No run of {accession} is served as {.val {mode %||% 'any downloadable copy'}}.",
+      "i" = "URL columns present: {.val {intersect(names(runs), unlist(.run_url_columns))}}"
     ))
   }
-  values <- runs[[column]]
-  values <- values[!is.na(values) & nzchar(values)]
-  urls <- unlist(strsplit(values, ";", fixed = TRUE))
-  .download_files(urls, dest_dir, quiet = quiet)
+
+  .warn_run_choice(accession, runs, picked, mode, dest_dir, found)
+  .download_files(
+    unlist(picked$urls[found], use.names = FALSE),
+    dest_dir,
+    names = unlist(picked$names[found], use.names = FALSE),
+    quiet = quiet
+  )
+}
+
+#' Say what is about to be downloaded, and on whose authority
+#'
+#' Two things a caller cannot see from the call itself: which copy was chosen
+#' when they named none, and that one accession stands for the whole study.
+#' Both warn rather than stop, so a script still runs.
+#' @noRd
+.warn_run_choice <- function(accession, runs, picked, mode, dest_dir, found) {
+  if (is.null(mode)) {
+    counts <- table(picked$source[found])
+    chosen <- paste0(counts, " from ", names(counts), collapse = ", ")
+    cli::cli_warn(c(
+      "No {.arg mode} given; taking the first copy each run offers.",
+      "i" = "{chosen}."
+    ))
+  }
+  kind <- accession_kind(accession)
+  if (kind %in% .root_entities) {
+    size <- .pretty_bytes(.run_bytes(runs, picked$source))
+    scale <- paste0(sum(found), " run", if (sum(found) != 1) "s" else "")
+    if (!is.na(size)) {
+      scale <- paste0(scale, ", ", size)
+    }
+    one <- picked$ids[found][1]
+    cli::cli_warn(c(
+      "{accession} is a {kind}: this downloads all of it ({scale}) into {.path {dest_dir}}.",
+      "i" = if (!is.na(one)) "For a single run, name it: {.code download_runs(\"{one}\")}."
+    ))
+  }
+  if (any(!found)) {
+    # The count that agrees is the first one, not the last cli saw.
+    cli::cli_warn(
+      "{sum(!found)} of {length(found)} run{?s} {cli::qty(sum(!found))}{?has/have} no downloadable copy and {?is/are} skipped."
+    )
+  }
 }
 
 #' @noRd
 .run_url_columns <- list(
-  fastq = "fastq_ftp", sra = "sra_ftp", sra_lite = "ncbi_sra_lite_url",
-  s3 = "ncbi_sra_lite_s3_url", gcs = "ncbi_sra_lite_gs_url"
+  fastq = "fastq_ftp",
+  sra_lite = "ncbi_sra_lite_url",
+  sra = "sra_ftp",
+  sra_normalized = "ncbi_sra_normalized_url",
+  ncbi_sra = "ncbi_sra_url",
+  s3 = "ncbi_sra_lite_s3_url",
+  gcs = "ncbi_sra_lite_gs_url"
 )
+
+#' Preference order when the caller names no mode
+#'
+#' ENA fastq first: it needs no conversion. Then NCBI's lite copy, which bins
+#' the quality scores but is much the smaller, then the full copies.
+#' @noRd
+.run_auto_order <- c("fastq", "sra_lite", "sra", "sra_normalized", "ncbi_sra")
+
+#' Modes whose URLs are cloud object keys, not anything curl can fetch
+#' @noRd
+.run_cloud_modes <- c("s3", "gcs")
+
+#' @noRd
+.run_size_columns <- list(
+  fastq = "fastq_bytes", sra = "sra_bytes",
+  sra_lite = "ncbi_sra_lite_bytes", sra_normalized = "ncbi_sra_normalized_bytes"
+)
+
+#' The run accession of each row, whichever column carries it
+#' @noRd
+.run_ids <- function(runs) {
+  for (column in c("run_accession", "accession", "run")) {
+    if (column %in% names(runs)) {
+      return(as.character(runs[[column]]))
+    }
+  }
+  rep(NA_character_, nrow(runs))
+}
+
+#' Choose one source per run, in the given order of preference
+#'
+#' A run offering nothing at all keeps `NA` as its source, so the caller can
+#' count what it is leaving behind rather than quietly shipping a subset.
+#' @noRd
+.pick_run_files <- function(runs, modes) {
+  ids <- .run_ids(runs)
+  urls <- vector("list", nrow(runs))
+  dest <- vector("list", nrow(runs))
+  source <- rep(NA_character_, nrow(runs))
+
+  for (mode in modes) {
+    column <- .run_url_columns[[mode]]
+    if (is.null(column) || !column %in% names(runs)) {
+      next
+    }
+    values <- as.character(runs[[column]])
+    take <- which(is.na(source) & !is.na(values) & nzchar(values))
+    for (i in take) {
+      # A paired run packs both mates into one cell.
+      found <- unlist(strsplit(values[i], ";", fixed = TRUE))
+      urls[[i]] <- found
+      dest[[i]] <- .run_dest_names(ids[i], found, mode)
+      source[i] <- mode
+    }
+  }
+  list(ids = ids, urls = urls, names = dest, source = source)
+}
+
+#' What each run file is called on disk
+#'
+#' ENA already names its files for the run, and the `_1`/`_2` suffixes are what
+#' every downstream tool globs for, so those are kept. NCBI serves the SRA
+#' copies under names carrying no usable extension at all -- `SRR12012336` for
+#' the normalized copy, `SRR12012336.lite.1` for the lite one -- so those are
+#' named for their run instead.
+#' @noRd
+.run_dest_names <- function(id, urls, mode) {
+  if (identical(mode, "fastq") || is.na(id)) {
+    return(basename(urls))
+  }
+  if (length(urls) == 1) {
+    return(paste0(id, ".sra"))
+  }
+  paste0(id, "_", seq_along(urls), ".sra")
+}
+
+#' Total bytes of the chosen copies, `NA` where the archive gives no size
+#' @noRd
+.run_bytes <- function(runs, source) {
+  totals <- vapply(seq_along(source), function(i) {
+    if (is.na(source[i])) {
+      return(NA_real_)
+    }
+    column <- .run_size_columns[[source[i]]]
+    if (is.null(column) || !column %in% names(runs)) {
+      return(NA_real_)
+    }
+    parts <- strsplit(as.character(runs[[column]][i]), ";", fixed = TRUE)[[1]]
+    sum(suppressWarnings(as.numeric(parts)), na.rm = TRUE)
+  }, numeric(1))
+  sum(totals, na.rm = TRUE)
+}
+
+#' @noRd
+.pretty_bytes <- function(n) {
+  if (!is.finite(n) || n <= 0) {
+    return(NA_character_)
+  }
+  units <- c("B", "kB", "MB", "GB", "TB", "PB")
+  i <- min(length(units), floor(log(n, 1000)) + 1)
+  paste0(round(n / 1000^(i - 1), 1), " ", units[i])
+}
 
 #' Get a download script for a study
 #'

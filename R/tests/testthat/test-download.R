@@ -142,3 +142,76 @@ test_that("a study with no GEO twin reaches no files", {
   )
   expect_equal(seqout:::.geo_twins(fake_con(), "CRA027437"), character(0))
 })
+
+fake_runs <- function(..., n = 2) {
+  cols <- list(...)
+  base <- tibble::tibble(run_accession = paste0("SRR", seq_len(n)))
+  for (k in names(cols)) base[[k]] <- cols[[k]]
+  base
+}
+
+mock_runs <- function(runs, env = parent.frame()) {
+  got <- new.env(parent = emptyenv())
+  testthat::local_mocked_bindings(
+    seqout_get = function(accession, con = NULL) list(runs = runs),
+    .download_files = function(urls, dest_dir, names = NULL, ...) {
+      got$urls <- urls
+      got$names <- names
+      invisible(names)
+    },
+    .env = env
+  )
+  got
+}
+
+test_that("auto falls through to the NCBI copy when ENA has no fastq", {
+  got <- mock_runs(fake_runs(
+    fastq_ftp = c(NA, NA),
+    ncbi_sra_lite_url = c("https://h/SRR1.lite.1", "https://h/SRR2.lite.1")
+  ))
+  warnings <- testthat::capture_warnings(download_runs("SRP1", quiet = TRUE))
+  expect_true(any(grepl("first copy each run offers", warnings)))
+  expect_equal(got$names, c("SRR1.sra", "SRR2.sra"))
+})
+
+test_that("ENA fastq keeps the names downstream tools glob for", {
+  got <- mock_runs(fake_runs(
+    fastq_ftp = c("ftp://h/SRR1_1.fastq.gz;ftp://h/SRR1_2.fastq.gz", "ftp://h/SRR2_1.fastq.gz")
+  ))
+  suppressWarnings(download_runs("SRP1", quiet = TRUE))
+  expect_equal(got$names, c("SRR1_1.fastq.gz", "SRR1_2.fastq.gz", "SRR2_1.fastq.gz"))
+})
+
+test_that("naming a mode silences the mode warning but not the study one", {
+  mock_runs(fake_runs(fastq_ftp = c("ftp://h/a.gz", "ftp://h/b.gz")))
+  warnings <- testthat::capture_warnings(
+    download_runs("SRP1", mode = "fastq", quiet = TRUE)
+  )
+  expect_false(any(grepl("No `mode` given", warnings)))
+  expect_true(any(grepl("is a study", warnings)))
+})
+
+test_that("a run accession downloads its own files, with no study warning", {
+  mock_runs(fake_runs(fastq_ftp = "ftp://h/a.gz", n = 1))
+  warnings <- testthat::capture_warnings(download_runs("SRR1", quiet = TRUE))
+  expect_false(any(grepl("is a study", warnings)))
+})
+
+test_that("runs with no downloadable copy are counted, not dropped in silence", {
+  got <- mock_runs(fake_runs(fastq_ftp = c("ftp://h/a.gz", NA)))
+  warnings <- testthat::capture_warnings(download_runs("SRP1", quiet = TRUE))
+  expect_true(any(grepl("1 of 2 runs has no downloadable copy", warnings)))
+  expect_length(got$urls, 1)
+})
+
+test_that("cloud modes are refused before anything is fetched", {
+  expect_error(
+    download_runs("SRP1", mode = "s3", con = fake_con()),
+    "requester-pays"
+  )
+})
+
+test_that("a study serving no copy at all errors rather than downloading nothing", {
+  mock_runs(fake_runs(library_layout = c("PAIRED", "PAIRED")))
+  expect_error(download_runs("SRP1", quiet = TRUE), "No run of SRP1 is served")
+})
