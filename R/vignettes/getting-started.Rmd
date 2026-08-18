@@ -117,6 +117,14 @@ dim(rna$X)
 
 This vignette does not run that call, because the unit is 300 MB.
 
+`Seqout2Seurat()` goes one step further and returns a Seurat object. It takes a
+`seqout_matrix`, or a GSM accession on its own. Arguments of
+`CreateSeuratObject()` pass straight through.
+
+```{r counts-seurat, eval = FALSE}
+obj <- Seqout2Seurat("GSM8994520", min.cells = 3, min.features = 200)
+```
+
 Read [Counts](articles/counts.html) for the unit rules, the choice of assay and
 the path into Seurat.
 

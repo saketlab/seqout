@@ -105,7 +105,7 @@ and `query()` need a Parquet connection and say so if given a REST one. Its view
 - [R function reference](https://seqout.org/cli/R/reference/): every exported function, grouped by task
 - [Getting started in R](https://seqout.org/cli/R/articles/getting-started.html): the backends, and reading a study
 - [Searching in R](https://seqout.org/cli/R/articles/searching.html): the one search function, every filter, and the cost of a large result set
-- [Counts and metadata in R](https://seqout.org/cli/R/articles/counts-and-metadata.html): GEO supplementary files to a Seurat object
+- [Counts and metadata in R](https://seqout.org/cli/R/articles/counts.html): GEO supplementary files to a Seurat object
 
 ## Examples
 

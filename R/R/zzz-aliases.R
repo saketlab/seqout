@@ -110,6 +110,10 @@ SeqoutGet <- seqout_get
 #' @export
 SeqoutMatrix <- seqout_matrix
 
+#' @rdname seqout_seurat
+#' @export
+Seqout2Seurat <- seqout_seurat
+
 #' @rdname seqout_search
 #' @export
 SeqoutSearch <- seqout_search

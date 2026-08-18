@@ -377,6 +377,76 @@ seqout_matrix <- function(counts, sample = NULL) {
   .read_unit(counts, unit)
 }
 
+#' Convert counts to a Seurat object
+#'
+#' Hands a matrix to [SeuratObject::CreateSeuratObject()]. The matrix is
+#' already features by observations, the orientation Seurat expects, and the
+#' per-cell annotation becomes `meta.data`.
+#'
+#' A GSM accession is read first, through [seqout_counts()] and
+#' [seqout_matrix()]. Use those two yourself for a series, for a sample that
+#' ships more than one matrix, or for an assay other than RNA.
+#'
+#' The SeuratObject package must be installed; Seurat brings it.
+#'
+#' @param x A `seqout_matrix` from [seqout_matrix()], or one GSM accession.
+#' @param ... Passed to [SeuratObject::CreateSeuratObject()], such as
+#'   `project`, `assay`, `min.cells` or `min.features`. The counts come from
+#'   `x`, and `meta.data` too unless you give your own.
+#'
+#' @return A `Seurat` object.
+#'
+#' @seealso [seqout_matrix()] for the matrix without Seurat, and [matrices()]
+#'   with `lapply()` for a whole series.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' obj <- Seqout2Seurat("GSM8994520", min.cells = 3)
+#'
+#' counts <- SeqoutCounts("GSE297547")
+#' obj <- Seqout2Seurat(SeqoutMatrix(counts, sample = "GSM8994520"))
+#' }
+seqout_seurat <- function(x, ...) {
+  .need("SeuratObject")
+  m <- if (inherits(x, "seqout_matrix")) x else .matrix_from_accession(x)
+  args <- list(...)
+  args$counts <- m$X
+  if (is.null(args$meta.data) && ncol(m$obs) > 0) {
+    args$meta.data <- m$obs
+  }
+  do.call(SeuratObject::CreateSeuratObject, args)
+}
+
+#' @noRd
+.matrix_from_accession <- function(x) {
+  if (!is.character(x) || length(x) != 1L || is.na(x)) {
+    cli::cli_abort("{.arg x} must be a {.cls seqout_matrix} or one GSM accession.")
+  }
+  acc <- toupper(trimws(x))
+  if (!startsWith(acc, "GSM")) {
+    cli::cli_abort(c(
+      "{.val {acc}} is not a GSM accession.",
+      i = "Read a series with {.fn seqout_counts}, then one sample of it with {.fn seqout_matrix}."
+    ))
+  }
+  counts <- seqout_counts(acc)
+  units <- counts[counts$preferred, , drop = FALSE]
+  if (nrow(units) == 0) {
+    cli::cli_abort(c(
+      "{acc} ships no supplementary file that seqout can read as a matrix.",
+      i = "{.code SeqoutCounts(\"{acc}\")} lists what it does ship."
+    ))
+  }
+  if (nrow(units) > 1) {
+    cli::cli_abort(c(
+      "{acc} ships {nrow(units)} matrices, so there is no single one to convert.",
+      i = "Pick one with {.fn seqout_matrix}, then pass that."
+    ))
+  }
+  seqout_matrix(counts)
+}
+
 #' Bind counts matrices across samples
 #'
 #' @param x A list of `seqout_matrix` objects, as [matrices()] returns.
