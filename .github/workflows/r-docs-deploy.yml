@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - "R/**"
+      - "!R/tests/**"
       - ".github/workflows/r-docs-deploy.yml"
   workflow_dispatch:
 
@@ -46,6 +47,16 @@ jobs:
           extra-packages: any::pkgdown
           needs: website
           cache: always
+
+      # counts.Rmd pulls a GEO payload into tools::R_user_dir("seqout", "cache").
+      # Keyed on the vignettes so it refreshes when they change; restore-keys
+      # still reuses the old copy meanwhile, since payloads are keyed by accession.
+      - name: Cache what the vignettes download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/R/seqout
+          key: seqout-vignette-data-${{ hashFiles('R/vignettes/**/*.Rmd') }}
+          restore-keys: seqout-vignette-data-
 
       - name: Build the site
         working-directory: R
