@@ -1,15 +1,15 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./public/logo-dark.webp">
-    <source media="(prefers-color-scheme: light)" srcset="./public/logo-light.webp">
+    <source media="(prefers-color-scheme: dark)" srcset="https://seqout.org/logo-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="https://seqout.org/logo-light.webp">
     <img src="./public/logo-light.webp" height="72" alt="Seqout">
   </picture>
 </div>
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License">
-  <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout-web/deploy.yml" alt="Build Status">
-  <img src="https://img.shields.io/github/last-commit/saketlab/seqout-web" alt="Last Commit">
+  <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout/deploy.yml" alt="Build Status">
+  <img src="https://img.shields.io/github/last-commit/saketlab/seqout" alt="Last Commit">
 </p>
 <p align="center">
   <a href="https://seqout.org/"><img src="https://img.shields.io/badge/seqout.org-276DC3?logo=googlechrome&logoColor=white" alt="seqout.org" height="28" style="border:0;vertical-align:middle"></a>
@@ -63,7 +63,7 @@ sq.seqout_get("GSE151530").samples
 
 Learn more here: [seqout.org/cli/python](https://seqout.org/cli/python/)
 
-## R
+## R package
 
 Install using `pak`:
 
