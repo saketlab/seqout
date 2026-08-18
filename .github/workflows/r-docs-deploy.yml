@@ -140,5 +140,8 @@ jobs:
               exit 1
             fi
 
-            ls -dt site-releases/*/ | tail -n +4 | xargs -r rm -rf
+            live=$(readlink site)
+            for old in $(ls -1dt site-releases/*/ 2>/dev/null | tail -n +6); do
+              [ "${old%/}" = "$live" ] || rm -rf "$old"
+            done
             echo "deployed $release"

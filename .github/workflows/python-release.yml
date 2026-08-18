@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: |
           uv venv
-          uv pip install --find-links dist "seqout${{ matrix.extras }}"
+          uv pip install "$(echo dist/*.whl)${{ matrix.extras }}"
           uv run --no-project python python/scripts/check_imports.py \
             ${{ matrix.extras == '[counts]' && '--counts' || '--base' }}
 

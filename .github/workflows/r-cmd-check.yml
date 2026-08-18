@@ -2,6 +2,7 @@ name: r-cmd-check
 
 on:
   push:
+    branches: [main, master]
     paths:
       - "R/**"
       - ".github/workflows/r-cmd-check.yml"
@@ -9,6 +10,10 @@ on:
     paths:
       - "R/**"
       - ".github/workflows/r-cmd-check.yml"
+
+concurrency:
+  group: r-cmd-check-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

@@ -2,6 +2,7 @@ name: python-ci
 
 on:
   push:
+    branches: [main, master]
     paths:
       - "python/**"
       - ".github/workflows/python-ci.yml"
@@ -9,6 +10,13 @@ on:
     paths:
       - "python/**"
       - ".github/workflows/python-ci.yml"
+
+concurrency:
+  group: python-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
