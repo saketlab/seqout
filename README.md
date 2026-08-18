@@ -1,15 +1,57 @@
-# seqout
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/logo-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="./public/logo-light.webp">
+    <img src="./public/logo-light.webp" height="72" alt="Seqout">
+  </picture>
+</div>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License">
+  <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout-web/deploy.yml" alt="Build Status">
+  <img src="https://img.shields.io/github/last-commit/saketlab/seqout-web" alt="Last Commit">
+</p>
+<p align="center">
+  <a href="https://seqout.org/"><img src="https://img.shields.io/badge/seqout.org-276DC3?logo=googlechrome&logoColor=white" alt="seqout.org" height="28" style="border:0;vertical-align:middle"></a>
+  <a href="https://seqout.org/cli/R/"><img src="https://img.shields.io/badge/R%20package-276DC3?logo=r&logoColor=white" alt="R package" height="28" style="border:0;vertical-align:middle"></a>
+  <a href="https://seqout.org/cli/python/"><img src="https://img.shields.io/badge/Python%20client-276DC3?logo=python&logoColor=white" alt="Python client" height="28" style="border:0;vertical-align:middle"></a>
+  <a href="https://seqout.org/cli/"><img src="https://img.shields.io/badge/CLI-276DC3?logo=gnometerminal&logoColor=white" alt="CLI" height="28" style="border:0;vertical-align:middle"></a>
+  <a href="https://seqout.org/mcp/"><img src="https://img.shields.io/badge/MCP-276DC3?logo=modelcontextprotocol&logoColor=white" alt="MCP" height="28" style="border:0;vertical-align:middle"></a>
+</p>
 
 Clients for [seqout.org](https://seqout.org), which aggregates study metadata from
 GEO, SRA, ENA, DDBJ, ArrayExpress, GEA and GSA. 
 
 Seqout client can be used search across all the databases, resolve
-an accession to its records in every archive, and read GEO supplementary files as
+an accession to its records in every archive, access harmonised sample metadata and read GEO supplementary files as
 counts matrices.
 
-## Python
+## CLI
 
-`uv add seqout` | [seqout.org/cli/python](https://seqout.org/cli/python/)
+Seqout can be used as a standalone CLI tool.
+
+```bash
+uv tool install seqout
+```
+
+The CLI can be used for searching, inspecting metadata and downloading associated files.
+
+```bash
+seqout search "liver cancer scRNA" --organism "Homo sapiens"
+seqout show GSE151530
+seqout download GSE151530
+```
+Learn more about the CLI here: https://seqout.org/cli/python/cli/ 
+
+## Python client
+
+Install using uv:
+
+```bash
+uv add seqout
+```
+
+and use in your scripts:
 
 ```python
 from seqout import connect
@@ -19,37 +61,31 @@ sq.seqout_search("liver cancer scRNA", organism="Homo sapiens")
 sq.seqout_get("GSE151530").samples
 ```
 
-The package also installs a `seqout` command:
-
-```bash
-seqout search "liver cancer scRNA" --organism "Homo sapiens"
-seqout show GSE151530
-```
-
-`seqout` can also be installed system-wide as a CLI tool:
-
-```bash
-uv tool install seqout
-```
+Learn more here: [seqout.org/cli/python](https://seqout.org/cli/python/)
 
 ## R
 
-`pak::pak("saketlab/seqout/R")` or [r-universe](https://saketlab.r-universe.dev/seqout) |
-[seqout.org/cli/R](https://seqout.org/cli/R/)
+Install using `pak`:
+
+```R
+pak::pak("saketlab/seqout/R")
+```
+
+or via [r-universe](https://saketlab.r-universe.dev/seqout) 
 
 ```r
 library(seqout)
 
-# No connection needed; every function reads the REST API by default
-project("GSE151530")
-project_samples("GSE151530")
+datset <- SeqoutGet("GSE151530")
+samples <- dataset$samples
 
-seqout_search("liver cancer scRNA", organism = "Homo sapiens")
+results <- SeqoutSearch("liver cancer scRNA", organism = "Homo sapiens")
 
 # Opt in to Parquet for SQL over the whole index
 con <- seqout_connect("parquet")
 query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
 ```
+Learn more here: [seqout.org/cli/R](https://seqout.org/cli/R/)
 
 ## From a GEO accession to a single-cell matrix
 
