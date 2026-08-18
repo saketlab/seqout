@@ -41,7 +41,7 @@ seqout search "liver cancer scRNA" --organism "Homo sapiens"
 seqout show GSE151530
 seqout download GSE151530
 ```
-Learn more about the CLI here: https://seqout.org/cli/python/cli/ 
+Learn more about the CLI here: [https://seqout.org/cli/python/cli](https://seqout.org/cli/python/cli/) 
 
 ## Python client
 
