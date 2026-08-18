@@ -114,3 +114,23 @@ m <- seqout_matrix(counts, sample = "GSM8994520")
 sample_frame(project_samples("GSE297547"))
 ```
 
+## Issues & support
+
+Found a bug or have a feature request? Please use [GitHub Issues](https://github.com/saketlab/seqout/issues).
+
+## License
+
+[BSD-3-Clause license](https://github.com/saketlab/seqout-web?tab=BSD-3-Clause-1-ov-file)
+
+## Citation
+
+If you have found Seqout helpful for your research, please cite us with the following:
+
+```bib
+@misc{seqout,
+  author = {Mukherjee, Aniruddha and Reddy, Mukesh and Choudhary, Saket},
+  title  = {Seqout: metadata harmonisation for genomics dataset discovery},
+  year   = {2026},
+  url    = {https://seqout.org},
+}
+```
