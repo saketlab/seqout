@@ -14,10 +14,6 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-The other articles stop at the metadata. This one goes the rest of the way:
-from an accession to a counts matrix, with the per-cell annotation that the
-submitter deposited and the study metadata that seqout.org holds.
-
 The readers need `Matrix` for the sparse formats and `hdf5r` for `.h5` and
 `.h5ad`. Both are suggested and not required, so a plain install stays light.
 
