@@ -76,14 +76,14 @@ or via [r-universe](https://saketlab.r-universe.dev/seqout)
 ```r
 library(seqout)
 
-datset <- SeqoutGet("GSE151530")
+dataset <- SeqoutGet("GSE151530")
 samples <- dataset$samples
 
 results <- SeqoutSearch("liver cancer scRNA", organism = "Homo sapiens")
 
-# Opt in to Parquet for SQL over the whole index
-con <- seqout_connect("parquet")
-query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
+# Opt in to Parquet for SQL over the whole database
+con <- SeqoutConnect("parquet")
+Query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
 ```
 Learn more here: [seqout.org/cli/R](https://seqout.org/cli/R/)
 
