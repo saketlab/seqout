@@ -280,7 +280,7 @@ manifest <- function(counts, preferred_only = FALSE) {
 #' @param min_cell_count Smallest cell count to keep. Samples with no recorded
 #'   count go too; `NULL` keeps everything.
 #'
-#' @return A tibble of the matching samples, sorted by highest cells first, 
+#' @return A tibble of the matching samples, sorted by highest cells first,
 #' with the `unit`  and `format` [seqout_matrix()] would read.
 #'
 #' @seealso [manifest()] for every unit, unfiltered.

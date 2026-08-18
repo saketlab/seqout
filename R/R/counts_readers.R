@@ -345,23 +345,50 @@ NULL
   list(X = m, obs = obs, var = data.frame(row.names = colnames(m)))
 }
 
+#' Best delimiter for a block of lines, or NULL if none splits them cleanly
+#'
+#' Among delimiters that split every line into the same number of fields (at
+#' least two, a row name plus a value), the one that splits furthest wins, so a
+#' comma inside a quoted name loses to the whitespace actually separating the
+#' columns.
+#'
+#' `sep = ""` is scan()'s whitespace mode. `quote` matters: a sample name like
+#' `"Donor1,rep2"` holds a comma that is not a delimiter.
+#' @noRd
+.best_sep <- function(lines) {
+  candidates <- c("\t", ";", ",", "")
+  score <- vapply(candidates, function(sep) {
+    n <- utils::count.fields(textConnection(lines),
+      sep = sep, quote = "\"",
+      comment.char = ""
+    )
+    # NA is an unterminated quote, so the candidate did not split cleanly.
+    if (!anyNA(n) && length(unique(n)) == 1L && n[1] >= 2L) n[1] else 0L
+  }, integer(1), USE.NAMES = FALSE)
+  if (any(score > 0L)) candidates[which.max(score)] else NULL
+}
+
+#' Pick the delimiter a table actually uses
+#'
+#' Data rows decide, not the header: a whitespace-delimited header can carry a
+#' comma inside a quoted sample name, and a one-sample table has no delimiter in
+#' its header at all. The header is the fallback when the rows are ragged.
+#'
+#' @param lines The first few lines of the file, header included.
+#'
+#' @return One of `"\t"`, `";"`, `","` or `""` (whitespace).
+#' @noRd
+.sniff_sep <- function(lines) {
+  .best_sep(lines[-1]) %||% .best_sep(lines[1]) %||% ","
+}
+
 #' Read a delimited counts table
 #' @noRd
 .read_table <- function(path) {
   con <- .open_maybe_gz(path)
-  first <- readLines(con, n = 1L, warn = FALSE)
+  head_lines <- readLines(con, n = 4L, warn = FALSE)
   close(con)
-  sep <- if (grepl("\t", first, fixed = TRUE)) {
-    "\t"
-  } else if (grepl(";", first, fixed = TRUE)) {
-    ";"
-  } else if (!grepl(",", first, fixed = TRUE) && grepl("[ ]", first)) {
-    # write.table() output: whitespace-separated, and its header is one field
-    # short of the rows, which is what row.names = 1 absorbs.
-    ""
-  } else {
-    ","
-  }
+  sep <- .sniff_sep(head_lines)
 
   con <- .open_maybe_gz(path)
   on.exit(close(con), add = TRUE)
@@ -372,6 +399,15 @@ NULL
     df <- df[, numeric_cols, drop = FALSE]
   }
   m <- t(as.matrix(df))
+
+  # A table that parses to nothing is a parse failure, not an empty dataset.
+  if (nrow(m) == 0L || ncol(m) == 0L) {
+    cli::cli_abort(c(
+      "{.path {basename(path)}}: read as an empty matrix.",
+      i = "Split on {.val {sep}} into {ncol(df)} numeric column{?s} and {nrow(df)} row{?s}."
+    ))
+  }
+
   list(
     X = m,
     obs = data.frame(row.names = rownames(m)),
