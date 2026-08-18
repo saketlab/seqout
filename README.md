@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License">
-  <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout/deploy.yml" alt="Build Status">
+  <img src="https://img.shields.io/github/actions/workflow/status/saketlab/seqout/docs-deploy.yml" alt="Build Status">
   <img src="https://img.shields.io/github/last-commit/saketlab/seqout" alt="Last Commit">
 </p>
 <p align="center">
