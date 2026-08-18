@@ -33,14 +33,6 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - name: System libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libcurl4-openssl-dev libssl-dev libxml2-dev \
-            libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
-            libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: R
