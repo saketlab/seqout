@@ -87,13 +87,15 @@ records and the read-derived calls.
 
 ## From GEO to a counts matrix
 
-`SeqoutCounts()` groups the supplementary files of a GEO accession into units.
-A unit is a group of files that read as one matrix. This call downloads
-nothing, because a GEO payload can be tens of gigabytes.
+`SeqoutCounts()` returns a table of the supplementary files of a GEO accession,
+grouped into units. A unit is the smallest set of files that reads
+as one matrix: for example, a 10x `matrix.mtx` plus its barcodes and features,
+or a single `.h5`, `.h5ad`, `.rds`, or table file. This call downloads nothing,
+because a GEO payload can be tens of gigabytes.
 
-```{r counts-manifest}
+```{r counts-table}
 counts <- SeqoutCounts("GSE297547")
-m <- Manifest(counts)
+m <- counts
 
 nrow(m)
 head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 4)

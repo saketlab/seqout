@@ -58,10 +58,6 @@ GroupKey <- group_key
 #' @export
 IsFiltered <- is_filtered
 
-#' @rdname manifest
-#' @export
-Manifest <- manifest
-
 #' @rdname matrices
 #' @export
 Matrices <- matrices

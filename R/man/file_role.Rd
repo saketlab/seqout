@@ -17,8 +17,8 @@ One of \code{"mtx"}, \code{"barcodes"}, \code{"features"}, \code{"h5"}, \code{"h
 \code{"rds"}, \code{"table"}, \code{"tar"}, \code{"metadata"} or \code{"skip"}.
 }
 \description{
-Names the role of a file from its name alone, which is what lets the manifest
-be built before anything is downloaded.
+Names the role of a file from its name alone, which is what lets the counts
+table be built before anything is downloaded.
 }
 \examples{
 FileRole("GSM123_matrix.mtx.gz")

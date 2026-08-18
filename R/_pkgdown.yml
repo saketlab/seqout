@@ -136,7 +136,6 @@ reference:
   desc: Read GEO supplementary files as a counts matrix
   contents:
   - seqout_counts
-  - manifest
   - seqout_units
   - seqout_matrix
   - counts_matrix

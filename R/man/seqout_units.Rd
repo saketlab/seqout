@@ -3,14 +3,14 @@
 \name{seqout_units}
 \alias{seqout_units}
 \alias{SeqoutUnits}
-\title{The readable units behind the manifest}
+\title{The readable units behind a counts table}
 \usage{
 seqout_units(counts, preferred_only = TRUE)
 
 SeqoutUnits(counts, preferred_only = TRUE)
 }
 \arguments{
-\item{counts}{A \code{seqout_counts} handle from \code{\link[=seqout_counts]{seqout_counts()}}.}
+\item{counts}{A \code{seqout_counts} tibble from \code{\link[=seqout_counts]{seqout_counts()}}.}
 
 \item{preferred_only}{Return only the preferred unit per sample.}
 }
@@ -18,5 +18,5 @@ SeqoutUnits(counts, preferred_only = TRUE)
 A list of units.
 }
 \description{
-The readable units behind the manifest
+The readable units behind a counts table
 }

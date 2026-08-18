@@ -27,19 +27,20 @@ library(seqout)
 ACCESSION <- "GSE297547" # PBMCs from myasthenia gravis patients and controls
 ```
 
-## The manifest comes first
+## List the available matrices
 
 `SeqoutCounts()` resolves the supplementary files of a GEO accession and
-groups them into units. It downloads nothing, because a GEO payload can be tens
-of gigabytes.
+returns a tibble of available matrices immediately. It downloads nothing, because a GEO
+payload can be tens of gigabytes.
 
-A unit is a group of files that read as one matrix: a 10x triplet (`matrix.mtx`
-with `barcodes.tsv` and `features.tsv`), a CellRanger `.h5`, an `.h5ad`, an
-`.rds`, or a delimited table.
+A unit is the smallest group of supplementary files that Seqout can read as one
+matrix. It is either a 10x triplet (`matrix.mtx` with `barcodes.tsv` and
+`features.tsv`), a CellRanger `.h5`, an `.h5ad`, an `.rds`, or a delimited table.
+The table has one row per unit; a sample may have several units.
 
-```{r manifest}
+```{r counts-table}
 counts <- SeqoutCounts(ACCESSION)
-m <- Manifest(counts)
+m <- counts
 
 nrow(m)
 head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 8)
@@ -47,7 +48,7 @@ head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 8)
 
 `preferred` marks the unit that `SeqoutMatrix()` takes for each sample. A
 submitter often deposits the same counts twice, for example a 10x `.h5` beside
-the mtx triplet that it was built from. The manifest lists both. The unit that
+the mtx triplet that it was built from. The table lists both. The unit that
 loses stays reachable by its label, so nothing is hidden from you.
 
 `has_metadata` says whether per-cell annotation is available at all, either as
@@ -279,7 +280,7 @@ mats <- Matrices(counts)
 ```
 
 A unit that cannot be read is skipped with a warning, so one broken file does
-not fail the whole call. Compare the length of the result against the manifest.
+not fail the whole call. Compare the length of the result against the counts table.
 
 `BindCounts()` joins several matrices into one, on the features they share. It
 prefixes the cell names with a label, and it can cap the cells per matrix.
@@ -299,4 +300,4 @@ paths <- SeqoutCountsFiles(counts, sample = "GSM8994520")
 ```
 
 The download is the expensive part, and a series can be tens of gigabytes. Read
-the manifest first, and take the units you need.
+the counts table first, and take the units you need.

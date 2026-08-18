@@ -10,7 +10,7 @@ seqout_counts_files(counts, sample = NULL)
 SeqoutCountsFiles(counts, sample = NULL)
 }
 \arguments{
-\item{counts}{A \code{seqout_counts} handle from \code{\link[=seqout_counts]{seqout_counts()}}.}
+\item{counts}{A \code{seqout_counts} tibble from \code{\link[=seqout_counts]{seqout_counts()}}.}
 
 \item{sample}{A unit label or sample accession.}
 }

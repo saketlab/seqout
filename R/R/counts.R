@@ -1,10 +1,11 @@
-#' Read a GEO accession as a counts matrix
+#' List counts matrices for a GEO accession
 #'
 #' Resolves the supplementary files of a series or sample and groups them into
 #' readable units, downloading nothing. GEO payloads run to tens of gigabytes,
-#' so the manifest comes first and costs only the calls that list the files.
+#' so this returns a table first and costs only the calls that list files.
 #'
-#' A unit is a group of files that read as one matrix: a 10x triplet
+#' A unit is the smallest group of supplementary files that Seqout can read as
+#' one matrix. It may be a 10x triplet
 #' (`matrix.mtx` with `barcodes.tsv` and `features.tsv`), a CellRanger `.h5`, an
 #' `.h5ad`, an `.rds`, or a delimited table.
 #'
@@ -18,14 +19,14 @@
 #' @param cache_dir Where downloads land. Defaults to a per-accession directory
 #'   under [tools::R_user_dir()], reused across sessions.
 #'
-#' @return A `seqout_counts` handle. Pass it to [manifest()], [seqout_matrix()]
-#'   or [matrices()].
+#' @return A tibble, one row per readable unit. Pass it directly to
+#'   [seqout_matrix()], [matrices()] or [seqout_counts_files()].
 #'
 #' @export
 #' @examples
 #' \dontrun{
 #' counts <- SeqoutCounts("GSE297547")
-#' Manifest(counts)
+#' counts[, c("unit", "sample", "format", "preferred")]
 #' m <- SeqoutMatrix(counts, sample = "GSM8994520")
 #' }
 seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
@@ -44,7 +45,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
     cache_dir <- file.path(tools::R_user_dir("seqout", "cache"), "counts", accession)
   }
 
-  structure(
+  handle <- structure(
     list(
       con = con, accession = accession, assay = assay,
       feature_type = feature_type, cache_dir = cache_dir,
@@ -52,6 +53,9 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
     ),
     class = "seqout_counts"
   )
+  units <- .counts_units(handle, preferred_only = FALSE)
+  out <- .units_tibble(units)
+  structure(out, class = c("seqout_counts", class(out)), .counts_handle = handle)
 }
 
 #' @noRd
@@ -64,6 +68,10 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 
 #' @export
 print.seqout_counts <- function(x, ...) {
+  if (inherits(x, "tbl_df")) {
+    NextMethod("print")
+    return(invisible(x))
+  }
   n <- if (exists("units", envir = x$cache, inherits = FALSE)) {
     length(base::get("units", envir = x$cache))
   } else {
@@ -76,6 +84,14 @@ print.seqout_counts <- function(x, ...) {
     " " = "Units:     {n}"
   ))
   invisible(x)
+}
+
+#' @export
+`$.seqout_counts` <- function(x, name) {
+  if (name %in% names(x)) return(NextMethod("$"))
+  handle <- attr(x, ".counts_handle", exact = TRUE)
+  if (!is.null(handle) && name %in% names(handle)) return(handle[[name]])
+  NULL
 }
 
 #' @noRd
@@ -237,24 +253,8 @@ print.seqout_counts <- function(x, ...) {
   if (preferred_only) Filter(function(u) isTRUE(u$preferred), units) else units
 }
 
-#' What would be read, and from which files
-#'
-#' Shows every unit without downloading anything. `preferred` marks the unit
-#' that [seqout_matrix()] picks for each sample; `has_metadata` says whether
-#' per-cell annotation is available, as a sidecar file or embedded.
-#'
-#' @param counts A `seqout_counts` handle from [seqout_counts()].
-#' @param preferred_only Show only the preferred unit per sample.
-#'
-#' @return A tibble, one row per unit.
-#'
-#' @export
-manifest <- function(counts, preferred_only = FALSE) {
-  .check_counts(counts)
-  units <- .counts_units(counts, preferred_only = preferred_only)
-  if (length(units) == 0) {
-    return(tibble::tibble())
-  }
+#' @noRd
+.units_tibble <- function(units) {
   tibble::tibble(
     unit = vapply(units, function(u) u$label, character(1)),
     sample = vapply(units, function(u) u$sample %||% NA_character_, character(1)),
@@ -273,7 +273,7 @@ manifest <- function(counts, preferred_only = FALSE) {
 #' Filters a study's samples through [sample_search()] and keeps the ones that
 #' have a readable unit. Use it on a series that mixes tissues or assays.
 #'
-#' @param counts A `seqout_counts` handle from [seqout_counts()], built on a
+#' @param counts A `seqout_counts` tibble from [seqout_counts()], built on a
 #'   GSE.
 #' @param ... Filters for [sample_search()], by name, such as
 #'   `tissue = "liver"`. `study_accession` comes from `counts`.
@@ -283,7 +283,7 @@ manifest <- function(counts, preferred_only = FALSE) {
 #' @return A tibble of the matching samples, sorted by highest cells first,
 #' with the `unit`  and `format` [seqout_matrix()] would read.
 #'
-#' @seealso [manifest()] for every unit, unfiltered.
+#' @seealso [seqout_counts()] for every unit, unfiltered.
 #'
 #' @export
 #' @examples
@@ -304,11 +304,11 @@ counts_samples <- function(counts, ..., min_cell_count = 1L) {
     study_accession = counts$accession, ...,
     min_cell_count = min_cell_count, con = counts$con
   )
-  out <- .with_units(rows, manifest(counts, preferred_only = TRUE))
+  out <- .with_units(rows, counts[counts$preferred, , drop = FALSE])
   if (nrow(out) == 0 && nrow(rows) > 0) {
     cli::cli_warn(c(
       "{nrow(rows)} sample{?s} matched the filters, but none ships a counts file.",
-      i = "See {.fn manifest} for what {counts$accession} does ship."
+      i = "Inspect the table from {.fn seqout_counts} to see what {counts$accession} ships."
     ))
   }
   out
@@ -332,9 +332,9 @@ counts_samples <- function(counts, ..., min_cell_count = 1L) {
   out[c(front, setdiff(names(out), front))]
 }
 
-#' The readable units behind the manifest
+#' The readable units behind a counts table
 #'
-#' @param counts A `seqout_counts` handle from [seqout_counts()].
+#' @param counts A `seqout_counts` tibble from [seqout_counts()].
 #' @param preferred_only Return only the preferred unit per sample.
 #'
 #' @return A list of units.
@@ -347,7 +347,7 @@ seqout_units <- function(counts, preferred_only = TRUE) {
 
 #' Download a unit's files without parsing them
 #'
-#' @param counts A `seqout_counts` handle from [seqout_counts()].
+#' @param counts A `seqout_counts` tibble from [seqout_counts()].
 #' @param sample A unit label or sample accession.
 #'
 #' @return The paths of the downloaded files.
@@ -361,7 +361,7 @@ seqout_counts_files <- function(counts, sample = NULL) {
 
 #' Read one unit as a counts matrix
 #'
-#' @param counts A `seqout_counts` handle from [seqout_counts()].
+#' @param counts A `seqout_counts` tibble from [seqout_counts()].
 #' @param sample A unit label or sample accession. Required when the accession
 #'   holds more than one unit.
 #'
@@ -462,9 +462,10 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL) {
 #' Read every preferred unit
 #'
 #' Units that cannot be read are skipped with a warning, so one broken file does
-#' not fail the whole call. Compare the length against [manifest()].
+#' not fail the whole call. Compare the length against the rows returned by
+#' [seqout_counts()].
 #'
-#' @param counts A `seqout_counts` handle from [seqout_counts()].
+#' @param counts A `seqout_counts` tibble from [seqout_counts()].
 #' @param sample Unit labels or sample accessions to read. `NULL` reads every
 #'   preferred unit.
 #'
@@ -512,7 +513,7 @@ matrices <- function(counts, sample = NULL) {
     if (length(preferred_units) != 1) {
       cli::cli_abort(c(
         "{counts$accession} has {length(preferred_units)} units.",
-        "i" = "Pass {.arg sample}, or use {.fn matrices}. See {.fn manifest}."
+        "i" = "Pass {.arg sample}, or use {.fn matrices}. Inspect the table from {.fn seqout_counts}."
       ))
     }
     return(preferred_units[[1]])
@@ -526,7 +527,7 @@ matrices <- function(counts, sample = NULL) {
   samples <- toupper(vapply(all_units, function(u) u$sample %||% "", character(1)))
   hit <- which(samples == want & preferred)
   if (length(hit) == 0) {
-    cli::cli_abort("No unit for {.val {sample}}; see {.fn manifest}.")
+    cli::cli_abort("No unit for {.val {sample}}; inspect the table from {.fn seqout_counts}.")
   }
   all_units[[hit[1]]]
 }

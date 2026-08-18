@@ -3,7 +3,7 @@
 \name{seqout_counts}
 \alias{seqout_counts}
 \alias{SeqoutCounts}
-\title{Read a GEO accession as a counts matrix}
+\title{List counts matrices for a GEO accession}
 \usage{
 seqout_counts(
   accession,
@@ -37,23 +37,24 @@ under \code{\link[tools:R_user_dir]{tools::R_user_dir()}}, reused across session
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
-A \code{seqout_counts} handle. Pass it to \code{\link[=manifest]{manifest()}}, \code{\link[=seqout_matrix]{seqout_matrix()}}
-or \code{\link[=matrices]{matrices()}}.
+A tibble, one row per readable unit. Pass it directly to
+\code{\link[=seqout_matrix]{seqout_matrix()}}, \code{\link[=matrices]{matrices()}} or \code{\link[=seqout_counts_files]{seqout_counts_files()}}.
 }
 \description{
 Resolves the supplementary files of a series or sample and groups them into
 readable units, downloading nothing. GEO payloads run to tens of gigabytes,
-so the manifest comes first and costs only the calls that list the files.
+so this returns a table first and costs only the calls that list files.
 }
 \details{
-A unit is a group of files that read as one matrix: a 10x triplet
+A unit is the smallest group of supplementary files that Seqout can read as
+one matrix. It may be a 10x triplet
 (\code{matrix.mtx} with \code{barcodes.tsv} and \code{features.tsv}), a CellRanger \code{.h5}, an
 \code{.h5ad}, an \code{.rds}, or a delimited table.
 }
 \examples{
 \dontrun{
 counts <- SeqoutCounts("GSE297547")
-Manifest(counts)
+counts[, c("unit", "sample", "format", "preferred")]
 m <- SeqoutMatrix(counts, sample = "GSM8994520")
 }
 }

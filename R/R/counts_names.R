@@ -67,8 +67,8 @@ NULL
 
 #' What a supplementary file is
 #'
-#' Names the role of a file from its name alone, which is what lets the manifest
-#' be built before anything is downloaded.
+#' Names the role of a file from its name alone, which is what lets the counts
+#' table be built before anything is downloaded.
 #'
 #' @param name A file name or URL.
 #'

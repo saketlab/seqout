@@ -10,7 +10,7 @@ matrices(counts, sample = NULL)
 Matrices(counts, sample = NULL)
 }
 \arguments{
-\item{counts}{A \code{seqout_counts} handle from \code{\link[=seqout_counts]{seqout_counts()}}.}
+\item{counts}{A \code{seqout_counts} tibble from \code{\link[=seqout_counts]{seqout_counts()}}.}
 
 \item{sample}{Unit labels or sample accessions to read. \code{NULL} reads every
 preferred unit.}
@@ -20,5 +20,6 @@ A named list of \code{seqout_matrix} objects, keyed by unit label.
 }
 \description{
 Units that cannot be read are skipped with a warning, so one broken file does
-not fail the whole call. Compare the length against \code{\link[=manifest]{manifest()}}.
+not fail the whole call. Compare the length against the rows returned by
+\code{\link[=seqout_counts]{seqout_counts()}}.
 }

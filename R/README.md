@@ -62,12 +62,12 @@ SeqoutDefault(con) # or make it the default for the session
 ## From a GEO accession to a counts matrix
 
 Supplementary files are grouped into units that read as one matrix: a 10x triplet, a
-CellRanger `.h5`, an `.h5ad`, an `.rds` or a table. The manifest resolves them without
+CellRanger `.h5`, an `.h5ad`, an `.rds` or a table. `SeqoutCounts()` lists them without
 downloading anything.
 
 ```r
 counts <- SeqoutCounts("GSE297547")
-Manifest(counts)
+counts
 m <- SeqoutMatrix(counts, sample = "GSM8994520")
 ```
 
