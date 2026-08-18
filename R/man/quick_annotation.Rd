@@ -10,7 +10,7 @@ quick_annotation(x, clusters, markers, normalize = "auto")
 QuickAnnotation(x, clusters, markers, normalize = "auto")
 }
 \arguments{
-\item{x}{A features by cells matrix, as \code{\link[=counts_matrix]{counts_matrix()}} and
+\item{x}{A features by cells matrix, as \code{SeqoutMatrix(...)$X} and
 \code{\link[=bind_counts]{bind_counts()}} return.}
 
 \item{clusters}{Cluster assignment per cell, one entry per column of \code{x}.}

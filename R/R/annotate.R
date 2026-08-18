@@ -9,7 +9,7 @@
 #' This function works best with specific markers (only expressed in one celltype
 #' but absent from others).
 #'
-#' @param x A features by cells matrix, as [counts_matrix()] and
+#' @param x A features by cells matrix, as `SeqoutMatrix(...)$X` and
 #'   [bind_counts()] return.
 #' @param clusters Cluster assignment per cell, one entry per column of `x`.
 #' @param markers A named list of marker gene vectors, one per cell type.

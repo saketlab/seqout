@@ -16,8 +16,8 @@ SeqoutMatrix(counts, sample = NULL)
 holds more than one unit.}
 }
 \value{
-A \code{seqout_matrix}: a list with \code{X} (observations by features), \code{obs},
-\code{var}, \code{kind}, \code{fmt} and \code{evidence}.
+A \code{seqout_matrix}: a list with \code{X} (features by observations),
+\code{obs}, \code{var}, \code{kind}, \code{fmt} and \code{evidence}.
 }
 \description{
 Read one unit as a counts matrix

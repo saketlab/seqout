@@ -138,7 +138,6 @@ reference:
   - seqout_counts
   - seqout_units
   - seqout_matrix
-  - counts_matrix
   - matrices
   - bind_counts
   - quick_annotation

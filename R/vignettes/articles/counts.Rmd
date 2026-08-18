@@ -36,7 +36,9 @@ payload can be tens of gigabytes.
 A unit is the smallest group of supplementary files that Seqout can read as one
 matrix. It is either a 10x triplet (`matrix.mtx` with `barcodes.tsv` and
 `features.tsv`), a CellRanger `.h5`, an `.h5ad`, an `.rds`, or a delimited table.
-The table has one row per unit; a sample may have several units.
+The table has one row per unit; a sample may have several units. `unit` is the
+label for selecting an exact matrix, `sample` is the GSM when Seqout can assign
+one, `format` is the reader it will use, and `files` lists the matrix files.
 
 ```{r counts-table}
 counts <- SeqoutCounts(ACCESSION)
@@ -46,14 +48,29 @@ nrow(m)
 head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 8)
 ```
 
-`preferred` marks the unit that `SeqoutMatrix()` takes for each sample. A
-submitter often deposits the same counts twice, for example a 10x `.h5` beside
-the mtx triplet that it was built from. The table lists both. The unit that
-loses stays reachable by its label, so nothing is hidden from you.
+### How Seqout chooses a unit
 
-`has_metadata` says whether per-cell annotation is available at all, either as
-a sidecar file or inside the container. An `.h5ad` and an `.rds` always carry
-their own.
+`preferred` marks the unit that `SeqoutMatrix()` takes when you select a GSM
+rather than a particular `unit`. It ranks units within a sample in this order:
+
+1. The requested assay.
+2. Filtered output ahead of raw or unfiltered output.
+3. Format: 10x MatrixMarket, 10x HDF5, `.h5ad`, `.rds`, tar, then a delimited
+   table.
+
+A submitter often deposits the same counts twice, for example a 10x `.h5`
+beside the mtx triplet that it was built from. The table lists both; a unit that
+is not preferred remains available by its `unit` label.
+
+### What `has_metadata` means
+
+`has_metadata` is a discovery signal, not a content check. It is `TRUE` when
+the unit is an `.h5ad` or `.rds` (formats that can embed observation metadata),
+or when Seqout finds a sidecar file whose name suggests cell metadata or
+annotation, such as `metadata`, `annotation`, `celltype`, or `obs.csv`.
+Sample-named sidecars are attached to that sample's units; a series-level
+sidecar is attached to every unit. Seqout reads and validates the metadata only
+when `SeqoutMatrix()` reads the selected unit.
 
 ```{r formats}
 table(m$format)
@@ -71,23 +88,16 @@ rna
 ```
 
 A `seqout_matrix` holds the counts in `X`, the observation annotation in `obs`
-and the feature annotation in `var`. `X` is in AnnData orientation: the rows
-are observations and the columns are genes. For single-cell data a row is a
-cell. For bulk data it is a biological sample. One type therefore covers both,
-and the caller does not check which they have.
+and the feature annotation in `var`. `X` is features by observations: genes
+by cells for single-cell data and genes by biological samples for bulk data.
 
 ```{r shape}
 dim(rna$X)
 class(rna$X)
 ```
 
-`CountsMatrix()` gives the other orientation, features by observations, which
-is what Seurat and most Bioconductor classes expect. It is also exported as
-`genexcell_counts()`. `cellxgene_counts()` returns `X` unchanged.
-
-```{r counts-matrix}
-dim(CountsMatrix(rna))
-```
+`X` is therefore ready for Seurat and most Bioconductor classes without a
+conversion.
 
 ### Single cell or bulk
 
@@ -131,9 +141,14 @@ This is a CITE-seq study, so every sample ships two matrices: gene expression
 and an antibody panel. Both are `.h5ad`, so the file type separates neither,
 and the antibody file happens to sort first.
 
-`SeqoutCounts()` defaults to `assay = "rna"` for that reason. Ask for the
-panel and you get it, with its own annotation. `assay` also takes `"adt"`,
-`"hto"` and `"atac"`.
+`SeqoutCounts()` defaults to `assay = "rna"` for that reason. The available
+options are `"rna"`, `"adt"` (antibody-derived tags), `"hto"` (hashtag
+oligos), `"atac"`, and `NULL` for no assay preference. Seqout recognises them
+from filename hints—such as `gex`, `antibody`, `hashtag`, and `peak`—and uses
+the requested assay as the first preference when ranking units. For 10x files,
+the choice also keeps the matching feature class: Gene Expression for RNA,
+Antibody Capture for ADT/HTO, and Peaks for ATAC. Set `feature_type` explicitly
+to override that filter.
 
 ```{r read-adt}
 adt <- SeqoutCounts(ACCESSION, assay = "adt")
@@ -201,7 +216,7 @@ set.seed(1)
 n_cells <- 1500
 
 objs <- lapply(picked, function(accession) {
-  x <- CountsMatrix(SeqoutMatrix(counts, sample = accession))
+  x <- SeqoutMatrix(counts, sample = accession)$X
   keep <- sample(ncol(x), min(n_cells, ncol(x)))
   covariates <- design[design$accession == accession, ]
 

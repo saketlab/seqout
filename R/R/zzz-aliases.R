@@ -22,10 +22,6 @@ Citations <- citations
 #' @export
 ClearCache <- clear_cache
 
-#' @rdname counts_matrix
-#' @export
-CountsMatrix <- counts_matrix
-
 #' @rdname seqout_connect
 #' @export
 SeqoutConnect <- seqout_connect

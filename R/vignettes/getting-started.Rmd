@@ -101,6 +101,12 @@ nrow(m)
 head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 4)
 ```
 
+`preferred` is selected by requested assay, then filtered over raw output, then
+format. `has_metadata` means Seqout found embedded metadata (`.h5ad` or `.rds`)
+or a metadata-like sidecar filename; it does not validate its contents until
+the matrix is read. `assay` accepts `"rna"` (the default), `"adt"`, `"hto"`,
+`"atac"`, or `NULL`. Read [Counts](articles/counts.html) for the full rules.
+
 `SeqoutMatrix()` downloads one unit and reads it. The result holds the matrix
 in `X`, the cell annotation in `obs` and the gene annotation in `var`.
 

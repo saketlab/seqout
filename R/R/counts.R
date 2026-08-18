@@ -9,11 +9,30 @@
 #' (`matrix.mtx` with `barcodes.tsv` and `features.tsv`), a CellRanger `.h5`, an
 #' `.h5ad`, an `.rds`, or a delimited table.
 #'
+#' The result has one row per unit. `unit` is its selection label, `sample` is
+#' its GSM when known, `format` is its reader, and `files` names its matrix
+#' files. `has_metadata` is `TRUE` for an `.h5ad` or `.rds`, which can embed
+#' observation annotation, or when a sidecar file is named like cell metadata
+#' or annotation. A `TRUE` value signals that metadata was found by format or
+#' filename; its contents are read only by [seqout_matrix()].
+#'
+#' `preferred` marks the unit [seqout_matrix()] selects when given a GSM rather
+#' than a unit label. Within a sample, the requested assay ranks first, then
+#' filtered output over raw or unfiltered output, then format: 10x MatrixMarket,
+#' 10x HDF5, `.h5ad`, `.rds`, tar, and a delimited table. The other units remain
+#' selectable by `unit`.
+#'
+#' `assay` may be one of `"rna"`, `"adt"`, `"hto"` or `"atac"`, or `NULL` to
+#' avoid assay preference. It is identified from filename hints: RNA/GEX,
+#' antibody/CITE-seq, hashtag, and ATAC/peak respectively. For 10x data it also
+#' chooses the matching feature class: Gene Expression, Antibody Capture, or
+#' Peaks. Set `feature_type` to override this filter.
+#'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession A GSE or GSM accession.
-#' @param assay Which assay to take when a sample carries several, as CITE-seq
-#'   and multiome studies do. Defaults to `"rna"`; `"adt"`, `"hto"` and
-#'   `"atac"` are recognised too. `NULL` takes whichever comes first.
+#' @param assay Assay preference: `"rna"` (default), `"adt"`, `"hto"`,
+#'   `"atac"`, or `NULL` for no preference. It selects the preferred unit when
+#'   a sample carries several, as in CITE-seq and multiome data.
 #' @param feature_type 10x feature class to keep, overriding the one implied by
 #'   `assay`. `NULL` keeps every row.
 #' @param cache_dir Where downloads land. Defaults to a per-accession directory
@@ -365,8 +384,8 @@ seqout_counts_files <- function(counts, sample = NULL) {
 #' @param sample A unit label or sample accession. Required when the accession
 #'   holds more than one unit.
 #'
-#' @return A `seqout_matrix`: a list with `X` (observations by features), `obs`,
-#'   `var`, `kind`, `fmt` and `evidence`.
+#' @return A `seqout_matrix`: a list with `X` (features by observations),
+#'   `obs`, `var`, `kind`, `fmt` and `evidence`.
 #'
 #' @export
 seqout_matrix <- function(counts, sample = NULL) {
@@ -374,36 +393,6 @@ seqout_matrix <- function(counts, sample = NULL) {
   unit <- .select_unit(counts, sample)
   .read_unit(counts, unit)
 }
-
-#' Counts in either orientation
-#'
-#' `counts_matrix()`, aliased `genexcell_counts()`, gives features by
-#' observations; `cellxgene_counts()` the reverse.
-#'
-#' @param x A `seqout_matrix` from [seqout_matrix()] or [matrices()].
-#'
-#' @return A matrix, dgCMatrix if `x$X` was sparse.
-#'
-#' @seealso [bind_counts()] to combine several samples into one matrix.
-#'
-#' @examples
-#' \dontrun{
-#' counts <- SeqoutCounts("GSE291735")
-#' CountsMatrix(SeqoutMatrix(counts, sample = "GSM8994520"))
-#' }
-#'
-#' @export
-counts_matrix <- function(x) {
-  .transpose(.counts_X(x))
-}
-
-#' @rdname counts_matrix
-#' @export
-genexcell_counts <- counts_matrix
-
-#' @rdname counts_matrix
-#' @export
-cellxgene_counts <- function(x) .counts_X(x)
 
 #' Bind counts matrices across samples
 #'
@@ -428,19 +417,19 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL) {
     cli::cli_abort("{.arg x} must be a non-empty list of {.cls seqout_matrix} objects.")
   }
   Xs <- lapply(x, .counts_X)
-  genes <- Reduce(intersect, lapply(Xs, colnames))
+  genes <- Reduce(intersect, lapply(Xs, rownames))
   if (length(genes) == 0) {
     cli::cli_abort("The {length(Xs)} matrices share no features.")
   }
   labels <- labels %||% names(x) %||% seq_along(x)
 
   out <- Map(function(X, label) {
-    i <- if (!is.null(max_cells) && nrow(X) > max_cells) {
-      sort(sample.int(nrow(X), max_cells))
+    i <- if (!is.null(max_cells) && ncol(X) > max_cells) {
+      sort(sample.int(ncol(X), max_cells))
     } else {
-      seq_len(nrow(X))
+      seq_len(ncol(X))
     }
-    X <- .transpose(X[i, genes, drop = FALSE])
+    X <- X[genes, i, drop = FALSE]
     colnames(X) <- paste0(label, "_", colnames(X) %||% seq_along(i))
     X
   }, Xs, labels)
@@ -665,11 +654,12 @@ matrices <- function(counts, sample = NULL) {
     .infer_kind(rownames(parsed$obs), n_samples)
   }
 
-  dimnames(parsed$X) <- list(rownames(parsed$obs), rownames(parsed$var))
+  X <- .transpose(parsed$X)
+  dimnames(X) <- list(rownames(parsed$var), rownames(parsed$obs))
 
   structure(
     list(
-      X = parsed$X, obs = parsed$obs, var = parsed$var,
+      X = X, obs = parsed$obs, var = parsed$var,
       kind = decided$kind, evidence = decided$evidence,
       fmt = unit$fmt, accession = unit$sample %||% counts$accession,
       source = paste(file_names, collapse = ", ")
@@ -683,7 +673,7 @@ print.seqout_matrix <- function(x, ...) {
   label <- if (identical(x$kind, "single_cell")) "cells" else "obs"
   cli::cli_inform(c(
     "{.cls seqout_matrix}",
-    " " = "{x$accession}: {nrow(x$X)} {label} x {ncol(x$X)} genes",
+    " " = "{x$accession}: {nrow(x$X)} genes x {ncol(x$X)} {label}",
     " " = "Kind:   {x$kind}",
     " " = "Format: {x$fmt}",
     " " = "Source: {x$source}"

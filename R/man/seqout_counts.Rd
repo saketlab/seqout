@@ -24,9 +24,9 @@ SeqoutCounts(
 \arguments{
 \item{accession}{A GSE or GSM accession.}
 
-\item{assay}{Which assay to take when a sample carries several, as CITE-seq
-and multiome studies do. Defaults to \code{"rna"}; \code{"adt"}, \code{"hto"} and
-\code{"atac"} are recognised too. \code{NULL} takes whichever comes first.}
+\item{assay}{Assay preference: \code{"rna"} (default), \code{"adt"}, \code{"hto"},
+\code{"atac"}, or \code{NULL} for no preference. It selects the preferred unit when
+a sample carries several, as in CITE-seq and multiome data.}
 
 \item{feature_type}{10x feature class to keep, overriding the one implied by
 \code{assay}. \code{NULL} keeps every row.}
@@ -50,6 +50,25 @@ A unit is the smallest group of supplementary files that Seqout can read as
 one matrix. It may be a 10x triplet
 (\code{matrix.mtx} with \code{barcodes.tsv} and \code{features.tsv}), a CellRanger \code{.h5}, an
 \code{.h5ad}, an \code{.rds}, or a delimited table.
+
+The result has one row per unit. \code{unit} is its selection label, \code{sample} is
+its GSM when known, \code{format} is its reader, and \code{files} names its matrix
+files. \code{has_metadata} is \code{TRUE} for an \code{.h5ad} or \code{.rds}, which can embed
+observation annotation, or when a sidecar file is named like cell metadata
+or annotation. A \code{TRUE} value signals that metadata was found by format or
+filename; its contents are read only by \code{\link[=seqout_matrix]{seqout_matrix()}}.
+
+\code{preferred} marks the unit \code{\link[=seqout_matrix]{seqout_matrix()}} selects when given a GSM rather
+than a unit label. Within a sample, the requested assay ranks first, then
+filtered output over raw or unfiltered output, then format: 10x MatrixMarket,
+10x HDF5, \code{.h5ad}, \code{.rds}, tar, and a delimited table. The other units remain
+selectable by \code{unit}.
+
+\code{assay} may be one of \code{"rna"}, \code{"adt"}, \code{"hto"} or \code{"atac"}, or \code{NULL} to
+avoid assay preference. It is identified from filename hints: RNA/GEX,
+antibody/CITE-seq, hashtag, and ATAC/peak respectively. For 10x data it also
+chooses the matching feature class: Gene Expression, Antibody Capture, or
+Peaks. Set \code{feature_type} to override this filter.
 }
 \examples{
 \dontrun{
