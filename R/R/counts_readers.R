@@ -2,8 +2,9 @@
 #'
 #' Every reader returns a list with `X`, `obs` and `var`, where `X` is
 #' observations by features: cells by genes for single-cell, samples by genes
-#' for bulk. That matches the orientation the Python client uses, so a matrix
-#' read here and there has the same shape.
+#' for bulk. That matches the orientation the Python client reads in.
+#' `.read_unit()` transposes it, so `seqout_matrix()$X` is features by
+#' observations.
 #' @noRd
 NULL
 

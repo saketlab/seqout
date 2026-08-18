@@ -86,31 +86,14 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 )
 
 #' @export
-print.seqout_counts <- function(x, ...) {
-  if (inherits(x, "tbl_df")) {
-    NextMethod("print")
-    return(invisible(x))
-  }
-  n <- if (exists("units", envir = x$cache, inherits = FALSE)) {
-    length(base::get("units", envir = x$cache))
-  } else {
-    "?"
-  }
-  cli::cli_inform(c(
-    "{.cls seqout_counts}",
-    " " = "Accession: {x$accession}",
-    " " = "Assay:     {x$assay %||% 'any'}",
-    " " = "Units:     {n}"
-  ))
-  invisible(x)
-}
-
-#' @export
 `$.seqout_counts` <- function(x, name) {
   if (name %in% names(x)) return(NextMethod("$"))
   handle <- attr(x, ".counts_handle", exact = TRUE)
   if (!is.null(handle) && name %in% names(handle)) return(handle[[name]])
-  NULL
+  cli::cli_abort(c(
+    "{.val {name}} is not a column of the counts table.",
+    i = "Columns: {.field {names(x)}}."
+  ))
 }
 
 #' @noRd
