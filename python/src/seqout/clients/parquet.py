@@ -128,7 +128,9 @@ class SeqoutParquetClient(ShortNames):
     def _setup_duckdb(self) -> None:
         try:
             self._conn.execute("LOAD httpfs;")
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.IOException):
+            # IOException is what a machine that has never downloaded the
+            # extension raises; CatalogException is the unknown-name case.
             self._conn.execute("INSTALL httpfs; LOAD httpfs;")
         self._conn.execute("SET enable_http_metadata_cache=true;")
         self._conn.execute("SET enable_object_cache=true;")
