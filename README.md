@@ -30,8 +30,16 @@ counts matrices.
 
 Seqout can be used as a standalone CLI tool.
 
+Install using `uv`:
+
 ```bash
-uv tool install seqout
+uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+```
+
+or using `pip`:
+
+```bash
+pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 The CLI can be used for searching, inspecting metadata and downloading associated files.
@@ -45,10 +53,16 @@ Learn more about the CLI here: [https://seqout.org/cli/python/cli](https://seqou
 
 ## Python client
 
-Install using uv:
+Install using `uv`:
 
 ```bash
-uv add seqout
+uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+```
+
+or using `pip`:
+
+```bash
+pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 and use in your scripts:

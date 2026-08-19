@@ -14,21 +14,21 @@ takes `con` as its last argument and falls back to a shared REST connection.
 Install:
 
 ```bash
-uv add seqout                    # Python library, needs Python 3.13+
-uv add 'seqout[counts]'          # with the counts-matrix readers
-uv tool install seqout           # the seqout command line
+# Python library from GitHub (needs Python 3.13+)
+uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"   # with counts-matrix readers
+
+# using pip
+pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pip install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+
+# CLI tool
+uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ```r
 pak::pak("saketlab/seqout/R")                                              # R package
 install.packages("seqout", repos = "https://saketlab.r-universe.dev")      # or r-universe
-```
-
-The development version installs from GitHub. The Python package lives in the
-`python/` subdirectory of the repo, so `#subdirectory=python` is required.
-
-```bash
-uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 Python:

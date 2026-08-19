@@ -1,5 +1,5 @@
 ---
-description: "Install the seqout Python library and CLI tool using uv or pip. Requires Python 3.13 or newer."
+description: "Install the seqout Python library and CLI tool from GitHub using uv or pip. Requires Python 3.13 or newer."
 ---
 
 # Installation
@@ -7,6 +7,8 @@ description: "Install the seqout Python library and CLI tool using uv or pip. Re
 ## Prerequisites
 
 The package requires **Python 3.13 or newer**.
+
+Because the Python client lives in the `python/` subdirectory of the repository, the git URL specifies `#subdirectory=python`.
 
 ## Install using uv
 
@@ -17,12 +19,12 @@ The package requires **Python 3.13 or newer**.
 To install the global `seqout` executable on your system path, run:
 
 ```bash
-uv tool install seqout
+uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 This command installs the CLI tool in an isolated virtual environment, preventing dependency conflicts with other system or project packages. 
 
-*   To update the tool, run `uv tool upgrade seqout`.
+*   To update the tool to the latest commit, run `uv tool install --force "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"`.
 *   To uninstall the tool, run `uv tool uninstall seqout`.
 
 ### Add to a project library
@@ -30,7 +32,7 @@ This command installs the CLI tool in an isolated virtual environment, preventin
 To add the `seqout` library as a dependency to your local Python project, run:
 
 ```bash
-uv add seqout
+uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ### Run without installing
@@ -38,15 +40,21 @@ uv add seqout
 To run a single CLI command without installing the package permanently, use `uvx`:
 
 ```bash
-uvx seqout search "lung cancer"
+uvx --from "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python" seqout search "lung cancer"
 ```
 
 ## Install using pip
 
-You can also install `seqout` using `pip` inside your active virtual environment:
+You can also install `seqout` directly from GitHub using `pip` inside your active virtual environment:
 
 ```bash
-pip install seqout
+pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+```
+
+Or install as a standalone CLI tool using `pipx`:
+
+```bash
+pipx install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ## Verify the installation
@@ -67,11 +75,11 @@ To install `seqout` with these counts-matrix parsing dependencies enabled, speci
 
 ```bash
 # For global CLI usage
-uv tool install "seqout[counts]"
+uv tool install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 
 # For project library development
-uv add "seqout[counts]"
+uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 
 # Using pip
-pip install "seqout[counts]"
+pip install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```

@@ -6,35 +6,38 @@ Requires Python 3.13 or newer.
 
 ## Installation
 
-Install the package using `uv` or `pip`:
+Install directly from GitHub using `uv` or `pip` (specifying the `python/` subdirectory):
+
+### Standalone command-line tool (CLI)
 
 ```bash
-# Install as a standalone command-line tool (on your PATH)
-uv tool install seqout
+# Install as a global CLI tool using uv
+uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 
-# Add as a library dependency to your project
-uv add seqout
+# With counts-matrix reading support enabled
+uv tool install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 
-# Add as a library dependency with counts-matrix reading support
-uv add 'seqout[counts]'
+# Or install using pip / pipx
+pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 To run the CLI tool without a permanent installation, use `uvx`:
 ```bash
-uvx seqout --help
+uvx --from "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python" seqout --help
 ```
 
-### Install the development version
-
-To install the latest development version from GitHub, specify the `python/` subdirectory of the repository:
+### Python library
 
 ```bash
-# Add as a project dependency
+# Add as a project dependency with uv
 uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+
+# Add with counts-matrix reading support
 uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 
-# Install as a global tool
-uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+# Or install using pip in your active virtual environment
+pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pip install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ## Quick start
