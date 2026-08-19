@@ -1,140 +1,122 @@
 ---
-description: Querying the seqout Parquet dump with DuckDB. Works offline and accepts arbitrary SQL.
+description: "Configure and query the seqout Parquet dump offline using DuckDB. Run custom SQL queries and download local tables."
 ---
 
-# Parquet backend
+# Parquet Backend
 
-The Parquet backend reads seqout data from Parquet files. It uses DuckDB. It
-does not call the seqout.org API.
+The Parquet backend queries `seqout` metadata directly from local or remote Parquet files using DuckDB. This backend does not query the `seqout.org` REST API.
 
-Use the Parquet backend for these tasks:
+Use the Parquet backend to:
+*   Work offline with local copies of the database tables.
+*   Execute high-throughput batch queries without API rate limits or network latency.
+*   Run custom analytical queries using standard SQL.
 
-- Work offline, with a local copy of the data.
-- Run large batch jobs without load on the API.
-- Query the data with your own SQL.
+## Data sources
 
-## Where the data comes from
+The backend reads data from a designated source, which can be:
+*   **A remote URL:** (e.g., `https://seqout.org/data`). The backend queries Parquet files over HTTP, downloading only the required byte ranges.
+*   **A local directory:** (e.g., `/data/seqout`). The backend reads tables directly from disk, providing the fastest query execution.
 
-The backend reads a set of Parquet files. The set is called a source. A
-source is one of two things:
+The package points to `https://seqout.org/data` by default. You can browse and download individual table files (such as `geo_series.parquet`) directly from this address using your browser, command-line tools like `wget`, or the `parquet download` command.
 
-- A URL, such as `https://seqout.org/data`. The backend reads the files
-  over HTTP. It reads only the parts that it needs.
-- A local directory, such as `/data/seqout`. The backend reads the files
-  from the disk.
+To host the Parquet dump on your own server, see [Host your own Parquet dump](#host-your-own-parquet-dump).
 
-seqout hosts a public source at [https://seqout.org/data](https://seqout.org/data).
-This is the default source. Open that address to browse and download the Parquet
-files directly. Each file is at `https://seqout.org/data/<name>.parquet`, for
-example [`geo_series.parquet`](https://seqout.org/data/geo_series.parquet). You
-can download them with a browser, with `wget`, or with the
-[`parquet download`](#download-the-data-files) command.
+## Source selection order
 
-You can also host the files yourself. See
-[Host your own data](#host-your-own-data).
+The Parquet backend selects the active data source using the following priority order:
+1.  The `--source` option passed to the command (or the directory path specified after `--parquet`).
+2.  The `SEQOUT_PARQUET_SOURCE` environment variable.
+3.  The saved default source path configured using `parquet set-source`.
+4.  The public default source: `https://seqout.org/data`.
 
-## How the backend selects the source
+## Configure a default source
 
-The backend selects the source in this order. It uses the first one that it
-finds:
-
-1. The `--source` option on the command (or the value after `--parquet`).
-2. The `SEQOUT_PARQUET_SOURCE` environment variable.
-3. The source that you saved with `parquet set-source`.
-4. The default source, `https://seqout.org/data`.
-
-## Set a default source
-
-To save a default source, use `set-source`. Give a URL or a local directory:
+To save a default local directory or remote URL for your Parquet queries, use `set-source`:
 
 ```bash
+# Set a local directory
 seqout parquet set-source /data/seqout
+
+# Set a custom remote URL
 seqout parquet set-source https://example.org/seqout-data
 ```
 
-After this command, all Parquet commands use that source. You do not need to
-give `--source` each time.
+Once configured, all Parquet commands use this source. You do not need to specify `--source` for every command.
 
-## Download the data files
+## Download database tables
 
-To get a local copy, use `download`. Give the output directory:
+To query data offline, download the Parquet files to a local directory:
 
 ```bash
 seqout parquet download /data/seqout
 ```
 
-To download only some files, use `--files`:
+To download specific tables rather than the entire database, use the `--files` argument:
 
 ```bash
 seqout parquet download /data/seqout --files geo_series geo_samples
 ```
 
-To show a progress bar, add `--with-pbar`.
+To display download progress indicators, add the `--with-pbar` flag.
 
-!!! warning "The files are large"
-    The full set of files is large. One table (`run_download_links`) is more
-    than 11 GB. Download only the files that you need.
+> [!WARNING]
+> The database dump contains large files. For example, the `run_download_links` table exceeds 11 GB. Download only the specific tables required for your analysis.
 
-## Query the data with SQL
+## Execute SQL queries
 
-To run your own SQL, use `query`. The command replaces each table name with the
-correct file automatically:
+To run analytical SQL queries against your Parquet source, use the `query` command. The CLI automatically maps the SQL table names to their corresponding Parquet files:
 
 ```bash
 seqout parquet query "SELECT COUNT(*) AS n FROM geo_series"
 seqout parquet query "SELECT accession, title FROM sra_studies LIMIT 5"
 ```
 
-Options:
+Common query options:
+*   `--source`: Specifies a temporary Parquet source for the query.
+*   `--csv`: Formats the query output as CSV.
+*   `-n`, `--limit`: Sets the maximum number of rows to display (default is 50).
 
-- `--source`: use a specific source for this query.
-- `--csv`: print the result as CSV.
-- `-n`, `--limit`: the maximum number of rows to show (default: 50).
+> [!CAUTION]
+> The query parser identifies tables by matching table names in the text. Do not reuse table names as column aliases (for example, `SELECT COUNT(*) AS geo_series FROM geo_series` will raise a parser error). Use neutral aliases like `AS n`.
 
-!!! note "Do not reuse a table name as a column alias"
-    The command finds table names by text. Do not use a table name as a column
-    alias. For example, `SELECT COUNT(*) AS geo_series FROM geo_series` fails.
-    Use a different alias, such as `AS n`.
+## Query study details offline
 
-## Show a project from Parquet
-
-The `parquet show` command shows a study, its samples, or its experiments:
+To inspect studies, samples, or experiments offline using the Parquet backend, use the `parquet show` command:
 
 ```bash
 seqout parquet show GSE12345 --samples
 seqout parquet show SRP123456 --experiments
 ```
 
-## Use Parquet with the normal commands
+## Enable Parquet mode in standard commands
 
-Most commands accept the `--parquet` option. The command then reads Parquet
-data and sends no request to the API:
+Most standard CLI commands support the `--parquet` flag. When you append this flag, the command resolves data using the Parquet backend instead of making REST API requests:
 
 ```bash
+# Query study samples using the default Parquet source
 seqout show GSE12345 --parquet
-seqout gse-to-srp GSE12345 --parquet
-seqout pmid 34764296 --parquet /data/seqout
+
+# Map a GEO accession using a specific local Parquet directory
+seqout gse-to-srp GSE12345 --parquet /data/seqout
+
+# Resolve a publication using Parquet
+seqout pmid 34764296 --parquet
 ```
 
-The `--parquet` option follows the same source order as above. A value after
-`--parquet` sets the source for that command only.
+The `--parquet` option follows the standard source selection order. Specifying a path immediately after the flag overrides other source configurations for that single command execution.
 
-## Host your own data
+## Host your own Parquet dump
 
-You can host the Parquet files on any web server. The server must support HTTP
-range requests. Most static servers, such as nginx, support them.
+You can host the Parquet database dump on any HTTP server that supports range requests (e.g., standard Nginx or Apache configurations, AWS S3, or Google Cloud Storage). 
 
-To use your own server, give its URL as the source:
+Once uploaded, point your client to the hosting URL:
 
 ```bash
 seqout parquet set-source https://my-server.example.org/seqout
 ```
 
-## Performance
+## Query performance
 
-The Parquet backend reads a whole column to apply a filter. The large tables
-are not sorted by the common filter keys. Over a remote URL, a query on a large
-table is slow.
+To execute filters, the Parquet backend scans the target columns. Because database tables are not indexed or pre-sorted by common lookup keys, running queries over remote HTTP connections can be slow.
 
-For fast queries on the large tables, download a local copy first. A query on a
-local file is much faster than a query over HTTP.
+For complex queries or high-throughput workflows, download the Parquet tables to your local disk first. Querying local files is significantly faster than querying them over HTTP.

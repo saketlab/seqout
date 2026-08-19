@@ -1,120 +1,129 @@
-# seqout
+# seqout (Python Client & CLI)
 
-A Python client and command-line tool for [seqout.org](https://seqout.org). Search genomic study
-metadata from GEO, SRA, ENA, DDBJ, ArrayExpress, GEA, and GSA, and download metadata, supplementary
-files, sequencing reads, and counts matrices through one interface.
+A Python client library and command-line interface (CLI) for [seqout.org](https://seqout.org). Use this package to search and retrieve genomics study metadata across GEO, SRA, ENA, DDBJ, ArrayExpress, GEA, and GSA, and download metadata, raw reads, and processed counts matrices.
 
 Requires Python 3.13 or newer.
 
 ## Installation
 
+Install the package using `uv` or `pip`:
+
 ```bash
-uv tool install seqout          # command-line tool, on your PATH
-uv add seqout                   # library, in your project
-uv add 'seqout[counts]'         # library, with counts-matrix reading
+# Install as a standalone command-line tool (on your PATH)
+uv tool install seqout
+
+# Add as a library dependency to your project
+uv add seqout
+
+# Add as a library dependency with counts-matrix reading support
+uv add 'seqout[counts]'
 ```
 
-`uvx seqout <command>` runs the tool without installing it. From a source checkout, prefix any command
-below with `uv run`.
+To run the CLI tool without a permanent installation, use `uvx`:
+```bash
+uvx seqout --help
+```
 
-The development version installs from GitHub. The package lives in the `python/` subdirectory of the
-repo, so `#subdirectory=python` is required.
+### Install the development version
+
+To install the latest development version from GitHub, specify the `python/` subdirectory of the repository:
 
 ```bash
+# Add as a project dependency
 uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+
+# Install as a global tool
 uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ## Quick start
 
+### Query from the command line
+
+Run these commands to search for datasets, inspect study details, and download supplementary files:
+
 ```bash
-seqout search "lung cancer single cell" --db geo --sort citations -m 5
+# Search for GEO single-cell lung cancer studies, sorted by citations
+seqout search "lung cancer single cell" --db geo --sort citations --max 5
+
+# Show detailed metadata for a study
 seqout show GSE149312
+
+# Download processed supplementary files
 seqout download GSE149312 --supplementary
 ```
+
+### Query in Python
+
+Open a connection using `connect()` to search and query metadata programmatically:
 
 ```python
 from seqout import connect
 
 with connect() as sq:
-    d = sq.get("GSE149312")
-    print(d.meta.title, len(d.samples), "samples,", len(d.runs), "runs")
+    dataset = sq.get("GSE149312")
+    print(f"Title: {dataset.meta.title}")
+    print(f"Samples: {len(dataset.samples)}")
+    print(f"Runs: {len(dataset.runs)}")
 ```
 
-`Dataset` fetches each field on first use and keeps the result. It crosses the GEO/SRA boundary on
-its own, so `sq.get("GSE149312").runs` and `sq.get("SRP324458").runs` both work. An accession with
-no path back to its study raises `SeqoutError` naming the lookups that were tried.
+The `Dataset` object evaluates fields lazily. It fetches data from the API only when you access a field for the first time, and caches it for future reads. It automatically resolves cross-archive links (for example, mapping a GEO series to its corresponding SRA study runs).
 
-### From a GEO accession to a single-cell matrix
+### Parse processed single-cell matrices
 
-Supplementary files are grouped into units that read as one matrix: a 10x triplet, a CellRanger
-`.h5`, an `.h5ad`, an `.rds` or a table. The manifest resolves them without downloading anything,
-and the donor covariates come from the same accession. Needs the `counts` extra.
+To parse supplementary files into cell-by-gene expression matrices along with harmonized donor covariates, use `seqout_counts`. This feature requires the `counts` installation extra:
 
 ```python
 from seqout import seqout_counts
 
+# Query the file manifest without downloading the files
 counts = seqout_counts(gse="GSE297547")
-counts.manifest()                       # what is readable, still no download
-m = counts.matrix(sample="GSM8994520")  # cells by genes, obs carries the annotation
-counts.design                           # one row per sample: tissue, age, sex
+print(counts.manifest())
+
+# Download and parse a specific sample unit into an AnnData object
+matrix = counts.matrix(sample="GSM8994520")
+
+# Access the harmonized experimental design table
+print(counts.design)
 ```
 
-## Command-line reference
+## Command reference summary
 
-Run `seqout --help` or `seqout <command> --help` for the full option list.
+For the complete options list, run `seqout --help` or `seqout <command> --help`.
 
-### Explore
+### Explore metadata
 
-| Command | Description |
+| Command | Action |
 | --- | --- |
-| `seqout search [query]` | Full-text search across every source |
-| `seqout show <accession>` | A project's samples or experiments as a table, or one sample in detail |
-| `seqout pmid <pmid\|doi>` | Every dataset linked to a publication |
-| `seqout author <name>` | Every dataset an author is linked to |
+| `seqout search [query]` | Search for studies using free-text and metadata filters. |
+| `seqout show <accession>` | Display study-level tables or detailed sample attributes. |
+| `seqout pmid <pmid\|doi>` | Retrieve all datasets linked to a publication PMID or DOI. |
+| `seqout author <name>` | Retrieve all datasets linked to an author. |
 
-`search` options: `--db {geo,sra,arrayexpress,ena,gsa,dra,gea}`, `-O/--organism`, `-S/--strategy`,
-`-P/--platform`, `-C/--source`, `-d/--date DATE[:DATE]`, `--sort {citations,journal,year}`,
-`-p/--page-size` (default 20), `-m/--max`, `-o/--saveto FILE`. The query text is optional when at
-least one filter is given.
+### Download files
 
-### Download
-
-| Command | Description |
+| Command | Action |
 | --- | --- |
-| `seqout download <accession>` | Project or sample metadata as JSON |
-| `seqout download <accession> --supplementary` | The project's supplementary files |
-| `seqout download <accession> --sample-supplementary` | Per-sample supplementary files |
-| `seqout download <accession> --fastq` | Sequencing reads; also `--sra`, `--sra-lite`, `--s3`, `--gcs` |
+| `seqout download <accession>` | Download study metadata as a JSON file. |
+| `seqout download <accession> --supplementary` | Download study-level supplementary files. |
+| `seqout download <accession> --sample-supplementary` | Download per-sample supplementary files. |
+| `seqout download <accession> --fastq` | Download raw sequencing reads (supports `--sra`, `--sra-lite`, `--s3`, `--gcs`). |
 
-Metadata lands in `./<accession>.json` and files in `./<accession>/`; `-o/--out` overrides both.
+### Map accessions
 
-### Convert accessions
-
-| Command | Description |
+| Command | Action |
 | --- | --- |
-| `seqout convert <accession>... --to <kind>` | Map to `study`, `experiment`, `sample`, `run`, `srp`, `srx`, `srs`, `srr`, `gsm`, `gse`, `pmid`, or `doi` |
-| `seqout gse-to-srp <accession>...` | Shorthand for one specific hop |
+| `seqout convert <accession>... --to <kind>` | Map accessions to other types (e.g., `study`, `sample`, `run`). |
+| `seqout gse-to-srp <accession>...` | Shorthand helper to convert GEO Series accessions to SRA Study accessions. |
 
-The shorthands cover GEO, SRA, ENA, and DDBJ prefixes in both directions, plus publication lookups
-(`srp-to-pmid`, `doi-to-gse`, and the rest). `seqout --help` lists them all.
+### Offline SQL queries (Parquet backend)
 
-### Sample metadata labels
-
-| Command | Description |
+| Command | Action |
 | --- | --- |
-| `seqout --enriched <accession>` | Structured labels seqout.org has already prepared |
+| `seqout parquet download <dir>` | Download the published database Parquet files to a directory. |
+| `seqout parquet query "<sql>"` | Run custom SQL queries against the Parquet files using DuckDB. |
+| `seqout parquet show <accession>` | Inspect studies, samples, or experiments offline. |
+| `seqout parquet set-source <url\|dir>` | Save a default local or remote source directory. |
 
-### Parquet backend
-
-| Command | Description |
-| --- | --- |
-| `seqout parquet download <dir>` | Fetch the Parquet dump for local use |
-| `seqout parquet query "<sql>"` | Run SQL against the Parquet files with DuckDB |
-| `seqout parquet show <accession>` | A study, its samples, or its experiments |
-| `seqout parquet set-source <url\|dir>` | Set the default source |
-
-`show`, `download`, `convert`, `pmid`, `author`, and the conversion shorthands all accept
-`--parquet [SRC]` to answer from Parquet with no API request.
-
+To run standard CLI commands offline, append the `--parquet` flag (e.g., `seqout show GSE12345 --parquet`).

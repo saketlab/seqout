@@ -1,8 +1,7 @@
 ---
-title: "Citations"
+title: "Retrieve Dataset Citations"
 description: >
-  Get BibTeX for the papers behind a dataset, for one accession or for a
-  bibliography.
+  Learn how to retrieve BibTeX citations for publication-linked datasets, compile bibliographies, and access publication metadata.
 output:
   rmarkdown::html_document:
     self_contained: true
@@ -14,54 +13,55 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-A dataset is evidence, and evidence needs a citation. The archives already
-record which paper each dataset belongs to, so `Citations()` assembles the
-BibTeX entry from that record rather than making you find the paper by hand.
+To ensure scientific reproducibility, you should cite the original publications associated with any datasets used in your research. Public repositories record the publications linked to each dataset. 
+
+The `seqout` package provides the `Citations()` function to automatically retrieve and format these publication records as BibTeX entries, saving you from searching for literature details manually.
 
 ```{r setup}
 library(seqout)
 ```
 
-## One dataset
+## Retrieve a single citation
 
-`Citations()` takes a project accession and returns text.
+To fetch the BibTeX citation for a specific project accession, call `Citations()` and pass the accession ID:
 
 ```{r one}
 cat(Citations("GSE151530"))
 ```
 
-The key is the first author's family name and the year. Write it to a file the
-same way you write any text.
+The generated citation key uses the format `[FirstAuthorFamilyName][Year]`. 
+
+To save the BibTeX citation directly to a file, use the `writeLines()` function:
 
 ```{r write, eval = FALSE}
 writeLines(Citations("GSE151530"), "GSE151530.bib")
 ```
 
-## The paper, or every paper
+## Distinguish original papers from reanalyses
 
-`type = "original"`, the default, gives the paper that the submitters wrote.
-`type = "all"` adds the papers that reanalysed the data afterwards. The second
-list is the one to read when you want to know what a dataset has been used for.
+By default, `Citations()` retrieves the paper published by the dataset's original authors (`type = "original"`). 
+
+To include both the original publication and subsequent publications that reanalyzed the dataset, set `type = "all"`. This allows you to explore how a dataset has been used across different studies:
 
 ```{r all}
 cat(Citations("GSE168652", type = "all"))
 ```
 
-That study has one original paper and one later reanalysis.
+In this example, the study is linked to one original paper and one reanalysis paper.
 
-## A dataset with no paper
+## Handle datasets without publications
 
-Many datasets are deposited without a publication, and a great many are
-published later. `Citations()` returns `character(0)` for those, rather than an
-error, so a loop does not stop at the first gap.
+Many datasets are deposited before publication, and some may not have an associated paper. 
+
+For datasets without a recorded publication, `Citations()` returns an empty character vector (`character(0)`) rather than raising an error. This behavior ensures that batch queries and loops do not terminate when encountering a dataset without a citation:
 
 ```{r none}
 length(Citations("CRA027437"))
 ```
 
-## A bibliography
+## Compile a bibliography
 
-Because the result is plain text, several accessions concatenate.
+Because `Citations()` returns plain text, you can concatenate citations from multiple accessions into a single bibliography file:
 
 ```{r many}
 accessions <- c("GSE151530", "GSE168652", "SRP267291", "CRA027437")
@@ -70,37 +70,36 @@ bib <- unlist(lapply(accessions, Citations))
 length(bib)
 ```
 
-Four accessions, three entries: the one without a paper contributed nothing,
-and `unlist()` dropped it.
+In this example, querying four accessions returns three bibliography entries. The accession without a recorded publication returned `character(0)`, which `unlist()` automatically dropped.
+
+To write the compiled bibliography to disk, call `writeLines()`:
 
 ```{r many-write, eval = FALSE}
 writeLines(bib, "study-bibliography.bib")
 ```
 
-Test first when you need to know which accession gave which entry.
+If you need to verify which accessions successfully returned a citation, check their return lengths first:
 
 ```{r many-named}
 vapply(accessions, function(a) length(Citations(a)) > 0, logical(1))
 ```
 
-## The same papers as data
+## Access publication metadata as data frames
 
-BibTeX is for a manuscript. When you want to sort, count or filter, read the
-publication records instead: `$pubs` carries the same papers as a tibble, with
-the journal and the citation count.
+While BibTeX is suitable for rendering bibliographies, you may want to filter or count publications programmatically. 
+
+To retrieve publication records as a structured data frame, access the `pubs` field of the dataset object returned by `SeqoutGet()`. The returned table includes publication details like the journal name and citation count:
 
 ```{r pubs}
 d <- SeqoutGet("GSE168652")
 d$pubs[, c("pmid", "title", "journal", "citation_count")]
 ```
 
-[Metadata](metadata.html#publications) describes that field. To go the other
-way, from a paper or an author to the datasets, [Search](search.html) covers
-`Paper()` and `Author()`.
+For more details on dataset metadata, see [Metadata](metadata.html#publications). To search for datasets using a specific author name or publication identifier, see [Search](search.html).
 
-## The REST API only
+## Backend support
 
-`Citations()` reads the REST API, and says so on a Parquet connection.
+The `Citations()` function queries the REST API and is not supported by the Parquet backend. Attempting to run `Citations()` on a Parquet connection raises an error:
 
 ```{r parquet, error = TRUE}
 con <- SeqoutConnect("parquet", quiet = TRUE)
@@ -111,7 +110,5 @@ Citations("GSE151530", con = con)
 SeqoutClose(con)
 ```
 
-The dump could answer a version of this, and deliberately does not. It has no
-record of the papers that reanalysed a dataset, and only about a third of its
-publication rows carry a date, so an entry built from it would be missing its
-year without saying so. A citation is not worth getting nearly right.
+> [!NOTE]
+> The database dump does not store citation data because it lacks records for reanalysis publications, and many publication records do not contain release years. Restricting `Citations()` to the REST API ensures that you always receive complete and accurate citation metadata.

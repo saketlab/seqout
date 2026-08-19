@@ -1,72 +1,93 @@
 ---
-description: seqout shell commands for search, inspection, downloads, accession conversion and Parquet queries.
+description: "Common CLI commands for query searching, metadata inspection, downloads, accession mapping, and offline Parquet queries."
 ---
 
-# Command-line examples
+# Command-Line Examples
 
-Concrete commands for common tasks. Add `--help` to any command for its full
-options.
+This page provides command examples for common data discovery and retrieval tasks using the `seqout` CLI. To view the complete list of options for any command, append the `--help` flag.
 
-## Search
+## Search the database
 
 ```bash
-# free-text search
+# Perform a full-text search for lung cancer single-cell datasets
 seqout search "lung cancer single cell"
 
-# filters only, no query text
+# Filter by organism and database range without query text
 seqout search --organism "Homo sapiens" --db geo -d 2020:2023
 
-# narrow, then save to a file
+# Filter by assay type and platform, cap results, and save to a CSV file
 seqout search "atac-seq" --db sra -S ATAC-seq -P ILLUMINA -m 50 -o hits.csv
 ```
 
-## Inspect a project
+## Inspect study metadata
 
 ```bash
-seqout show GSE12345     # GEO series -> its samples
-seqout show SRP123456    # SRA study  -> its experiments
+# View sample metadata for a GEO series
+seqout show GSE12345
+
+# View experiment metadata for an SRA study
+seqout show SRP123456
 ```
 
-## Download
+## Download files
 
 ```bash
-seqout download GSE12345                    # metadata as JSON
-seqout download SRP123456 --fastq -o ./fq   # run files, FASTQ
-seqout download GSE12345 --supplementary    # project supplementary files
-seqout download SRR13711483 --sra-lite      # one run, resolved to its study
+# Download study metadata as a JSON file
+seqout download GSE12345
+
+# Download raw reads in FASTQ format to a target directory
+seqout download SRP123456 --fastq -o ./fq
+
+# Download processed study-level supplementary files
+seqout download GSE12345 --supplementary
+
+# Download a specific run in SRA Lite format (resolves parent study automatically)
+seqout download SRR13711483 --sra-lite
 ```
 
-With no option on a terminal, `download` shows a menu of what is available.
+If you run `download` in a terminal without option arguments, the CLI displays an interactive resource menu.
 
-## Convert accessions
+## Map accessions
 
 ```bash
-seqout gse-to-srp GSE12345         # a GEO series -> its SRA study
-seqout srr-to-srp SRR13711483      # a run        -> its study
-seqout convert SRP123456 --to gsm  # generic form, any source
-seqout srp-to-pmid SRP123456       # a study      -> its publication
+# Map a GEO series accession to its corresponding SRA study accession
+seqout gse-to-srp GSE12345
+
+# Map a run accession to its SRA study accession
+seqout srr-to-srp SRR13711483
+
+# Map an SRA study to GEO sample accessions using the generic converter
+seqout convert SRP123456 --to gsm
+
+# Map an SRA study accession to its PMID citation
+seqout srp-to-pmid SRP123456
 ```
 
-## Publications and authors
+## Search by publication and author
 
 ```bash
+# Find datasets associated with a PMID
 seqout pmid 34764296
+
+# Find datasets associated with a DOI
 seqout pmid 10.1038/ng.2214
+
+# Find datasets associated with a specific researcher
 seqout author "Aviv Regev"
 ```
 
-## Parquet backend (offline)
+## Query the Parquet backend offline
 
 ```bash
-# query the public data with SQL, no download
+# Run SQL queries against remote Parquet files without downloading them
 seqout parquet query "SELECT COUNT(*) AS n FROM geo_series"
 
-# download the files for fast local use
+# Download the database Parquet tables to a local directory
 seqout parquet download /data/seqout
 
-# run any command against Parquet, with no API request
+# Run standard CLI commands offline using the downloaded Parquet data source
 seqout show GSE12345 --parquet
 seqout gse-to-srp GSE12345 --parquet /data/seqout
 ```
 
-See [Parquet backend](../parquet.md) for the data sources.
+For data source configuration options, see [Parquet Backend](../parquet.md).
