@@ -1,8 +1,7 @@
 ---
-title: "Counts"
+title: "Read Counts Matrices"
 description: >
-  Find the counts matrices of a GEO study, read one, add the sample metadata,
-  and make a Seurat object.
+  Learn how to find, download, and read counts matrices for a GEO study, join study-level metadata, and convert them to Seurat objects.
 output:
   rmarkdown::html_document:
     self_contained: true
@@ -14,42 +13,37 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-GEO keeps processed data in supplementary files. GEO gives these files no
-schema. Each submitter selects their own file names, formats and layout.
+Gene Expression Omnibus (GEO) stores processed single-cell and bulk genomic datasets as supplementary files. Because GEO does not enforce a strict schema for these files, authors upload data using various formats, file names, and directory structures.
 
-Seqout reads these deposits retroactively. It looks at the files of a study
-after the submitter sent them, puts related files into groups, and reads each
-group as a matrix. Thus a study from 2013 and a study from this year go through
-the same three steps:
+`seqout` standardizes the retrieval of these heterogeneous datasets. The package automatically identifies, groups, and parses related supplementary files into unified counts matrices.
 
-1. `SeqoutCounts()` tells you which matrices the study has.
-2. `SeqoutMatrix()` reads one of them.
-3. `Seqout2Seurat()` makes a Seurat object from it.
+Whether you are working with older datasets or the latest deposits, `seqout` provides a consistent three-step workflow:
+1. Identify available matrices using [`SeqoutCounts()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R#L51).
+2. Download and read a specific matrix using [`SeqoutMatrix()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R).
+3. Convert the parsed matrix into a Seurat object using [`Seqout2Seurat()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R).
 
-Because the grouping is retroactive, it is an interpretation of the files and
-not a fact from GEO. Look at the table from step 1 before you trust step 2.
+> [!NOTE]
+> Because `seqout` groups and interprets files programmatically after upload, verify the generated manifest from step 1 before proceeding to step 2.
 
-## Before you start
+## Prerequisites
 
-The readers need `Matrix` for the sparse formats. They need `hdf5r` for `.h5`
-and `.h5ad`. Seqout suggests both packages and does not require them, thus a
-plain installation stays small.
+To handle sparse matrices, `seqout` requires the `Matrix` package. To parse `.h5` and `.h5ad` formats, the package requires `hdf5r`. 
 
 ```{r install, eval = FALSE}
 install.packages(c("Matrix", "hdf5r"))
 ```
 
+To run the examples in this guide, load `seqout` and define a target GEO accession:
+
 ```{r setup}
 library(seqout)
 
-ACCESSION <- "GSE297547" # PBMCs from myasthenia gravis patients and controls
+ACCESSION <- "GSE297547" # PBMCs from patients with myasthenia gravis and healthy controls
 ```
 
-## Step 1: see what the study has
+## Step 1: Identify available datasets
 
-`SeqoutCounts()` asks the API for the file list of a GEO accession. It then
-returns one row for each matrix that it can read. It downloads no data, because
-the files of one series can be tens of gigabytes.
+Query the file manifest for a given GEO study using [`SeqoutCounts()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R#L51). This function queries the Seqout API to retrieve the list of files without downloading the actual dataset, which can often exceed tens of gigabytes in size.
 
 ```{r counts-table}
 counts <- SeqoutCounts(ACCESSION)
@@ -58,200 +52,167 @@ nrow(counts)
 head(counts[, c("unit", "sample", "format", "preferred", "has_metadata")], 8)
 ```
 
-Each row is a **unit**: the smallest group of files that Seqout can read as one
-matrix. A unit is a 10x triplet (`matrix.mtx` with `barcodes.tsv` and
-`features.tsv`), a CellRanger `.h5`, an `.h5ad`, an `.rds`, or a delimited
-table.
+Each row in the returned table represents a **unit**, which is the smallest group of related files that `seqout` can parse as a single matrix. Common units include:
+*   10x Genomics triplets (`matrix.mtx`, `barcodes.tsv`, and `features.tsv`)
+*   CellRanger HDF5 files (`.h5`)
+*   AnnData objects (`.h5ad`)
+*   R serialized datasets (`.rds`)
+*   Delimited tabular files (CSV, TSV, etc.)
 
-The columns tell you this:
+### Understanding the metadata columns
 
-| Column | What it tells you |
-| --- | --- |
-| `unit` | The label that selects this exact matrix |
-| `sample` | The GSM, when Seqout can assign one |
-| `format` | The reader that Seqout uses |
-| `preferred` | Seqout takes this unit when you ask for the sample |
-| `has_metadata` | Cell annotation is probable |
-| `n_files`, `files` | How many files the unit has, and their names |
+The metadata table contains the following key columns:
 
-One sample frequently has more than one unit. The label of each unit then gets
-a suffix, for example `GSM8994520:h5ad`.
+*   `unit`: A unique identifier that represents the specific matrix unit.
+*   `sample`: The GEO Sample accession (GSM), when one can be assigned.
+*   `format`: The file format reader that `seqout` uses to parse the unit.
+*   `preferred`: A logical flag indicating whether `seqout` selects this unit by default when querying the GSM.
+*   `has_metadata`: A logical flag indicating whether cell-level or observation-level annotations are likely present.
+*   `n_files` and `files`: The number of files and their respective names associated with the unit.
+
+A single sample may contain multiple units (for example, multi-omic datasets containing both RNA and surface protein features). In these cases, the unit name includes a suffix like `GSM8994520:h5ad`.
 
 ```{r formats}
-table(counts$format)
+table(counts[["format"]])
 ```
 
-### How Seqout selects the preferred unit
+### Preferred unit selection logic
 
-Submitters frequently deposit the same counts two times. A 10x `.h5` beside the
-mtx triplet that made it is a common example. The table shows both units.
+Submitters often upload the same dataset in multiple formats, such as a CellRanger `.h5` file alongside a raw MatrixMarket triplet. The manifest includes all detected formats.
 
-`preferred` marks the unit that `SeqoutMatrix()` takes when you name a GSM and
-not a unit label. Seqout ranks the units of a sample in this sequence:
+The `preferred` column marks the unit that [`SeqoutMatrix()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R) loads when you query by a GSM ID instead of a specific unit label. To select a preferred unit, `seqout` ranks units for a sample based on the following criteria:
 
-1. The assay that you asked for.
-2. Filtered output before raw output.
-3. Format: 10x MatrixMarket, then 10x HDF5, then `.h5ad`, then `.rds`, then
-   tar, then a delimited table.
+1.  **Requested Assay:** Matches the user-defined assay type.
+2.  **Data Filtering:** Prioritizes filtered outputs over raw or unfiltered outputs.
+3.  **File Format:** Ranks formats in the following order of preference: 10x MatrixMarket, 10x HDF5, `.h5ad`, `.rds`, compressed archives (`.tar`, `.tar.gz`), and delimited tables.
 
-A unit that is not preferred stays available. Give its `unit` label to
-`SeqoutMatrix()`.
+To override this default ranking and load a non-preferred unit, pass the specific `unit` identifier to `SeqoutMatrix()`.
 
-### What `has_metadata` tells you
+### Cell-level metadata detection
 
-`has_metadata` is a signal from discovery and not a check of content. It is
-`TRUE` in two conditions:
+The `has_metadata` column indicates whether cell-level metadata is likely available for a unit. This is a heuristic flag that is set to `TRUE` if:
+*   The unit format is `.h5ad` or `.rds`, which natively store observation metadata.
+*   The upload includes a companion file with a descriptive name suggesting cell annotations (for example, containing substrings like `metadata`, `annotation`, `celltype`, or `obs.csv`).
 
-* The unit is an `.h5ad` or an `.rds`. These formats can hold cell annotation
-  in the container.
-* Seqout found a related file whose name shows cell annotation, for example
-  `metadata`, `annotation`, `celltype` or `obs.csv`.
+If the metadata file name contains a sample identifier, `seqout` links it to that specific unit. Otherwise, the package associates it with all units in the series. The metadata contents are only parsed when you load the unit.
 
-Seqout attaches a file that has a sample name to the units of that sample. It
-attaches a file that has no sample name to all the units of the series. Seqout
-reads the annotation only when `SeqoutMatrix()` reads the unit.
+## Step 2: Download and read a matrix unit
 
-## Step 2: read one matrix
-
-`SeqoutMatrix()` downloads the files of one unit and reads them. It keeps the
-files in a cache directory below `tools::R_user_dir("seqout", "cache")`. The
-cache stays after the session ends, thus a second read of the same unit
-downloads nothing.
+To download and parse a specific matrix unit, call [`SeqoutMatrix()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R). The function caches downloaded files in the directory returned by `tools::R_user_dir("seqout", "cache")`. This cache persists across R sessions, so subsequent reads of the same unit do not trigger new downloads.
 
 ```{r read-rna}
 rna <- SeqoutMatrix(counts, sample = "GSM8994520")
 rna
 ```
 
-A `seqout_matrix` is a list. `X` holds the counts, `obs` holds the observation
-annotation, and `var` holds the feature annotation.
+The returned object is a `seqout_matrix` list with three primary fields:
+*   `X`: The counts matrix.
+*   `obs`: Observation-level (cell-level) annotations.
+*   `var`: Feature-level (gene-level) annotations.
 
-`X` is features by observations: genes by cells for single-cell data, and genes
-by biological samples for bulk data. This is the orientation that Seurat and
-most Bioconductor classes expect, thus you do not transpose it.
+The matrix `X` follows the AnnData orientation (observations as rows, features as columns), which matches the format expected by Seurat and other single-cell analysis tools. You do not need to transpose it.
 
 ```{r shape}
-dim(rna$X)
-class(rna$X)
+dim(rna[["X"]])
+class(rna[["X"]])
 ```
 
-### Single cell or bulk
+### Dataset classification: single-cell vs. bulk
 
-Seqout decides `kind` from evidence and tells you the evidence. Row labels that
-look like barcodes mean single cell. Row labels that are GSM accessions mean
-bulk. If the labels give no answer, Seqout counts the observations: 32 or fewer
-is bulk, 400 or more is single cell.
+`seqout` determines the type of dataset (`kind`) using the following rules:
+*   If the row names match cell barcode patterns, it classifies the dataset as `single_cell`.
+*   If the row names match GSM sample accessions, it classifies the dataset as `bulk`.
+*   If the labels are ambiguous, the function counts the observations: datasets with 32 or fewer observations are classified as `bulk`, while datasets with 400 or more are classified as `single_cell`.
 
-Between those two numbers the data can be a Smart-seq plate or a small bulk
-study. Seqout reports `unknown` and does not guess. Read `evidence` when the
-answer is important to you.
+For datasets falling between 33 and 399 observations (which could represent small bulk studies or Smart-seq plates), `seqout` leaves the classification as `unknown`. You can inspect the `evidence` field for more context.
 
 ```{r evidence}
-rna$kind
-rna$evidence
+rna[["kind"]]
+rna[["evidence"]]
 ```
 
-### The cell annotation
+### Accessing cell annotations
 
-`obs` holds the annotation that the submitter deposited for each cell. For an
-`.h5ad` or an `.rds` it comes from the container. For a 10x unit it comes from
-a related file, which Seqout joins on the cell label.
+The `obs` data frame contains the cell-level annotations deposited by the authors. 
 
 ```{r obs-rna}
-lapply(rna$obs, function(x) head(unique(as.character(x)), 3))
+lapply(rna[["obs"]], function(x) head(unique(as.character(x)), 3))
 ```
 
-Column names change from submitter to submitter. This submitter named the
-columns `type1`, `type2` and `type3`. These names contain no vocabulary that a
-program can match, thus Seqout does not tell you which column holds the cell
-type. The columns stay available to you: `type3` is the donor code and `type1`
-is the donor group.
+Because column headers are defined by the author, they vary between datasets. In this example, the author used generic column names: `type1` (experimental group) and `type3` (donor ID).
 
-Examine the gene names before you plan an analysis. This submitter made the
-gene names anonymous. Marker-based cell typing is therefore not possible for
-this study.
+> [!WARNING]
+> Review the feature names in `var` before starting your analysis. In this specific study, the author anonymized the gene names, meaning you cannot perform marker-based cell type annotation.
 
 ```{r gene-names}
-head(rownames(rna$var), 5)
+head(rownames(rna[["var"]]), 5)
 ```
 
-## Read a different assay
+## Load alternative assays
 
-This is a CITE-seq study. Each sample has two matrices: gene expression and an
-antibody panel. Both are `.h5ad` files, thus the format separates neither one,
-and the antibody file comes first in the file list.
+For multi-omic or CITE-seq studies, a single sample may contain multiple distinct assays (such as gene expression and surface antibody panels). 
 
-For this reason `SeqoutCounts()` uses `assay = "rna"` as the default. The other
-values are `"adt"` (antibody-derived tags), `"hto"` (hashtag oligos), `"atac"`,
-and `NULL` for no preference.
+By default, `SeqoutCounts()` prioritizes the RNA assay (`assay = "rna"`). You can query other assays by specifying `"adt"` (antibody-derived tags), `"hto"` (hashtag oligos), `"atac"`, or `NULL` (no preference).
 
-Seqout identifies the assay from parts of the file name, for example `gex`,
-`antibody`, `hashtag` and `peak`. It then uses your assay as the first rule
-when it ranks the units. For 10x files it also keeps the related feature class:
-Gene Expression for RNA, Antibody Capture for ADT and HTO, and Peaks for ATAC.
-To override that filter, set `feature_type`.
+`seqout` infers the assay type from file name keywords (such as `gex`, `antibody`, `hashtag`, or `peak`) and uses it to rank the available units. For 10x Genomics datasets, it filters features by their class (e.g., Gene Expression, Antibody Capture, or Peaks). To disable this filter and return all feature classes, set `feature_type = NULL`.
+
+The following example loads the antibody-derived tag (ADT) matrix for the same sample:
 
 ```{r read-adt}
 adt <- SeqoutCounts(ACCESSION, assay = "adt")
 adt_m <- SeqoutMatrix(adt, sample = "GSM8994520")
 
-dim(adt_m$X)
-rownames(adt_m$var)
+dim(adt_m[["X"]])
+rownames(adt_m[["var"]])
 ```
 
-The antibody unit of this study has the cell types in `obs`.
+The parsed ADT unit includes cell type classifications under the `obs` field:
 
 ```{r celltype}
-head(sort(table(adt_m$obs$Cell_Type_Experimental), decreasing = TRUE))
+head(sort(table(adt_m[["obs"]][["Cell_Type_Experimental"]]), decreasing = TRUE))
 ```
 
-## Add the study metadata
+## Integrate study-level metadata
 
-The counts tell you what the experiment measured. They tell you nothing about
-the donors, the condition, or the paper. That data is in the API.
+The counts matrix and cell annotations represent the measurements, but they do not contain study-level information like donor demographics or the overall experimental design. To retrieve this metadata, call [`SeqoutGet()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R):
 
 ```{r project}
 d <- SeqoutGet(ACCESSION)
 
-d$meta$title
-d$meta$overall_design
+d[["meta"]][["title"]]
+d[["meta"]][["overall_design"]]
 ```
 
-`d$samples` is the design of the experiment. It has one row for each GSM, and
-the keys of the submitter as columns.
+The `samples` field contains a data frame describing the experimental design:
 
 ```{r design}
-design <- d$samples[, c("accession", "title", "age", "Sex", "tissue")]
+design <- d[["samples"]][, c("accession", "title", "age", "Sex", "tissue")]
 head(design)
 ```
 
-Each cell of a unit belongs to one GSM, which has one row in that table.
+Because each cell in a matrix unit corresponds to a specific GSM accession, you can cross-reference the cell annotations with the study design metadata:
 
 ```{r join}
-design[design$accession == rna$accession, ]
+design[design[["accession"]] == rna[["accession"]], ]
 ```
 
-Compare the two sources before you trust either one. `type1` and `type3` are
-the per-cell labels of the submitter. `design` is what GEO holds.
+Before proceeding, cross-check the donor IDs between the two sources:
 
 ```{r cross-check}
 picked <- c("GSM8994520", "GSM8994523", "GSM8994533")
 
 cells <- do.call(rbind, lapply(picked, function(a) {
-  o <- SeqoutMatrix(counts, sample = a)$obs
-  data.frame(accession = a, per_cell = unique(o$type1), donor = unique(o$type3))
+  o <- SeqoutMatrix(counts, sample = a)[["obs"]]
+  data.frame(accession = a, per_cell = unique(o[["type1"]]), donor = unique(o[["type3"]]))
 }))
 merge(cells, design[, c("accession", "title")], by = "accession")
 ```
 
-The per-cell labels and the donor codes agree.
+The cell-level annotations and the study design metadata match.
 
-## Step 3: make a Seurat object
+## Step 3: Create a Seurat object
 
-`Seqout2Seurat()` builds the object. Give it a `seqout_matrix`, or give it one
-GSM accession when you want one sample and nothing more. The arguments of
-`CreateSeuratObject()`, for example `project`, `min.cells` and `min.features`,
-go through to that function.
+Use the [`Seqout2Seurat()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/counts.R) function to construct a Seurat object. You can pass a parsed `seqout_matrix` object or query a single GSM accession directly. Additional arguments are forwarded to `CreateSeuratObject()`.
 
 ```{r seurat-one, message = FALSE, warning = FALSE}
 library(Seurat)
@@ -259,11 +220,11 @@ library(Seurat)
 Seqout2Seurat(SeqoutMatrix(counts, sample = picked[1]), project = picked[1])
 ```
 
-Seqout does not transpose the matrix, because `X` already has the orientation
-that Seurat expects. The cell annotation from `obs` becomes `meta.data`.
+Because the matrix `X` is already oriented correctly for Seurat, `seqout` does not transpose it. The cell annotations in `obs` are automatically imported as Seurat `meta.data`.
 
-For more than one sample, add the covariates of each sample after you make its
-object.
+### Process multiple samples
+
+To analyze multiple samples, construct individual Seurat objects, attach the sample-level covariates, and merge them:
 
 ```{r seurat-build, message = FALSE, warning = FALSE}
 library(Matrix)
@@ -273,35 +234,35 @@ n_cells <- 1500
 
 objs <- lapply(picked, function(accession) {
   m <- SeqoutMatrix(counts, sample = accession)
-  keep <- sample(ncol(m$X), min(n_cells, ncol(m$X)))
-  m$X <- m$X[, keep, drop = FALSE]
-  m$obs <- m$obs[keep, , drop = FALSE]
-  covariates <- design[design$accession == accession, ]
+  keep <- sample(ncol(m[["X"]]), min(n_cells, ncol(m[["X"]])))
+  m[["X"]] <- m[["X"]][, keep, drop = FALSE]
+  m[["obs"]] <- m[["obs"]][keep, , drop = FALSE]
+  covariates <- design[design[["accession"]] == accession, ]
 
   obj <- Seqout2Seurat(m, project = accession, min.cells = 3, min.features = 200)
-  obj$sample <- accession
-  obj$donor <- sub(".*from ([A-Z]+[0-9]+).*", "\\1", covariates$title)
-  obj$group <- ifelse(grepl("^MG", obj$donor), "MG", "control")
-  obj$Sex <- covariates$Sex
-  obj$age <- as.integer(covariates$age)
+  obj[["sample"]] <- accession
+  obj[["donor"]] <- sub(".*from ([A-Z]+[0-9]+).*", "\\1", covariates[["title"]])
+  obj[["group"]] <- ifelse(grepl("^MG", obj[["donor"]]), "MG", "control")
+  obj[["Sex"]] <- covariates[["Sex"]]
+  obj[["age"]] <- as.integer(covariates[["age"]])
   obj
 })
 ```
 
-The covariates join the cell annotation in `meta.data`.
+Merge the individual samples and verify the cohort composition:
 
 ```{r seurat-merge, message = FALSE, warning = FALSE}
 pbmc <- merge(objs[[1]], objs[-1],
-  add.cell.ids = vapply(objs, function(o) unique(o$donor), character(1))
+  add.cell.ids = vapply(objs, function(o) unique(o[["donor"]]), character(1))
 )
 pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
 
-table(pbmc$donor, pbmc$group)
+table(pbmc[["donor"]], pbmc[["group"]])
 ```
 
-## An example analysis
+### Cohort downstream analysis
 
-From this point the work is Seurat and not Seqout.
+You can perform standard Seurat downstream workflows directly on the merged object:
 
 ```{r sctransform, message = FALSE, warning = FALSE}
 pbmc <- SCTransform(pbmc, vars.to.regress = "percent.mt", verbose = FALSE)
@@ -313,26 +274,25 @@ pbmc <- FindClusters(pbmc, resolution = 0.4, verbose = FALSE)
 pbmc
 ```
 
+Visualize the UMAP embedding colored by clusters:
+
 ```{r umap-clusters, fig.width = 6, fig.height = 5, message = FALSE, warning = FALSE}
 DimPlot(pbmc, label = TRUE) + ggplot2::ggtitle("Clusters")
 ```
+
+Visualize the UMAP embedding colored by the integrated study metadata:
 
 ```{r umap-metadata, fig.width = 10, fig.height = 4.5, message = FALSE, warning = FALSE}
 DimPlot(pbmc, group.by = c("donor", "group", "Sex"), ncol = 3)
 ```
 
+Analyze the cell composition across groups:
+
 ```{r composition}
-round(prop.table(table(pbmc$seurat_clusters, pbmc$group), margin = 2), 3)
+round(prop.table(table(pbmc[["seurat_clusters"]], pbmc[["group"]]), margin = 2), 3)
 ```
 
-`QuickAnnotation()` puts a label on each cluster from marker sets that you
-supply. It scores each cell as the mean expression of the genes of a set,
-calculates the mean of those scores in each cluster, and takes the highest
-score. The scores of different sets have different scales. Read
-`attr(labels, "scores")` before you trust a label.
-
-The gene names of this study are anonymous, thus the code below is an example
-and not a result.
+Use the `QuickAnnotation()` helper to classify clusters based on a list of cell-type marker genes. The function scores each cell, calculates the mean score per cluster, and assigns the label with the highest score.
 
 ```{r annotation, eval = FALSE}
 markers <- list(
@@ -342,27 +302,21 @@ markers <- list(
 )
 
 expr <- SeuratObject::LayerData(JoinLayers(pbmc), layer = "data")
-labels <- QuickAnnotation(expr, pbmc$seurat_clusters, markers)
-pbmc$celltype <- labels[as.character(pbmc$seurat_clusters)]
+labels <- QuickAnnotation(expr, pbmc[["seurat_clusters"]], markers)
+pbmc[["celltype"]] <- labels[as.character(pbmc[["seurat_clusters"]])]
 ```
 
-## More than one matrix
+## Batch processing and direct file access
 
-`Matrices()` reads each preferred unit and returns a list, with the unit labels
-as names. It gets all the files in one call, because one file at a time is the
-slow way to download a series of 19 samples.
+For studies containing many samples, use `Matrices()` to query and load all preferred units in a single call. This downloads resources concurrently, which is faster than downloading each sample sequentially.
 
 ```{r whole-study, eval = FALSE}
 mats <- Matrices(counts)
 ```
 
-Seqout skips a unit that it cannot read and gives a warning. One bad file thus
-does not stop the full call. Compare the length of the result with the number
-of preferred rows in the counts table.
+If a specific unit fails to load, `seqout` emits a warning and continues processing the remaining units.
 
-`BindCounts()` joins more than one matrix into one matrix, on the features that
-they have in common. It puts a label before each cell name, and it can set a
-maximum number of cells for each matrix.
+To merge multiple matrices matching specific features (such as shared genes), use the `BindCounts()` helper:
 
 ```{r bind, eval = FALSE}
 merged <- BindCounts(Matrices(counts, sample = picked),
@@ -371,15 +325,15 @@ merged <- BindCounts(Matrices(counts, sample = picked),
 dim(merged)
 ```
 
-`SeqoutCountsFiles()` downloads the files of a unit and reads none of them. Use
-it when you want to read the files with your own tools.
+If you prefer to parse files using custom tools rather than loading them through `seqout`, retrieve the local file paths directly using `SeqoutCountsFiles()`:
 
 ```{r files, eval = FALSE}
 paths <- SeqoutCountsFiles(counts, sample = "GSM8994520")
 ```
 
-## What it costs
+## Best practices for data retrieval
 
-The download is the expensive step. One series can be tens of gigabytes. The
-counts table costs one API call, thus you can look at a study before you commit
-to it. Read the table first, and take only the units that you need.
+Downloading genomic datasets is resource-intensive because GEO studies can exceed tens of gigabytes. To optimize bandwidth and storage usage:
+
+1.  **Filter First:** Call `SeqoutCounts()` first to inspect the available units and formats before downloading.
+2.  **Download Selectively:** Retrieve only the specific sample accessions or units you need for your downstream analysis.
