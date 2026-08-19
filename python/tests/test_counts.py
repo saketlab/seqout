@@ -848,3 +848,97 @@ def test_sample_frame_is_empty_not_broken_for_no_samples():
     from seqout.utils import sample_frame
 
     assert sample_frame([]).empty
+
+
+# --- parity with the R client: bind_counts, quick_annotation, .samples() ---
+
+
+def _cm(cells, genes, values):
+    import numpy as np
+    import pandas as pd
+
+    from seqout.counts_model import CountMatrix
+
+    return CountMatrix(
+        X=np.asarray(values, dtype=float),
+        obs=pd.DataFrame(index=pd.Index(cells)),
+        var=pd.DataFrame(index=pd.Index(genes)),
+        kind="single_cell",
+        fmt="10x_h5",
+    )
+
+
+def test_bind_counts_keeps_shared_genes_and_labels():
+    import pytest
+
+    pytest.importorskip("anndata")
+    from seqout import bind_counts
+
+    a = _cm(["c1", "c2"], ["A", "B"], [[1, 2], [3, 4]])
+    b = _cm(["c1", "c2"], ["B", "C"], [[5, 6], [7, 8]])
+    out = bind_counts({"s1": a, "s2": b})
+
+    assert list(out.var_names) == ["B"]
+    assert out.n_obs == 4
+    assert list(out.obs["sample"]) == ["s1", "s1", "s2", "s2"]
+    assert list(out.obs_names) == ["c1-s1", "c2-s1", "c1-s2", "c2-s2"]
+
+
+def test_bind_counts_max_cells_is_reproducible():
+    import pytest
+
+    pytest.importorskip("anndata")
+    from seqout import bind_counts
+
+    a = _cm([f"c{i}" for i in range(10)], ["A"], [[i] for i in range(10)])
+    b = _cm([f"d{i}" for i in range(10)], ["A"], [[i] for i in range(10)])
+    first = bind_counts({"s1": a, "s2": b}, max_cells=3, seed=0)
+    again = bind_counts({"s1": a, "s2": b}, max_cells=3, seed=0)
+
+    assert first.n_obs == 6
+    assert list(first.obs_names) == list(again.obs_names)
+
+
+def test_bind_counts_refuses_disjoint_features():
+    import pytest
+
+    from seqout import bind_counts
+
+    a = _cm(["c1"], ["A"], [[1]])
+    b = _cm(["c1"], ["Z"], [[1]])
+    with pytest.raises(ValueError, match="share no features"):
+        bind_counts([a, b])
+
+
+def test_quick_annotation_labels_each_cluster_by_its_markers():
+    from seqout import quick_annotation
+
+    # cells 0,1 express NEU; cells 2,3 express MIC
+    m = _cm(
+        ["c0", "c1", "c2", "c3"],
+        ["NEU", "MIC"],
+        [[10, 0], [12, 0], [0, 11], [0, 9]],
+    )
+    labels = quick_annotation(
+        m, ["a", "a", "b", "b"], {"neuron": ["NEU"], "microglia": ["MIC"]}
+    )
+
+    assert labels["a"] == "neuron"
+    assert labels["b"] == "microglia"
+    assert labels.attrs["scores"].shape == (2, 2)
+
+
+def test_quick_annotation_drops_absent_marker_sets():
+    import pytest
+
+    from seqout import quick_annotation
+
+    m = _cm(["c0", "c1"], ["NEU"], [[5], [6]])
+    labels = quick_annotation(m, ["a", "b"], {"neuron": ["NEU"], "ghost": ["NOPE"]})
+    assert set(labels) == {"neuron"}
+
+    with pytest.raises(ValueError, match="none of the marker genes"):
+        quick_annotation(m, ["a", "b"], {"ghost": ["NOPE"]})
+
+    with pytest.raises(ValueError, match="clusters has 1 entries"):
+        quick_annotation(m, ["a"], {"neuron": ["NEU"]})

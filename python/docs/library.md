@@ -387,6 +387,84 @@ and reagent and skin organisms are excluded unless `include_background=True`.
 All three read the REST API and say so on a Parquet client: neither the
 harmonised sample table nor the Pentimento tables are in the dump.
 
+## Counts matrices
+
+`SeqoutCounts` resolves the supplementary files of a GEO accession and groups
+them into units. A unit is the smallest set of files that reads as one matrix:
+a 10x `matrix.mtx` with its barcodes and features, or a single `.h5`, `.h5ad`,
+`.rds` or table file. Nothing is downloaded until you ask for a matrix, because
+a GEO payload can run to tens of gigabytes.
+
+Reading counts needs the `counts` extra: `uv add 'seqout[counts]'`.
+
+```python
+from seqout import SeqoutCounts
+
+c = SeqoutCounts("GSE297547")
+c.manifest()[["unit", "sample", "format", "preferred", "has_metadata"]]
+```
+
+`preferred` marks the unit `matrix()` picks for each sample. `assay` selects
+between the modalities of a CITE-seq or multiome sample: `"rna"` is the
+default, and `"adt"`, `"hto"` and `"atac"` are recognised.
+
+```python
+m = c.matrix(sample="GSM8994520")   # one unit
+m.shape                             # cells by genes
+a = c.anndata()                     # every preferred unit, concatenated
+```
+
+`CountMatrix` holds the matrix in `X`, the cell annotation in `obs` and the
+gene annotation in `var`, cells by genes throughout. The R client stores the
+transpose, genes by cells, which is what Seurat expects.
+
+### Choose which samples to read
+
+`samples()` filters the study's samples through the harmonised cohort search
+and keeps only the ones that ship a readable unit. Use it on a series that
+mixes tissues or assays.
+
+```python
+liver = c.samples(tissue="liver", min_cell_count=1000)
+liver[["sample", "unit", "format", "cells", "tissue"]]
+
+m = c.matrix(sample=liver["unit"].iloc[0])
+```
+
+### Bind samples together
+
+`bind_counts` concatenates matrices on the genes they share. `max_cells` caps
+the cells kept per matrix, drawn at random; pass `seed` for a reproducible
+draw.
+
+```python
+from seqout import bind_counts
+
+merged = bind_counts(c.matrices(), max_cells=1200, seed=0)
+merged.obs["sample"]
+```
+
+`c.anndata()` is the same call over every preferred unit.
+
+### Label clusters by marker set
+
+`quick_annotation` scores each cell as the mean expression of a marker set's
+genes, averages that within each cluster, and labels the cluster with its
+highest-scoring set.
+
+```python
+from seqout import quick_annotation
+
+markers = {"neuron": ["NEUROD2", "TBR1"], "microglia": ["CX3CR1", "C1QA"]}
+labels = quick_annotation(adata, adata.obs["leiden"], markers)
+
+adata.obs["celltype"] = labels[adata.obs["leiden"].astype(str)].to_numpy()
+```
+
+Scores are unscaled across sets, so a housekeeping-heavy set can out-score a
+sparse but specific one. Read `labels.attrs["scores"]` before you trust a
+label.
+
 ## Supplementary files
 
 `Dataset.supplementary` lists the processed files a submitter uploaded: count

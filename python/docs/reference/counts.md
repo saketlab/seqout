@@ -13,3 +13,7 @@ Reading counts needs the `counts` extra: `uv add 'seqout[counts]'`.
 ::: seqout.counts_model.Unit
 
 ::: seqout.counts_model.SuppFile
+
+::: seqout.counts.bind_counts
+
+::: seqout.annotate.quick_annotation

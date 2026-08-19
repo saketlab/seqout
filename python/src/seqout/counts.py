@@ -23,6 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Self
 
+import numpy as np
 import pandas as pd
 
 from seqout import counts_ftp
@@ -371,14 +372,12 @@ class SeqoutCounts:
         if not mats:
             msg = f"nothing readable in {self.accession}; see .manifest()"
             raise ValueError(msg)
-        adatas = {k: m.to_anndata() for k, m in mats.items()}
-        if len(adatas) == 1:
-            return next(iter(adatas.values()))
+        if len(mats) == 1:
+            return next(iter(mats.values())).to_anndata()
         if not concat:
-            msg = f"{len(adatas)} units; pass sample= or concat=True"
+            msg = f"{len(mats)} units; pass sample= or concat=True"
             raise ValueError(msg)
-        ad = _require("anndata")
-        return ad.concat(adatas, join="inner", label="sample", index_unique="-")
+        return bind_counts(mats)
 
     def native(self, sample: str | None = None) -> Any:
         """
@@ -445,6 +444,52 @@ class SeqoutCounts:
             evidence=ev,
             metadata_fields=describe_metadata([str(c) for c in obs.columns]),
         )
+
+    def samples(
+        self, *, min_cell_count: int | None = 1, **filters: Any
+    ) -> pd.DataFrame:
+        """
+        Choose which samples of the series to read.
+
+        Filters the study's samples through the harmonised cohort search and
+        keeps the ones that have a readable unit. Use it on a series that mixes
+        tissues or assays.
+
+        Args:
+            min_cell_count: Smallest cell count to keep. A sample with no
+                recorded count goes too; None keeps everything.
+            **filters: Cohort filters, such as tissue="liver". The study comes
+                from this object.
+
+        Returns:
+            The matching samples, most cells first, with the `unit` and
+            `format` that matrix() would read.
+
+        """
+        if not self.accession.startswith("GSE"):
+            msg = f"{self.accession} is a single sample; give a GSE to select within it"
+            raise ValueError(msg)
+        rows = self.client.sample_search(
+            study_accession=self.accession, min_cell_count=min_cell_count, **filters
+        ).to_df()
+        if rows.empty:
+            return rows
+
+        units = {u.sample: u for u in self.units() if u.sample}
+        out = rows[rows["sample"].isin(units)].copy()
+        if out.empty:
+            logger.warning(
+                "%d sample(s) matched the filters, but none ships a counts file; "
+                "see .manifest()",
+                len(rows),
+            )
+            return out
+        out["unit"] = [units[s].label for s in out["sample"]]
+        out["format"] = [units[s].fmt for s in out["sample"]]
+        if "cells" in out.columns:
+            out = out.sort_values("cells", ascending=False, na_position="last")
+        front = [c for c in ("sample", "unit", "format", "cells", "tissue") if c in out]
+        return out[front + [c for c in out.columns if c not in front]]
 
     @property
     def design(self) -> pd.DataFrame:
@@ -574,3 +619,56 @@ class SeqoutCounts:
 
 
 seqout_counts = SeqoutCounts
+
+
+def bind_counts(
+    matrices: dict[str, CountMatrix] | list[CountMatrix],
+    labels: list[str] | None = None,
+    max_cells: int | None = None,
+    seed: int | None = None,
+) -> Any:
+    """
+    Bind counts matrices across samples, on the genes they share.
+
+    Args:
+        matrices: CountMatrix objects, as SeqoutCounts.matrices() returns.
+        labels: One name per matrix, used for the `sample` column and the cell
+            name suffix. Defaults to the dict keys.
+        max_cells: Cap on cells kept per matrix, sampled at random. None keeps
+            all; pass seed for a reproducible draw.
+        seed: Seed for that draw.
+
+    Returns:
+        One AnnData, cells by genes.
+
+    """
+    items = (
+        list(matrices.items())
+        if isinstance(matrices, dict)
+        else [(str(i), m) for i, m in enumerate(matrices)]
+    )
+    if not items:
+        msg = "matrices is empty"
+        raise ValueError(msg)
+    keys = [str(k) for k, _ in items] if labels is None else [str(x) for x in labels]
+    if len(keys) != len(items):
+        msg = f"labels has {len(keys)} entries, matrices has {len(items)}"
+        raise ValueError(msg)
+
+    features = [
+        set(m.var.index if isinstance(m, CountMatrix) else m.var_names)
+        for _, m in items
+    ]
+    if not features[0].intersection(*features[1:]):
+        msg = f"the {len(items)} matrices share no features"
+        raise ValueError(msg)
+
+    ad = _require("anndata")
+    rng = np.random.default_rng(seed)
+    adatas = []
+    for _, m in items:
+        a = m.to_anndata() if isinstance(m, CountMatrix) else m
+        if max_cells is not None and a.n_obs > max_cells:
+            a = a[np.sort(rng.choice(a.n_obs, max_cells, replace=False))].copy()
+        adatas.append(a)
+    return ad.concat(adatas, keys=keys, join="inner", label="sample", index_unique="-")

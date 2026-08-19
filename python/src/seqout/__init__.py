@@ -1,4 +1,10 @@
-from seqout.counts import CountMatrix, SeqoutCounts, seqout_counts
+from seqout.annotate import quick_annotation
+from seqout.counts import (
+    CountMatrix,
+    SeqoutCounts,
+    bind_counts,
+    seqout_counts,
+)
 from seqout.dataset import Dataset
 from seqout.models import api_models, parquet_models
 from seqout.models.api_models import SearchParams, StudyRunsResults
@@ -13,11 +19,13 @@ __all__ = [
     "SeqoutCounts",
     "StudyRunsResults",
     "api_models",
+    "bind_counts",
     "connect",
     "connect_to_seqout",
     "country_code_to_name",
     "country_name_to_code",
     "parquet_models",
+    "quick_annotation",
     "sample_frame",
     "seqout_counts",
 ]
