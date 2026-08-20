@@ -72,12 +72,12 @@ substring also matches \code{"female"}.}
 \code{max_cell_count}, \code{min_gene_count}, \code{max_gene_count}. An age filter
 excludes a sample whose age was never recorded, so \code{age_min_years = 0}
 means "has a recorded age".}
+\item{Matrix}{\code{has_matrix} keeps samples with a parsed cell-by-gene
+matrix.}
 \item{Read-derived}{\code{single_cell_only}, \code{has_viral_reads},
 \code{has_bacterial_reads}, \code{hpv_type}, \code{microbe}, \code{microbe_class},
 \code{microbe_min_breadth}, \code{microbe_min_kmer_mass},
-\code{microbe_validated_only}. These come from the Pentimento screen of the
-reads themselves, which often disagrees with what the submitter
-declared.}
+\code{microbe_validated_only}.}
 }
 
 A \verb{microbe*} filter narrows the cohort to the samples that carry a

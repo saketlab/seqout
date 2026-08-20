@@ -25,6 +25,8 @@ export(Matrices)
 export(Ontology)
 export(Paper)
 export(ProjectSingleCell)
+export(ProjectSingleCellStatus)
+export(ProjectSingleCellSummary)
 export(Query)
 export(QuickAnnotation)
 export(RegisterTables)
@@ -40,6 +42,7 @@ export(SeqoutGet)
 export(SeqoutMatrix)
 export(SeqoutSearch)
 export(SeqoutUnits)
+export(SingleCellStudies)
 export(Summaries)
 export(Tables)
 export(accession_kind)
@@ -60,6 +63,8 @@ export(matrices)
 export(ontology)
 export(paper)
 export(project_single_cell)
+export(project_single_cell_status)
+export(project_single_cell_summary)
 export(query)
 export(quick_annotation)
 export(register_tables)
@@ -75,27 +80,36 @@ export(seqout_matrix)
 export(seqout_search)
 export(seqout_seurat)
 export(seqout_units)
+export(single_cell_studies)
 export(summaries)
 export(tables)
-importFrom(cli,cli_abort)
-importFrom(cli,cli_alert_info)
-importFrom(cli,cli_alert_success)
-importFrom(cli,cli_inform)
-importFrom(cli,cli_warn)
-importFrom(httr2,req_body_json)
-importFrom(httr2,req_error)
-importFrom(httr2,req_headers)
-importFrom(httr2,req_perform)
-importFrom(httr2,req_retry)
-importFrom(httr2,req_timeout)
-importFrom(httr2,req_url_path_append)
-importFrom(httr2,req_url_query)
-importFrom(httr2,request)
-importFrom(httr2,resp_body_json)
-importFrom(httr2,resp_body_raw)
-importFrom(httr2,resp_body_string)
-importFrom(httr2,resp_status)
-importFrom(rlang,"%||%")
-importFrom(rlang,check_required)
-importFrom(tibble,as_tibble)
-importFrom(tibble,tibble)
+importFrom(cli,
+  cli_abort,
+  cli_alert_info,
+  cli_alert_success,
+  cli_inform,
+  cli_warn
+)
+importFrom(httr2,
+  req_body_json,
+  req_error,
+  req_headers,
+  req_perform,
+  req_retry,
+  req_timeout,
+  req_url_path_append,
+  req_url_query,
+  request,
+  resp_body_json,
+  resp_body_raw,
+  resp_body_string,
+  resp_status
+)
+importFrom(rlang,
+  "%||%",
+  check_required
+)
+importFrom(tibble,
+  as_tibble,
+  tibble
+)

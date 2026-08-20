@@ -341,7 +341,8 @@ test_that("download_dump builds one URL and one filename per table", {
     }
   )
 
-  download_dump("dump", tables = c("geo_series", "unified_metadata"),
+  download_dump("dump",
+    tables = c("geo_series", "unified_metadata"),
     quiet = TRUE, con = fake_con()
   )
   expect_equal(seen$urls, paste0(

@@ -103,6 +103,205 @@
   flags = .pnt_list
 )
 
+#' @noRd
+.pnt_evidence_spec <- list(
+  samples_with_matrix = .pnt_int,
+  barcode_whitelist_hit = .pnt_lgl,
+  r1_length_single_cell = .pnt_lgl,
+  n_independent_evidence = .pnt_int,
+  has_matrix = .pnt_lgl,
+  has_reads_linked = .pnt_lgl,
+  reads_scanned = .pnt_lgl,
+  kind = .pnt_chr,
+  # list-columns: a study can file reads under more than one accession
+  matrix_accessions = .pnt_list,
+  reads_accessions = .pnt_list
+)
+
+#' @noRd
+.pnt_status_spec <- c(
+  list(
+    accession = .pnt_chr,
+    queried_as = .pnt_chr,
+    source = .pnt_chr,
+    single_cell_status = .pnt_chr,
+    in_unified_metadata = .pnt_lgl,
+    in_pentimento = .pnt_lgl
+  ),
+  .pnt_evidence_spec
+)
+
+#' Flattens the nested `evidence` object into the status/summary row.
+#' @noRd
+.pnt_flatten_evidence <- function(res) {
+  ev <- res$evidence
+  res$evidence <- NULL
+  c(res, if (is.null(ev)) list() else ev)
+}
+
+#' Determine if a study is single-cell
+#'
+#' `kind` says what the study IS as an object, which is a different question
+#' from whether it is single-cell:
+#' \describe{
+#'   \item{`matrix_and_reads`}{counts and reads, both confirmed}
+#'   \item{`matrix_reads_unscanned`}{counts plus linked FASTQ no read-derived
+#'     call has confirmed yet}
+#'   \item{`matrix_only`}{counts, no linked reads}
+#'   \item{`reads_only`}{no parsed matrix}
+#' }
+#'
+#' @param accession A study or series accession, or one resolving to a study.
+#' @inheritParams project
+#'
+#' @return A one-row tibble, or an empty one when the accession is unknown to
+#'   both the unified catalogue and the Pentimento.
+#'
+#' @seealso [project_single_cell_summary()] for the study-level rollup,
+#'   [project_single_cell()] for the per-sample counts.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' st <- ProjectSingleCellStatus("GSE168652")
+#' st$single_cell_status
+#' st$n_independent_evidence
+#' }
+project_single_cell_status <- function(accession, con = .con()) {
+  .need_api(con, "project_single_cell_status",
+    why = "There is no Pentimento table in the dump."
+  )
+  check_required(accession)
+
+  path <- paste0(
+    "/project/", toupper(trimws(accession)), "/single-cell/status"
+  )
+  res <- .api_get(con, path, null_on = 404L)
+  if (is.null(res)) {
+    return(.pnt_tibble(list(), .pnt_status_spec))
+  }
+  .pnt_tibble(list(.pnt_flatten_evidence(res)), .pnt_status_spec)
+}
+
+#' @noRd
+.pnt_summary_spec <- c(
+  .pnt_study_spec,
+  list(
+    queried_as = .pnt_chr,
+    single_cell_status = .pnt_chr,
+    microbe_measured = .pnt_lgl,
+    n_viral_organisms = .pnt_int,
+    n_bacterial_organisms = .pnt_int
+  ),
+  .pnt_evidence_spec
+)
+
+#' Study-level single-cell summary: cells, reads scanned, microbes
+#'
+#' @param accession A study or series accession, or one resolving to a study.
+#' @inheritParams project
+#'
+#' @return A one-row tibble, empty when the study is not in the Pentimento.
+#'
+#' @seealso [project_single_cell_status()] when you need an answer even for a
+#'   study the Pentimento has never seen.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' s <- ProjectSingleCellSummary("GSE168652")
+#' s$study_cells
+#' s$microbe_measured
+#' }
+project_single_cell_summary <- function(accession, con = .con()) {
+  .need_api(con, "project_single_cell_summary",
+    why = "There is no Pentimento table in the dump."
+  )
+  check_required(accession)
+
+  path <- paste0(
+    "/project/", toupper(trimws(accession)), "/single-cell/summary"
+  )
+  res <- .api_get(con, path, null_on = 404L)
+  if (is.null(res)) {
+    return(.pnt_tibble(list(), .pnt_summary_spec))
+  }
+  .pnt_tibble(list(.pnt_flatten_evidence(res)), .pnt_summary_spec)
+}
+
+#' @noRd
+.pnt_studies_spec <- list(
+  study_accession = .pnt_chr,
+  counted_matrix = .pnt_lgl,
+  barcode_whitelist_hit = .pnt_lgl,
+  r1_length_single_cell = .pnt_lgl,
+  n_independent_evidence = .pnt_int,
+  kind = .pnt_chr,
+  study_cells = .pnt_int,
+  any_unfiltered = .pnt_lgl,
+  single_cell_status = .pnt_chr
+)
+
+#' /single-cell/studies caps a page at 1000 rows.
+#' @noRd
+.pnt_studies_page <- 1000L
+
+#' Studies with single-cell evidence
+#'
+#' @param min_evidence Minimum independent measurements, 1 to 3.
+#' @param require_matrix Keep only studies with a counted matrix.
+#' @param limit Maximum studies; `NULL` reads all, in pages of up to 1000.
+#' @param offset Number of studies to skip.
+#' @inheritParams project
+#'
+#' @return A study tibble, one row per study.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' sc <- SingleCellStudies(require_matrix = TRUE, limit = 100)
+#' nrow(sc)
+#' }
+single_cell_studies <- function(min_evidence = 1,
+                                require_matrix = FALSE,
+                                limit = NULL,
+                                offset = 0,
+                                con = .con()) {
+  .need_api(con, "single_cell_studies",
+    why = "There is no Pentimento table in the dump."
+  )
+
+  page_size <- if (is.null(limit)) {
+    .pnt_studies_page
+  } else {
+    min(limit, .pnt_studies_page)
+  }
+  pages <- list()
+  n <- 0L
+  repeat {
+    res <- .api_get(
+      con, "/single-cell/studies",
+      min_evidence = min_evidence, require_matrix = require_matrix,
+      limit = page_size, offset = offset + n, null_on = 404L
+    )
+    rows <- if (is.null(res)) list() else .as_record_list(res$studies)
+    # No total is returned, so a short page IS the end of the set.
+    if (length(rows) == 0) break
+    pages[[length(pages) + 1L]] <- rows
+    n <- n + length(rows)
+    if (!is.null(limit) && n >= limit) break
+    if (length(rows) < page_size) break
+  }
+  if (length(pages) == 0) {
+    return(.pnt_tibble(list(), .pnt_studies_spec))
+  }
+  records <- unlist(pages, recursive = FALSE, use.names = FALSE)
+  if (!is.null(limit) && length(records) > limit) {
+    records <- records[seq_len(limit)]
+  }
+  .pnt_tibble(records, .pnt_studies_spec)
+}
+
 #' Per-sample cell and gene counts for a study
 #'
 #' Returns one row per sample with matrix dimensions, read-derived species, sex
