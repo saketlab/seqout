@@ -61,8 +61,8 @@ To search for individual samples rather than entire studies, use `SampleSearch()
 
 ```{r cohort}
 liver <- SampleSearch(
-  organism = "Homo sapiens", 
-  tissue = "liver", 
+  organism = "Homo sapiens",
+  tissue = "liver",
   age_min_years = 50,
   limit = 5
 )

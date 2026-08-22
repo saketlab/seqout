@@ -13,7 +13,8 @@
   "age_min_years", "age_max_years",
   "min_cell_count", "max_cell_count", "min_gene_count", "max_gene_count",
   # read-derived (Pentimento)
-  "single_cell_only", "has_viral_reads", "has_bacterial_reads", "hpv_type",
+  "has_matrix", "single_cell_only", "has_viral_reads", "has_bacterial_reads",
+  "hpv_type",
   "microbe", "microbe_class", "microbe_min_breadth", "microbe_min_kmer_mass",
   "microbe_validated_only"
 )
@@ -131,12 +132,12 @@
 #'     `max_cell_count`, `min_gene_count`, `max_gene_count`. An age filter
 #'     excludes a sample whose age was never recorded, so `age_min_years = 0`
 #'     means "has a recorded age".}
+#'   \item{Matrix}{`has_matrix` keeps samples with a parsed cell-by-gene
+#'     matrix.}
 #'   \item{Read-derived}{`single_cell_only`, `has_viral_reads`,
 #'     `has_bacterial_reads`, `hpv_type`, `microbe`, `microbe_class`,
 #'     `microbe_min_breadth`, `microbe_min_kmer_mass`,
-#'     `microbe_validated_only`. These come from the Pentimento screen of the
-#'     reads themselves, which often disagrees with what the submitter
-#'     declared.}
+#'     `microbe_validated_only`.}
 #' }
 #'
 #' A `microbe*` filter narrows the cohort to the samples that carry a

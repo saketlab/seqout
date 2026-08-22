@@ -70,6 +70,14 @@ Ontology <- ontology
 #' @export
 ProjectSingleCell <- project_single_cell
 
+#' @rdname project_single_cell_status
+#' @export
+ProjectSingleCellStatus <- project_single_cell_status
+
+#' @rdname project_single_cell_summary
+#' @export
+ProjectSingleCellSummary <- project_single_cell_summary
+
 #' @rdname sample_microbes
 #' @export
 SampleMicrobes <- sample_microbes
@@ -77,6 +85,10 @@ SampleMicrobes <- sample_microbes
 #' @rdname sample_search
 #' @export
 SampleSearch <- sample_search
+
+#' @rdname single_cell_studies
+#' @export
+SingleCellStudies <- single_cell_studies
 
 #' @rdname paper
 #' @export

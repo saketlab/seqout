@@ -10,10 +10,12 @@ mock_matrix <- function(X) {
 }
 
 test_that("bind_counts intersects features and binds genes by cells", {
-  a <- mock_matrix(matrix(1:6, nrow = 3,
+  a <- mock_matrix(matrix(1:6,
+    nrow = 3,
     dimnames = list(c("g1", "g2", "g3"), c("c1", "c2"))
   ))
-  b <- mock_matrix(matrix(1:4, nrow = 2,
+  b <- mock_matrix(matrix(1:4,
+    nrow = 2,
     dimnames = list(c("g2", "g3"), c("c1", "c2"))
   ))
 
@@ -37,7 +39,8 @@ test_that("bind_counts keeps sparse inputs sparse", {
 })
 
 test_that("max_cells caps columns per matrix", {
-  X <- matrix(1:9, nrow = 3,
+  X <- matrix(1:9,
+    nrow = 3,
     dimnames = list(c("g1", "g2", "g3"), c("c1", "c2", "c3"))
   )
   set.seed(1)

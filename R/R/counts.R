@@ -87,9 +87,13 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 
 #' @export
 `$.seqout_counts` <- function(x, name) {
-  if (name %in% names(x)) return(NextMethod("$"))
+  if (name %in% names(x)) {
+    return(NextMethod("$"))
+  }
   handle <- attr(x, ".counts_handle", exact = TRUE)
-  if (!is.null(handle) && name %in% names(handle)) return(handle[[name]])
+  if (!is.null(handle) && name %in% names(handle)) {
+    return(handle[[name]])
+  }
   cli::cli_abort(c(
     "{.val {name}} is not a column of the counts table.",
     i = "Columns: {.field {names(x)}}."
