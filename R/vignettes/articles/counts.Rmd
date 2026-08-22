@@ -242,7 +242,7 @@ objs <- lapply(picked, function(accession) {
   obj <- Seqout2Seurat(m, project = accession, min.cells = 3, min.features = 200)
   obj[["sample"]] <- accession
   obj[["donor"]] <- sub(".*from ([A-Z]+[0-9]+).*", "\\1", covariates[["title"]])
-  obj[["group"]] <- ifelse(grepl("^MG", obj[["donor"]]), "MG", "control")
+  obj[["group"]] <- ifelse(grepl("^MG", obj$donor), "MG", "control")
   obj[["Sex"]] <- covariates[["Sex"]]
   obj[["age"]] <- as.integer(covariates[["age"]])
   obj
@@ -253,11 +253,11 @@ Merge the individual samples and verify the cohort composition:
 
 ```{r seurat-merge, message = FALSE, warning = FALSE}
 pbmc <- merge(objs[[1]], objs[-1],
-  add.cell.ids = vapply(objs, function(o) unique(o[["donor"]]), character(1))
+  add.cell.ids = vapply(objs, function(o) unique(o$donor), character(1))
 )
 pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
 
-table(pbmc[["donor"]], pbmc[["group"]])
+table(pbmc$donor, pbmc$group)
 ```
 
 ### Cohort downstream analysis
@@ -289,7 +289,7 @@ DimPlot(pbmc, group.by = c("donor", "group", "Sex"), ncol = 3)
 Analyze the cell composition across groups:
 
 ```{r composition}
-round(prop.table(table(pbmc[["seurat_clusters"]], pbmc[["group"]]), margin = 2), 3)
+round(prop.table(table(pbmc$seurat_clusters, pbmc$group), margin = 2), 3)
 ```
 
 Use the `QuickAnnotation()` helper to classify clusters based on a list of cell-type marker genes. The function scores each cell, calculates the mean score per cluster, and assigns the label with the highest score.
@@ -302,8 +302,8 @@ markers <- list(
 )
 
 expr <- SeuratObject::LayerData(JoinLayers(pbmc), layer = "data")
-labels <- QuickAnnotation(expr, pbmc[["seurat_clusters"]], markers)
-pbmc[["celltype"]] <- labels[as.character(pbmc[["seurat_clusters"]])]
+labels <- QuickAnnotation(expr, pbmc$seurat_clusters, markers)
+pbmc[["celltype"]] <- unname(labels[as.character(pbmc$seurat_clusters)])
 ```
 
 ## Batch processing and direct file access
