@@ -321,6 +321,12 @@ adata_sample = counts.matrix(sample="GSM8994520")
 adata_cohort = counts.anndata()
 ```
 
+The study's sample-level covariates are available as `design`, indexed by accession. Reading it costs no extra request, and the same values are broadcast onto `obs`:
+
+```python
+counts.design
+```
+
 ### Filter samples within a study
 
 To filter samples in a study using harmonized metadata before loading them, call `samples()`:

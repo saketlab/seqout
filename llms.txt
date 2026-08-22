@@ -34,13 +34,13 @@ install.packages("seqout", repos = "https://saketlab.r-universe.dev")      # or 
 Python:
 
 ```python
-from seqout import connect, seqout_counts
+from seqout import connect, SeqoutCounts
 
 sq = connect()
 sq.seqout_search("liver cancer scRNA", organism="Homo sapiens")
 sq.seqout_get("GSE151530").samples
 
-counts = seqout_counts(gse="GSE297547")
+counts = SeqoutCounts(gse="GSE297547")
 counts.manifest()                        # readable units, nothing downloaded yet
 counts.matrix(sample="GSM8994520")       # AnnData, cells by genes
 counts.design                            # one row per sample
@@ -52,17 +52,17 @@ R:
 library(seqout)
 
 # No connection needed; every function reads the REST API by default
-project("GSE151530")
-project_samples("GSE151530")
-seqout_search("liver cancer scRNA", db = "geo")
+SeqoutGet("GSE151530")
+SeqoutGet("GSE151530")$samples
+SeqoutSearch("liver cancer scRNA", db = "geo")
 
-counts <- seqout_counts("GSE297547")
-manifest(counts)
-seqout_matrix(counts, sample = "GSM8994520")
+counts <- SeqoutCounts("GSE297547")
+SeqoutUnits(counts)
+SeqoutMatrix(counts, sample = "GSM8994520")
 
 # Opt in to Parquet for SQL over the whole index
-con <- seqout_connect("parquet")
-query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
+con <- SeqoutConnect("parquet")
+Query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
 ```
 
 The command line has `seqout search`, `show`, `download`, `pmid`, `author` and
@@ -99,7 +99,7 @@ and `query()` need a Parquet connection and say so if given a REST one. Its view
 - [Client reference](https://seqout.org/cli/python/reference/client/): `connect()` and the method surface both backends share
 - [Dataset reference](https://seqout.org/cli/python/reference/dataset/): the `Dataset` façade and every field it lazily resolves
 - [Search reference](https://seqout.org/cli/python/reference/search/): search, filters and structured queries
-- [Counts matrices](https://seqout.org/cli/python/reference/counts/): `seqout_counts`, manifests, units and readers
+- [Counts matrices](https://seqout.org/cli/python/reference/counts/): `SeqoutCounts`, manifests, units and readers
 - [Utilities reference](https://seqout.org/cli/python/reference/utilities/): retries, resumable downloads and other helpers
 - [R package](https://seqout.org/cli/R/): reference index and articles
 - [R function reference](https://seqout.org/cli/R/reference/): every exported function, grouped by task

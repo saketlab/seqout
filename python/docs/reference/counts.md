@@ -1,5 +1,5 @@
 ---
-description: "seqout_counts and CountMatrix: GEO supplementary files read as a single-cell or bulk counts matrix."
+description: "SeqoutCounts and CountMatrix: GEO supplementary files read as a single-cell or bulk counts matrix."
 ---
 
 # Counts matrices

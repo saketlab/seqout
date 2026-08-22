@@ -113,19 +113,21 @@ without downloading anything, and the donor covariates come from the same
 accession.
 
 ```python
-from seqout import seqout_counts
+from seqout import SeqoutCounts
 
-counts = seqout_counts(gse="GSE297547")
-counts.manifest()                       
-m = counts.matrix(sample="GSM8994520")  
-counts.design                           
+counts = SeqoutCounts("GSE297547")
+counts.manifest()                        # units found, nothing downloaded yet
+m = counts.matrix(sample="GSM8994520")   # genes x cells, obs carries the donor
+adata = counts.anndata()                 # every sample, concatenated
+counts.design                            # sample-level covariates
 ```
 
 ```r
-counts <- seqout_counts("GSE297547")
-manifest(counts)
-m <- seqout_matrix(counts, sample = "GSM8994520")
-sample_frame(project_samples("GSE297547"))
+counts <- SeqoutCounts("GSE297547")
+SeqoutUnits(counts)                       # units found, nothing downloaded yet
+m <- SeqoutMatrix(counts, sample = "GSM8994520")
+obj <- Seqout2Seurat(m)                   # Seurat object, obs as meta.data
+CountsSamples(counts, min_cell_count = 1000)
 ```
 
 ## Issues & support
