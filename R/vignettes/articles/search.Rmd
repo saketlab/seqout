@@ -196,6 +196,35 @@ If a term is not present in the ontology graph, the function returns an empty da
 nrow(Ontology("not a real term at all"))
 ```
 
+### Map a metadata column to identifiers
+
+A metadata table holds free text: "T cell", "hepatocyte", "HeLa".
+`MapToOntology()` looks each label up in the same graph and puts the
+identifiers beside it, in a `<column>_ontology_id` column:
+
+```{r map-to-ontology}
+meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
+MapToOntology(meta, "celltype")
+```
+
+Give `ontology` to keep one source only. Give more than one column name to map
+more than one column:
+
+```{r map-to-ontology-cl}
+MapToOntology(meta, "celltype", ontology = "CL")
+```
+
+A label that the graph does not have becomes `NA`. Only the identifiers of the
+label itself are read. Set `use_synonyms = TRUE` to let a label that carries no
+identifier take the identifiers of its synonyms:
+
+```{r map-to-ontology-synonyms}
+MapToOntology(data.frame(celltype = "nbc"), "celltype", use_synonyms = TRUE)
+```
+
+This maps more labels, and it trusts more: a synonym link frequently joins a
+more narrow concept. One request goes out for each different label.
+
 ## Sort results and manage limits
 
 By default, the server returns search results ranked by relevance. You can sort results using the `sortby` argument (`"citations"`, `"journal"`, or `"year"`) and set the sort direction using `order` (`"desc"` or `"asc"`):

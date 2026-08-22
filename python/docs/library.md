@@ -211,6 +211,28 @@ The `max_hops` argument (values 1 to 4, default 2) bounds the synonym search dep
 sq.ontology("breast cancer", children=False)
 ```
 
+### Map a metadata column to ontology identifiers
+
+Metadata tables hold free text — `"T cell"`, `"hepatocyte"`, `"HeLa"`. `map_to_ontology()` looks each label up in that same graph and puts the CURIEs beside it, as `<column>_ontology_id`:
+
+```python
+meta = pd.DataFrame({"celltype": ["T cell", "hepatocyte", "HeLa"]})
+
+sq.map_to_ontology(meta, "celltype")
+#      celltype         celltype_ontology_id
+# 0      T cell      CL:0000084,MeSH:D013601
+# 1  hepatocyte      CL:0000182,MeSH:D022781
+# 2        HeLa        CVCL_0030,EFO:0001185
+
+# Cell Ontology identifiers alone, and several columns at once
+sq.map_to_ontology(meta, ["celltype", "tissue"], ontology="CL")
+
+# Let a label with no identifier of its own borrow from a synonym
+sq.map_to_ontology(meta, "celltype", use_synonyms=True)
+```
+
+A label the graph does not have, and an empty cell, come back as NA. Only the label's own identifiers are read by default. `use_synonyms=True` lets a label that carries none borrow from its synonyms (within `max_hops`, default 1): that maps more labels and trusts more, since a synonym edge often joins a narrower concept (`"t cell"` → `"immature t cell"`). A label with identifiers of its own never borrows either way. One request goes out per distinct label, however many rows repeat it.
+
 ## Find publications and authors
 
 Use these helper methods to query publications, authors, and metadata classes:

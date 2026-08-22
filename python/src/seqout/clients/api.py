@@ -14,6 +14,7 @@ from concurrent.futures import (
 from pathlib import Path
 from typing import Any, Literal, Self, TypeVar
 
+import pandas as pd
 import requests
 
 from seqout.cohort import PAGE as COHORT_PAGE
@@ -116,6 +117,21 @@ def _unique_bam_names(bams: list[BamFile]) -> list[str]:
         f"{b.run_accession}_{name}" if seen[name] > 1 and b.run_accession else name
         for b, name in zip(bams, names, strict=True)
     ]
+
+
+def _ontology_ids(
+    term: OntologyTerm | None, ontology: str | None, *, use_synonyms: bool
+) -> str | None:
+    """Take the CURIEs for one label: its own, or its synonyms' when it has none."""
+    if term is None:
+        return None
+    xrefs = list(term.xrefs)
+    if not xrefs and use_synonyms:
+        xrefs = [x for s in term.synonyms for x in s.xrefs]
+    if ontology:
+        # CVCL_0030 has no colon, so the prefix ends at whichever comes first.
+        xrefs = [x for x in xrefs if x.split(":")[0].split("_")[0] == ontology]
+    return ",".join(dict.fromkeys(xrefs)) or None
 
 
 def _as_plan(
@@ -1012,6 +1028,83 @@ class SeqoutAPIClient(ShortNames):
             if exc.response is not None and exc.response.status_code == _NOT_FOUND:
                 return None
             raise
+
+    def map_to_ontology(
+        self,
+        df: pd.DataFrame,
+        columns: str | Iterable[str],
+        *,
+        ontology: str | None = None,
+        use_synonyms: bool = False,
+        max_hops: int = 1,
+        num_workers: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        Add the ontology identifiers behind a column of free-text labels.
+
+        Each column named gets a `<column>_ontology_id` beside it, holding the
+        comma-joined CURIEs the graph has for that label (`CL:0000084`,
+        `MeSH:D013601`, `CVCL_0030`). A label the graph does not know, and an
+        empty cell, come back as NA.
+
+        Only the label's own identifiers are read. `use_synonyms=True` lets a
+        label that carries none borrow from its synonyms, within `max_hops`,
+        which maps more labels and trusts more: a synonym edge often joins a
+        narrower concept ("t cell" -> "immature t cell"), so a borrowed
+        identifier can mean something the label does not. A label with
+        identifiers of its own never borrows either way.
+
+        Args:
+            df: The frame. It is not modified; a copy comes back.
+            columns: One column name, or several.
+            ontology: Keep only the identifiers of this source, e.g. "CL" for
+                cell types or "UBERON" for anatomy. Default keeps them all.
+            use_synonyms: Let a label with no identifier of its own take the
+                identifiers of its synonyms. Off by default.
+            max_hops: How far to walk the synonym links, 1 to 4. Read only when
+                use_synonyms is set.
+            num_workers: Threads for the lookups. One request per distinct
+                label, however many rows repeat it.
+
+        """
+        names = [columns] if isinstance(columns, str) else list(columns)
+        missing = [c for c in names if c not in df.columns]
+        if missing:
+            msg = f"{', '.join(missing)} not in the frame"
+            raise KeyError(msg)
+
+        labels = sorted(
+            {
+                text
+                for c in names
+                for text in df[c].dropna().astype(str)
+                if text.strip()
+            }
+        )
+        with ThreadPoolExecutor(max_workers=_normalize_num_workers(num_workers)) as p:
+            found = dict(
+                zip(
+                    labels,
+                    p.map(
+                        lambda t: self.fetch_ontology_term(
+                            t, max_hops, children=False
+                        ),
+                        labels,
+                    ),
+                    strict=True,
+                )
+            )
+        ids = {
+            k: _ontology_ids(v, ontology, use_synonyms=use_synonyms)
+            for k, v in found.items()
+        }
+
+        out = df.copy()
+        for c in names:
+            out[f"{c}_ontology_id"] = (
+                df[c].astype("object").map(lambda v: ids.get(str(v)))
+            )
+        return out
 
     def download_project_supplementary_data(
         self,

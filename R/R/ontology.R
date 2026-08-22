@@ -99,3 +99,108 @@ ontology <- function(term, max_hops = 2, children = TRUE, con = .con()) {
   attr(out, "max_hops") <- .pnt_int(res$max_hops)
   out
 }
+
+#' Map a column of labels to ontology identifiers
+#'
+#' Free-text labels are what a metadata table holds: "T cell", "hepatocyte",
+#' "HeLa". This function looks each label up in the same ontology graph that a
+#' search expands with, and puts the identifiers beside it.
+#'
+#' Each column that you name gets a `<column>_ontology_id` column next to it.
+#' The new column holds the source CURIEs for that label, separated by commas:
+#' `CL:0000084,MeSH:D013601`. A label that the graph does not have, and an empty
+#' cell, become `NA`.
+#'
+#' Only the identifiers of the label itself are read. Set `use_synonyms = TRUE`
+#' to let a label that carries no identifier take the identifiers of its
+#' synonyms. This maps more labels, and it trusts more: a synonym link
+#' frequently joins a more narrow concept, for example "t cell" to "immature t
+#' cell". A label that has its own identifier does not take one from a synonym
+#' in either mode.
+#'
+#' One request goes out for each different label. Rows that repeat a label cost
+#' nothing more.
+#'
+#' Reads the REST API. The ontology graph is a separate database and is not in
+#' the dump.
+#'
+#' @param x A data frame. It is not changed; a copy comes back.
+#' @param columns Character. The name of one column, or of several.
+#' @param ontology Keep the identifiers of one source only, for example `"CL"`
+#'   for cell types or `"UBERON"` for anatomy. The default keeps all of them.
+#' @param use_synonyms Let a label with no identifier of its own take the
+#'   identifiers of its synonyms. `FALSE` by default.
+#' @param max_hops How far to walk the synonym links, 1 to 4. Read only when
+#'   `use_synonyms` is `TRUE`.
+#' @inheritParams ontology
+#'
+#' @return `x` with one new character column for each column that you named.
+#'
+#' @seealso [ontology()] for what the graph holds about one term.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
+#' MapToOntology(meta, "celltype")
+#'
+#' # Cell Ontology identifiers alone
+#' MapToOntology(meta, "celltype", ontology = "CL")
+#'
+#' # Let a label with no identifier take one from a synonym
+#' MapToOntology(meta, "celltype", use_synonyms = TRUE)
+#' }
+map_to_ontology <- function(x, columns, ontology = NULL, use_synonyms = FALSE,
+                            max_hops = 1, con = .con()) {
+  .need_api(
+    con, "map_to_ontology",
+    why = "The ontology graph is a separate database and is not in the dump."
+  )
+  check_required(columns)
+  if (!is.data.frame(x)) {
+    cli::cli_abort("{.arg x} must be a data frame.")
+  }
+  bad <- setdiff(columns, names(x))
+  if (length(bad)) {
+    cli::cli_abort("{.arg {bad}} {?is/are} not a column of {.arg x}.")
+  }
+
+  labels <- unique(unlist(lapply(x[columns], function(v) trimws(as.character(v)))))
+  labels <- labels[!is.na(labels) & nzchar(labels)]
+  # `ontology` here names both this argument and the lookup function. R reads a
+  # call position as a function, so `ontology(l, ...)` is the lookup and the
+  # argument is what filters its answer.
+  found <- vapply(labels, function(l) {
+    onto <- ontology(l, max_hops = max_hops, children = FALSE, con = con)
+    .ontology_ids(onto, ontology, use_synonyms)
+  }, character(1))
+
+  for (column in columns) {
+    key <- trimws(as.character(x[[column]]))
+    x[[paste0(column, "_ontology_id")]] <- unname(found[key])
+  }
+  x
+}
+
+#' The CURIEs for one label: its own, or its synonyms' when it is asked for
+#'
+#' `onto` is the tibble [ontology()] returns, so the first row is the label
+#' itself and the rows after it are its synonyms.
+#' @noRd
+.ontology_ids <- function(onto, ontology = NULL, use_synonyms = FALSE) {
+  if (nrow(onto) == 0) {
+    return(NA_character_)
+  }
+  xrefs <- unlist(onto$xrefs[onto$relation == "term"], use.names = FALSE)
+  if (!length(xrefs) && isTRUE(use_synonyms)) {
+    xrefs <- unlist(onto$xrefs[onto$relation == "synonym"], use.names = FALSE)
+  }
+  if (!is.null(ontology)) {
+    # CVCL_0030 has no colon, so the prefix ends at whichever comes first.
+    xrefs <- xrefs[sub("[:_].*$", "", xrefs) == ontology]
+  }
+  if (!length(xrefs)) {
+    return(NA_character_)
+  }
+  paste(unique(xrefs), collapse = ",")
+}

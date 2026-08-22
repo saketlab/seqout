@@ -58,6 +58,10 @@ IsFiltered <- is_filtered
 #' @export
 Matrices <- matrices
 
+#' @rdname map_to_ontology
+#' @export
+MapToOntology <- map_to_ontology
+
 #' @rdname ontology
 #' @export
 Ontology <- ontology
