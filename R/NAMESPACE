@@ -2,6 +2,7 @@
 
 S3method("$",seqout_counts)
 S3method("$",seqout_dataset)
+S3method("[[",seqout_dataset)
 S3method(close,seqout_connection)
 S3method(names,seqout_dataset)
 S3method(print,seqout_connection)

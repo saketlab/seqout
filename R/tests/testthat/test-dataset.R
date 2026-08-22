@@ -246,3 +246,10 @@ test_that("unnesting $detail leaves the file list where $supplementary looks for
   expect_equal(d$detail$tissue, "gut")
   expect_equal(d$supplementary$url, "https://h/a.gz")
 })
+
+test_that("`[[` reads the same fields as `$`", {
+  d <- seqout_get(con = fake_con(), "GSE168652")
+  expect_equal(d[["project"]], d$project)
+  expect_error(d[["nope"]], "not a field")
+  expect_error(d[[1]], "one field name")
+})

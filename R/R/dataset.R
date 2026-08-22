@@ -73,6 +73,20 @@ print.seqout_dataset <- function(x, ...) {
 
 #' @export
 `$.seqout_dataset` <- function(x, name) {
+  .dataset_field(x, name)
+}
+
+# `[[` reads the same fields as `$`; without it the lazy ones answer NULL.
+#' @export
+`[[.seqout_dataset` <- function(x, i, ...) {
+  if (!is.character(i) || length(i) != 1L) {
+    cli::cli_abort("A {.cls seqout_dataset} is indexed by one field name.")
+  }
+  .dataset_field(x, i)
+}
+
+#' @noRd
+.dataset_field <- function(x, name) {
   fields <- unclass(x)
   if (name %in% names(fields)) {
     return(fields[[name]])
