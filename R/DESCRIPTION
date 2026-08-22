@@ -1,6 +1,6 @@
 Package: seqout
 Title: Client for Querying the 'Seqout' Genomics Metadata Database
-Version: 0.2.3
+Version: 0.2.4
 Authors@R: c(
     person("Aniruddha", "Mukherjee", role = "aut"),
     person("Mukesh", "Reddy", role = "aut"),

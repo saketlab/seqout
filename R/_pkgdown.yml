@@ -118,8 +118,12 @@ reference:
   contents:
   - seqout_search
   - ontology
+  - map_to_ontology
   - sample_search
   - project_single_cell
+  - project_single_cell_status
+  - project_single_cell_summary
+  - single_cell_studies
   - sample_microbes
 
 - title: Datasets

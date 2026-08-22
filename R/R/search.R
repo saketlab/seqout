@@ -298,9 +298,12 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   hit <- match(tolower(x), tolower(.ontologies))
   bad <- x[is.na(hit)]
   if (length(bad)) {
+    # cli reads `{.ontologies}` as a style, not a value, because it starts with
+    # a dot -- hence the plain copy, the same as `.check_filter_names()` makes.
+    known <- .ontologies
     cli::cli_abort(c(
       "{.val {bad}} {?is/are} not an ontology this search expands with.",
-      i = "Available: {.val {.ontologies}}."
+      i = "Available: {.val {known}}."
     ))
   }
   unique(.ontologies[hit])

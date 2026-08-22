@@ -1074,21 +1074,14 @@ class SeqoutAPIClient(ShortNames):
             raise KeyError(msg)
 
         labels = sorted(
-            {
-                text
-                for c in names
-                for text in df[c].dropna().astype(str)
-                if text.strip()
-            }
+            {text for c in names for text in df[c].dropna().astype(str) if text.strip()}
         )
         with ThreadPoolExecutor(max_workers=_normalize_num_workers(num_workers)) as p:
             found = dict(
                 zip(
                     labels,
                     p.map(
-                        lambda t: self.fetch_ontology_term(
-                            t, max_hops, children=False
-                        ),
+                        lambda t: self.fetch_ontology_term(t, max_hops, children=False),
                         labels,
                     ),
                     strict=True,

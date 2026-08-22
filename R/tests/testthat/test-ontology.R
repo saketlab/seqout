@@ -79,7 +79,8 @@ graph_tibble <- function(term) {
       )
     )
   )
-  seqout:::.onto_tibble(rows[[tolower(term)]] %||% list())
+  found <- rows[[tolower(term)]]
+  seqout:::.onto_tibble(if (is.null(found)) list() else found)
 }
 
 test_that("a label takes its own identifiers, and a synonym's only when asked", {
