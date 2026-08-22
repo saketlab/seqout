@@ -167,6 +167,20 @@ sq.search("liver cancer")
 sq.search("liver cancer", structured=True)
 ```
 
+### Term expansion
+
+Every query expands before it runs: the server adds each term's synonyms from eight ontologies (`MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO`, `CVCL`), so a search for `masld` also finds `nafld`. These are the same two controls the website offers.
+
+```python
+# The words as typed — the same request as structured=True
+sq.search("spinal muscular atrophy", expand=False)
+
+# Expansion on, but without these two sources
+sq.search("spinal muscular atrophy", exclude_ontology=["MeSH", "CVCL"])
+```
+
+A term that two ontologies know survives while either one is on, because the graph holds one node per name. An unknown name is refused rather than sent: the server ignores one it does not know, which would look like a control that does nothing. Neither applies to `search/structured` filters (`assay_l1`, `geo_*`, …); that search never expands, and naming an ontology alongside them is an error.
+
 ### Sort search results
 
 To sort results, specify `sortby` (`"citations"`, `"journal"`, or `"year"`) and `order` (`"desc"` or `"asc"`):

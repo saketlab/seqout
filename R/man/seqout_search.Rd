@@ -12,6 +12,8 @@ seqout_search(
   order = "desc",
   limit = NULL,
   structured = FALSE,
+  expand = TRUE,
+  exclude_ontology = NULL,
   con = .con()
 )
 
@@ -22,6 +24,8 @@ SeqoutSearch(
   order = "desc",
   limit = NULL,
   structured = FALSE,
+  expand = TRUE,
+  exclude_ontology = NULL,
   con = .con()
 )
 }
@@ -44,6 +48,16 @@ more than one request. Give \code{limit} when a sample is sufficient.}
 exactly: no ontology expansion, no spelling correction. A query that
 already carries \verb{()}, \code{""}, \code{*} or an uppercase \code{OR}/\code{AND}/\code{NOT} is read
 that way anyway, so this is for forcing it on a query with no operators.}
+
+\item{expand}{Expand each term with its ontology synonyms. \code{TRUE} is the
+default. \code{FALSE} searches the words as typed, which is what \code{structured}
+does. A filter from the structured set makes a search that never expands,
+so this parameter does nothing there.}
+
+\item{exclude_ontology}{Character vector. The ontologies to keep out of the
+expansion, from \code{MONDO}, \code{MeSH}, \code{HGNC}, \code{CHEBI}, \code{UBERON}, \code{CL}, \code{EFO} and
+\code{CVCL}. A term that two ontologies know stays while one of the two is on,
+because the graph holds one node for each name.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
 pass a Parquet one to read the dump instead.}
@@ -76,6 +90,12 @@ and the error message shows the names that are correct.
 \code{updated_at}, the day when seqout last saw a change to the record. They are
 the only time bounds.
 
+A query expands before it runs. The server adds the synonyms of each term
+from eight ontologies, so a search for \code{"masld"} also finds "nafld". Set
+\code{expand = FALSE} to search the words as you typed them. Give
+\code{exclude_ontology} to keep one source out of the synonyms and keep the rest.
+The website has the same two controls.
+
 This function reads the REST API only. For the Parquet dump, write SQL with
 \code{\link[=query]{query()}}. SQL is a better tool for a filter or a count over the full index.
 }
@@ -98,6 +118,12 @@ SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*')
 
 # The same reading, forced on a query that carries no operators
 SeqoutSearch("liver cancer", structured = TRUE)
+
+# The words as typed, with no ontology synonyms
+SeqoutSearch("spinal muscular atrophy", expand = FALSE)
+
+# Every ontology except two of them
+SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"))
 }
 }
 \seealso{

@@ -6,6 +6,12 @@ DEFAULT_NUM_RETRIES = 3
 DEFAULT_MAX_WAIT = 60
 DEFAULT_DOWNLOAD_CHUNK_SIZE = 1024 * 2
 
+# The ontologies a full-text search expands terms with, in the order the website
+# lists its toggles. Mirrors ONTOLOGIES in the server's expansions.py; the server
+# ignores an id it does not know, so an unknown one filters nothing and looks
+# like a broken switch -- the client refuses it instead.
+ONTOLOGIES = ("MONDO", "MeSH", "HGNC", "CHEBI", "UBERON", "CL", "EFO", "CVCL")
+
 COUNTRY_CODE_MAP: dict[str, str] = {
     "AFG": "Afghanistan",
     "ALB": "Albania",

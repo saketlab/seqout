@@ -183,6 +183,7 @@ class SeqoutAPIClient(ShortNames):
             "q",
             "db",
             "structured",
+            "exclude_ontology",
             "organism",
             "country",
             "library_strategy",
@@ -297,6 +298,10 @@ class SeqoutAPIClient(ShortNames):
         server answers 200 rows at a time and this follows the cursor to the
         end, so a broad query costs several requests -- give `limit` when a
         sample of the results is enough.
+
+        `expand=False` searches the words as typed, and
+        `exclude_ontology=["MeSH"]` keeps one source out of the synonyms --
+        the same two switches the website offers.
         """
         plan = _as_plan(params, filters)
         rows: Iterable[SearchResult] = self._iter_search_pages(plan.params)

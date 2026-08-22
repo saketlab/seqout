@@ -34,8 +34,11 @@ if TYPE_CHECKING:
 # Defined here rather than imported from the client, which imports this module.
 SearchParamsType = SearchParams | StructuredSearchParams
 
-# Only the full-text endpoint has these.
-FULLTEXT_ONLY = frozenset({"db", "library_source", "date_from", "date_to"})
+# Only the full-text endpoint has these. `exclude_ontology` is one of them
+# because only that endpoint expands terms at all.
+FULLTEXT_ONLY = frozenset(
+    {"db", "library_source", "date_from", "date_to", "exclude_ontology"}
+)
 
 # Applied here rather than sent, when a structured filter took the other
 # endpoint. `updated_at` is on every result row and is the column the full-text
@@ -127,9 +130,18 @@ def plan_search(
     sortby: str | None = None,
     order: str = "desc",
     structured: bool | None = None,
+    *,
+    expand: bool = True,
     **filters: Any,
 ) -> SearchPlan:
-    """Build the request, and say what is left for the client to do."""
+    """
+    Build the request, and say what is left for the client to do.
+
+    `expand=False` runs the words as typed -- no ontology synonyms, no spelling
+    correction -- which is what the website's term expansion switch does, and
+    what the server calls `structured`. `exclude_ontology` keeps named
+    ontologies out of the expansion instead of dropping all of them.
+    """
     filters = {k: v for k, v in filters.items() if v is not None}
     _reject_removed(filters)
 
@@ -139,9 +151,19 @@ def plan_search(
             filters["db"] = filters.pop("source")
         return SearchPlan(
             params=SearchParams(
-                q=q, sortby=sortby, order=order, structured=structured, **filters
+                q=q,
+                sortby=sortby,
+                order=order,
+                # One wire flag, two ways to ask for it: expansion off is the
+                # same exact-terms reading `structured` forces.
+                structured=structured or (not expand) or None,
+                **filters,
             )
         )
+
+    # The structured endpoint never expands, so `expand` is already true of it
+    # and there is nothing to send. `exclude_ontology` is refused below with the
+    # other full-text-only names, since switching one off there means nothing.
 
     _reject_boolean(q, structured, filters)
     _reject_unanswerable(filters)

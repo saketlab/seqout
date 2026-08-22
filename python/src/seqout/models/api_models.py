@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from seqout.constants import ONTOLOGIES
 from seqout.models.models import BaseContainer
 
 _MAX_QUERY_LENGTH = 500
@@ -60,10 +61,31 @@ class SearchParams(BaseModel):
     # an uppercase OR/AND/NOT is read that way anyway; this forces it on one
     # that carries none. Unrelated to the /search/structured endpoint.
     structured: bool | None = None
+    # Ontologies to keep out of the expansion, e.g. ["MeSH", "CVCL"]. The same
+    # switches the website offers. A term the graph knows under two of them
+    # survives while one of the two stays on, because terms are merged by name.
+    exclude_ontology: list[str] | None = None
     offset: int | None = None
     cursor_rank: float | None = None
     cursor_acc: str | None = None
     cursor_sort: str | None = None
+
+    @field_validator("exclude_ontology")
+    @classmethod
+    def _ontologies_must_be_known(cls, v: list[str] | None) -> list[str] | None:
+        """Match the id whatever the caller capitalised: MeSH is easy to lose."""
+        if v is None:
+            return None
+        known = {o.casefold(): o for o in ONTOLOGIES}
+        out = [known.get(str(o).strip().casefold(), str(o).strip()) for o in v]
+        unknown = [o for o in out if o not in ONTOLOGIES]
+        if unknown:
+            msg = (
+                f"unknown ontology {', '.join(unknown)}; "
+                f"available: {', '.join(ONTOLOGIES)}"
+            )
+            raise ValueError(msg)
+        return out
 
     @field_validator("q")
     @classmethod

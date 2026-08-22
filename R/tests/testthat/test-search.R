@@ -275,3 +275,44 @@ test_that("structured takes a single TRUE or FALSE", {
   expect_error(seqout_search("liver", structured = "yes", con = rest_con()), "TRUE")
   expect_error(seqout_search("liver", structured = NA, con = rest_con()), "TRUE")
 })
+
+test_that("term expansion is switched off with one flag, and off by name", {
+  seen <- list()
+  testthat::local_mocked_bindings(
+    .paginate_api = function(con, path, params, max_pages = 1) {
+      seen[[length(seen) + 1]] <<- params
+      tibble::tibble()
+    }
+  )
+
+  seqout_search("liver", con = rest_con())
+  seqout_search("liver", expand = FALSE, con = rest_con())
+  seqout_search("liver", exclude_ontology = c("mesh", "CVCL"), con = rest_con())
+
+  # Expansion off is the same exact-terms reading `structured` forces, so the
+  # server sees one flag for the two names.
+  expect_null(seen[[1]]$structured)
+  expect_null(seen[[1]]$exclude_ontology)
+  expect_equal(seen[[2]]$structured, "true")
+
+  # One comma-joined parameter, with the ids spelled the way the server has
+  # them: a name it does not know would keep every synonym in silence.
+  expect_equal(seen[[3]]$exclude_ontology, "MeSH,CVCL")
+})
+
+test_that("an ontology outside the eight is refused", {
+  expect_error(
+    seqout_search("liver", exclude_ontology = "MESHY", con = rest_con()),
+    "not an ontology"
+  )
+})
+
+test_that("a structured search has no ontologies to switch off", {
+  expect_error(
+    seqout_search("liver",
+      assay_l1 = "Transcriptomic", exclude_ontology = "MeSH",
+      con = rest_con()
+    ),
+    "cannot be combined with"
+  )
+})

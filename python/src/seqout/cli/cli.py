@@ -42,7 +42,7 @@ from seqout.clients.parquet import (
     _ALL_PARQUET_FILES,
     SeqoutParquetClient,
 )
-from seqout.constants import PARQUET_DUMP_BASE_URL
+from seqout.constants import ONTOLOGIES, PARQUET_DUMP_BASE_URL
 from seqout.models.api_models import (
     ExperimentSample,
     SearchCorrection,
@@ -439,11 +439,23 @@ def main() -> None:
         help="filter by broad assay class, e.g. Transcriptomic",
     )
     p_search.add_argument(
+        # --no-expand is the website's wording for the same thing: term
+        # expansion off is exactly this exact-terms reading.
         "--exact",
+        "--no-expand",
         dest="structured",
         action="store_true",
         help="read the query as a boolean expression and take its terms "
         'exactly: no ontology expansion. Supports (), "", * and OR/AND/NOT',
+    )
+    p_search.add_argument(
+        "--exclude-ontology",
+        dest="exclude_ontology",
+        action="append",
+        choices=ONTOLOGIES,
+        metavar="NAME",
+        help="drop one ontology from the term expansion; repeatable. "
+        f"One of: {', '.join(ONTOLOGIES)}",
     )
     p_search.add_argument(
         "-o",
@@ -655,6 +667,7 @@ def main() -> None:
             args.instrument_model,
             args.assay_l1,
             args.assay_l2,
+            args.exclude_ontology,
             multi_platform=args.multi_platform,
             structured=args.structured,
         ),
@@ -1265,6 +1278,7 @@ def cmd_search(
     instrument_model: list[str] | None = None,
     assay_l1: str | None = None,
     assay_l2: str | None = None,
+    exclude_ontology: list[str] | None = None,
     *,
     multi_platform: bool = False,
     structured: bool = False,
@@ -1285,8 +1299,11 @@ def cmd_search(
         "assay_l2": assay_l2,
         "date_from": date_from.isoformat() if date_from else None,
         "date_to": date_to.isoformat() if date_to else None,
+        "exclude_ontology": exclude_ontology,
     }
-    if not query and not any(filters.values()):
+    # An ontology switch narrows nothing on its own -- it only shapes how a
+    # query expands -- so it must not stand in for the required query.
+    if not query and not any(v for k, v in filters.items() if k != "exclude_ontology"):
         console.print(
             "[red]Provide a search query or at least one filter[/] "
             "(-O/-S/-P/-C/-d/--db/--country/--journal/--assay).",

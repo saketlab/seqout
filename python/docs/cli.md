@@ -45,6 +45,8 @@ seqout search --organism "Homo sapiens" --db geo -d 2020:2023
 | `--assay-class` | Filters by high-level assay class (e.g., `Transcriptomic`). |
 | `--multi-platform` | Filters for studies that used multiple platforms. |
 | `--exact` | Forces the query to be interpreted as a boolean expression. |
+| `--no-expand` | Searches the words as typed, with no ontology synonyms. Same flag as `--exact`. |
+| `--exclude-ontology` | Keeps one ontology out of the expansion. Repeatable. |
 | `-d`, `--date` | Filters by update date. Accepts year (`2020`), exact date (`15-08-2020`), or range (`2018:2022`). |
 | `--sort` | Sorts search results by `citations`, `journal`, or `year`. |
 | `-m`, `--max` | Caps the number of results returned. |
@@ -73,6 +75,22 @@ To force an exact term match on queries that do not contain explicit boolean ope
 ```bash
 seqout search "liver cancer" --exact
 ```
+
+### Term expansion
+
+By default a query expands: the server adds each term's synonyms from eight ontologies (`MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO`, `CVCL`), so a search for `masld` also finds `nafld`. `--no-expand` turns that off for one search — it is the same flag as `--exact`:
+
+```bash
+seqout search "spinal muscular atrophy" --no-expand
+```
+
+To keep one source out of the synonyms while the rest stay on, name it. The flag repeats:
+
+```bash
+seqout search "spinal muscular atrophy" --exclude-ontology MeSH --exclude-ontology CVCL
+```
+
+A term that two ontologies know survives while either one is on, because the graph holds one node per name.
 
 ### Interactive page navigation
 

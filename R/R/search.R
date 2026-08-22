@@ -23,6 +23,12 @@
 #' `updated_at`, the day when seqout last saw a change to the record. They are
 #' the only time bounds.
 #'
+#' A query expands before it runs. The server adds the synonyms of each term
+#' from eight ontologies, so a search for `"masld"` also finds "nafld". Set
+#' `expand = FALSE` to search the words as you typed them. Give
+#' `exclude_ontology` to keep one source out of the synonyms and keep the rest.
+#' The website has the same two controls.
+#'
 #' This function reads the REST API only. For the Parquet dump, write SQL with
 #' [query()]. SQL is a better tool for a filter or a count over the full index.
 #'
@@ -39,6 +45,14 @@
 #'   exactly: no ontology expansion, no spelling correction. A query that
 #'   already carries `()`, `""`, `*` or an uppercase `OR`/`AND`/`NOT` is read
 #'   that way anyway, so this is for forcing it on a query with no operators.
+#' @param expand Expand each term with its ontology synonyms. `TRUE` is the
+#'   default. `FALSE` searches the words as typed, which is what `structured`
+#'   does. A filter from the structured set makes a search that never expands,
+#'   so this parameter does nothing there.
+#' @param exclude_ontology Character vector. The ontologies to keep out of the
+#'   expansion, from `MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO` and
+#'   `CVCL`. A term that two ontologies know stays while one of the two is on,
+#'   because the graph holds one node for each name.
 #' @inheritParams project
 #'
 #' @return A tibble of results, with a `took_ms` attribute.
@@ -66,9 +80,16 @@
 #'
 #' # The same reading, forced on a query that carries no operators
 #' SeqoutSearch("liver cancer", structured = TRUE)
+#'
+#' # The words as typed, with no ontology synonyms
+#' SeqoutSearch("spinal muscular atrophy", expand = FALSE)
+#'
+#' # Every ontology except two of them
+#' SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"))
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
-                          limit = NULL, structured = FALSE, con = .con()) {
+                          limit = NULL, structured = FALSE, expand = TRUE,
+                          exclude_ontology = NULL, con = .con()) {
   .need_api(
     con, "seqout_search",
     why = "Use {.fn query} to write SQL over the dump."
@@ -80,6 +101,10 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   if (!is.logical(structured) || length(structured) != 1 || is.na(structured)) {
     cli::cli_abort("{.arg structured} must be {.code TRUE} or {.code FALSE}.")
   }
+  if (!is.logical(expand) || length(expand) != 1 || is.na(expand)) {
+    cli::cli_abort("{.arg expand} must be {.code TRUE} or {.code FALSE}.")
+  }
+  exclude_ontology <- .check_ontologies(exclude_ontology)
 
   filters <- .compact(list(...))
   .check_filter_names(filters)
@@ -90,6 +115,13 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
   narrowed <- any(names(filters) %in% .structured_only)
   .check_boolean_reachable(query, structured, filters, narrowed)
+  if (narrowed && length(exclude_ontology)) {
+    cli::cli_abort(c(
+      "{.arg exclude_ontology} cannot be combined with
+       {.arg {intersect(names(filters), .structured_only)}}.",
+      i = "That search does not expand terms, so there is nothing to switch off."
+    ))
+  }
   # The date bounds and the sort are not parameters of the structured endpoint,
   # which would drop them without a word. Apply them here instead, off columns
   # that come back on every row, so a filter means one thing either way.
@@ -120,7 +152,15 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     if (narrowed) "/search/structured" else "/search",
     .compact(c(
       list(q = query),
-      if (structured) list(structured = "true"),
+      # Expansion off is the same exact-terms reading that `structured` forces,
+      # so the two arrive as one flag. One comma-joined parameter carries the
+      # ontologies, which is the shape the server and the website both use.
+      # /search/structured has no such parameter and never expands anyway, so
+      # `expand = FALSE` is already true of it and nothing is sent.
+      if (!narrowed && (structured || !expand)) list(structured = "true"),
+      if (length(exclude_ontology)) {
+        list(exclude_ontology = paste(exclude_ontology, collapse = ","))
+      },
       if (!local_sort) list(sortby = sortby, order = order),
       filters
     )),
@@ -234,6 +274,37 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 .search_filters <- sort(c(
   .shared_filters, .fulltext_only, .structured_only, "db", "source"
 ))
+
+#' The ontologies the search expands with
+#'
+#' Mirrors `ONTOLOGIES` in the server's `expansions.py` and the toggles on the
+#' website. The server ignores a name it does not know, so an unknown one keeps
+#' every synonym and looks like a control that does nothing.
+#' @noRd
+.ontologies <- c(
+  "MONDO", "MeSH", "HGNC", "CHEBI", "UBERON", "CL", "EFO", "CVCL"
+)
+
+#' Take the name whatever the capitals, and refuse a name that is not one
+#' @noRd
+.check_ontologies <- function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(NULL)
+  }
+  if (!is.character(x)) {
+    cli::cli_abort("{.arg exclude_ontology} must be a character vector.")
+  }
+  x <- trimws(x)
+  hit <- match(tolower(x), tolower(.ontologies))
+  bad <- x[is.na(hit)]
+  if (length(bad)) {
+    cli::cli_abort(c(
+      "{.val {bad}} {?is/are} not an ontology this search expands with.",
+      i = "Available: {.val {.ontologies}}."
+    ))
+  }
+  unique(.ontologies[hit])
+}
 
 #' @noRd
 .check_filter_names <- function(filters) {

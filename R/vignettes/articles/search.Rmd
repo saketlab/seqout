@@ -125,6 +125,32 @@ SeqoutSearch("liver cancer", structured = TRUE, limit = 3)$accession
 SeqoutSearch("liver NOT mouse", assay_l1 = "Transcriptomic")
 ```
 
+## Control term expansion
+
+A query expands before it runs. The server adds the synonyms of each term from
+eight ontologies: `MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO` and
+`CVCL`. This is why a search for `"masld"` also finds "nafld".
+
+Set `expand = FALSE` to search the words as you typed them. This is the same
+request that `structured = TRUE` makes:
+
+```{r expand-off}
+nrow(SeqoutSearch("spinal muscular atrophy"))
+nrow(SeqoutSearch("spinal muscular atrophy", expand = FALSE))
+```
+
+To keep one source out of the synonyms, and keep the other sources, name it in
+`exclude_ontology`:
+
+```{r exclude-ontology}
+nrow(SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL")))
+```
+
+A term that two ontologies know stays while one of the two is on. The graph
+holds one node for each name, and that node carries the identifiers of every
+ontology that supplies the name. A name outside the eight causes an error,
+because the server ignores a name it does not know.
+
 ## Explore ontology mappings
 
 Standard searches query concepts rather than literal text. For example, a search for `"masld"` automatically matches studies containing `"nonalcoholic fatty liver disease"` because they map to the same concept node in the ontology graph. 

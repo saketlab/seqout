@@ -599,3 +599,35 @@ class TestBamsNarrowing:
 
     def test_matching_ignores_case(self):
         assert [b.filename for b in self._dataset("srr3").bams.root] == ["c.bam"]
+
+
+def test_expansion_off_asks_for_the_words_as_typed():
+    # The website's term expansion switch and the server's `structured` are the
+    # same wire flag, so `expand=False` has to arrive as that flag.
+    sent = plan_search("liver cancer", expand=False).params.model_dump(
+        exclude_none=True
+    )
+    assert sent["structured"] is True
+    assert "structured" not in plan_search("liver cancer").params.model_dump(
+        exclude_none=True
+    )
+
+
+def test_an_ontology_is_switched_off_by_name_whatever_the_capitals():
+    sent = plan_search("liver", exclude_ontology=["mesh", "CVCL"]).params.model_dump(
+        exclude_none=True
+    )
+    assert sent["exclude_ontology"] == ["MeSH", "CVCL"]
+
+
+def test_an_unknown_ontology_is_refused():
+    # The server ignores an id it does not know, so a typo would filter nothing
+    # and look like a switch that does not work.
+    with pytest.raises(ValidationError) as excinfo:
+        SearchParams(q="liver", exclude_ontology=["MESHY"])
+    assert "MESHY" in str(excinfo.value)
+
+
+def test_the_structured_endpoint_has_no_ontologies_to_switch_off():
+    with pytest.raises(ValueError, match="exclude_ontology"):
+        plan_search("liver", assay_l1="Transcriptomic", exclude_ontology=["MeSH"])
