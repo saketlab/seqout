@@ -38,6 +38,8 @@ Suggests:
     scales,
     Seurat,
     SeuratObject,
+    SingleCellExperiment,
+    SummarizedExperiment,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,

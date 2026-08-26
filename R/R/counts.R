@@ -412,8 +412,8 @@ seqout_matrix <- function(counts, sample = NULL) {
 #' obj <- Seqout2Seurat(SeqoutMatrix(counts, sample = "GSM8994520"))
 #' }
 seqout_seurat <- function(x, ...) {
-  .need("SeuratObject")
-  m <- if (inherits(x, "seqout_matrix")) x else .matrix_from_accession(x)
+  .need("SeuratObject", "Converting to a Seurat object")
+  m <- .as_seqout_matrix(x)
   args <- list(...)
   args$counts <- m$X
   if (is.null(args$meta.data) && ncol(m$obs) > 0) {
@@ -422,9 +422,64 @@ seqout_seurat <- function(x, ...) {
   do.call(SeuratObject::CreateSeuratObject, args)
 }
 
+#' Convert counts to a SingleCellExperiment
+#'
+#' The Bioconductor counterpart of [seqout_seurat()]. `X` becomes the `counts`
+#' assay, the per-cell annotation becomes `colData` and the per-feature
+#' annotation becomes `rowData`. A `seqout_matrix` is already features by
+#' observations, the orientation `SingleCellExperiment` expects, so nothing is
+#' transposed.
+#'
+#' A GSM accession is read first, through [seqout_counts()] and
+#' [seqout_matrix()]. Use those two yourself for a series, for a sample that
+#' ships more than one matrix, or for an assay other than RNA.
+#'
+#' The SingleCellExperiment package must be installed. It is on Bioconductor:
+#' `BiocManager::install("SingleCellExperiment")`.
+#'
+#' @param x A `seqout_matrix` from [seqout_matrix()], or one GSM accession.
+#' @param assay_name The name to give the assay. `"counts"` by default, the
+#'   name the Bioconductor single-cell packages look for.
+#' @param ... Passed to [SingleCellExperiment::SingleCellExperiment()], such as
+#'   `metadata` or `reducedDims`. The assay comes from `x`, and `colData` and
+#'   `rowData` too unless you give your own.
+#'
+#' @return A `SingleCellExperiment` object.
+#'
+#' @seealso [seqout_seurat()] for the Seurat equivalent, [seqout_matrix()] for
+#'   the matrix on its own, and [matrices()] with `lapply()` for a whole series.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' sce <- Seqout2SCE("GSM8994520")
+#'
+#' counts <- SeqoutCounts("GSE297547")
+#' sce <- Seqout2SCE(SeqoutMatrix(counts, sample = "GSM8994520"))
+#' }
+seqout_sce <- function(x, assay_name = "counts", ...) {
+  .need("SingleCellExperiment", "Converting to a SingleCellExperiment", bioc = TRUE)
+  if (!rlang::is_string(assay_name)) {
+    cli::cli_abort("{.arg assay_name} must be one name.")
+  }
+  m <- .as_seqout_matrix(x)
+  args <- list(...)
+  args$assays <- stats::setNames(list(m$X), assay_name)
+  if (is.null(args$colData) && ncol(m$obs) > 0) {
+    args$colData <- m$obs
+  }
+  if (is.null(args$rowData) && ncol(m$var) > 0) {
+    args$rowData <- m$var
+  }
+  do.call(SingleCellExperiment::SingleCellExperiment, args)
+}
+
 #' @noRd
-.matrix_from_accession <- function(x) {
-  if (!is.character(x) || length(x) != 1L || is.na(x)) {
+.as_seqout_matrix <- function(x) {
+  if (inherits(x, "seqout_matrix")) {
+    return(x)
+  }
+  if (!rlang::is_string(x)) {
     cli::cli_abort("{.arg x} must be a {.cls seqout_matrix} or one GSM accession.")
   }
   acc <- toupper(trimws(x))

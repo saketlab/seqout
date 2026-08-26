@@ -9,11 +9,19 @@
 NULL
 
 #' @noRd
-.need <- function(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    cli::cli_abort("Reading this format needs the {.pkg {pkg}} package.")
+.need <- function(pkg, what = "Reading this format", bioc = FALSE) {
+  if (requireNamespace(pkg, quietly = TRUE)) {
+    return(invisible(TRUE))
   }
-  invisible(TRUE)
+  install <- if (bioc) {
+    'BiocManager::install("{pkg}")'
+  } else {
+    'install.packages("{pkg}")'
+  }
+  cli::cli_abort(c(
+    "{what} needs the {.pkg {pkg}} package.",
+    i = paste0("Install it with {.code ", install, "}.")
+  ))
 }
 
 #' @noRd

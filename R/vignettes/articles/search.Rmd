@@ -374,6 +374,115 @@ hpv[, c("sample", "study_accession", "cells", "hpv_top_type", "microbe_n_detecti
 > [!NOTE]
 > Query using the name of the target organism (e.g., `"HPV"`). General terms like `"papillomavirus"` are not matched.
 
+### A worked cohort: HPV16 in single-cell cervical cancer
+
+Filters combine, so a question stated in prose maps onto a single call. Build it one filter at a time and read the `total` attribute after each one to see which filter does the narrowing:
+
+```{r cohort-hpv-funnel}
+cervical <- SampleSearch(disease_ontology_id = "MONDO:0002974", limit = 1)
+attr(cervical, "total")
+
+sc <- SampleSearch(
+  disease_ontology_id = "MONDO:0002974",
+  single_cell_only = TRUE,
+  limit = 1
+)
+attr(sc, "total")
+```
+
+`MONDO:0002974` is cervical cancer, and `include_descendants` is `TRUE` by default, so the subtypes come along. Adding `hpv_type` restricts the cohort to the samples whose reads the Pentimento screen called as that strain:
+
+```{r cohort-hpv16}
+hpv16 <- SampleSearch(
+  disease_ontology_id = "MONDO:0002974",
+  single_cell_only = TRUE,
+  hpv_type = "HPV16"
+)
+
+hpv16[, c("sample", "study_accession", "disease", "cells", "hpv_top_type")]
+```
+
+`hpv_type` asks for one strain. Use `microbe = "HPV"` instead to keep every strain and attach the detections to each row, one row of `microbes` per sample:
+
+```{r cohort-hpv-any}
+hpv <- SampleSearch(
+  disease_ontology_id = "MONDO:0002974",
+  single_cell_only = TRUE,
+  microbe = "HPV"
+)
+
+vapply(hpv$microbes, function(m) {
+  paste(vapply(m, function(d) d$organism, character(1)), collapse = ", ")
+}, character(1))
+```
+
+An age filter drops a sample whose age was never recorded, and few single-cell cervical studies deposit one, so `age_min_years = 45` empties this cohort. Count the recorded ages before filtering on them:
+
+```{r cohort-age-coverage}
+# age_min_years = 0 means "has a recorded age at all"
+with_age <- SampleSearch(
+  disease_ontology_id = "MONDO:0002974",
+  single_cell_only = TRUE,
+  age_min_years = 0,
+  limit = 1
+)
+attr(with_age, "total")
+```
+
+Age comes back harmonised in `age_days`; the `age` column is the submitter's own string, in whatever unit they used.
+
+### The distribution of HPV types across cervical cancer
+
+Drop `single_cell_only`, keep `microbe = "HPV"`, and count the detections. A sample can carry more than one strain, so the counts sum to more than the cohort:
+
+```{r cohort-hpv-distribution}
+hpv_all <- SampleSearch(disease_ontology_id = "MONDO:0002974", microbe = "HPV")
+c(samples = nrow(hpv_all), studies = length(unique(hpv_all$study_accession)))
+
+detections <- function(x, keep = function(d) TRUE) {
+  unlist(lapply(x$microbes, function(m) {
+    vapply(Filter(keep, m), function(d) d$organism, character(1))
+  }))
+}
+
+all_types <- sort(table(detections(hpv_all)), decreasing = TRUE)
+all_types
+```
+
+Every k-mer hit counts in that table, down to a few unitigs against a mostly uncovered genome. `is_viral_evidence` is the screen's own gate:
+
+```{r cohort-hpv-gated}
+gated_types <- sort(
+  table(detections(hpv_all, function(d) isTRUE(d$is_viral_evidence))),
+  decreasing = TRUE
+)
+gated_types
+```
+
+`breadth_frac` and `kmer_mass` are the numbers behind the gate, if you would rather set your own threshold.
+
+Both counts on one axis show how much of the tail is trace signal:
+
+```{r cohort-hpv-plot, fig.alt = "Bar chart of HPV type detections across cervical cancer samples, all detections against those passing the viral gate", fig.height = 3.2}
+dist <- rbind(
+  data.frame(as.data.frame(all_types), set = "any detection"),
+  data.frame(as.data.frame(gated_types), set = "passes the gate")
+)
+names(dist)[1:2] <- c("type", "Freq")
+
+ggplot2::ggplot(dist, ggplot2::aes(stats::reorder(type, Freq), Freq, fill = set)) +
+  ggplot2::geom_col(position = "dodge") +
+  ggplot2::coord_flip() +
+  ggplot2::labs(x = NULL, y = "detections", fill = NULL) +
+  ggplot2::theme_minimal()
+```
+
+`hpv_top_type` is filled in only for the samples the Pentimento single-cell pass covers, so it is `NA` on most of this cohort even where `microbes` names a strain. Tabulate `microbes`.
+
+The denominator is samples that were screened and had a detection, not every cervical cancer sample in Seqout. The table describes the screened data, not HPV prevalence.
+
+From here, `SeqoutGet()` opens the study behind any row and `SeqoutCounts()` reads its matrices.
+
 ## Execute SQL queries offline
 
 The search and cohort lookup functions require the REST API backend. If you need to perform custom aggregation or query the entire database offline, connect to the Parquet dump backend and write SQL queries directly:

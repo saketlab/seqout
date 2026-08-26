@@ -130,6 +130,10 @@ SeqoutMatrix <- seqout_matrix
 #' @export
 Seqout2Seurat <- seqout_seurat
 
+#' @rdname seqout_sce
+#' @export
+Seqout2SCE <- seqout_sce
+
 #' @rdname seqout_search
 #' @export
 SeqoutSearch <- seqout_search

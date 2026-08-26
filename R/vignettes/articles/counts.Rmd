@@ -217,10 +217,24 @@ Use the [`Seqout2Seurat()`](file:///Users/amkhrjee/Developer/source/seqout/R/R/c
 ```{r seurat-one, message = FALSE, warning = FALSE}
 library(Seurat)
 
-Seqout2Seurat(SeqoutMatrix(counts, sample = picked[1]), project = picked[1])
+m1 <- SeqoutMatrix(counts, sample = picked[1])
+Seqout2Seurat(m1, project = picked[1])
 ```
 
 Because the matrix `X` is already oriented correctly for Seurat, `seqout` does not transpose it. The cell annotations in `obs` are automatically imported as Seurat `meta.data`.
+
+### Or a SingleCellExperiment
+
+`Seqout2SCE()` is the Bioconductor counterpart, and takes the same two kinds of input. `X` becomes the `counts` assay, `obs` becomes `colData` and `var` becomes `rowData`:
+
+```{r sce-one, message = FALSE, warning = FALSE}
+sce <- Seqout2SCE(m1)
+sce
+
+head(SingleCellExperiment::colData(sce), 3)
+```
+
+`SingleCellExperiment` is an optional dependency, and comes from Bioconductor: `BiocManager::install("SingleCellExperiment")`. Pass `assay_name` when the matrix holds something other than raw counts, so a normalised one lands in `logcounts`.
 
 ### Process multiple samples
 

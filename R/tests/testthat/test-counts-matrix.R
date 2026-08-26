@@ -1,14 +1,3 @@
-mock_matrix <- function(X) {
-  structure(
-    list(
-      X = X,
-      obs = data.frame(row.names = colnames(X)),
-      var = data.frame(row.names = rownames(X))
-    ),
-    class = "seqout_matrix"
-  )
-}
-
 test_that("bind_counts intersects features and binds genes by cells", {
   a <- mock_matrix(matrix(1:6,
     nrow = 3,

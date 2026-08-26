@@ -50,7 +50,7 @@ search expands with, and puts the identifiers beside it.
 \details{
 Each column that you name gets a \verb{<column>_ontology_id} column next to it.
 The new column holds the source CURIEs for that label, separated by commas:
-\code{CL:0000084,MeSH:D013601}. A label that the graph does not have, and an empty
+\verb{CL:0000084,MeSH:D013601}. A label that the graph does not have, and an empty
 cell, become \code{NA}.
 
 Only the identifiers of the label itself are read. Set \code{use_synonyms = TRUE}
