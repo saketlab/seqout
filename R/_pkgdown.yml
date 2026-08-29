@@ -117,6 +117,9 @@ reference:
   desc: Free-text and structured search across every archive
   contents:
   - seqout_search
+  - search_facets
+  - search_suggest
+  - filter_values
   - ontology
   - map_to_ontology
   - sample_search
@@ -144,6 +147,7 @@ reference:
   - seqout_units
   - seqout_matrix
   - seqout_seurat
+  - seqout_sce
   - matrices
   - bind_counts
   - quick_annotation
