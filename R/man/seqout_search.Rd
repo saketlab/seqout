@@ -30,8 +30,7 @@ SeqoutSearch(
 )
 }
 \arguments{
-\item{query}{Character. The text to search for. It is not necessary if you
-give a filter.}
+\item{query}{Character. The text to search for; optional if you give a filter.}
 
 \item{...}{The filters, by name, from the set above.}
 
@@ -68,36 +67,6 @@ A tibble of results, with a \code{took_ms} attribute.
 \description{
 \code{seqout_search()} searches seven public repositories at the same time: GEO,
 SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
-}
-\details{
-Give a query, filters, or both. A query alone searches the title, the summary
-and the design of every study, and the server ranks the results. Give the
-filters by name through \code{...}.
-
-Every filter works with a query and without one, and every filter combines
-with every other one, with a single exception: \code{library_source} cannot be
-used together with \code{assay_l1}, \code{assay_l2} or a \verb{geo_*} filter.
-
-The set is \code{db}, \code{source}, \code{organism}, \code{library_strategy}, \code{library_source},
-\code{platform}, \code{country}, \code{journal}, \code{instrument_model}, \code{multi_platform},
-\code{date_from}, \code{date_to}, \code{assay_l1}, \code{assay_l2}, \code{geo_country_code_iso2},
-\code{geo_lat}, \code{geo_lng} and \code{geo_radius_km}. A name outside it causes an error,
-and the error message shows the names that are correct.
-
-\code{db} and \code{source} select one archive. The two names do the same thing.
-
-\code{date_from} and \code{date_to} take a day, as \code{yyyy-mm-dd}. They bound
-\code{updated_at}, the day when seqout last saw a change to the record. They are
-the only time bounds.
-
-A query expands before it runs. The server adds the synonyms of each term
-from eight ontologies, so a search for \code{"masld"} also finds "nafld". Set
-\code{expand = FALSE} to search the words as you typed them. Give
-\code{exclude_ontology} to keep one source out of the synonyms and keep the rest.
-The website has the same two controls.
-
-This function reads the REST API only. For the Parquet dump, write SQL with
-\code{\link[=query]{query()}}. SQL is a better tool for a filter or a count over the full index.
 }
 \examples{
 \dontrun{

@@ -3,37 +3,7 @@
 #' `seqout_search()` searches seven public repositories at the same time: GEO,
 #' SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
 #'
-#' Give a query, filters, or both. A query alone searches the title, the summary
-#' and the design of every study, and the server ranks the results. Give the
-#' filters by name through `...`.
-#'
-#' Every filter works with a query and without one, and every filter combines
-#' with every other one, with a single exception: `library_source` cannot be
-#' used together with `assay_l1`, `assay_l2` or a `geo_*` filter.
-#'
-#' The set is `db`, `source`, `organism`, `library_strategy`, `library_source`,
-#' `platform`, `country`, `journal`, `instrument_model`, `multi_platform`,
-#' `date_from`, `date_to`, `assay_l1`, `assay_l2`, `geo_country_code_iso2`,
-#' `geo_lat`, `geo_lng` and `geo_radius_km`. A name outside it causes an error,
-#' and the error message shows the names that are correct.
-#'
-#' `db` and `source` select one archive. The two names do the same thing.
-#'
-#' `date_from` and `date_to` take a day, as `yyyy-mm-dd`. They bound
-#' `updated_at`, the day when seqout last saw a change to the record. They are
-#' the only time bounds.
-#'
-#' A query expands before it runs. The server adds the synonyms of each term
-#' from eight ontologies, so a search for `"masld"` also finds "nafld". Set
-#' `expand = FALSE` to search the words as you typed them. Give
-#' `exclude_ontology` to keep one source out of the synonyms and keep the rest.
-#' The website has the same two controls.
-#'
-#' This function reads the REST API only. For the Parquet dump, write SQL with
-#' [query()]. SQL is a better tool for a filter or a count over the full index.
-#'
-#' @param query Character. The text to search for. It is not necessary if you
-#'   give a filter.
+#' @param query Character. The text to search for; optional if you give a filter.
 #' @param ... The filters, by name, from the set above.
 #' @param sortby `"citations"`, `"journal"` or `"year"`. The default order is
 #'   relevance.
@@ -178,6 +148,15 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   out
 }
 
+#' Both endpoints need one non-empty query to rank against
+#' @noRd
+.check_query <- function(query) {
+  if (!rlang::is_string(query) || !nzchar(trimws(query))) {
+    cli::cli_abort("{.arg query} must be one non-empty string.")
+  }
+  invisible(NULL)
+}
+
 #' Apply the day bounds in R, on the column the server would have used
 #'
 #' The server's own clause is `matched.updated_at::date >= date_from`, and
@@ -265,8 +244,24 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 #' better done with a filter over the result.
 #' @noRd
 .structured_only <- c(
-  "assay_l1", "assay_l2", "geo_country_code_iso2",
-  "geo_lat", "geo_lng", "geo_radius_km"
+  "assay_l1", "assay_l2",
+  "geo_country", "geo_country_code", "geo_country_code_iso2",
+  "geo_city", "geo_state", "geo_district", "geo_postcode",
+  "geo_lat", "geo_lng", "geo_radius_km",
+  "published_after", "published_before",
+  "pub_date_after", "pub_date_before",
+  "sample_tissue", "sample_disease", "sample_cell_type"
+)
+
+#' Filters the server validates as `yyyy-mm-dd`
+#'
+#' The server answers 422 for a day it cannot parse, so the shape is checked
+#' here first.
+#' @noRd
+.date_filters <- c(
+  "date_from", "date_to",
+  "published_after", "published_before",
+  "pub_date_after", "pub_date_before"
 )
 
 #' Every name `...` may carry
@@ -299,7 +294,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   bad <- x[is.na(hit)]
   if (length(bad)) {
     # cli reads `{.ontologies}` as a style, not a value, because it starts with
-    # a dot -- hence the plain copy, the same as `.check_filter_names()` makes.
+    # a dot, so the set is copied to a plain name before it is interpolated.
     known <- .ontologies
     cli::cli_abort(c(
       "{.val {bad}} {?is/are} not an ontology this search expands with.",
@@ -309,8 +304,14 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   unique(.ontologies[hit])
 }
 
+#' Refuse a filter name no endpoint has, and guess what was meant
+#'
+#' `noun` names the set in the error, because the endpoints take different ones.
+#' `help` replaces the list of valid names with a pointer to a topic, for a set
+#' too long to print.
 #' @noRd
-.check_filter_names <- function(filters) {
+.check_filter_names <- function(filters, allowed = .search_filters,
+                                noun = "search filter", help = NULL) {
   if (!length(filters)) {
     return(invisible(NULL))
   }
@@ -318,20 +319,21 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   if (is.null(nms) || any(!nzchar(nms))) {
     cli::cli_abort("Every filter in {.arg ...} must be named.")
   }
-  bad <- setdiff(nms, .search_filters)
-  if (length(bad)) {
-    known <- .search_filters
-    cli::cli_abort(c(
-      "{.arg {bad}} {?is/are} not a search filter.",
-      i = "Available: {.arg {known}}."
-    ))
+  bad <- setdiff(nms, allowed)
+  if (!length(bad)) {
+    return(invisible(NULL))
   }
-  invisible(NULL)
+  near <- allowed[colSums(utils::adist(bad, allowed, ignore.case = TRUE) <= 2) > 0]
+  cli::cli_abort(c(
+    "{.arg {bad}} {?is/are} not a {noun}.",
+    i = if (length(near)) "Did you mean {.arg {near}}?",
+    i = help %||% "Available: {.arg {allowed}}."
+  ))
 }
 
 #' @noRd
 .check_iso_dates <- function(filters) {
-  given <- intersect(names(filters), c("date_from", "date_to"))
+  given <- intersect(names(filters), .date_filters)
   bad <- given[!vapply(
     filters[given],
     function(v) is.character(v) && grepl("^\\d{4}-\\d{2}-\\d{2}$", v),
@@ -392,4 +394,125 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     i = "No search answers both. Drop {cli::qty(length(bad))}{?it/them},
          or drop {.arg {with}}."
   ))
+}
+
+
+#' Count the matches of a search
+#'
+#' Groups what [seqout_search()] would return over the whole match set.
+#' Ask which organisms, countries or assays a query matched,
+#' then feed the answer back as a filter. Counts are exact and cover every
+#' match, so this costs about as much as the search itself.
+#'
+#' Values come ordered by `score`, the summed match rank of the studies behind
+#' each value, not by `count`. `score` is 0 without a query to rank against.
+#'
+#' @param query Character. The text to count the matches of. Required.
+#' @param ... Filters, by name, to count *within*: `db`, `organism`, `country`,
+#'   `library_strategy`, `library_source`, `instrument_model`, `platform`,
+#'   `journal`, `multi_platform`, `year_from` and `year_to`.
+#' @param structured Read `query` as a boolean expression, as [seqout_search()].
+#' @param exclude_ontology Ontologies to keep out of the query expansion. See
+#'   [seqout_search()].
+#' @inheritParams project
+#'
+#' @return A tibble of `facet`, `value`, `count` and `score`, with `total` and
+#'   `max_rank` attributes. `total` is the number of matching studies;
+#'   `max_rank` is the best rank any result reached, ignoring the filters.
+#'
+#' @seealso [seqout_search()] for the results themselves, [search_suggest()]
+#'   when a query returns nothing.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' f <- SearchFacets("liver cancer")
+#' attr(f, "total")
+#'
+#' # What organisms are in this result set?
+#' f[f$facet == "organism", ]
+#'
+#' # Narrow, then count again within the narrower set
+#' SearchFacets("liver cancer", organism = "Homo sapiens")
+#' }
+search_facets <- function(query, ..., structured = FALSE,
+                          exclude_ontology = NULL, con = .con()) {
+  .need_api(
+    con, "search_facets",
+    why = "Use {.fn query} to group over the dump with SQL."
+  )
+  rlang::check_required(query)
+  .check_query(query)
+  if (!rlang::is_bool(structured)) {
+    cli::cli_abort("{.arg structured} must be {.code TRUE} or {.code FALSE}.")
+  }
+  exclude_ontology <- .check_ontologies(exclude_ontology)
+
+  filters <- .compact(list(...))
+  .check_filter_names(filters, .facet_filters, "facet filter")
+
+  res <- do.call(.api_get, c(
+    list(con = con, path = "/search/facets", q = query),
+    if (structured) list(structured = "true"),
+    if (length(exclude_ontology)) list(exclude_ontology = exclude_ontology),
+    filters
+  ))
+
+  out <- .facets_to_tibble(res$facets)
+  attr(out, "total") <- res$total
+  attr(out, "max_rank") <- res$max_rank
+  out
+}
+
+#' One row per facet value
+#' @noRd
+.facets_to_tibble <- function(facets) {
+  .pnt_tibble(
+    .labelled(facets, "facet"),
+    list(
+      facet = .pnt_chr, value = .pnt_chr,
+      count = .pnt_num, score = .pnt_num
+    )
+  )
+}
+
+#' The sidebar's own filter set
+#'
+#' No `assay_*` or `geo_*` parameter, which this endpoint would drop without a
+#' word, and it keeps the `year_from`/`year_to` bounds `seqout_search()` has not.
+#' @noRd
+.facet_filters <- sort(c(
+  .shared_filters, "db", "library_source", "year_from", "year_to"
+))
+
+
+#' Find corrected query for a query with typos
+#'
+#' @param query Character. The query as it was typed.
+#' @inheritParams project
+#'
+#' @return A tibble of suggestions, empty when the query needs no correction.
+#'
+#' @seealso [seqout_search()], and [search_facets()] for a query that matched
+#'   too much.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' SearchSuggest("livre cancr")
+#'
+#' # Nothing to correct
+#' SearchSuggest("liver cancer")
+#' }
+search_suggest <- function(query, con = .con()) {
+  .need_api(con, "search_suggest")
+  rlang::check_required(query)
+  .check_query(query)
+  res <- .api_get(con, "/search/suggest", q = query)
+  suggestions <- res$suggestions
+  # An untyped 0x0 tibble has no column for a caller to reach for.
+  if (length(suggestions) == 0) {
+    return(tibble::tibble(corrected_query = character(0), corrections = list()))
+  }
+  .records_to_tibble(suggestions)
 }

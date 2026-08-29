@@ -1,5 +1,3 @@
-rest_con <- function() seqout_connect("api", quiet = TRUE)
-
 test_that("a search needs a query or at least one filter", {
   expect_error(seqout_search(con = rest_con()), "at least one filter")
 })
@@ -29,7 +27,12 @@ test_that("the filter set is the API's, less the names that meant two things", {
     "platform", "country", "journal", "instrument_model", "multi_platform",
     "date_from", "date_to",
     "assay_l1", "assay_l2",
-    "geo_country_code_iso2", "geo_lat", "geo_lng", "geo_radius_km"
+    "published_after", "published_before",
+    "pub_date_after", "pub_date_before",
+    "sample_tissue", "sample_disease", "sample_cell_type",
+    "geo_country", "geo_country_code", "geo_country_code_iso2",
+    "geo_city", "geo_state", "geo_district", "geo_postcode",
+    "geo_lat", "geo_lng", "geo_radius_km"
   ))
   expect_false(any(c("year_from", "year_to", "center") %in% seqout:::.search_filters))
 })
@@ -77,6 +80,7 @@ test_that("the endpoint is chosen from the filters, not by the caller", {
   seqout_search("liver", journal = "Nature", country = "Japan", con = rest_con())
   seqout_search("liver", source = "geo", con = rest_con())
   seqout_search("liver", db = "geo", assay_l1 = "Transcriptomic", con = rest_con())
+  seqout_search("liver", sample_tissue = "liver", con = rest_con())
 
   expect_equal(seen[[1]]$path, "/search")
 
@@ -91,6 +95,10 @@ test_that("the endpoint is chosen from the filters, not by the caller", {
   expect_equal(seen[[4]]$path, "/search/structured")
   expect_equal(seen[[4]]$params$source, "geo")
   expect_null(seen[[4]]$params$db)
+
+  # The enriched-sample filters are structured-only too.
+  expect_equal(seen[[5]]$path, "/search/structured")
+  expect_equal(seen[[5]]$params$sample_tissue, "liver")
 })
 
 test_that("the day bounds survive a structured search, applied in R", {
@@ -315,4 +323,83 @@ test_that("a structured search has no ontologies to switch off", {
     ),
     "cannot be combined with"
   )
+})
+
+test_that("every filter set is drawn from the one the caller may name", {
+  # An unlisted date bound skips its check and 422s.
+  expect_true(all(seqout:::.structured_only %in% seqout:::.search_filters))
+  expect_true(all(seqout:::.fulltext_only %in% seqout:::.search_filters))
+  expect_true(all(seqout:::.date_filters %in% seqout:::.search_filters))
+  expect_true(all(seqout:::.local_filters %in% seqout:::.fulltext_only))
+})
+
+test_that("the new time bounds are validated the same way the old ones are", {
+  expect_error(
+    seqout_search("liver", published_after = "2020", con = rest_con()),
+    "yyyy-mm-dd"
+  )
+})
+
+test_that("facets need a query, and refuse a filter the endpoint has not got", {
+  expect_error(search_facets("", con = rest_con()), "non-empty")
+  expect_error(
+    search_facets("liver", assay_l1 = "Transcriptomic", con = rest_con()),
+    "not a facet filter"
+  )
+})
+
+test_that("facets flatten to one row per value, with numeric counts", {
+  out <- seqout:::.facets_to_tibble(list(
+    organism = list(
+      list(value = "Homo sapiens", count = 12, score = 3.5),
+      list(value = "Mus musculus", count = 4, score = 1.25)
+    ),
+    country = list(list(value = "Japan", count = 2, score = 0))
+  ))
+  expect_equal(nrow(out), 3)
+  expect_setequal(unique(out$facet), c("organism", "country"))
+  expect_type(out$count, "double")
+  expect_equal(out$count[out$value == "Homo sapiens"], 12)
+})
+
+test_that("no facets is an empty tibble of the right shape, not an error", {
+  # A response without the key gives NULL; both must type the same.
+  for (empty in list(list(), NULL)) {
+    out <- seqout:::.facets_to_tibble(empty)
+    expect_equal(nrow(out), 0)
+    expect_named(out, c("facet", "value", "count", "score"))
+  }
+})
+
+test_that("facets and suggestions are REST only", {
+  parquet <- fake_con(backend = "parquet")
+  expect_error(search_facets("liver", con = parquet), "REST API")
+  expect_error(search_suggest("liver", con = parquet), "REST API")
+})
+
+test_that("a suggestion needs one non-empty query", {
+  expect_error(search_suggest(c("a", "b"), con = rest_con()), "non-empty")
+})
+
+test_that("nothing to correct is still a tibble with the columns", {
+  local_mocked_bindings(.api_get = function(...) list(suggestions = list()))
+  out <- search_suggest("liver cancer", con = rest_con())
+  expect_equal(nrow(out), 0)
+  expect_named(out, c("corrected_query", "corrections"))
+})
+
+test_that("the empty shape is the shape a correction actually comes back in", {
+  # The empty tibble is hand-written while the populated one is derived.
+  local_mocked_bindings(
+    .api_get = function(...) {
+      list(suggestions = list(list(
+        corrected_query = "liver cancer",
+        corrections = list(list(original = "livre", suggested = "liver"))
+      )))
+    }
+  )
+  filled <- search_suggest("livre cancer", con = rest_con())
+  expect_named(filled, c("corrected_query", "corrections"))
+  # A correction keeps its fields rather than flattening to a bare string.
+  expect_equal(filled$corrections[[1]][[1]]$suggested, "liver")
 })

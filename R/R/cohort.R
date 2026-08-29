@@ -89,24 +89,6 @@
   )
 }
 
-#' @noRd
-.check_cohort_filters <- function(filters) {
-  if (is.null(names(filters)) || any(!nzchar(names(filters)))) {
-    cli::cli_abort("Give every filter by name.")
-  }
-  bad <- setdiff(names(filters), .cohort_filters)
-  if (length(bad) == 0) {
-    return(invisible(NULL))
-  }
-  d <- utils::adist(bad, .cohort_filters, ignore.case = TRUE)
-  near <- .cohort_filters[colSums(d <= 2) > 0]
-  cli::cli_abort(c(
-    "Unknown sample filter{?s}: {.val {bad}}.",
-    i = if (length(near)) "Did you mean {.val {near}}?",
-    i = "See {.code ?sample_search} for the filters."
-  ))
-}
-
 #' Search samples across every project
 #'
 #' Searches the harmonised data, not the submitter's free text. Seqout reads
@@ -209,7 +191,10 @@ sample_search <- function(..., include_descendants = TRUE, sort = "sample",
       i = "An unfiltered search would return every annotated sample."
     ))
   }
-  .check_cohort_filters(filters)
+  .check_filter_names(
+    filters, .cohort_filters, "sample filter",
+    help = "See {.code ?sample_search} for the filters."
+  )
 
   if (!is.null(limit)) limit <- max(1L, as.integer(limit))
 

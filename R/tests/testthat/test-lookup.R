@@ -1,4 +1,3 @@
-rest_con <- function() seqout_connect("api", quiet = TRUE)
 test_that("citations asks for BibTeX and passes the type through", {
   seen <- NULL
   testthat::local_mocked_bindings(

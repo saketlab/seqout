@@ -76,16 +76,27 @@ returns the ontology labels seqout.org has already prepared; `--norm` produces t
 locally with a language model.
 
 In R, alongside search and project metadata, there are `download_*` helpers,
-`project_enriched()`, `project_citations(format = "bibtex")`, `assay_projects()`,
-`check_sra_bam()`, the discovery lists `list_assays()`, `list_organisms()` and
-`list_countries()`, and `query()` for raw SQL. `seqout_search()` is the single search entry point. It takes the same filters as
-the Python client, given by name. The filters select the full-text or the
-structured search. It returns every match, not the first page; give `limit` to
-set a maximum. It reads the REST API only. For the Parquet dump, write SQL with
-`query()`. In R a connection is not necessary at all: every function has `con` as
-its last argument, and the default is a shared REST connection. `assay_projects()`, `sample_bam()`, `check_sra_bam()`, the discovery lists
-and `query()` need a Parquet connection and say so if given a REST one. Its views are DuckDB tables, so `dplyr` and `dbplyr` work directly on it, and
-`cache_table()` materialises one locally.
+`project_enriched()`, `project_citations(format = "bibtex")`, and `query()` for
+raw SQL. `seqout_search()` is the single search entry point. It takes the same
+filters as the Python client, given by name. The filters select the full-text or
+the structured search. It returns every match, not the first page; give `limit`
+to set a maximum. It reads the REST API only. For the Parquet dump, write SQL
+with `query()`.
+
+`search_facets()` counts a query's matches per organism, country, assay,
+journal, instrument and platform over the whole match set, so a query that
+returned too much can be narrowed without paging through it, and
+`search_suggest()` corrects a query that returned nothing. The discovery lists
+`list_organisms()`, `list_assays()`, `list_platforms()`,
+`list_library_strategies()`, `list_instrument_models()`, `list_journals()` and
+`list_centers()` enumerate the values a filter will actually match, each with a
+count. All of these read the REST API.
+
+In R a connection is not necessary at all: every function has `con` as its last
+argument, and the default is a shared REST connection. `query()` needs a Parquet
+connection and says so if given a REST one. Its views are DuckDB tables, so
+`dplyr` and `dbplyr` work directly on it, and `cache_table()` materialises one
+locally.
 
 ## Documentation
 

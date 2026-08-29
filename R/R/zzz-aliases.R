@@ -54,6 +54,34 @@ GroupKey <- group_key
 #' @export
 IsFiltered <- is_filtered
 
+#' @rdname filter_values
+#' @export
+ListAssays <- list_assays
+
+#' @rdname filter_values
+#' @export
+ListCenters <- list_centers
+
+#' @rdname filter_values
+#' @export
+ListInstrumentModels <- list_instrument_models
+
+#' @rdname filter_values
+#' @export
+ListJournals <- list_journals
+
+#' @rdname filter_values
+#' @export
+ListLibraryStrategies <- list_library_strategies
+
+#' @rdname filter_values
+#' @export
+ListOrganisms <- list_organisms
+
+#' @rdname filter_values
+#' @export
+ListPlatforms <- list_platforms
+
 #' @rdname matrices
 #' @export
 Matrices <- matrices
@@ -133,6 +161,14 @@ Seqout2Seurat <- seqout_seurat
 #' @rdname seqout_sce
 #' @export
 Seqout2SCE <- seqout_sce
+
+#' @rdname search_facets
+#' @export
+SearchFacets <- search_facets
+
+#' @rdname search_suggest
+#' @export
+SearchSuggest <- search_suggest
 
 #' @rdname seqout_search
 #' @export

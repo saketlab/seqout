@@ -13,7 +13,7 @@ test_that("an unknown filter is rejected, and the message names the near miss", 
 test_that("a filter given positionally is rejected", {
   expect_error(
     sample_search("liver", con = fake_con(backend = "api")),
-    "by name"
+    "must be named"
   )
 })
 

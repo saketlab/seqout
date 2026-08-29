@@ -15,3 +15,6 @@ fake_con <- function(registered = character(0), backend = "parquet") {
   makeActiveBinding("db", function() con$state$db, con)
   con
 }
+
+#' A REST connection, for the argument checks that abort before any request
+rest_con <- function() seqout_connect("api", quiet = TRUE)
