@@ -1,17 +1,7 @@
 """
 Read a GEO accession as a counts matrix.
 
-    from seqout import seqout_counts
-
-    c = seqout_counts(gsm="GSM8207499")
-    c.manifest()      # what was found, before anything is downloaded
-    m = c.matrix()
-    a = c.anndata()
-
-The constructor resolves supplementary files and groups them into readable
-units; nothing is downloaded until you ask for raw(), matrix() or anndata().
-GEO supplementary payloads run to tens of GB, so fetching in a constructor is
-not a usable API.
+Downloads start only when raw(), matrix(), or anndata() is called.
 """
 
 from __future__ import annotations
@@ -21,7 +11,7 @@ import tarfile
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 import numpy as np
 import pandas as pd
@@ -55,31 +45,19 @@ _FROM_ASSAY = object()
 
 class SeqoutCounts:
     """
-    Lazy reader for the counts matrices in a GEO series or sample.
+    Lazy reader for GEO counts matrices.
 
     Args:
         accession: A GSE or GSM; equivalent to passing gse= or gsm=.
         gse: GEO series accession.
         gsm: GEO sample accession.
-        client: An existing SeqoutAPIClient. One is opened on demand when
-            omitted. The parquet backend is not supported yet; it has no
-            fetch_geo_sample_detailed_metadata, and its sample model spells
-            platform where the API model spells platform_ref.
-        cache_dir: Where downloads land. Defaults to
-            ~/.cache/seqout/counts/<accession>; files are reused across runs.
-        assay: which assay to take when a sample, or an R object, carries
-            several, as CITE-seq and multiome studies do. Defaults to "rna";
-            "adt", "hto" and "atac" are recognised too. None takes whichever
-            comes first. This also sets which rows of a combined 10x matrix are
-            kept, so the two cannot disagree.
-        feature_type: 10x feature class to keep, overriding the one implied by
-            assay. Rarely needed; pass None to keep every row.
-        progress: show download and read progress. Bars render as a widget in a
-            notebook and as text in a terminal, and hide themselves when output
-            is not a terminal. Pass False to silence them entirely.
-        sample_metadata: attach the study's sample-level characteristics to obs,
-            so a cell carries the donor, tissue and condition it came from
-            alongside its own annotation. Pass False to keep obs as deposited.
+        client: Existing API client. The parquet backend is unsupported for counts.
+        cache_dir: Download cache. Defaults to ~/.cache/seqout/counts/<accession>.
+        assay: Preferred assay for multi-assay samples or R objects. Also sets
+            10x feature rows unless feature_type overrides it.
+        feature_type: 10x feature class to keep. None keeps every row.
+        progress: Show download and read progress. False silences it.
+        sample_metadata: Attach study-level sample characteristics to obs.
 
     """
 
@@ -113,7 +91,7 @@ class SeqoutCounts:
             client, "fetch_geo_sample_detailed_metadata"
         ):
             msg = (
-                f"{type(client).__name__} cannot back SeqoutCounts: it has no "
+                f"{type(client).__name__} cannot back SeqoutListCounts: it has no "
                 "fetch_geo_sample_detailed_metadata. Pass a client from "
                 "connect('api') or connect('parquet'), or omit client= to open one."
             )
@@ -141,7 +119,7 @@ class SeqoutCounts:
 
     def __repr__(self) -> str:
         n = len(self._units) if self._units is not None else "?"
-        return f"SeqoutCounts({self.accession}, {n} unit(s))"
+        return f"SeqoutListCounts({self.accession}, {n} unit(s))"
 
     def __enter__(self) -> Self:
         return self
@@ -150,7 +128,7 @@ class SeqoutCounts:
         self.close()
 
     def close(self) -> None:
-        """Close the client, when this object opened one of its own."""
+        """Close the client when this object opened it."""
         if self._owns_client and self._client is not None:
             self._client.close()
             self._client = None
@@ -204,11 +182,9 @@ class SeqoutCounts:
 
     def units(self, *, preferred_only: bool = True) -> list[Unit]:
         """
-        Readable units, one matrix each.
+        Readable matrix units, preferred per sample by default.
 
-        A sample often ships the same counts twice (a 10x h5 and its mtx
-        triplet). By default only the preferred one per sample is returned;
-        preferred_only=False shows every unit so nothing is silently hidden.
+        preferred_only=False returns alternates such as 10x h5 plus mtx triplet.
         """
         if self._units is None:
             self._units = group(
@@ -221,12 +197,7 @@ class SeqoutCounts:
         return self._units
 
     def manifest(self, *, preferred_only: bool = False) -> pd.DataFrame:
-        """
-        Show what would be read, and from which files. No download.
-
-        Shows every unit by default, with preferred marking the one that
-        matrix() picks for each sample.
-        """
+        """DataFrame of readable units and backing files, before download."""
         return pd.DataFrame(
             [
                 {
@@ -312,7 +283,7 @@ class SeqoutCounts:
             else:
                 missing = [u for u in missing if not counts_ftp.fetch(u, want[u])]
         if missing:
-            # 1 MiB chunks cap the loop count for tens-of-GB GEO payloads.
+            # large chunks cap loop count for large GEO payloads
             # NCBI throttles high connection fanout; HTTPS workers are capped at 8
             self.client.download_files(
                 missing,
@@ -362,11 +333,10 @@ class SeqoutCounts:
 
     def anndata(self, sample: str | None = None, *, concat: bool = True) -> Any:
         """
-        Read the selected units as AnnData.
+        Read selected units as AnnData.
 
-        Multiple units are concatenated on an inner feature join with a sample
-        column, which is what a whole-series read usually wants; concat=False
-        raises instead so a silent join can't hide a mixed-platform series.
+        Multiple units concatenate on shared features with a sample column.
+        concat=False raises on multiple units.
         """
         mats = self.matrices(sample)
         if not mats:
@@ -380,13 +350,7 @@ class SeqoutCounts:
         return bind_counts(mats)
 
     def native(self, sample: str | None = None) -> Any:
-        """
-        Return the file's own object, unconverted.
-
-        Only .h5ad has one; it comes back as the AnnData on disk, metadata and
-        embeddings intact. Every other format is normalised on read and falls
-        back to matrix().
-        """
+        """Return a file-native object when the format has one, else CountMatrix."""
         unit = self._one(sample)
         if unit.fmt == "h5ad":
             return read_h5ad(self._fetch(unit.urls)[0])
@@ -400,7 +364,7 @@ class SeqoutCounts:
             return self._read(self._expand_tar(unit))
 
         self._fetch(unit.urls)
-        # fetch order and sorted-URL order agree only by luck
+        # Preserve fetch order when assigning paths to URLs.
         by_role: dict[Role, Path] = {}
         for f in unit.files:
             by_role.setdefault(f.role, self._path_for(f.url))
@@ -449,21 +413,17 @@ class SeqoutCounts:
         self, *, min_cell_count: int | None = 1, **filters: Any
     ) -> pd.DataFrame:
         """
-        Choose which samples of the series to read.
+        Return samples with readable units, after harmonised cohort filtering.
 
-        Filters the study's samples through the harmonised cohort search and
-        keeps the ones that have a readable unit. Use it on a series that mixes
-        tissues or assays.
+        Requires a GSE. `min_cell_count` drops samples without recorded counts
+        unless None.
 
         Args:
-            min_cell_count: Smallest cell count to keep. A sample with no
-                recorded count goes too; None keeps everything.
-            **filters: Cohort filters, such as tissue="liver". The study comes
-                from this object.
+            min_cell_count: Smallest cell count to keep. None keeps everything.
+            **filters: Cohort filters, such as tissue="liver".
 
         Returns:
-            The matching samples, most cells first, with the `unit` and
-            `format` that matrix() would read.
+            Matching samples, most cells first, with `unit` and `format`.
 
         """
         if not self.accession.startswith("GSE"):
@@ -472,6 +432,17 @@ class SeqoutCounts:
         rows = self.client.sample_search(
             study_accession=self.accession, min_cell_count=min_cell_count, **filters
         ).to_df()
+        if rows.empty and min_cell_count is not None:
+            # bulk samples record no cell count, so the single-cell default drops them
+            rows = self.client.sample_search(
+                study_accession=self.accession, min_cell_count=None, **filters
+            ).to_df()
+            if not rows.empty:
+                logger.info(
+                    "no sample in %s records a cell count; ignoring min_cell_count=%s",
+                    self.accession,
+                    min_cell_count,
+                )
         if rows.empty:
             return rows
 
@@ -493,12 +464,7 @@ class SeqoutCounts:
 
     @property
     def design(self) -> pd.DataFrame:
-        """
-        Sample-level characteristics for the study, indexed by accession.
-
-        Built from the sample records resolution already fetched, so reading it
-        costs nothing extra.
-        """
+        """Sample-level characteristics fetched while resolving files."""
         if self._design is None:
             self.files()
             self._design = sample_frame(self._samples)
@@ -506,12 +472,10 @@ class SeqoutCounts:
 
     def _attach_sample_metadata(self, unit: Unit, obs: pd.DataFrame) -> pd.DataFrame:
         """
-        Carry the study's per-sample characteristics onto the observations.
+        Carry study-level sample characteristics onto observations.
 
-        For single-cell data every row came from one sample, so its values are
-        broadcast. For a bulk table the rows are samples themselves, so the
-        design joins on the index instead. Columns already present in obs win,
-        since annotation deposited per cell is more specific than per sample.
+        Single-cell rows get sample values broadcast. Bulk rows join by sample
+        index. Per-cell obs columns win over sample-level columns.
         """
         design = self.design
         if design.empty:
@@ -539,11 +503,9 @@ class SeqoutCounts:
 
     def _merge_metadata(self, unit: Unit, obs: pd.DataFrame) -> pd.DataFrame:
         """
-        Join any sidecar annotation onto obs, keyed by cell label.
+        Join sidecar annotation onto obs by cell label.
 
-        Only rows already in obs are kept: a series-level metadata file usually
-        covers every sample, so an outer join would invent cells this unit does
-        not contain.
+        Only rows already in obs are kept; outer joins would invent cells.
         """
         for f in unit.metadata_files:
             path = self._path_for(f.url)
@@ -618,7 +580,46 @@ class SeqoutCounts:
         return units[0]
 
 
+# name parity with the R client; .matrix() starts fetching
+SeqoutListCounts = SeqoutCounts
 seqout_counts = SeqoutCounts
+seqout_list_counts = SeqoutCounts
+
+
+# Store large zero-padded unions sparsely to bound memory use.
+_DENSE_ELEMENT_LIMIT = 50_000_000
+
+
+def _densify_would_blow_up(adatas: list[Any], n_features: int, n_cells: int) -> bool:
+    """Whether an outer join has to go sparse to fit."""
+    if all(hasattr(a.X, "nnz") for a in adatas):
+        return False
+    if all(a.n_vars == n_features for a in adatas):
+        return False
+    return n_features * n_cells > _DENSE_ELEMENT_LIMIT
+
+
+def _check_features(
+    keys: list[str],
+    features: list[set[str]],
+    shared: set[str],
+    *,
+    strict: bool,
+) -> None:
+    """Warn, or raise, when an inner join would drop features."""
+    dropped = {k: len(f) - len(shared) for k, f in zip(keys, features, strict=True)}
+    if not any(dropped.values()):
+        return
+    worst = sorted(dropped.items(), key=lambda kv: -kv[1])[:3]
+    detail = ", ".join(f"{k} loses {n}" for k, n in worst if n)
+    msg = (
+        f"the {len(keys)} matrices do not share a feature space: "
+        f"{len(shared)} features are common to all, and binding on them drops "
+        f"up to {max(dropped.values())} per matrix ({detail})"
+    )
+    if strict:
+        raise ValueError(msg)
+    logger.warning("%s. Pass strict=True to make this an error.", msg)
 
 
 def bind_counts(
@@ -626,22 +627,41 @@ def bind_counts(
     labels: list[str] | None = None,
     max_cells: int | None = None,
     seed: int | None = None,
+    *,
+    strict: bool = False,
+    join: Literal["inner", "outer"] = "inner",
 ) -> Any:
     """
-    Bind counts matrices across samples, on the genes they share.
+    Bind counts matrices across samples.
+
+    join="inner" keeps shared genes and warns when features are dropped.
+    Per-sample peak calls can have different feature sets. strict=True raises
+    on feature loss.
+
+    join="outer" keeps the union and fills absent genes with zero. A zero there
+    means "not in this matrix", not "measured as zero".
+
+    Dense and sparse inputs may be mixed. Dense outer joins exceeding 5e7
+    elements use sparse storage to bound memory when features barely overlap.
 
     Args:
-        matrices: CountMatrix objects, as SeqoutCounts.matrices() returns.
+        matrices: CountMatrix objects, as SeqoutListCounts.matrices() returns.
         labels: One name per matrix, used for the `sample` column and the cell
             name suffix. Defaults to the dict keys.
         max_cells: Cap on cells kept per matrix, sampled at random. None keeps
             all; pass seed for a reproducible draw.
         seed: Seed for that draw.
+        strict: Raise rather than warn when the feature sets differ. Ignored
+            for join="outer", which drops nothing.
+        join: "inner" for the shared genes, "outer" for the union zero-filled.
 
     Returns:
         One AnnData, cells by genes.
 
     """
+    if join not in ("inner", "outer"):
+        msg = f"join must be 'inner' or 'outer', not {join!r}"
+        raise ValueError(msg)
     items = (
         list(matrices.items())
         if isinstance(matrices, dict)
@@ -655,14 +675,6 @@ def bind_counts(
         msg = f"labels has {len(keys)} entries, matrices has {len(items)}"
         raise ValueError(msg)
 
-    features = [
-        set(m.var.index if isinstance(m, CountMatrix) else m.var_names)
-        for _, m in items
-    ]
-    if not features[0].intersection(*features[1:]):
-        msg = f"the {len(items)} matrices share no features"
-        raise ValueError(msg)
-
     ad = _require("anndata")
     rng = np.random.default_rng(seed)
     adatas = []
@@ -671,4 +683,44 @@ def bind_counts(
         if max_cells is not None and a.n_obs > max_cells:
             a = a[np.sort(rng.choice(a.n_obs, max_cells, replace=False))].copy()
         adatas.append(a)
-    return ad.concat(adatas, keys=keys, join="inner", label="sample", index_unique="-")
+
+    # to_anndata() has normalised both input shapes, so var_names is the one
+    # place the feature sets live from here on
+    features = [set(a.var_names) for a in adatas]
+    if join == "inner":
+        shared = features[0].intersection(*features[1:])
+        if not shared:
+            msg = (
+                f"the {len(items)} matrices share no features; "
+                f'pass join="outer" to keep the union instead'
+            )
+            raise ValueError(msg)
+        _check_features(keys, features, shared, strict=strict)
+    else:
+        n_features = len(set().union(*features))
+        n_cells = sum(a.n_obs for a in adatas)
+        if _densify_would_blow_up(adatas, n_features, n_cells):
+            sparse = _require("scipy.sparse")
+            logger.info(
+                "binding %d features x %d cells as a sparse matrix; dense would "
+                "allocate %d elements, nearly all of them zero",
+                n_features,
+                n_cells,
+                n_features * n_cells,
+            )
+            # Copy before conversion to preserve the caller's AnnData.
+            adatas = [
+                a
+                if hasattr(a.X, "nnz")
+                else ad.AnnData(X=sparse.csr_matrix(a.X), obs=a.obs, var=a.var)
+                for a in adatas
+            ]
+
+    return ad.concat(
+        adatas,
+        keys=keys,
+        join=join,
+        fill_value=0,
+        label="sample",
+        index_unique="-",
+    )

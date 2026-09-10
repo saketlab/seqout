@@ -1,19 +1,8 @@
 """
-Pick the endpoint from the filters, and do in Python what it cannot do.
+Choose the search endpoint and local result work.
 
-Two endpoints answer a project search and they take different filter sets, so
-without this the caller has to know which one owns which filter. That is an
-implementation detail of the server, not something a client should teach.
-
-This mirrors the R client (``R/search.R``) so the two answer the same question
-the same way:
-
-* the filters choose the endpoint, never the caller;
-* ``date_from``/``date_to`` and ``sortby`` are applied here when the structured
-  endpoint wins, because it has neither and FastAPI drops a query parameter it
-  does not declare -- so sending them would fail in silence;
-* ``year_from``, ``year_to`` and ``center`` are refused, because each meant two
-  different things depending on which endpoint answered.
+Date bounds and sort apply locally for structured search.
+Filters with conflicting endpoint meanings are rejected.
 """
 
 from __future__ import annotations
@@ -31,23 +20,19 @@ from seqout.models.api_models import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-# Defined here rather than imported from the client, which imports this module.
+# defined here to avoid the client/import cycle
 SearchParamsType = SearchParams | StructuredSearchParams
 
-# Only the full-text endpoint has these. `exclude_ontology` is one of them
-# because only that endpoint expands terms at all.
+# full-text-only fields; exclude_ontology belongs here because expansion does
 FULLTEXT_ONLY = frozenset(
-    {"db", "library_source", "date_from", "date_to", "exclude_ontology"}
+    {"db", "library_source", "date_from", "date_to", "exclude_ontology", "long_read"}
 )
 
-# Applied here rather than sent, when a structured filter took the other
-# endpoint. `updated_at` is on every result row and is the column the full-text
-# endpoint bounds, so the answer is the same one it would have given.
+# applied locally when structured filters choose the structured endpoint
+# updated_at matches the full-text endpoint's date field
 LOCAL_FILTERS = frozenset({"date_from", "date_to"})
 
-# Only the structured endpoint has these; naming one selects it.
-# `source` is deliberately absent: it is the structured spelling of `db`, so it
-# is translated rather than treated as a reason to change endpoint.
+# structured-only filters; source is translated from db
 STRUCTURED_ONLY = frozenset(
     {
         "assay_l1",
@@ -72,8 +57,7 @@ STRUCTURED_ONLY = frozenset(
     }
 )
 
-# Gone, with what to use instead. Each of these meant one thing on one endpoint
-# and something else on the other, which is not a filter, it is a coin toss.
+# Unsupported filters with replacement guidance
 REMOVED = {
     "year_from": (
         "bounded the publication year on one endpoint and the last-updated "
@@ -91,20 +75,18 @@ REMOVED = {
     ),
 }
 
-# Mirrors _TRIGGER in the API's boolean_query.py: a group, a quoted phrase, a
-# wildcard, or a standalone uppercase operator. Lowercase "colon or gut" is
-# prose and must not trigger.
+# server boolean trigger: grouping, quotes, wildcard, or uppercase operator
 _BOOLEAN = re.compile(r'[()"*]|\b(?:OR|AND|NOT)\b')
 
 
 def is_boolean_query(q: str | None) -> bool:
-    """Say whether the server would read this query as a boolean expression."""
+    """Whether the server reads this query as a boolean expression."""
     return bool(q) and bool(_BOOLEAN.search(q))
 
 
 @dataclass
 class SearchPlan:
-    """One search, and whatever has to happen to its results afterwards."""
+    """Search request plus local filtering or sorting work."""
 
     params: SearchParamsType
     structured_endpoint: bool = False
@@ -115,12 +97,7 @@ class SearchPlan:
 
     @property
     def has_local_work(self) -> bool:
-        """
-        Say whether the results need filtering or reordering after they arrive.
-
-        When they do, every page has to be read before a limit can be applied:
-        a row dropped or moved here has to move before the count does.
-        """
+        """Whether all pages must be read before applying a limit."""
         return any((self.date_from, self.date_to, self.sortby))
 
 
@@ -135,12 +112,10 @@ def plan_search(
     **filters: Any,
 ) -> SearchPlan:
     """
-    Build the request, and say what is left for the client to do.
+    Build the endpoint request plus local work.
 
-    `expand=False` runs the words as typed -- no ontology synonyms, no spelling
-    correction -- which is what the website's term expansion switch does, and
-    what the server calls `structured`. `exclude_ontology` keeps named
-    ontologies out of the expansion instead of dropping all of them.
+    `expand=False` uses exact terms through the server's `structured` wire flag.
+    `exclude_ontology` removes selected ontology sources from expansion.
     """
     filters = {k: v for k, v in filters.items() if v is not None}
     _reject_removed(filters)
@@ -154,16 +129,13 @@ def plan_search(
                 q=q,
                 sortby=sortby,
                 order=order,
-                # One wire flag, two ways to ask for it: expansion off is the
-                # same exact-terms reading `structured` forces.
+                # one wire flag covers expansion off and exact-term requests
                 structured=structured or (not expand) or None,
                 **filters,
             )
         )
 
-    # The structured endpoint never expands, so `expand` is already true of it
-    # and there is nothing to send. `exclude_ontology` is refused below with the
-    # other full-text-only names, since switching one off there means nothing.
+    # structured endpoint uses exact terms; reject full-text-only switches below
 
     _reject_boolean(q, structured, filters)
     _reject_unanswerable(filters)

@@ -32,12 +32,9 @@ def _join_authors(v: Any) -> Any:
 
 class SearchParams(BaseModel):
     """
-    Every parameter the full-text ``/search`` endpoint accepts.
+    Parameters accepted by the full-text ``/search`` endpoint.
 
-    ``extra="forbid"`` on purpose. Pydantic's default is to drop a field it
-    does not declare, which turned ``search("liver", assay_l1="…")`` into an
-    unfiltered search that looked filtered. A name this endpoint cannot answer
-    has to say so.
+    ``extra="forbid"`` keeps undeclared filters from becoming unfiltered searches.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -52,18 +49,15 @@ class SearchParams(BaseModel):
     journal: list[str] | None = None
     instrument_model: list[str] | None = None
     multi_platform: bool | None = None
+    # studies with a PacBio or Oxford Nanopore experiment, any archive
+    long_read: bool | None = None
     sortby: Literal["citations", "journal", "year"] | None = None
     order: Literal["asc", "desc"] | None = "desc"
     date_from: str | None = None  # ISO yyyy-mm-dd; server filters on updated_at
     date_to: str | None = None
-    # Read q as a boolean expression and take its terms exactly: no ontology
-    # expansion, no spelling correction. A query already carrying (), "", * or
-    # an uppercase OR/AND/NOT is read that way anyway; this forces it on one
-    # that carries none. Unrelated to the /search/structured endpoint.
+    # exact-term search flag for boolean syntax and expansion-off queries
     structured: bool | None = None
-    # Ontologies to keep out of the expansion, e.g. ["MeSH", "CVCL"]. The same
-    # switches the website offers. A term the graph knows under two of them
-    # survives while one of the two stays on, because terms are merged by name.
+    # ontology sources omitted from term expansion
     exclude_ontology: list[str] | None = None
     offset: int | None = None
     cursor_rank: float | None = None
@@ -106,14 +100,10 @@ class SearchParams(BaseModel):
 
 class StructuredSearchParams(BaseModel):
     """
-    Every parameter the ``/search/structured`` endpoint accepts.
+    Parameters accepted by the ``/search/structured`` endpoint.
 
-    Deliberately without ``sortby``, ``order``, ``date_from``, ``date_to``,
-    ``db`` and ``structured``: that endpoint has no such parameters, and FastAPI
-    drops a query parameter it does not declare, so declaring them here would
-    have moved a silent failure from this process to the server rather than
-    fixing it. ``extra="forbid"`` makes passing one an error that names it.
-    Use :class:`SearchParams` when you need them.
+    Unsupported full-text fields are forbidden here because FastAPI would drop
+    undeclared query parameters silently.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -139,14 +129,13 @@ class StructuredSearchParams(BaseModel):
     geo_lat: float | None = None
     geo_lng: float | None = None
     geo_radius_km: float | None = None
-    # Day-granularity bounds. published_* is the study's release date;
-    # pub_date_* is the linked paper's, and is best-effort — only papers with a
-    # full day-level date match.
+    # day-granularity bounds. published_* is study release date.
+    # pub_date_* is linked paper date; full day-level dates only.
     published_after: str | None = None
     published_before: str | None = None
     pub_date_after: str | None = None
     pub_date_before: str | None = None
-    # Narrow to studies with a matching sample, on the harmonised fields.
+    # narrow to studies with a matching sample, on harmonised fields
     sample_tissue: str | None = None
     sample_disease: str | None = None
     sample_cell_type: str | None = None
@@ -275,9 +264,8 @@ class SearchCorrection(BaseModel):
     """
     Spelling correction the backend applied to a text query.
 
-    replaced  - corrected-query results already substituted into results.
-    augmented - original results kept; typo-corrected matches ride along in
-    extra_results (shown as a separate block, like the web app does).
+    replaced: results use the corrected query.
+    augmented: original results plus typo-corrected extras.
     """
 
     original_query: str
@@ -305,10 +293,9 @@ class SearchResponse(BaseModel):
 
 class SupplementaryFile(BaseModel):
     """
-    One processed file a submitter uploaded, and which record carries it.
+    Processed file uploaded by a submitter, plus carrying record.
 
-    `sample` is None on the files the series carries itself; the rest belong to
-    one sample. `type` is what the archive called it and is often absent.
+    `sample` is None for series-level files. `type` is the archive label.
     """
 
     sample: str | None = None
@@ -319,11 +306,9 @@ class SupplementaryFile(BaseModel):
     @classmethod
     def from_record(cls, raw: Any, sample: str | None) -> SupplementaryFile | None:
         """
-        Read one entry, whatever shape the archive wrote it in.
+        Read one archive supplementary entry.
 
-        GEO writes a bare URL, a (url, type) pair, or the literal string
-        "NONE" for a sample that carries no files, so anything without a scheme
-        is dropped rather than turned into a row that cannot be fetched.
+        GEO writes literal "NONE". Entries without a URL scheme are dropped.
         """
         url, kind = (raw, None) if isinstance(raw, str) else (None, None)
         if isinstance(raw, (list, tuple)) and raw:
@@ -352,11 +337,10 @@ class SupplementaryFiles(BaseContainer[SupplementaryFile]):
 
 class BamFile(BaseModel):
     """
-    One alignment file a submitter sent, and where it can be read.
+    One submitted alignment file and where it can be read.
 
-    `url`/`https_url` are anonymous; `s3_url` is requester-pays and bills the
-    caller, so it is reported rather than fetched. Roughly one file in seven is
-    anonymously readable, and every one carries an md5.
+    `url`/`https_url` are anonymous. `s3_url` is requester-pays and bills the
+    caller, so callers see it without fetching.
     """
 
     run_accession: str | None = None
@@ -386,12 +370,7 @@ class BamFile(BaseModel):
 
 
 class BamFiles(BaseContainer[BamFile]):
-    """
-    A study's alignment files.
-
-    `total_bams` and `total_bam_bytes` are the endpoint's own headline numbers;
-    both are exactly the rows summed, so they are computed rather than carried.
-    """
+    """A study's alignment files with computed totals."""
 
     @property
     def total_bams(self) -> int:
@@ -434,12 +413,7 @@ class SearchTotal(BaseModel):
 
 
 class SearchResults(BaseContainer[SearchResult]):
-    """
-    A list of search hits, with subsetting and summary helpers.
-
-    Every method that narrows the set returns a new SearchResults, so calls
-    chain. Inherited from BaseContainer: to_df, to_csv, to_dict.
-    """
+    """Search hits with subsetting and summary helpers."""
 
     def offset(self, n: int) -> SearchResults:
         """Drop the first n hits."""
@@ -457,8 +431,7 @@ class SearchResults(BaseContainer[SearchResult]):
         """
         Keep hits whose fields all equal the given values.
 
-        String comparisons ignore case. A hit missing one of the fields is
-        dropped.
+        String comparisons ignore case. A missing field drops the hit.
 
         Args:
             **kwargs: Field name to required value, e.g. source="geo".
@@ -485,7 +458,7 @@ class SearchResults(BaseContainer[SearchResult]):
         """
         Drop hits whose fields equal the given values.
 
-        Comparison is exact, so this is case-sensitive where filter is not.
+        Comparison is exact and case-sensitive.
 
         Args:
             **kwargs: Field name to unwanted value.
@@ -520,8 +493,7 @@ class SearchResults(BaseContainer[SearchResult]):
         """
         Order the hits by one field.
 
-        Hits where the field is None sort to the end in either direction, so
-        they never displace a hit that has a value.
+        Hits with None sort last in either direction.
 
         Args:
             field: The field to order by, e.g. citation_count.
@@ -616,6 +588,7 @@ class ProjectMetadataResult(BaseModel):
     country_code: str | None = None
     is_single_cell: bool | None = None
     single_cell_modality: str | None = None
+    has_long_read: bool | None = None
 
     @field_validator("supplementary_data", mode="before")
     @classmethod
@@ -921,12 +894,11 @@ class OntologyName(BaseModel):
 
 class OntologyTerm(BaseModel):
     """
-    What the ontology graph knows about one term.
+    Ontology graph entry for one term.
 
-    `synonyms` is the MAPS_TO cluster reached within `max_hops`. `children` are
-    the DIRECT hierarchy children of that whole cluster, or None when the
-    lookup asked to skip them. Both are capped by the server: compare
-    `synonym_total` against `len(synonyms)`, and read `children_truncated`.
+    `synonyms` is the MAPS_TO cluster within `max_hops`. `children` are direct
+    hierarchy children, or None when skipped. Server caps are in `synonym_total`
+    and `children_truncated`.
     """
 
     model_config = ConfigDict(extra="allow")

@@ -1,14 +1,4 @@
-"""
-Accession-first access: sq.get("GSE168652") resolves the archive for you.
-
-A Dataset wraps one accession and fills each field on first access,
-hopping between archives on its own; a GEO series reaches its linked SRA study
-for runs, an SRA study reaches its GEO series for samples. Callers never branch
-on the prefix.
-
-ShortNames carries the one-word aliases; both clients mix it in. The
-long fetch_* names stay, so existing code and the CLI are unaffected.
-"""
+"""Accession-first lazy access through Dataset and ShortNames."""
 
 from __future__ import annotations
 
@@ -30,7 +20,7 @@ if TYPE_CHECKING:
         PublicationLookupResult,
     )
 
-# Mirrors the backend classifier; E-GEAD-N and PRJC/SAMC overlap older accession shapes.
+# Mirrors the backend classifier; E-GEAD-N and PRJC/SAMC overlap broader shapes.
 _ENTITY_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^GSE\d+$"), "series"),
     (re.compile(r"^GSM\d+$"), "sample"),
@@ -88,10 +78,7 @@ def _kind(accession: str) -> str | None:
 
 class Dataset:
     """
-    Everything reachable from one accession, fetched lazily and cached.
-
-    Accepts any accession (series, study, experiment, sample or run) and
-    resolves the rest itself::
+    Lazy fields reachable from one accession.
 
         d = sq.get("GSE168652")
         d.meta       # project metadata
@@ -161,7 +148,7 @@ class Dataset:
 
     @cached_property
     def meta(self) -> ProjectMetadataResult:
-        """Project metadata for project."""
+        """Project metadata for this accession's root."""
         return self._sq.fetch_project_metadata(self.project)
 
     def _samples_of(self, accession: str) -> Any:
@@ -173,11 +160,10 @@ class Dataset:
     @cached_property
     def samples(self) -> Any:
         """
-        The per-sample records, from whichever archive holds them.
+        Per-sample records from the native archive or linked archive.
 
-        GEO, ArrayExpress and GEA list channel samples; SRA, ENA, DDBJ and GSA
-        list experiments. Falls back to the linked archive when this side has
-        none, so a study and its series answer the same.
+        GEO and ArrayExpress list channel samples; sequence archives list
+        experiments. Empty native results fall back to the linked archive.
         """
         native = self._samples_of(self.project)
         if len(native):
@@ -189,13 +175,7 @@ class Dataset:
 
     @cached_property
     def experiments(self) -> StudyExperimentsResults:
-        """
-        The library preparations, one row per experiment.
-
-        Reached through the linked sequencing study, so an ArrayExpress or GEA
-        series answers too. Empty only when the dataset really has none, as
-        with microarray-only submissions.
-        """
+        """Library preparations from the linked sequencing study."""
         study = self.sra
         if not study:
             return StudyExperimentsResults([])
@@ -203,13 +183,7 @@ class Dataset:
 
     @cached_property
     def runs(self) -> StudyRunsResults:
-        """
-        Every sequencing run, via the linked sequencing study when needed.
-
-        The link is followed however the archive files it: a cross-reference for
-        GEO and ArrayExpress, the BioProject for GEA. Empty only when the dataset
-        really has no runs, as with microarray-only submissions.
-        """
+        """Sequencing runs from the linked study, if one exists."""
         study = self.sra
         if not study:
             return StudyRunsResults([])
@@ -218,16 +192,10 @@ class Dataset:
     @cached_property
     def supplementary(self) -> Any:
         """
-        The processed files a submitter uploaded: matrices, annotations, archives.
+        Processed files from the series/study and its samples.
 
-        A series or study lists its own files and every sample's; `sample` is
-        None on the ones the series carries itself. A GEO sample lists only its
-        own, because reading them through the series would ask for a parent the
-        archive does not always serve and would answer with the whole series.
-
-        Read this before downloading. GEO writes a literal "NONE" for a sample
-        with no files, so an entry without a URL is dropped rather than turned
-        into a row that cannot be fetched.
+        Series-scope files have sample=None. A GSM lists only its own files.
+        GEO literal "NONE" entries are dropped because they have no URL.
         """
         from seqout.models.api_models import (  # noqa: PLC0415 - cycle
             SupplementaryFile,
@@ -260,17 +228,10 @@ class Dataset:
     @cached_property
     def bams(self) -> Any:
         """
-        The alignment files the submitter sent, where there are any.
+        Submitted alignment files resolved through the SRA-side study.
 
-        Not the reads. Read this before downloading: a study can run to
-        hundreds of gigabytes and most files are requester-pays.
-
-        The archive files alignments against the SRA-side study, so a GEO or
-        ArrayExpress accession is resolved to its linked study first. One with
-        no such link, or no alignments, answers with an empty list.
-
-        An experiment or run accession narrows the result to its own files
-        rather than handing back the whole study's.
+        Missing linked studies or BAMs return an empty list.
+        Experiment and run accessions narrow the result.
         """
         from seqout.models.api_models import BamFiles  # noqa: PLC0415 - cycle
 
@@ -282,9 +243,7 @@ class Dataset:
         except Exception:
             return BamFiles([])
 
-        # The endpoint answers per study, so narrowing happens here. Matching
-        # on the rows rather than on the accession's shape means a study
-        # accession keeps everything without having to be recognised as one.
+        # endpoint answers per study; narrow by run or experiment accession
         want = self.accession.upper()
         mine = [
             b
@@ -317,8 +276,7 @@ class Dataset:
         """
         The record for this exact accession: sample detail or run row.
 
-        None when the accession is itself a study or series; use
-        meta there.
+        None for study or series accessions.
         """
         if self.kind in _ROOT_ENTITIES:
             return None
@@ -373,6 +331,22 @@ class ShortNames:
     def microbes(self, accession: str, kind: str = "all", **kwargs: Any) -> Any:
         """Report the microbial sequence in one sample's reads, by organism."""
         return _call(self, "fetch_microbes", accession, kind=kind, **kwargs)
+
+    def longread_summary(self) -> Any:
+        """Corpus-wide totals for studies with a PacBio or Oxford Nanopore run."""
+        return _call(self, "fetch_longread_summary")
+
+    def longread_facets(self) -> Any:
+        """Study counts per technology, platform, instrument, organism, archive."""
+        return _call(self, "fetch_longread_facets")
+
+    def longread_projects(self, **kwargs: Any) -> Any:
+        """Studies with a PacBio or Oxford Nanopore experiment, any archive."""
+        return _call(self, "fetch_longread_projects", **kwargs)
+
+    def longread_chemistry(self, accession: str) -> Any:
+        """Every PacBio/Oxford Nanopore run for a study."""
+        return _call(self, "fetch_longread_chemistry", accession)
 
     def citations(
         self,

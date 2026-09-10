@@ -1,9 +1,8 @@
 """
 Read .rds counts objects.
 
-Two paths: a pure-Python one that parses the RDS stream and lifts the sparse
-slots straight out of Seurat and SingleCellExperiment objects, and an Rscript
-fallback for objects only R can unwrap. Neither densifies the matrix.
+Pure-Python parsing extracts sparse slots from common R containers. Rscript
+exports objects only R can unwrap. Both keep matrices sparse.
 """
 
 from __future__ import annotations
@@ -98,7 +97,7 @@ _LAYER_PREFERENCE = ("counts", "raw", "data")
 
 
 def _slots(node: Any) -> dict[str, Any] | None:
-    """Named children of a parsed R node, whatever container it arrived in."""
+    """Named children of a parsed R node."""
     if hasattr(node, "__dict__"):
         return dict(vars(node))
     if isinstance(node, dict):
@@ -147,7 +146,7 @@ def _find_sparse_matrices(
 
 
 def _labels(node: Any, n: int) -> list[str] | None:
-    """Length-n labels out of whatever container R's names arrived in."""
+    """Length-n labels from an R names container."""
     if node is None:
         return None
     coords = getattr(node, "coords", None)
@@ -192,12 +191,7 @@ def _axis_names(
 
 
 def _layer_rank(path: str, assay: str | None) -> tuple[int, int, int]:
-    """
-    Order candidate matrices inside one R object.
-
-    A Seurat object holds an assay per modality and several layers per assay, so
-    the assay is chosen first and the raw layer within it second.
-    """
+    """Order matrices by assay, layer preference, and path length."""
     modality = modality_rank(path, assay)
     for i, token in enumerate(_LAYER_PREFERENCE):
         if token in path:
@@ -266,7 +260,7 @@ def _find_metadata(root: Any, n: int, tokens: tuple[str, ...]) -> pd.DataFrame |
 
 
 def _attach(labels: list[str], meta: pd.DataFrame | None, axis: str) -> pd.DataFrame:
-    """Index of labels carrying meta's columns, aligned by label when possible."""
+    """Metadata frame aligned to labels when possible."""
     index = pd.Index(labels, name=axis)
     if meta is None:
         return pd.DataFrame(index=index)

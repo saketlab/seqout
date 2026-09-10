@@ -32,7 +32,7 @@ def _require(module: str) -> Any:
 
 
 class Role(StrEnum):
-    """What a supplementary file is, for grouping and dispatch."""
+    """Supplementary file role for grouping and dispatch."""
 
     Mtx = "mtx"
     Barcodes = "barcodes"
@@ -92,8 +92,17 @@ _SIDECARS = (
     "metrics_summary",
 )
 
-_BARCODE_NAMES = ("barcodes.tsv", "barcodes.csv", "_barcodes.")
-_FEATURE_NAMES = ("features.tsv", "genes.tsv", "features.csv", "genes.csv")
+_BARCODE_NAMES = ("barcodes.tsv", "barcodes.csv", "barcodes.txt", "_barcodes.")
+# Accessibility atlas triplets use .txt. Consensus peak lists also use peaks.bed,
+# so that suffix stays a standalone table.
+_FEATURE_NAMES = (
+    "features.tsv",
+    "genes.tsv",
+    "features.csv",
+    "genes.csv",
+    "features.txt",
+    "genes.txt",
+)
 
 _ROLE_TOKENS = (
     "matrix.mtx",
@@ -104,6 +113,9 @@ _ROLE_TOKENS = (
     "features.csv",
     "genes.csv",
     "matrix.csv",
+    "barcodes.txt",
+    "features.txt",
+    "genes.txt",
 )
 
 _TENX_DIRS = re.compile(
@@ -146,11 +158,10 @@ def classify(name: str) -> Role:  # noqa: PLR0911
 
 def group_key(name: str) -> str:
     """
-    Shared key for the files of one 10x unit.
+    Shared key for files in one 10x unit.
 
-    A canonical CellRanger directory wins over the filename; otherwise the
-    filename with its compression suffix and terminal role token stripped, so
-    GSM123_x_matrix.mtx.gz and GSM123_x_barcodes.tsv.gz land together.
+    CellRanger directories group first; otherwise terminal role tokens are
+    stripped from compressed basenames.
     """
     parts = name.split("/")
     for i, seg in enumerate(parts[:-1]):
@@ -170,7 +181,7 @@ def is_filtered(name: str) -> bool:
     return "filtered" in low and "unfiltered" not in low
 
 
-# CITE-seq, hashing and multiome assays are named in filenames and Seurat assay slots
+# CITE-seq, hashing, and multiome assays appear in filenames and Seurat slots
 _MODALITY_TOKENS = {
     "rna": ("_rna", "rna_", "gex", "geneexp"),
     "adt": ("_adt", "adt_", "antibody", "_prot", "citeseq"),
@@ -189,12 +200,7 @@ def modality_in(text: str) -> str | None:
 
 
 def modality_rank(text: str, assay: str | None) -> int:
-    """
-    Order a candidate by how well its assay matches the one asked for.
-
-    Unnamed sorts between a match and a mismatch, so a file that says nothing
-    about its assay still beats one that names a different assay.
-    """
+    """Rank matches ahead of unnamed assays, and unnamed ahead of mismatches."""
     found = modality_in(text)
     if assay is None or found is None:
         return 1

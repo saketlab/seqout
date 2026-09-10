@@ -2,8 +2,10 @@ from seqout.annotate import quick_annotation
 from seqout.counts import (
     CountMatrix,
     SeqoutCounts,
+    SeqoutListCounts,
     bind_counts,
     seqout_counts,
+    seqout_list_counts,
 )
 from seqout.dataset import Dataset
 from seqout.models import api_models, parquet_models
@@ -17,6 +19,7 @@ __all__ = [
     "SearchParams",
     "Seqout",
     "SeqoutCounts",
+    "SeqoutListCounts",
     "StudyRunsResults",
     "api_models",
     "bind_counts",
@@ -28,4 +31,5 @@ __all__ = [
     "quick_annotation",
     "sample_frame",
     "seqout_counts",
+    "seqout_list_counts",
 ]

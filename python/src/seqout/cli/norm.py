@@ -1,10 +1,4 @@
-"""
-seqout --norm: build per-sample prompts and run through a GGUF model.
-
-Only the user turn is built here (raw project details -> the model produces the
-enriched labels). The prompt-construction mirrors the offline dataset builder in
-for-ref.md, adapted to the Seqout HTTP API.
-"""
+"""seqout --norm prompt building for sample label normalization."""
 
 from __future__ import annotations
 
@@ -30,7 +24,7 @@ from seqout.models.api_models import ExperimentSample, SampleMetadataResult
 
 logger = logging.getLogger(__name__)
 
-# System prompt verbatim from for-ref.md.
+# system prompt verbatim from for-ref.md
 SYS_PROMPT = (
     "You are a biomedical data extractor. You extract data from given text to the "
     "following 16 fields ((always all present, null when not determinable)):"
@@ -59,7 +53,7 @@ LABEL_FIELDS = [
     "sample_type",
 ]
 
-# Pull super/sub-series context when the series text is too thin for normalization.
+# pull super/sub-series context when the series text is thin
 MIN_CONTEXT_WORDS = 15
 
 DEFAULT_ENGINE = "ollama"
@@ -137,12 +131,12 @@ class SampleRecord:
     attributes: dict = field(default_factory=dict)
 
     def user_prompt(self) -> str:
-        """Return the JSON user-turn payload for this sample."""
+        """JSON user-turn payload for this sample."""
         return json.dumps(self.details, ensure_ascii=False)
 
 
 def _study_text_geo(meta: ProjectMetadataResult, sq: SeqoutAPIClient) -> dict:
-    """GEO series text, augmented from super/sub-series when thin."""
+    """GEO series text, with super/sub-series context when thin."""
     title, summary, design = meta.title, meta.summary, meta.overall_design
     if _word_count(summary, design) < MIN_CONTEXT_WORDS:
         for rel in meta.relations:
@@ -191,11 +185,10 @@ def build_records(
     on_progress: Callable[[str], None] | None = None,
 ) -> list[SampleRecord]:
     """
-    Fetch a project's samples and build one user-turn record per sample.
+    Fetch sample records and build one user-turn record per sample.
 
-    Supports GEO series (GSE), SRA/ENA studies (SRP/ERP/DRP) for "all samples",
-    and single SRA samples/experiments (SRS/SRX). Raises ValueError with guidance
-    for inputs that can't be resolved to sample records.
+    Supports GEO series, SRA/ENA studies, and single SRA/GEO accessions.
+    Raises ValueError when the accession cannot resolve to samples.
     """
     acc = accession.strip()
     up = acc.upper()
@@ -300,7 +293,7 @@ def hf_token_from_env() -> str | None:
 
 
 def set_hf_token(token: str) -> None:
-    """Make a token visible to ollama serve / llama-server / huggingface_hub."""
+    """Expose a token to ollama, llama-server, and huggingface_hub."""
     for key in _HF_TOKEN_ENV:
         os.environ[key] = token
 
@@ -319,7 +312,7 @@ def hf_repo_is_private(repo: str) -> bool:
             timeout=10,
         )
     except httpx.HTTPError:
-        return False  # network issue -> let the actual download surface it
+        return False  # network issue; let the download surface it
     return resp.status_code in (401, 403)
 
 
@@ -329,12 +322,7 @@ def _subprocess_env() -> dict:
 
 
 def parse_model_spec(spec: str | None) -> tuple[str, str]:
-    """
-    ollama/llama3 -> ('ollama', 'llama3'). Bare names default to ollama.
-
-    Returns (engine, model). For llamacpp/lmstudio the model is an HF repo and
-    defaults to the seqoutlm repo when only the engine is given.
-    """
+    """Parse ENGINE/MODEL into (engine, model), defaulting bare names to ollama."""
     if not spec:
         return DEFAULT_ENGINE, DEFAULT_OLLAMA_MODEL
     spec = spec.strip()
@@ -385,13 +373,12 @@ def _pull_error(model: str, err: str) -> str:
 
 
 class OllamaEngine:
-    """Fully managed: starts ollama serve, pulls the model, and chats."""
+    """Managed ollama server client."""
 
     name = "ollama"
     detected = False
 
     def __init__(self, model: str, port: int = DEFAULT_PORTS["ollama"]) -> None:
-        """Initialize with model name and optional port."""
         self.model = model
         self.base = f"http://localhost:{port}"
 
@@ -481,7 +468,7 @@ class OllamaEngine:
 
 
 class _OpenAICompatEngine:
-    """Shared client for llama.cpp / LM Studio OpenAI-compatible servers."""
+    """Shared OpenAI-compatible client for llama.cpp and LM Studio."""
 
     name = "openai-compat"
     base = ""
@@ -496,7 +483,7 @@ class _OpenAICompatEngine:
         return self.repo or None
 
     def ensure_ready(self, status: Callable[[str], None] | None = None) -> None:
-        """Ensure the server is ready (base: no-op for already-running servers)."""
+        """Reuse the detected server."""
         del status
 
     def chat(self, system: str, user: str) -> str:
@@ -522,7 +509,6 @@ class LlamaCppEngine(_OpenAICompatEngine):
     name = "llamacpp"
 
     def __init__(self, repo: str, port: int = DEFAULT_PORTS["llamacpp"]) -> None:
-        """Initialize with an HF repo and optional port."""
         self.repo = repo
         self.port = port
         self.base = f"http://localhost:{port}/v1"
@@ -568,7 +554,6 @@ class LMStudioEngine(_OpenAICompatEngine):
     name = "lmstudio"
 
     def __init__(self, repo: str, port: int = DEFAULT_PORTS["lmstudio"]) -> None:
-        """Initialize with an HF repo and optional port."""
         self.repo = repo
         self.api_model = repo
         self.port = port
@@ -621,7 +606,7 @@ def _openai_loaded_model(base: str) -> str | None:
 
 
 def _ollama_running_model(port: int = DEFAULT_PORTS["ollama"]) -> str | None:
-    """Name of a model currently loaded in ollama (/api/ps), or None."""
+    """Name of a model loaded in ollama (/api/ps), or None."""
     try:
         resp = httpx.get(f"http://localhost:{port}/api/ps", timeout=1.5)
         resp.raise_for_status()
@@ -635,12 +620,10 @@ def autodetect_engine(
     port: int | None = None,
 ) -> tuple[LlamaCppEngine | LMStudioEngine | OllamaEngine, str, str] | None:
     """
-    Find a model on an already-running server.
+    Find a model on a running server.
 
-    Returns (engine, name, model) with the engine marked as detected (so it
-    won't download or prompt), or None.  With port set, only that port is
-    probed (in llama.cpp -> LM Studio -> ollama order); otherwise each engine's
-    default port is tried.
+    Returns a detected engine tuple. With port set, probes only that port in
+    llama.cpp, LM Studio, ollama order.
     """
     llamacpp_port = port or DEFAULT_PORTS["llamacpp"]
     model = _openai_loaded_model(f"http://localhost:{llamacpp_port}/v1")
@@ -672,11 +655,10 @@ def engine_from_base_url(
     base_url: str,
 ) -> tuple[_OpenAICompatEngine, str, str]:
     """
-    Build an OpenAI-compatible engine for an already-running server.
+    Build an OpenAI-compatible engine for a running server.
 
-    Uses base_url (e.g. http://host:8080/v1). Marked detected: never launches
-    or downloads. Returns (engine, name, model) or raises EngineError if
-    unreachable.
+    Marks the engine detected, so it launches nothing and downloads nothing.
+    Raises EngineError when unreachable.
     """
     base = base_url.rstrip("/")
     if not base.endswith("/v1"):

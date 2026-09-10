@@ -14,7 +14,7 @@ try:
 except PackageNotFoundError:  # editable/uninstalled tree
     _USER_AGENT = "seqout-lib"
 
-# NCBI answers throttled requests with Forbidden
+# NCBI uses Forbidden for throttling
 _RETRYABLE_STATUS_CODES = {403, 408, 429, 500, 502, 503, 504}
 _RANGE_NOT_SATISFIABLE = 416
 _PARTIAL_CONTENT = 206
@@ -31,13 +31,7 @@ _session.mount("http://", _adapter)
 
 
 def _backoff(attempt: int, max_wait: int) -> float:
-    """
-    Full-jitter exponential backoff.
-
-    A deterministic wait makes every throttled worker retry at the same instant,
-    so the burst that caused the throttling re-forms. Spreading each wait over
-    zero to cap breaks that lockstep.
-    """
+    """Full-jitter backoff spreads throttled workers over the retry window."""
     return random.uniform(0, min(2**attempt, max_wait))  # noqa: S311
 
 
@@ -98,8 +92,7 @@ def _send_req[T: BaseModel](
             )
 
             r.raise_for_status()
-            # No model means the endpoint answers text, not JSON: /cite sends
-            # BibTeX, which has nothing to validate.
+            # /cite returns BibTeX; text endpoints bypass model validation
             if response_model is None:
                 return r.text
             return response_model.model_validate(r.json())

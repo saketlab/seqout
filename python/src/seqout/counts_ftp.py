@@ -1,17 +1,8 @@
 """
-FTP transport for supplementary files, with HTTPS as the fallback.
+FTP transport for supplementary files, with HTTPS fallback.
 
-GEO's HTTPS gateway throttles and sometimes answers with a Content-Length
-shorter than the real file, so a download can succeed against a truncated body.
-FTP avoids that gateway and its SIZE reply is authoritative, which makes a short
-transfer detectable for every format.
-
-Not every network can reach it; port 21 is commonly intercepted by a proxy. The
-first hard failure flips a switch so the rest of the run goes straight to HTTPS,
-which saves a connect timeout per file.
-
-Set SEQOUT_SOCKS_PROXY=host:port to tunnel FTP through SOCKS5, which needs
-pysocks installed.
+FTP SIZE detects truncation; hard FTP failures route subsequent transfers to HTTPS.
+SEQOUT_SOCKS_PROXY=host:port requires pysocks.
 """
 
 from __future__ import annotations
@@ -79,11 +70,10 @@ def _connect(host: str) -> ftplib.FTP:
 
 def fetch(url: str, dest: Path) -> bool:
     """
-    Download one ftp:// (or https-on-an-FTP-host) URL. False = fall back.
+    Download one ftp:// or HTTPS-mirrored FTP URL.
 
-    Writes to a .part file and renames only once the byte count matches the
-    server's SIZE, so an interrupted transfer can never be mistaken for a
-    complete cache entry.
+    False asks the caller to use HTTPS. The .part file is renamed after SIZE
+    matches, so interrupted transfers stay out of cache.
     """
     if _ftp_blocked:
         return False
@@ -106,7 +96,7 @@ def fetch(url: str, dest: Path) -> bool:
                     ftp.quit()
     except ftplib.all_errors as e:  # ftplib.all_errors already includes OSError.
         part.unlink(missing_ok=True)
-        # port 21 refusal or interception marks the network unusable for the run
+        # port 21 refusal marks FTP unusable for the run
         if isinstance(
             e, (socket.gaierror, ConnectionError, socket.timeout, ftplib.error_proto)
         ):

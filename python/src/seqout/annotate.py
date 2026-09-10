@@ -1,11 +1,7 @@
 """
-Label clusters by their strongest marker set.
+Label clusters by marker scores.
 
-    labels = quick_annotation(adata, adata.obs["leiden"], markers)
-    adata.obs["celltype"] = labels[adata.obs["leiden"].astype(str)].to_numpy()
-
-The R client carries the same function against a genes-by-cells matrix; here
-the input is cells by genes, which is what AnnData and scanpy use.
+Inputs use cells by genes.
 """
 
 from __future__ import annotations
@@ -18,7 +14,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Enough values to catch a normalised matrix without walking a whole one.
+# sampled values catch normalized matrices without scanning all entries
 _SAMPLED_VALUES = 10_000
 
 
@@ -37,7 +33,7 @@ def _cells_by_genes(x: Any) -> tuple[Any, pd.Index]:
 
 
 def _looks_like_counts(x: Any) -> bool:
-    """Whole non-negative numbers mean nothing has been normalised yet."""
+    """Infer raw counts from whole non-negative values."""
     values = x.data if hasattr(x, "nnz") else np.asarray(x).ravel()
     if values.size > _SAMPLED_VALUES:
         values = values[:: max(1, values.size // _SAMPLED_VALUES)]
@@ -53,14 +49,10 @@ def quick_annotation(
     """
     Label each cluster with its highest-scoring marker set.
 
-    Scores each cell as the mean expression of a set's genes, averages that
-    within each cluster, and labels the cluster with its best set. Sets with no
-    gene in `x` are dropped with a warning.
+    Scores each marker set per cell, averages by cluster, then labels by the
+    best set. Marker sets absent from `x` are dropped.
 
-    Scores are unscaled across sets, so a housekeeping-heavy set can out-score a
-    sparse but specific one. Check `labels.attrs["scores"]` before trusting a
-    label. Specific markers, present in one cell type and absent from the rest,
-    work best.
+    Scores are unscaled across sets; broad housekeeping sets can win.
 
     Args:
         x: A cells by genes matrix: an AnnData, a CountMatrix, or a DataFrame.
@@ -97,8 +89,7 @@ def quick_annotation(
     if normalize == "auto":
         normalize = _looks_like_counts(matrix)
 
-    # Library size needs every gene; only the marker columns are scored, and
-    # those are few enough to densify whatever the input sparsity.
+    # library size needs every gene; only marker columns are densified
     total = np.asarray(matrix.sum(axis=1)).ravel().astype(float)
     keep = position[sorted({g for v in found.values() for g in v})]
     sub = matrix[:, keep.to_numpy()]

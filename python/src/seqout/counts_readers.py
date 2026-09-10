@@ -1,9 +1,7 @@
 """
 Format readers for counts matrices.
 
-Every reader returns (X, obs, var) where X is obs x var: cells x genes for
-single-cell, samples x genes for bulk. That matches AnnData's orientation, so
-CountMatrix.to_anndata() only wraps.
+Readers return (X, obs, var), with X as obs x var for AnnData.
 """
 
 from __future__ import annotations
@@ -33,10 +31,9 @@ logger = logging.getLogger(__name__)
 
 def _keep_feature_type(m: Any, var: pd.DataFrame, feature_type: str | None) -> Any:
     """
-    Drop non-RNA rows of a multiome/CITE-seq feature matrix.
+    Drop rows outside the requested 10x feature type.
 
-    Returns (m, var) unchanged when there is nothing to filter, so both 10x
-    readers share one definition of what "Gene Expression only" means.
+    Return unchanged when no feature_type column or no subset exists.
     """
     if not feature_type or "feature_type" not in var.columns:
         return m, var
@@ -56,7 +53,7 @@ def _drop_label_headers(
     """
     Drop a header row from the barcode/feature lists when one is present.
 
-    Chooses the combination whose lengths actually match the matrix, in either
+    Chooses the combination whose lengths match the matrix, in either
     orientation.
     """
     for drop_bc in (False, True):
@@ -128,11 +125,7 @@ def read_10x_mtx(
 def read_10x_h5(
     path: Path, *, feature_type: str | None = "Gene Expression"
 ) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
-    """
-    Read a CellRanger .h5 into (cells x genes, obs, var).
-
-    Handles both layouts: v2's per-genome group and v3's /matrix.
-    """
+    """Read CellRanger .h5 layouts into (cells x genes, obs, var)."""
     h5py = _require("h5py")
     sparse = _require("scipy.sparse")
 
@@ -197,23 +190,138 @@ def read_h5ad(path: Path) -> Any:
     return ad.read_h5ad(_gunzip_beside(path))
 
 
+# featureCounts and htseq tables put gene annotation in numeric columns beside
+# the sample columns; transposed blindly they would each become an observation
+_VAR_COLS = frozenset(
+    {
+        "length",
+        "genelength",
+        "gene_length",
+        "exonlength",
+        "effective_length",
+        "efflength",
+        "merged_length",
+        "start",
+        "end",
+        "start_position",
+        "end_position",
+        "width",
+        "gc",
+        "gc_content",
+    }
+)
+
+
+# htseq-count appends its summary rows to the counts; STAR does the same in
+# ReadsPerGene.out.tab. Drop summary rows to preserve library-size estimates.
+_QC_ROWS = frozenset(
+    {
+        "no_feature",
+        "ambiguous",
+        "too_low_aqual",
+        "not_aligned",
+        "alignment_not_unique",
+        "n_unmapped",
+        "n_multimapping",
+        "n_nofeature",
+        "n_ambiguous",
+    }
+)
+
+
+def _is_qc_row(label: object) -> bool:
+    name = str(label).strip()
+    return name.startswith("__") or name.strip("_").lower() in _QC_ROWS
+
+
+def _headerless(line: str, delim: str) -> bool:
+    """
+    Whether the first line contains counts.
+
+    htseq-count writes a bare gene/count table; read with an inferred header it
+    would lose its first gene and label the sample with a count.
+    """
+    fields = [f for f in line.rstrip("\n").split(delim) if f]
+    if len(fields) < 2:  # noqa: PLR2004
+        return False
+    for v in fields[1:]:
+        try:
+            float(v)
+        except ValueError:
+            return False
+    return True
+
+
+def _headerless_names(path: Path, n: int) -> list[str]:
+    """Name the unnamed count columns after the file they came from."""
+    stem = path.name.split(".")[0]
+    return [stem] if n == 1 else [f"{stem}_{i + 1}" for i in range(n)]
+
+
+def _annotation_columns(df: pd.DataFrame) -> list[Any]:
+    """
+    Feature annotation columns in a counts table.
+
+    Text columns anywhere are annotation, since counts are numeric. A numeric
+    one is annotation only within the leading block featureCounts
+    writes: "GC" and "Start" are also plausible sample names further right.
+    """
+    out: list[Any] = []
+    leading = True
+    for c, dt in df.dtypes.items():
+        if not is_numeric_dtype(dt):
+            out.append(c)
+            continue
+        if leading and str(c).strip().lower() in _VAR_COLS:
+            out.append(c)
+            continue
+        leading = False
+    return out
+
+
 def read_table(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
     """
     Read a delimited counts table into (obs x var, obs, var).
 
-    GEO tables are genes x samples, so this transposes into the obs-major
-    orientation every other reader returns.
+    GEO tables are genes x samples, so transpose. Annotation columns (gene
+    symbol and featureCounts gene lengths/coordinates) move to var.
+    htseq and STAR summary rows are dropped.
     """
     with _open(path) as f:
-        delim = _sniff_delim(f.readline())
+        first = f.readline()
+    delim = _sniff_delim(first)
 
+    header: int | None = None if _headerless(first, delim) else 0
     # the C parser needs a single-character delimiter; inferred dtype keeps gene symbols
     with _open(path, "rb") as fh:
-        df = pd.read_csv(fh, sep=delim, index_col=0)
-    text_cols = [c for c, dt in df.dtypes.items() if not is_numeric_dtype(dt)]
-    if text_cols:
-        df = df.drop(columns=text_cols)  # a gene-symbol column rode along
+        df = pd.read_csv(fh, sep=delim, index_col=0, header=header)
+    if header is None:
+        df.columns = _headerless_names(path, df.shape[1])
+        df.index.name = None
+
+    names = df.index.astype(str)
+    qc = names.str.startswith("__") | names.str.strip("_").str.lower().isin(_QC_ROWS)
+    if qc.any():
+        logger.info(
+            "%s: dropped %d summary row(s): %s",
+            path.name,
+            int(qc.sum()),
+            list(df.index[qc]),
+        )
+        df = df[~qc]
+
+    ann = _annotation_columns(df)
+    var = df[ann]
+    if ann:
+        df = df.drop(columns=ann)
+    if df.empty:
+        msg = (
+            f"{path.name}: read as an empty matrix. Split on {delim!r} into "
+            f"0 count columns, {len(ann)} annotation column(s) "
+            f"({[str(c) for c in ann]}) and {len(df)} row(s)."
+        )
+        raise ValueError(msg)
 
     # array transpose avoids a second full DataFrame copy
     x = df.to_numpy(dtype=np.float32).T
-    return x, pd.DataFrame(index=df.columns), pd.DataFrame(index=df.index)
+    return x, pd.DataFrame(index=df.columns), var

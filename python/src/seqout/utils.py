@@ -86,12 +86,7 @@ def country_code_to_name(code: str) -> str | None:
 
 
 def _characteristics(channel: Any) -> dict[str, str]:
-    """
-    One channel's characteristics as a flat mapping.
-
-    The API flattens them to a dict; the parquet backend returns GEO's raw
-    list of {"@tag": ..., "#text": ...} entries.
-    """
+    """One channel's characteristics as a flat mapping across backends."""
     raw = getattr(channel, "characteristics", None)
     if isinstance(raw, dict):
         return {str(k): str(v) for k, v in raw.items()}
@@ -119,12 +114,10 @@ _AE_ATTRS = (
 
 def sample_frame(samples: Iterable[Any]) -> pd.DataFrame:
     """
-    Build a DataFrame of samples and their characteristics, indexed by accession.
+    Build a sample-characteristics DataFrame indexed by accession.
 
-    Characteristics are free-text key/value pairs chosen by the submitter, so
-    the columns vary by study and are worth inspecting before being relied on.
-    Works across backends and archives: GEO samples carry them per channel,
-    ArrayExpress samples as flat attributes.
+    GEO carries attributes per channel. ArrayExpress carries them as flat sample
+    attributes.
 
         design = sample_frame(sq.fetch_samples("GSE297547"))
         design.loc["GSM8994520", "tissue"]

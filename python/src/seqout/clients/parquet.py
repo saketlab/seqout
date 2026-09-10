@@ -4,7 +4,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self, get_args
+from typing import Any, Literal, NoReturn, Self, get_args
 
 import duckdb
 from duckdb import DuckDBPyConnection
@@ -18,7 +18,7 @@ from seqout.constants import (
 )
 from seqout.dataset import ShortNames
 from seqout.exception import SeqoutError
-from seqout.helpers import _download_file
+from seqout.helpers import _USER_AGENT, _download_file
 from seqout.models.api_models import (
     AuthorProjectsResponse,
     BamFiles,
@@ -100,6 +100,12 @@ ParquetFile = Literal[
 _ALL_PARQUET_FILES: list[ParquetFile] = list(get_args(ParquetFile))
 
 
+def _rest_only(method: str, reason: str) -> NoReturn:
+    """Raise because `method` requires the REST API."""
+    msg = f"{method} reads the REST API; this client is Parquet. {reason}"
+    raise SeqoutError(msg)
+
+
 class _Datasource(StrEnum):
     Sra = "sra"
     Geo = "geo"
@@ -129,10 +135,14 @@ class SeqoutParquetClient(ShortNames):
         try:
             self._conn.execute("LOAD httpfs;")
         except (duckdb.CatalogException, duckdb.IOException):
-            # IOException is what a machine that has never downloaded the
-            # extension raises; CatalogException is the unknown-name case.
+            # IOException: httpfs missing. CatalogException: extension unknown.
             self._conn.execute("INSTALL httpfs; LOAD httpfs;")
         self._conn.execute("SET enable_http_metadata_cache=true;")
+        # Appended to DuckDB's User-Agent so seqout.org can attribute parquet reads.
+        with contextlib.suppress(duckdb.Error):
+            self._conn.execute(
+                f"SET custom_user_agent='{_USER_AGENT.replace(chr(39), '')}';"
+            )
         self._conn.execute("SET enable_object_cache=true;")
         with contextlib.suppress(duckdb.InvalidInputException):
             self._conn.execute("SET enable_progress_bar=false;")
@@ -151,7 +161,7 @@ class SeqoutParquetClient(ShortNames):
         with_pbar: bool = False,
     ) -> None:
         """
-        Download Parquet files from the current source into output_dir.
+        Download Parquet files from the configured source into output_dir.
 
         Args:
             output_dir: Created if it does not exist.
@@ -159,8 +169,6 @@ class SeqoutParquetClient(ShortNames):
             num_workers: Parallel downloads. Defaults to the core count less two.
             chunk_size: Bytes per read from the socket.
             with_pbar: Show a per-file progress bar.
-
-        The full set runs to tens of GB; run_download_links alone is about 11 GB.
 
         """
         num_workers = _normalize_num_workers(num_workers)
@@ -201,12 +209,10 @@ class SeqoutParquetClient(ShortNames):
         self, query: str, params: list | None = None
     ) -> DuckDBPyConnection:
         """
-        Run SQL through DuckDB, resolving table names to their Parquet files.
+        Run SQL through DuckDB after replacing table names with Parquet scans.
 
-        Each known table name in the query is rewritten to a read_parquet call
-        against the current source. Because the match is textual, a table name
-        used as a column alias is rewritten too and the query fails; pick a
-        distinct alias.
+        Textual replacement also catches column aliases; choose aliases distinct
+        from table names.
 
         Args:
             query: The SQL to run.
@@ -548,11 +554,10 @@ class SeqoutParquetClient(ShortNames):
         self, name: str, limit: int = 200
     ) -> AuthorProjectsResponse:
         """
-        List datasets whose GEO contributor names contain the given name.
+        List GEO datasets whose contributor names contain the given name.
 
-        The dump carries author names for GEO only, so this is a GEO substring
-        match. The API client searches publication author lists across every
-        source, so the two return different sets.
+        Parquet has GEO contributors only; API searches publication authors
+        across sources.
 
         Args:
             name: Substring to match against contributor names.
@@ -741,7 +746,7 @@ class SeqoutParquetClient(ShortNames):
         )
         return rows[0].get("accession") if rows else None
 
-    # Separate downloader avoids an API-client dependency until a third backend exists.
+    # downloader has no API-client dependency
 
     def _download_many(
         self,
@@ -787,7 +792,7 @@ class SeqoutParquetClient(ShortNames):
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
     def sample_search(self, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Refuse: the harmonised sample table is not in the dump."""
+        """Raise because the harmonised sample table lives behind the REST API."""
         msg = (
             "sample_search reads the REST API; this client is Parquet. "
             "The harmonised sample table is not in the dump."
@@ -795,7 +800,7 @@ class SeqoutParquetClient(ShortNames):
         raise SeqoutError(msg)
 
     def fetch_single_cell(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Not available on this backend: there is no Pentimento table in the dump."""
+        """Raise because Pentimento data lives behind the REST API."""
         msg = (
             "fetch_single_cell reads the REST API; this client is Parquet. "
             "There is no Pentimento table in the dump."
@@ -803,15 +808,43 @@ class SeqoutParquetClient(ShortNames):
         raise SeqoutError(msg)
 
     def fetch_microbes(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Not available on this backend: there is no Pentimento table in the dump."""
+        """Raise because Pentimento data lives behind the REST API."""
         msg = (
             "fetch_microbes reads the REST API; this client is Parquet. "
             "There is no Pentimento table in the dump."
         )
         raise SeqoutError(msg)
 
+    def fetch_longread_summary(self, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Raise because the long-read collection lives behind the REST API."""
+        _rest_only(
+            "fetch_longread_summary",
+            "There is no long-read collection table in the dump.",
+        )
+
+    def fetch_longread_facets(self, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Raise because the long-read collection lives behind the REST API."""
+        _rest_only(
+            "fetch_longread_facets",
+            "There is no long-read collection table in the dump.",
+        )
+
+    def fetch_longread_projects(self, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Raise because the long-read collection lives behind the REST API."""
+        _rest_only(
+            "fetch_longread_projects",
+            "There is no long-read collection table in the dump.",
+        )
+
+    def fetch_longread_chemistry(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
+        """Raise because per-run chemistry calls live behind the REST API."""
+        _rest_only(
+            "fetch_longread_chemistry",
+            "There is no long-read chemistry table in the dump.",
+        )
+
     def fetch_ontology_term(self, term: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Not available on this backend: the ontology graph is not in the dump."""
+        """Raise because the ontology graph lives behind the REST API."""
         msg = (
             "fetch_ontology_term reads the REST API; this client is Parquet. "
             "The ontology graph is a separate database and is not in the dump."
@@ -820,10 +853,10 @@ class SeqoutParquetClient(ShortNames):
 
     def fetch_bams(self, accession: str) -> BamFiles:  # noqa: ARG002
         """
-        Not available on this backend: alignment files come from the REST API.
+        Raise because complete alignment metadata lives behind the REST API.
 
-        The dump's `run_download_links` carries the SRA side of this, but not
-        the ArrayExpress one, so answering here would be silently partial.
+        `run_download_links` lacks the ArrayExpress side, so Parquet would be
+        partial.
         """
         msg = (
             "fetch_bams reads the REST API; this client is Parquet. "
@@ -837,12 +870,9 @@ class SeqoutParquetClient(ShortNames):
         type: Literal["original", "all"] = "original",  # noqa: A002, ARG002
     ) -> str:
         """
-        Not available on this backend: BibTeX comes from the REST API.
+        Raise because complete BibTeX rendering lives behind the REST API.
 
-        The dump has no record of the papers that reanalysed a dataset, and
-        only about a third of its `pubmed_metadata` rows carry a publication
-        date, so an entry built here would be quietly less complete than the
-        one the API renders. A citation is not worth getting nearly right.
+        The dump lacks reanalysis-paper records, so Parquet would be partial.
         """
         msg = (
             "citations reads the REST API; this client is Parquet. "

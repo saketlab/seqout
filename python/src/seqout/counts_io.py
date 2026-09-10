@@ -136,11 +136,9 @@ def _match_field(col: str, hints: tuple[str, ...]) -> bool:
 
 def describe_metadata(columns: list[str]) -> dict[str, list[str]]:
     """
-    Report which annotation categories a metadata table covers, and via which columns.
+    Annotation categories covered by a metadata table, mapped to source columns.
 
-    Returns e.g. {"celltype": ["cell_type"], "condition": ["treatment"]}. The source
-    columns are kept because they identify the variable: a condition derived from
-    disease_status is a different measurement from one derived from treatment.
+    Source columns distinguish disease_status from treatment.
     """
     out: dict[str, list[str]] = {}
     for category, hints in _META_FIELD_HINTS.items():
@@ -151,7 +149,7 @@ def describe_metadata(columns: list[str]) -> dict[str, list[str]]:
 
 
 def read_metadata(path: Path) -> pd.DataFrame:
-    """Read a per-cell annotation table, keyed by whatever its first column is."""
+    """Read a per-cell annotation table, keyed by first column."""
     with _open(path, "rb") as fh:
         delim = _sniff_delim(fh.read(_SNIFF_BYTES).decode("utf-8", errors="replace"))
     # round_trip: pandas' default float parser is off by up to 1 ULP

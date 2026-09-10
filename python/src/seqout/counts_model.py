@@ -1,11 +1,4 @@
-"""
-Data model and grouping rules behind SeqoutCounts.
-
-SuppFile is one supplementary file; Unit is the group of files that read as
-one matrix; CountMatrix is the result. group() turns a flat file list into
-units, which is where 10x triplet assembly and the filtered-over-raw preference
-live.
-"""
+"""Data model and grouping rules for SeqoutListCounts."""
 
 from __future__ import annotations
 
@@ -31,7 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# 33 to 399 observations is the undecided Smart-seq plate range.
+# values between the bulk and single-cell cutoffs stay unknown
 _BULK_MAX_OBS = 32
 _SC_MIN_OBS = 400
 
@@ -84,10 +77,9 @@ class Unit:
 @dataclass
 class CountMatrix:
     """
-    A counts matrix in AnnData orientation: rows are observations.
+    Counts matrix with observations in rows.
 
-    Observations are cells for single-cell data and biological samples for bulk,
-    which is what lets one type cover both.
+    Observations are cells for single-cell data and biological samples for bulk.
     """
 
     X: Any
@@ -102,7 +94,7 @@ class CountMatrix:
 
     @property
     def has_metadata(self) -> bool:
-        """Whether any per-observation annotation actually landed in obs."""
+        """Whether obs contains per-observation annotation."""
         return not self.obs.empty and self.obs.shape[1] > 0
 
     @property
@@ -149,7 +141,7 @@ class CountMatrix:
         )
 
     def to_anndata(self) -> Any:
-        """Wrap as an AnnData; no transpose, the orientation already matches."""
+        """Wrap as AnnData in observations-by-features orientation."""
         ad = _require("anndata")
         a = ad.AnnData(X=self.X, obs=self.obs, var=self.var)
         a.uns["seqout"] = {
@@ -178,12 +170,10 @@ _SUPERBLOCK_BYTES = 64
 
 def check_hdf5_complete(path: Path, url: str) -> None:
     """
-    Raise if an HDF5 file on disk is shorter than its own superblock says.
+    Raise when an HDF5 file is shorter than its superblock EOF.
 
-    An .h5/.h5ad truncated mid-transfer still opens as a file and still
-    matches the Content-Length the server sent; only the superblock's stored
-    end-of-file catches it. Failing here names the URL; h5py would surface this as
-    an internal error three frames deep.
+    Content-Length can match a truncated body; the superblock catches it and the
+    error names the source URL.
     """
     try:
         with path.open("rb") as f:
@@ -294,13 +284,7 @@ def group(
 def _attach_metadata(
     units: list[Unit], metadata: dict[str | None, list[SuppFile]]
 ) -> None:
-    """
-    Give each unit the annotation files that describe it.
-
-    A file named for a sample goes to that sample's units; series-level annotation
-    (sample is None) describes the whole study, so it goes to every unit; a
-    single GSE1_cell_metadata.csv.gz covering all samples is the common shape.
-    """
+    """Attach annotation by sample, plus series-level files to every unit."""
     shared = metadata.get(None, [])
     for unit in units:
         own = metadata.get(unit.sample, []) if unit.sample is not None else []
@@ -315,13 +299,9 @@ def _pair_leftovers(
     leftovers: dict[str | None, list[SuppFile]], accession: str
 ) -> list[Unit]:
     """
-    Rescue a triplet whose files share no filename prefix.
+    Pair leftover 10x roles when each required role remains in a sample scope.
 
-    Plenty of submitters ship GSE1_barcodes.tsv.gz + GSE1_features.tsv.gz
-    alongside GSE1_someassay_dge.mtx.gz, so the name-derived key splits them
-    three ways. When exactly one file of each role is left over within a sample
-    scope there is only one pairing possible, so take it; ambiguity (two
-    matrices, one barcode file) still declines.
+    Ambiguous leftovers stay unpaired.
     """
     out: list[Unit] = []
     for sample, members in leftovers.items():
@@ -359,17 +339,15 @@ _FMT_RANK = {"10x_mtx": 0, "10x_h5": 1, "h5ad": 2, "rds": 3, "tar": 4, "table": 
 
 
 def modality_of(unit: Unit) -> str | None:
-    """Assay a unit's filenames name, when they name one."""
+    """Assay named in a unit's filenames, when present."""
     return modality_in(" ".join(f.name for f in unit.files))
 
 
 def _prefer(units: list[Unit], assay: str | None = "rna") -> list[Unit]:
     """
-    Mark one unit per sample as preferred.
+    Mark one preferred unit per sample.
 
-    Filtered beats raw, then the most structured format wins. The rest stay in
-    the list; a sample that ships both a 10x h5 and its mtx triplet should
-    still let you ask for the triplet.
+    Filtered output wins, then structured formats. Alternate units stay selectable.
     """
     by_sample: dict[str | None, list[Unit]] = {}
     for u in units:
@@ -382,7 +360,7 @@ def _prefer(units: list[Unit], assay: str | None = "rna") -> list[Unit]:
             _label_distinctly(sample, members)
         best = min(members, key=lambda u: _unit_rank(u, assay))
         for u in members:
-            # preferring a series-level unit makes matrices() pull a multi-GB archive
+            # preferring a series-level unit makes matrices() pull a large archive
             u.preferred = u is best and not (sample is None and has_per_sample)
 
     return sorted(units, key=lambda u: (u.sample is None, u.label or ""))
@@ -390,11 +368,9 @@ def _prefer(units: list[Unit], assay: str | None = "rna") -> list[Unit]:
 
 def _label_distinctly(sample: str, members: list[Unit]) -> None:
     """
-    Give each of a sample's units a label that identifies it uniquely.
+    Give each unit in a sample a unique label.
 
-    The format alone is not enough: a CITE-seq sample ships its RNA and antibody
-    matrices in the same format, and duplicate labels would make selection by
-    label return whichever came first.
+    Format alone collides for multi-assay samples.
     """
     for u in members:
         u.label = f"{sample}:{u.fmt}"
@@ -413,10 +389,9 @@ def _unit_rank(u: Unit, assay: str | None) -> tuple[int, int, int]:
 
 def infer_kind(obs: pd.DataFrame, n_series_samples: int = 0) -> tuple[Kind, list[str]]:
     """
-    Bulk or single-cell, decided on evidence.
+    Infer bulk, single-cell, or unknown from row labels and shape.
 
-    Shape is only decisive at the extremes; a 384-column Smart-seq plate sits
-    in the middle and stays unknown.
+    Intermediate shapes stay unknown because Smart-seq plates overlap them.
     """
     ev: list[str] = []
     n = len(obs)

@@ -83,11 +83,7 @@ _YEAR_DIGITS = 4
 
 
 def _date_bound(s: str, *, is_end: bool) -> datetime.date | None:
-    """
-    Parse one date bound to a date, or None.
-
-    'dd-mm-yyyy' -> that day; 'yyyy' -> Jan 1 (start) or Dec 31 (end); '' -> None.
-    """
+    """Parse one date bound; yyyy expands to Jan 1 or Dec 31 by side."""
     s = s.strip()
     if not s:
         return None
@@ -102,12 +98,7 @@ def _date_bound(s: str, *, is_end: bool) -> datetime.date | None:
 
 
 def _date_range(value: str) -> DateRange:
-    """
-    Parse a date/range to (from, to) dates; a colon marks a range.
-
-    '2020' -> whole of 2020; '15-08-2020' -> that single day;
-    '2018:2022', '01-06-2018:', ':31-12-2022' -> open/closed ranges.
-    """
+    """Parse a date token or DATE:DATE range to (from, to)."""
     lo, sep, hi = value.partition(":")
     if not sep:  # bare token spans its full granularity (a year, or one day)
         return (_date_bound(lo, is_end=False), _date_bound(lo, is_end=True))
@@ -136,18 +127,12 @@ def _run_download(args: argparse.Namespace) -> None:
         cmd_download_interactive(
             args.accession, args.out, parquet=parquet, source=source
         )
-    else:  # non-interactive: keep the scriptable metadata-JSON default
+    else:  # non-interactive keeps the scriptable metadata-JSON default
         cmd_download(args.accession, args.out, parquet=parquet, source=source)
 
 
 def _add_parquet_flag(p: argparse.ArgumentParser) -> None:
-    """
-    Add the shared --parquet backend switch to a subcommand.
-
-    Bare --parquet uses the configured/default parquet source; an optional
-    value overrides it with a URL or local dir for this run. Fully local, with no
-    call to the API.
-    """
+    """Add the shared --parquet backend switch to a subcommand."""
     p.add_argument(
         "--parquet",
         nargs="?",
@@ -439,8 +424,7 @@ def main() -> None:
         help="filter by broad assay class, e.g. Transcriptomic",
     )
     p_search.add_argument(
-        # --no-expand is the website's wording for the same thing: term
-        # expansion off is exactly this exact-terms reading.
+        # --no-expand is the website alias for exact terms.
         "--exact",
         "--no-expand",
         dest="structured",
@@ -500,7 +484,7 @@ def main() -> None:
         help="stop after this many results total (default: unlimited)",
     )
 
-    # Generic convert covers ArrayExpress/GEA accessions with no clean a-to-b name.
+    # generic convert covers ArrayExpress/GEA accessions
     p_conv = sub.add_parser(
         "convert",
         help="convert accessions to a related kind (any source)",
@@ -519,7 +503,7 @@ def main() -> None:
     )
     _add_parquet_flag(p_conv)
 
-    # Source names in a-to-b commands are hints; conversion auto-detects the accession.
+    # source names in a-to-b commands are hints
     for name in _CONVERT_COMMANDS:
         tgt = name.split("-to-")[1].upper()
         p_c = sub.add_parser(name, help=f"get {tgt} accessions")
@@ -740,7 +724,7 @@ def _classify(sq: SeqoutAPIClient, acc: str) -> tuple[str | None, str | None]:
         info = sq.classify_accession(acc)
         if info.valid and info.entity:
             return info.entity, info.database
-    except Exception:  # noqa: S110 -- any failure falls back to prefixes
+    except Exception:  # noqa: S110
         pass
     up = acc.upper()
     for prefixes, entity, database in _PREFIX_ENTITY:
@@ -882,7 +866,7 @@ def cmd_show(
 
 
 def _cmd_show_parquet(acc: str, source: str | None) -> None:
-    """Show --parquet: study/experiments/samples/run straight from parquet."""
+    """Show a study, sample list, experiment list, or run from parquet."""
     console = Console()
     up = acc.upper()
     client = _open_backend(parquet=True, source=source)
@@ -1082,12 +1066,7 @@ def _save_results(results: list, path: Path) -> None:
 
 
 def _page(console: Console, *renderables: object) -> None:
-    """
-    Show renderables in a scrollable pager on a TTY (arrows + mouse), else print.
-
-    Uses the system pager (less): -R keeps colors, -S enables left/right scroll
-    for wide tables, -F skips paging when the output already fits on one screen.
-    """
+    """Use the system pager on TTYs; LESS flags preserve color and wide tables."""
     if not sys.stdout.isatty():
         for r in renderables:
             console.print(r)
@@ -1102,15 +1081,10 @@ def _project_header(
     sq: SeqoutAPIClient,
     acc: str,
 ) -> tuple[str | None, str | None, list[str]]:
-    """
-    Return (title, description, organisms) for a project.
-
-    The full-metadata model is fragile across GEA/GSA field quirks, so fall back
-    to the light summary endpoint (title+description) when it chokes.
-    """
+    """Project title, description, and organisms, with summary fallback."""
     try:
         m = sq.fetch_project_metadata(acc)
-    except Exception:  # noqa: S110 -- try the light summary endpoint instead
+    except Exception:  # noqa: S110
         pass
     else:
         return m.title, (m.summary or None), (m.organisms or [])
@@ -1123,12 +1097,8 @@ def _project_header(
 
 
 def _read_key() -> str:
-    """
-    Read one keypress, decoding arrow keys. POSIX only.
-
-    Returns "left"/"right" for arrows, else the raw char ("q", esc, ctrl-c).
-    """
-    # Lazy POSIX imports keep the module importable on Windows.
+    """Read one POSIX keypress, returning arrow names when decoded."""
+    # lazy POSIX imports keep the module importable on Windows
     import select  # noqa: PLC0415
     import termios  # noqa: PLC0415
     import tty  # noqa: PLC0415
@@ -1137,8 +1107,7 @@ def _read_key() -> str:
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
-        # os.read on the fd avoids sys.stdin buffering, which hides
-        # arrow-key tails from select
+        # os.read avoids stdin buffering that hides arrow-key tails
         ch = os.read(fd, 1).decode(errors="ignore")
         if ch == "\x1b" and select.select([fd], [], [], 0.05)[0]:
             ch += os.read(fd, 2).decode(errors="ignore")
@@ -1158,12 +1127,7 @@ def _paged(
     noun: str = "result",
     total: int | None = None,
 ) -> None:
-    """
-    Page through rows with the arrow keys, pulling more only as needed.
-
-    The iterator stays lazy: a search that spans many pages fetches the next
-    one when the reader asks for it, not before.
-    """
+    """Page through rows lazily with arrow keys."""
     buffer: list = []
     exhausted = False
 
@@ -1187,8 +1151,7 @@ def _paged(
         ensure((page + 1) * page_size)
         rows = buffer[page * page_size : (page + 1) * page_size]
         pages = f"/{-(-len(buffer) // page_size)}" if exhausted else "+"
-        # The count is known before page 1 is drawn, so say how much there is
-        # to page through rather than making the reader find out by paging.
+        # known totals show the remaining pages before paging starts
         seen = total if total is not None else len(buffer)
         found = (
             f" · {seen} {noun}{'s' if seen != 1 else ''}"
@@ -1231,12 +1194,7 @@ def _merge_augmented(
     extra: list[SearchResult],
     results: Iterator[SearchResult],
 ) -> Iterator[SearchResult]:
-    """
-    Yield the corrected extras first, then the rest of the literal stream.
-
-    Any accession already shown as an extra is dropped from the stream; the
-    backend can list a corrected hit in both places.
-    """
+    """Yield corrected extras first, then unseen literal results."""
     seen = {(r.source, r.accession) for r in extra}
     yield from extra
     for r in results:
@@ -1301,8 +1259,7 @@ def cmd_search(
         "date_to": date_to.isoformat() if date_to else None,
         "exclude_ontology": exclude_ontology,
     }
-    # An ontology switch narrows nothing on its own -- it only shapes how a
-    # query expands -- so it must not stand in for the required query.
+    # ontology switches shape expansion; they do not satisfy the query requirement
     if not query and not any(v for k, v in filters.items() if k != "exclude_ontology"):
         console.print(
             "[red]Provide a search query or at least one filter[/] "
@@ -1311,8 +1268,7 @@ def cmd_search(
         raise SystemExit(1)
     label = query or "(filter-only)"  # query is optional in query-less search
     try:
-        # plan_search picks the endpoint from the filters and says what is left
-        # for the client to do, so the command line never names an endpoint.
+        # plan_search chooses the endpoint and the local work
         plan = plan_search(
             query, sortby=sortby, structured=structured or None, **filters
         )
@@ -1323,16 +1279,15 @@ def cmd_search(
 
     try:
         with connect_to_seqout(backend="api") as sq:
-            # Page 0 carries spelling correction while later pages carry only results.
+            # page 0 carries spelling correction
             correction, total, it = sq._search_with_correction(params)  # noqa: SLF001
             if plan.has_local_work:
-                # The endpoint the filters chose has no sortby and no day
-                # bounds; apply them here rather than lose them.
+                # local work preserves filters the endpoint cannot apply
                 it = iter(apply_plan(it, plan))
             _print_correction(console, correction)
             augmented = correction and correction.mode == "augmented"
             if augmented and correction.extra_results:
-                # Augmented corrected matches are displayed first, matching the web app.
+                # augmented corrected matches display first, matching the web app
                 it = _merge_augmented(correction.extra_results, it)
             if save_to is None and sys.stdin.isatty() and sys.stdout.isatty():
                 if max_results is not None:
@@ -1340,8 +1295,7 @@ def cmd_search(
                 _paged_search(console, label, it, limit, total)
                 return
             with console.status("[bold]Searching…[/]"):
-                # A file is not a screen: -p sets the interactive page size and
-                # must not silently cut an export down to one page.
+                # -p controls interactive pages; exports read to max_results
                 results = (
                     list(itertools.islice(it, max_results))
                     if max_results is not None
@@ -1374,7 +1328,7 @@ def cmd_search(
 
 @contextlib.contextmanager
 def _quiet_logger(name: str) -> Iterator[None]:
-    """Mute one logger for a block, when the caller has already said it better."""
+    """Mute a logger for a block to suppress duplicate messages."""
     log = logging.getLogger(name)
     before = log.disabled
     log.disabled = True
@@ -1387,11 +1341,9 @@ def _quiet_logger(name: str) -> Iterator[None]:
 def _bams_table(
     title: str, rows: list, exp_titles: dict[str, str] | None = None
 ) -> Table:
-    """Columns as the website orders them: run, experiment, what it is, size."""
+    """BAM listing columns in website order."""
     table = Table(title=title, title_style="bold", header_style="bold green")
-    # Seven columns is a lot for a terminal, so only the two that vary per row
-    # are allowed to take space; the title is clipped rather than wrapped,
-    # because a wrapped title turns every row into three.
+    # flexible columns absorb long filenames and clipped titles
     table.add_column("run", no_wrap=True)
     table.add_column("experiment", no_wrap=True)
     table.add_column("title", overflow="ellipsis", max_width=28)
@@ -1478,7 +1430,7 @@ def _experiment_titles(sq: Any, accession: str) -> dict[str, str]:
     """
     Experiment accession -> its title, for the BAM listing's title column.
 
-    Best-effort: the listing is still worth showing without it.
+    Missing titles leave the listing available.
     """
     try:
         experiments = sq.fetch_study_experiments(accession)
@@ -1489,12 +1441,7 @@ def _experiment_titles(sq: Any, accession: str) -> dict[str, str]:
 
 
 def _by_size(bams: Any) -> list:
-    """
-    Order the files largest first.
-
-    A study's bytes usually sit in a handful of files, and the arrival order can
-    put the smallest at the top, which reads as if the header's total were wrong.
-    """
+    """Order files largest first so totals match the visible rows."""
     return sorted(bams.root, key=lambda b: b.size or 0, reverse=True)
 
 
@@ -1522,11 +1469,7 @@ _BAM_COLS = (
 
 
 def _save_bams(bams: Any, exp_titles: dict[str, str], path: Path) -> None:
-    """
-    Write every row with its URLs, so the fetching can be someone else's job.
-
-    The paid rows are written too: their `s3_url` is the whole point of asking.
-    """
+    """Write every row with URLs, including requester-pays entries."""
     rows = [
         {
             "run_accession": b.run_accession or "",
@@ -1660,17 +1603,15 @@ _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
 
 def _resolve_accession(sq: SeqoutAPIClient, acc: str, want: str) -> str | None:
     """
-    Resolve a project to its sibling of the kind needed via cross-references.
+    Resolve an accession to the project kind a downloader needs.
 
-    want="runs" -> an SRA/ENA study (SRP/ERP/DRP, or PRJ) for run downloads;
-    want="geo"  -> a GEO series / ArrayExpress (GSE/E-) for supplementary files.
-    Returns acc unchanged if it's already the right kind, else the linked
-    accession, else None.
+    want="runs" returns an SRA/ENA/GSA/BioProject study. want="geo" returns a
+    GEO/ArrayExpress series. Returns None when no linked project exists.
     """
     targets = _STUDY_PREFIXES if want == "runs" else ("GSE", "E-")
     if acc.upper().startswith(targets):
         return acc
-    # Client-owned cross-source lookup keeps this backend-agnostic.
+    # client-owned cross-source lookup keeps this backend-agnostic
     return sq.linked_study(acc) if want == "runs" else sq.linked_geo(acc)
 
 
@@ -1756,7 +1697,7 @@ def cmd_download_supplementary(
 
 RUN_PREFIXES = ("SRR", "ERR", "DRR")
 
-# Non-fastq modes carry size/md5 in the sra_* fields.
+# non-fastq modes carry size/md5 in the sra_* fields
 _MODE_FIELDS = {
     "fastq": ("fastq_ftp", "fastq_bytes", "fastq_md5"),
     "sra": ("sra_ftp", "sra_bytes", "sra_md5"),
@@ -1928,12 +1869,7 @@ _PLAIN_QSTYLE = questionary.Style(
 
 
 def _sample_supplementary_urls(sq: SeqoutAPIClient, acc: str) -> list[str]:
-    """
-    Per-sample supplementary file URLs.
-
-    One GSM's own, or every sample's in a GEO series / ArrayExpress experiment.
-    Empty for SRA (no such concept).
-    """
+    """Per-sample supplementary URLs for a GSM, GSE, or ArrayExpress accession."""
     up = acc.upper()
     try:
         if up.startswith("GSM"):
@@ -1977,7 +1913,7 @@ def cmd_download_sample_supplementary(
 
 
 def _runs_label(label: str, runs: StudyRunsResults) -> str:
-    """Append known fastq/sra-lite totals to a run-group menu label."""
+    """Append fastq/sra-lite totals to a run-group menu label."""
     sizes = " · ".join(
         f"{m} {_fmt_bytes(str(_sum_run_bytes(runs, m)))}"
         for m in ("fastq", "sra_lite")
@@ -2038,12 +1974,7 @@ def _download_run_group(
 def cmd_download_interactive(
     accession: str, out: str | None, *, parquet: bool = False, source: str | None = None
 ) -> None:
-    """
-    Interactive picker for download <acc> with no mode flag on a TTY.
-
-    Inventory what's available for the accession, let the user pick one group,
-    then fetch it.
-    """
+    """TTY picker for download <acc> when no mode flag is set."""
     console = Console()
     acc = accession.strip()
     up = acc.upper()
@@ -2318,7 +2249,7 @@ def _study_of(sq: SeqoutAPIClient, acc: str, col: str) -> str | None:
     return _resolve_run_study(sq, acc)
 
 
-# reverse literature targets -> the accession prefix(es) to keep (None = all).
+# reverse literature targets keep these accession prefixes; None means all
 _PUB_TARGET_PREFIX = {"gse": ("GSE",), "srp": ("SRP",)}
 
 
@@ -2412,7 +2343,7 @@ def _convert_one(
     elif target and up.startswith(_SAMPLE_SOURCES):
         study = _resolve_accession(sq, acc, "runs")
         if study and target == "study":
-            result = [study]  # The linked project itself needs no mesh.
+            result = [study]  # linked project itself needs no mesh
         elif study:
             result = _mesh_project(sq, study, "study", up, target)
 
@@ -2729,13 +2660,7 @@ def _resolve_parquet_source(arg: str | None) -> str:
 def _open_backend(
     *, parquet: bool = False, source: str | None = None
 ) -> SeqoutAPIClient | SeqoutParquetClient:
-    """
-    Open the backend a command runs against.
-
-    Default is the API; --parquet switches to a fully local/remote DuckDB
-    backend (no network to the API), honouring the same source resolution as
-    the parquet subcommand.
-    """
+    """Open the API client or the configured Parquet backend."""
     if parquet:
         client = SeqoutParquetClient()
         client.set_source(_resolve_parquet_source(source))
@@ -2764,7 +2689,7 @@ def cmd_pq_download(args: argparse.Namespace, console: Console) -> None:
     output_dir = args.output_dir
     files = args.files or _ALL_PARQUET_FILES
     source = _resolve_parquet_source(args.source)
-    if not _is_url(source):  # can't download from a local directory
+    if not _is_url(source):  # local directories cannot be downloaded
         source = PARQUET_DUMP_BASE_URL
         console.print(f"[dim]Source is a local dir; downloading from {source}[/]")
     try:

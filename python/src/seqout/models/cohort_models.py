@@ -1,15 +1,8 @@
 """
-Records for the harmonised sample cohort and the read-derived screen.
+Models for harmonised cohorts and read-derived screens.
 
-Two things live here. The cohort is the harmonised data: seqout reads each
-sample's free text and writes the tissue, disease, cell type, assay and age
-into one vocabulary, with ontology IDs, so one filter reaches every study that
-recorded the fact whatever words its submitter used.
-
-The rest is Pentimento, which reads the sequencing reads themselves and calls
-the species, the sex, the assay and any microbial sequence it finds. Those
-calls often disagree with what the submitter declared, which is the point of
-having them.
+Cohort rows hold normalized sample labels and ontology IDs. Pentimento rows hold
+calls from sequencing reads, including species, sex, assay, and microbes.
 """
 
 from __future__ import annotations
@@ -18,6 +11,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from seqout.models.longread_models import (
+    LongreadRun,  # noqa: TC001 -- pydantic needs it at runtime
+)
 from seqout.models.models import BaseContainer
 
 
@@ -61,15 +57,14 @@ class CohortSample(BaseModel):
     development_stage_ontology_id: str | None = None
     development_stage_ontology_name: str | None = None
 
-    # Matrix dimensions. `cells` counts matrix columns, so for an unfiltered
+    # Matrix dimensions. cells counts matrix columns, so for an unfiltered
     # 10x matrix these are barcodes and a sum overcounts.
     cells: int | None = None
     genes: int | None = None
     cell_count_estimated: int | None = None
     unfiltered: bool | None = None
 
-    # Read-derived. `has_*_reads` is None when the sample was never screened
-    # and False when the screen found no gated hit -- not the same thing.
+    # read-derived. None means unscreened; False means screened with no gated hit.
     pentimento_assay: str | None = None
     assay_is_single_cell: bool | None = None
     hpv_top_type: str | None = None
@@ -91,9 +86,7 @@ class Cohort(BaseContainer[CohortSample]):
 
     def __init__(self, root: list[CohortSample], /, **kwargs: Any) -> None:
         super().__init__(root)
-        # Carried beside the rows: the size of the whole cohort before `limit`,
-        # and the filters the server understood, which is how you find out that
-        # one was dropped.
+        # total is pre-limit size; filters are the server-applied names
         self.__dict__["total"] = kwargs.get("total", len(root))
         self.__dict__["filters"] = kwargs.get("filters") or {}
 
@@ -136,7 +129,7 @@ class SingleCellSample(BaseModel):
     n_runs: int | None = None
     n_runs_measurable: int | None = None
     species_called: str | None = None
-    # A word, not a number: "high" / "medium" / "low".
+    # species_confidence is categorical: "high" / "medium" / "low"
     species_confidence: str | None = None
     species_ambiguous: bool | None = None
     species_mislabel: bool | None = None
@@ -189,6 +182,9 @@ class SingleCellStudy(BaseModel):
     has_donor: bool | None = None
     has_demographics: bool | None = None
     flags: list[str] | None = None
+    # every PacBio/Oxford Nanopore run in the study; None on pages after the
+    # first, since the server only computes it at offset 0
+    longread_chemistry: list[LongreadRun] | None = None
 
 
 class SingleCellSamples(BaseContainer[SingleCellSample]):
@@ -217,6 +213,7 @@ class SingleCellResponse(BaseModel):
 
     samples: list[SingleCellSample] = []
     n_samples_detailed: int | None = None
+    longread_chemistry: list[LongreadRun] | None = None
 
 
 class MicrobeOrganism(BaseModel):
@@ -281,10 +278,9 @@ class MicrobeTotals(BaseModel):
 
 class Microbes(BaseContainer[MicrobeOrganism]):
     """
-    What was found in a sample's reads, and whether it could be found at all.
+    Microbial detections and screening status for a sample.
 
-    An empty result with `measurable` False reports missing data: the sample was
-    never screened, so nothing is ruled out.
+    An empty result with `measurable` False means unscreened.
     """
 
     def __init__(self, root: list[MicrobeOrganism], /, **kwargs: Any) -> None:

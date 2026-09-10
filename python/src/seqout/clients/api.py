@@ -80,6 +80,16 @@ from seqout.models.cohort_models import (
     SingleCellSamples,
     SingleCellStudy,
 )
+from seqout.models.longread_models import (
+    LongreadChemistryResponse,
+    LongreadFacets,
+    LongreadFacetValue,
+    LongreadProject,
+    LongreadProjects,
+    LongreadProjectsResponse,
+    LongreadRun,
+    LongreadSummary,
+)
 from seqout.models.parquet_models import Study
 from seqout.search_plan import SearchPlan, apply_plan, plan_search
 from seqout.utils import (
@@ -96,13 +106,16 @@ _NOT_FOUND = 404
 # /project/{acc}/single-cell caps a page at 1000 rows.
 PENTIMENTO_PAGE = 1000
 
+# /longread/projects caps a page at 200 rows.
+LONGREAD_PAGE = 200
+
 SearchParamsType = SearchParams | StructuredSearchParams
 _NOT_FOUND = 404
 T = TypeVar("T")
 
 
 def _md5_matches(path: Path, want: str) -> bool:
-    seen = hashlib.md5()  # noqa: S324 - the archive publishes md5, not a choice
+    seen = hashlib.md5()  # noqa: S324
     with path.open("rb") as fh:
         for block in iter(lambda: fh.read(1 << 20), b""):
             seen.update(block)
@@ -138,13 +151,9 @@ def _as_plan(
     params: SearchParamsType | str | None, filters: dict[str, Any]
 ) -> SearchPlan:
     """
-    Let the search calls take a bare query string plus keyword filters.
+    Build a SearchPlan from a query or params object plus keyword filters.
 
-    search("liver", organism="Homo sapiens") and the original
-    search(SearchParams(...)) both work. Given filters, the endpoint is chosen
-    from them and anything it cannot do is left for the client -- see
-    seqout.search_plan. A params object built by hand is sent as it is, since
-    the caller has already chosen.
+    Bare strings use plan_search. Hand-built params are sent as provided.
     """
     if isinstance(params, str):
         return plan_search(params, **filters)
@@ -191,7 +200,7 @@ class SeqoutAPIClient(ShortNames):
             method="POST",
         )
 
-    # /search/facets counts the same match set, and its `q` is required, so a
+    # /search/facets counts the same match set, and its q is required, so a
     # filter-only search has no cheap total. Everything else it takes is a
     # subset of SearchParams.
     _COUNTABLE = frozenset(
@@ -208,18 +217,14 @@ class SeqoutAPIClient(ShortNames):
             "platform",
             "journal",
             "multi_platform",
+            "long_read",
             "date_from",
             "date_to",
         }
     )
 
     def _search_total(self, params: SearchParamsType) -> int | None:
-        """
-        Count the matches exactly, or answer None when that costs too much.
-
-        The structured endpoint sends a total with the results, so this is only
-        for the full-text one, which defers its count to /search/facets.
-        """
+        """Count matches exactly when /search/facets can answer cheaply."""
         if isinstance(params, StructuredSearchParams):
             return None
         sent = params.model_dump(exclude_none=True, by_alias=True)
@@ -232,7 +237,7 @@ class SeqoutAPIClient(ShortNames):
                 response_model=SearchTotal,
             ).total
         except Exception:
-            return None  # a count is a nicety; never fail the search for it
+            return None  # Continue the search if counting fails.
 
     def _fetch_search_page(
         self,
@@ -279,19 +284,9 @@ class SeqoutAPIClient(ShortNames):
         params: SearchParamsType | str | None = None,
         **filters: Any,
     ) -> tuple[SearchCorrection | None, int | None, Iterator[SearchResult]]:
-        """
-        Page 0's correction and total, plus a lazy iterator over every result.
-
-        The correction (did you mean / augmented extra matches) only rides on
-        the first page; this reuses that page so paging costs no extra request.
-        `total` is the server's exact count where it sends one -- the full-text
-        endpoint defers it to /search/facets and sends None, so the caller
-        counts instead. Internal: the command line needs both and pages by
-        hand, but a library caller wants `search`, which reads to the end.
-        """
+        """Return page-0 correction, total, and a lazy result iterator."""
         plan = _as_plan(params, filters)
-        # The count is a second request, so it rides alongside page 0 rather
-        # than after it: the wait is the slower of the two, not their sum.
+        # page and count run together; latency is max(page, count)
         with ThreadPoolExecutor(max_workers=2) as pool:
             page = pool.submit(self._fetch_search_page, plan.params)
             count = pool.submit(self._search_total, plan.params)
@@ -308,21 +303,15 @@ class SeqoutAPIClient(ShortNames):
         **filters: Any,
     ) -> SearchResults:
         """
-        Search for projects. Every match, not the first page.
+        Search projects and follow cursors past the first page.
 
-        Takes a query string with keyword filters, or a params object. The
-        server answers 200 rows at a time and this follows the cursor to the
-        end, so a broad query costs several requests -- give `limit` when a
-        sample of the results is enough.
-
-        `expand=False` searches the words as typed, and
-        `exclude_ontology=["MeSH"]` keeps one source out of the synonyms --
-        the same two switches the website offers.
+        Pass `limit` to stop early. `expand=False` uses exact terms, and
+        `exclude_ontology` removes named ontology sources from expansion.
         """
         plan = _as_plan(params, filters)
         rows: Iterable[SearchResult] = self._iter_search_pages(plan.params)
         if plan.has_local_work:
-            # A row dropped or reordered here has to move before `limit` counts.
+            # A row dropped or reordered here has to move before limit counts.
             rows = apply_plan(rows, plan)
         if limit is not None:
             rows = itertools.islice(rows, limit)
@@ -377,11 +366,10 @@ class SeqoutAPIClient(ShortNames):
 
     def fetch_samples(self, accession_id: str) -> ExperimentSampleList:
         """
-        Fetch the sample records of a GEO series or ArrayExpress experiment.
+        Fetch GEO or ArrayExpress sample records.
 
         Raises:
-            ValueError: If the accession names anything else. A sequence archive
-                study has experiments, not samples; use fetch_study_experiments.
+            ValueError: If the accession names another source.
 
         """
         if not accession_id.startswith("GSE") and not accession_id.startswith("E-"):
@@ -408,12 +396,7 @@ class SeqoutAPIClient(ShortNames):
     def fetch_project_enriched_metadata(
         self, accession_id: str
     ) -> ProjectLLMEnrichedSampleMetadataResults:
-        """
-        Fetch the structured per-sample labels seqout.org has prepared.
-
-        Coverage is partial. A project that has not been processed answers 404,
-        which comes back as an empty result.
-        """
+        """Fetch prepared per-sample labels. Missing coverage returns empty."""
         try:
             response = self._sender(
                 url=f"{self._base_url}/project/{accession_id}/enriched",
@@ -441,8 +424,8 @@ class SeqoutAPIClient(ShortNames):
 
         Args:
             study_id: A study accession, such as SRP310139 or PRJNA1458007.
-            full: Read every run. The default is the backend's 500-run preview,
-                which is enough to inspect a study but not to download one.
+            full: Read every run. The default is the backend's 500-run preview.
+                Downloads require the full list.
 
         """
         response = self._sender(
@@ -478,7 +461,7 @@ class SeqoutAPIClient(ShortNames):
     # Method names match SeqoutParquetClient for backend-neutral CLI paths.
 
     def _quiet(self, fn: Callable[[], T], /) -> T | None:
-        """Run a lookup that is allowed to miss; a miss is not an error here."""
+        """Run a lookup whose misses return None here."""
         try:
             return fn()
         except Exception:
@@ -486,17 +469,11 @@ class SeqoutAPIClient(ShortNames):
 
     def resolve_study(self, accession: str) -> str | None:
         """
-        Resolve a child accession (run/experiment/sample) to its study root.
+        Resolve a child accession to its study root.
 
-        No single endpoint answers this for every archive, so the exact lookups
-        are tried first and full-text search is the last resort:
-
-        =========== ================================================
-        run         /run/{acc} carries study_accession (SRA, DDBJ)
-        experiment  /sample-detail/{acc} (GSA), else its first run
-        sample      /sample-detail/{acc} carries the project
-        anything    search, works when the accession is FTS-indexed
-        =========== ================================================
+        Exact routes: run via /run, GSA experiment via sample detail,
+        SRA/DDBJ experiment via first run, and sample via sample detail. Search
+        is the fallback.
         """
         if accession.upper().startswith(_STUDY_PREFIXES):
             return accession
@@ -509,7 +486,7 @@ class SeqoutAPIClient(ShortNames):
             run = self._quiet(lambda: self.fetch_run(accession))
             return run.study_accession if run is not None else None
         if up.startswith(_EXP_PREFIXES):
-            # GSA answers on sample-detail; SRA/DDBJ only via one of its runs.
+            # GSA answers on sample-detail; SRA/DDBJ uses an experiment run
             found = self._project_from_sample_detail(accession)
             if found:
                 return found
@@ -544,13 +521,7 @@ class SeqoutAPIClient(ShortNames):
         return detail.project.accession or None
 
     def linked_study(self, accession: str) -> str | None:
-        """
-        Return a series' linked sequencing study, the route to its runs.
-
-        Cross-references answer for GEO and ArrayExpress. GEA (E-GEAD-N) files
-        no cross-reference at all and names its data only as a BioProject in the
-        project record, so that is tried next.
-        """
+        """Return a linked sequencing study, falling back to GEA BioProject."""
         xref = self._quiet(lambda: self.fetch_cross_references(accession)) or []
         cands = [
             r.accession for r in xref if r.accession.upper().startswith(_STUDY_PREFIXES)
@@ -697,7 +668,7 @@ class SeqoutAPIClient(ShortNames):
             )
             want = (md5s or {}).get(url)
             if want and not _md5_matches(dest_path, want):
-                # A corrupt alignment is worse than a missing one: it reads.
+                # Remove corrupt alignments to prevent reuse.
                 dest_path.unlink(missing_ok=True)
                 msg = f"checksum mismatch for {dest_path.name}; deleted"
                 raise SeqoutError(msg)
@@ -720,17 +691,12 @@ class SeqoutAPIClient(ShortNames):
         **filters: Any,
     ) -> Cohort:
         """
-        Search samples across every study, on the harmonised data.
+        Search harmonised samples across studies.
 
-        Not the submitter's free text: seqout has already read each sample's
-        description and written the tissue, disease, cell type, assay and age
-        into one vocabulary, so one filter reaches every study that recorded
-        the fact whatever words its submitter used. A sample that was never
-        harmonised cannot be found here.
-
-        At least one filter is required; an unfiltered call would return the
-        whole corpus. `Cohort.total` is the size of the match before `limit`,
-        and `Cohort.filters` is what the server understood.
+        Filters hit normalized tissue, disease, cell type, assay, age, and
+        ontology IDs. At least one filter is required; an unfiltered search
+        would return every harmonised sample. `Cohort.total` counts matches
+        before `limit`; `Cohort.filters` reports server-applied filters.
         """
         filters = {k: v for k, v in filters.items() if v is not None}
         if not filters:
@@ -791,12 +757,9 @@ class SeqoutAPIClient(ShortNames):
         """
         Per-sample matrix dimensions and read-derived calls for a study.
 
-        `cells` counts matrix columns; for an unfiltered 10x matrix those are
-        barcodes, so the number is an upper bound and a sum overcounts.
-        `has_*_reads` is None when the sample was never screened and False when
-        the screen found no gated hit.
-
-        A study with no Pentimento record answers with an empty result.
+        `cells` counts matrix columns; unfiltered 10x matrices count barcodes,
+        so sums overcount. `has_*_reads` is None when unscreened and False when
+        screened with no gated hit. Missing Pentimento records return empty.
         """
         path = f"{self._base_url}/project/{accession.strip().upper()}/single-cell"
 
@@ -832,6 +795,8 @@ class SeqoutAPIClient(ShortNames):
 
         return SingleCellSamples(
             rows,
+            # longread_chemistry is None past the first page; it is only ever
+            # computed at offset 0
             study=SingleCellStudy.model_validate(first.model_dump()),
             n_samples_total=total,
         )
@@ -848,16 +813,11 @@ class SeqoutAPIClient(ShortNames):
         limit: int = 500,
     ) -> Microbes:
         """
-        Report the microbial sequence found in a sample's reads, by organism.
+        Microbial sequence found in a sample's reads, by organism.
 
-        The spike-in control and the negative control are never summed into the
-        totals, and reagent and skin organisms are excluded unless
-        `include_background` is set.
-
-        Every detection is returned, not only the ones that pass the gate, so a
-        sample whose `has_viral_reads` is False can still list organisms here.
-        An empty result with `measurable` False means the sample was never
-        screened, which rules nothing out.
+        Spike-in and negative controls stay out of totals. Reagent and skin
+        organisms require `include_background`. Detections include gated and
+        ungated organisms. Empty with `measurable` False means unscreened.
         """
         res = self._sender(
             url=f"{self._base_url}/sample/{accession.strip().upper()}/microbes",
@@ -887,18 +847,122 @@ class SeqoutAPIClient(ShortNames):
             control_kingdoms=res.control_kingdoms,
         )
 
+    def fetch_longread_summary(self) -> LongreadSummary:
+        """Corpus-wide totals for studies with a PacBio or Oxford Nanopore run."""
+        return self._sender(
+            url=f"{self._base_url}/longread/summary",
+            response_model=LongreadSummary,
+        )
+
+    def fetch_longread_facets(self) -> dict[str, list[LongreadFacetValue]]:
+        """
+        Long-read facet study counts.
+
+        Per technology, platform, instrument, organism, archive, chemistry and year.
+        """
+        return self._sender(
+            url=f"{self._base_url}/longread/facets",
+            response_model=LongreadFacets,
+        ).root
+
+    def fetch_longread_projects(
+        self,
+        *,
+        technology: str | None = None,
+        platform: str | None = None,
+        instrument_model: str | None = None,
+        library_strategy: str | None = None,
+        organism: str | None = None,
+        archive: str | None = None,
+        chemistry: str | None = None,
+        assay_l1: str | None = None,
+        year: int | None = None,
+        has_fastq: bool | None = None,
+        has_sra: bool | None = None,
+        long_read_only: bool | None = None,
+        has_exact_chemistry: bool | None = None,
+        single_cell: bool | None = None,
+        sort: str = "n_experiments",
+        order: str = "desc",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> LongreadProjects:
+        """
+        Studies with a PacBio or Oxford Nanopore experiment, any archive.
+
+        A study mirrored in more than one archive counts once. `long_read_only`
+        filters to studies with no other platform (None rows have no experiment
+        rows to judge by). `single_cell` keeps only studies also flagged
+        single-cell (`is_single_cell`); the server has no such parameter, so this
+        filters locally and every page is read before `limit` counts.
+        """
+        params = {
+            "technology": technology,
+            "platform": platform,
+            "instrument_model": instrument_model,
+            "library_strategy": library_strategy,
+            "organism": organism,
+            "archive": archive,
+            "chemistry": chemistry,
+            "assay_l1": assay_l1,
+            "year": year,
+            "has_fastq": has_fastq,
+            "has_sra": has_sra,
+            "long_read_only": long_read_only,
+            "has_exact_chemistry": has_exact_chemistry,
+            "sort": sort,
+            "order": order,
+        }
+        # local filtering makes limit count kept rows, so every page must be read
+        walk_all = single_cell is not None
+        rows: list[LongreadProject] = []
+        total = 0
+        at = offset
+        while True:
+            want = LONGREAD_PAGE
+            if not walk_all and limit is not None:
+                want = min(limit - len(rows), LONGREAD_PAGE)
+                if want <= 0:
+                    break
+            page = self._sender(
+                url=f"{self._base_url}/longread/projects",
+                params={**params, "limit": want, "offset": at},
+                response_model=LongreadProjectsResponse,
+            )
+            total = page.total
+            got = page.results
+            if single_cell is not None:
+                got = [r for r in got if r.is_single_cell is single_cell]
+            rows.extend(got)
+            at += page.count
+            # a stale total would otherwise page forever
+            if page.count == 0 or at >= page.total:
+                break
+            # pages arrive in the server's sort order, so once enough rows
+            # survive the local filter, no later page can outrank them
+            if limit is not None and len(rows) >= limit:
+                break
+        if limit is not None and len(rows) > limit:
+            rows = rows[:limit]
+        return LongreadProjects(rows, total=total)
+
+    def fetch_longread_chemistry(self, accession: str) -> list[LongreadRun]:
+        """
+        Every PacBio/Oxford Nanopore run for a study.
+
+        Independent of single-cell status. `[]` means no long-read runs.
+        """
+        return self._sender(
+            url=f"{self._base_url}/project/{accession.strip().upper()}/longread-chemistry",
+            response_model=LongreadChemistryResponse,
+        ).runs
+
     def fetch_bams(self, accession: str) -> BamFiles:
         """
-        Fetch the alignment files a submitter sent for a study.
+        Return the alignment files a submitter sent for a study.
 
-        Not the reads: these are the submitter's own BAMs, aligned to a
-        reference they chose, and they often carry work the reads alone do not
-        reconstruct -- barcode tags, methylation calls, long-read structural
-        evidence.
-
-        Read this before downloading. A study can run to hundreds of gigabytes,
-        and most files are in requester-pays storage that no anonymous client
-        can fetch; `BamFiles.requester_pays` names those.
+        Requester-pays BAMs are listed in `BamFiles.requester_pays` because
+        anonymous clients cannot fetch them.
         """
         return self._sender(
             url=f"{self._base_url}/project/{accession}/bams",
@@ -915,17 +979,11 @@ class SeqoutAPIClient(ShortNames):
         with_pbar: bool = True,
     ) -> list[Path]:
         """
-        Download the alignment files a study's submitter sent.
+        Download openly readable submitted alignment files.
 
-        The files behind requester-pays storage are named rather than fetched,
-        with the command that would get them, so a study that is partly open
-        still yields what it can.
-
-        Submitters name their own files, so two runs can send the same name;
-        those are prefixed with the run accession to keep them apart.
-
-        Takes any accession: a study downloads all of its alignments, an
-        experiment or run only its own.
+        Requester-pays files are reported but not fetched. Duplicate filenames
+        are prefixed with run accession. Experiment and run accessions narrow
+        the study list.
         """
         bams = self.get(accession).bams
         if not bams.root:
@@ -970,17 +1028,13 @@ class SeqoutAPIClient(ShortNames):
     def fetch_citations(
         self,
         accession: str,
-        type: Literal["original", "all"] = "original",  # noqa: A002 - the endpoint's own name
+        type: Literal["original", "all"] = "original",  # noqa: A002
     ) -> str:
         """
-        BibTeX for the papers behind a dataset.
+        BibTeX for papers linked to a dataset.
 
-        The archive holds the link from a dataset to its paper, so the entry is
-        assembled from the record rather than looked up by hand. `type="all"`
-        adds the papers that reanalysed the data afterwards.
-
-        A dataset with no linked paper answers with an empty string, not an
-        error, so a loop over many accessions does not stop at the first gap.
+        `type="all"` includes reanalysis papers. No linked paper returns an
+        empty string.
         """
         try:
             return self._sender(
@@ -989,7 +1043,7 @@ class SeqoutAPIClient(ShortNames):
             )
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == _NOT_FOUND:
-                return ""  # "no publications found" is an answer, not a failure
+                return ""  # missing publications return an empty citation set
             raise
 
     def fetch_ontology_term(
@@ -1000,21 +1054,14 @@ class SeqoutAPIClient(ShortNames):
         children: bool = True,
     ) -> OntologyTerm | None:
         """
-        Look one term up in the ontology graph seqout searches with.
+        Look one term up in the ontology graph used for search expansion.
 
-        This is the vocabulary behind a plain keyword search: "masld" also
-        finds "nonalcoholic fatty liver disease" because the graph joins them.
-        The answer gives the
-        source identifiers (UBERON, MeSH, HGNC, Cellosaurus), the synonyms that
-        a search expands to, and the terms below it in the hierarchy.
-
-        A term the graph does not have answers None, not an error, so a loop
-        over many words does not stop at the first one it misses.
+        Returns source identifiers, synonyms, and direct children. Missing terms
+        return None. `max_hops` bounds synonyms; children are direct.
 
         Args:
             term: The word or phrase to look up. Case does not matter.
-            max_hops: How far to walk the synonym links, 1 to 4. Bounds the
-                synonyms only -- children are always direct children.
+            max_hops: How far to walk the synonym links, 1 to 4.
             children: Set False to skip the children, which is much cheaper.
 
         """
@@ -1040,31 +1087,20 @@ class SeqoutAPIClient(ShortNames):
         num_workers: int | None = None,
     ) -> pd.DataFrame:
         """
-        Add the ontology identifiers behind a column of free-text labels.
+        Add ontology identifier columns for free-text labels.
 
-        Each column named gets a `<column>_ontology_id` beside it, holding the
-        comma-joined CURIEs the graph has for that label (`CL:0000084`,
-        `MeSH:D013601`, `CVCL_0030`). A label the graph does not know, and an
-        empty cell, come back as NA.
-
-        Only the label's own identifiers are read. `use_synonyms=True` lets a
-        label that carries none borrow from its synonyms, within `max_hops`,
-        which maps more labels and trusts more: a synonym edge often joins a
-        narrower concept ("t cell" -> "immature t cell"), so a borrowed
-        identifier can mean something the label does not. A label with
-        identifiers of its own never borrows either way.
+        Each named column gets `<column>_ontology_id` with comma-joined CURIEs.
+        Unknown labels and empty cells become NA. `use_synonyms=True` borrows
+        identifiers only when the label has none, which can change specificity.
 
         Args:
-            df: The frame. It is not modified; a copy comes back.
+            df: The frame to copy and annotate.
             columns: One column name, or several.
-            ontology: Keep only the identifiers of this source, e.g. "CL" for
-                cell types or "UBERON" for anatomy. Default keeps them all.
-            use_synonyms: Let a label with no identifier of its own take the
-                identifiers of its synonyms. Off by default.
-            max_hops: How far to walk the synonym links, 1 to 4. Read only when
-                use_synonyms is set.
-            num_workers: Threads for the lookups. One request per distinct
-                label, however many rows repeat it.
+            ontology: Keep only identifiers from this source, e.g. "CL" or
+                "UBERON". Default keeps all sources.
+            use_synonyms: Let labels with no identifiers borrow from synonyms.
+            max_hops: How far to walk synonym links, 1 to 4.
+            num_workers: Threads for the lookups. One request per distinct label.
 
         """
         names = [columns] if isinstance(columns, str) else list(columns)
@@ -1152,12 +1188,7 @@ class SeqoutAPIClient(ShortNames):
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
     ) -> None:
-        """
-        Download a bare list of URLs into out_dir.
-
-        For e.g. per-sample supplementary files; same threaded fetch as the
-        supplementary/run downloaders.
-        """
+        """Download a bare list of URLs into out_dir."""
         num_workers = _normalize_num_workers(num_workers)
         out_dir.mkdir(parents=True, exist_ok=True)
 
