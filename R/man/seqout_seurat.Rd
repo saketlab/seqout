@@ -5,41 +5,59 @@
 \alias{Seqout2Seurat}
 \title{Convert counts to a Seurat object}
 \usage{
-seqout_seurat(x, ...)
+seqout_seurat(
+  x,
+  sample = NULL,
+  max_cells = NULL,
+  multimodal = TRUE,
+  sample_metadata = FALSE,
+  ...
+)
 
-Seqout2Seurat(x, ...)
+Seqout2Seurat(
+  x,
+  sample = NULL,
+  max_cells = NULL,
+  multimodal = TRUE,
+  sample_metadata = FALSE,
+  ...
+)
 }
 \arguments{
-\item{x}{A \code{seqout_matrix} from \code{\link[=seqout_matrix]{seqout_matrix()}}, or one GSM accession.}
+\item{x}{A \code{seqout_matrix} from \code{\link[=seqout_matrix]{seqout_matrix()}}, one GSE/GSM accession,
+or a \code{seqout_counts} tibble from \code{\link[=seqout_counts]{seqout_counts()}}.}
 
-\item{...}{Passed to \code{\link[SeuratObject:CreateSeuratObject]{SeuratObject::CreateSeuratObject()}}, such as
-\code{project}, \code{assay}, \code{min.cells} or \code{min.features}. The counts come from
-\code{x}, and \code{meta.data} too unless you give your own.}
+\item{sample}{Unit labels or sample accessions to read when \code{x} is a GSE or
+\code{seqout_counts}. \code{NULL} reads every preferred unit.}
+
+\item{max_cells}{Cap on cells kept per unit, sampled at random. \code{NULL} keeps
+all cells.}
+
+\item{multimodal}{Build one object per modality found, as extra assays.
+\code{FALSE} reads the preferred unit of each sample.}
+
+\item{sample_metadata}{Join the study's sample record onto every cell, by the
+accession the cell came from. A column already in the cell metadata wins.}
+
+\item{...}{Passed to \code{\link[SeuratObject:CreateSeuratObject]{SeuratObject::CreateSeuratObject()}}.}
 }
 \value{
 A \code{Seurat} object.
 }
 \description{
-Hands a matrix to \code{\link[SeuratObject:CreateSeuratObject]{SeuratObject::CreateSeuratObject()}}. The matrix is
-already features by observations, the orientation Seurat expects, and the
-per-cell annotation becomes \code{meta.data}.
-}
-\details{
-A GSM accession is read first, through \code{\link[=seqout_counts]{seqout_counts()}} and
-\code{\link[=seqout_matrix]{seqout_matrix()}}. Use those two yourself for a series, for a sample that
-ships more than one matrix, or for an assay other than RNA.
-
-The SeuratObject package must be installed; Seurat brings it.
+\code{X} becomes counts and \code{obs} becomes \code{meta.data}.
+A GSE or GSM accession is resolved through \code{\link[=seqout_counts]{seqout_counts()}}.
+Requires SeuratObject.
 }
 \examples{
 \dontrun{
 obj <- Seqout2Seurat("GSM8994520", min.cells = 3)
 
-counts <- SeqoutCounts("GSE297547")
-obj <- Seqout2Seurat(SeqoutMatrix(counts, sample = "GSM8994520"))
+obj <- Seqout2Seurat("GSE297547", sample = "GSM8994520")
+counts <- SeqoutListCounts("GSE297547")
+obj <- Seqout2Seurat(counts, sample = "GSM8994520")
 }
 }
 \seealso{
-\code{\link[=seqout_matrix]{seqout_matrix()}} for the matrix without Seurat, and \code{\link[=matrices]{matrices()}}
-with \code{lapply()} for a whole series.
+\code{\link[=seqout_matrix]{seqout_matrix()}} and \code{\link[=matrices]{matrices()}}.
 }

@@ -13,7 +13,7 @@ ProjectSingleCellSummary(accession, con = .con())
 \item{accession}{A study or series accession, or one resolving to a study.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A one-row tibble, empty when the study is not in the Pentimento.
@@ -30,5 +30,5 @@ s$microbe_measured
 }
 \seealso{
 \code{\link[=project_single_cell_status]{project_single_cell_status()}} when you need an answer even for a
-study the Pentimento has never seen.
+study absent from the Pentimento.
 }

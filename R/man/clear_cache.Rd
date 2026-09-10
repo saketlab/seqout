@@ -16,5 +16,5 @@ ClearCache(con = .con())
 Number of tables removed (invisibly).
 }
 \description{
-Removes all \verb{*_local} tables created by \code{\link[=cache_table]{cache_table()}}.
+Removes \verb{*_local} tables created by \code{\link[=cache_table]{cache_table()}}.
 }

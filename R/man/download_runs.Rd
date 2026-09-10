@@ -38,17 +38,9 @@ takes the first each run offers, in that order.}
 The paths of the downloaded files, invisibly.
 }
 \description{
-Takes any accession: a run downloads its own files, an experiment or sample
-downloads its runs', a series or study downloads every run's.
-}
-\details{
-Not every run is served in every form. Left to itself the function takes the
-first copy each run offers, preferring ENA fastq, then NCBI's full-quality
-SRA copy, then its \code{lite} copy, and says which it took. Name \code{mode} to insist
-on one.
-
-Where the archive publishes a checksum, which it does for every fastq, the
-downloaded file is verified against it.
+Runs download their own files; larger accessions download all resolved runs.
+Default mode order is fastq, full SRA, then SRA lite.
+Published checksums are verified.
 }
 \examples{
 \dontrun{

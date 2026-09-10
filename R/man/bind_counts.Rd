@@ -5,23 +5,50 @@
 \alias{BindCounts}
 \title{Bind counts matrices across samples}
 \usage{
-bind_counts(x, labels = NULL, max_cells = NULL)
+bind_counts(
+  x,
+  labels = NULL,
+  max_cells = NULL,
+  strict = FALSE,
+  join = c("inner", "outer")
+)
 
-BindCounts(x, labels = NULL, max_cells = NULL)
+BindCounts(
+  x,
+  labels = NULL,
+  max_cells = NULL,
+  strict = FALSE,
+  join = c("inner", "outer")
+)
 }
 \arguments{
 \item{x}{A list of \code{seqout_matrix} objects, as \code{\link[=matrices]{matrices()}} returns.}
 
-\item{labels}{Column-name prefix per matrix. Defaults to the list names,}
+\item{labels}{Column-name prefix per matrix. Defaults to the list names.}
 
 \item{max_cells}{Cap on columns kept per matrix, sampled at random. \code{NULL}
 keeps all; set a seed for reproducibility.}
+
+\item{strict}{Stop rather than warn when the feature sets differ. Ignored
+for \code{join = "outer"}, which drops nothing.}
+
+\item{join}{\code{"inner"} for the shared features, \code{"outer"} for the union with
+absent features zero-filled.}
 }
 \value{
 A matrix, dgCMatrix if the inputs were sparse.
 }
 \description{
-Bind counts matrices across samples
+\code{join = "inner"}, the default, keeps the features common to every matrix and
+warns when that drops any. Peak-by-cell matrices called per sample rarely
+share a feature space, so the difference can be large.
+}
+\details{
+\code{join = "outer"} keeps the union and fills absent features with zero.
+A zero there means "not in this matrix", not "measured as zero".
+
+Dense and sparse inputs may be mixed. Dense outer joins exceeding 5e7
+elements use sparse storage to bound memory when features barely overlap.
 }
 \examples{
 \dontrun{

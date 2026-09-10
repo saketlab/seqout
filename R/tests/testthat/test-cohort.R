@@ -175,3 +175,38 @@ test_that("the returned spec covers what the server selects", {
   ))
   expect_false(anyDuplicated(names(seqout:::.cohort_spec())) > 0)
 })
+
+
+.cohort_filter_stub <- function(seen) {
+  function(con, path, ...) {
+    seen$args <- list(...)
+    list(total = 0L, samples = list(), filters = list(), next_offset = NULL)
+  }
+}
+
+
+test_that("filters can arrive as a list, so a cohort call can be piped", {
+  seen <- new.env(parent = emptyenv())
+  local_mocked_bindings(.api_get = .cohort_filter_stub(seen))
+  list(tissue = "liver", sex = "female") |>
+    sample_search(limit = 1, con = fake_con(backend = "api"))
+  expect_equal(seen$args$tissue, "liver")
+  expect_equal(seen$args$sex, "female")
+})
+
+
+test_that("a named filter overrides the same name in the list", {
+  seen <- new.env(parent = emptyenv())
+  local_mocked_bindings(.api_get = .cohort_filter_stub(seen))
+  list(tissue = "liver") |>
+    sample_search(tissue = "lung", limit = 1, con = fake_con(backend = "api"))
+  expect_equal(seen$args$tissue, "lung")
+})
+
+
+test_that("an unnamed filter list is rejected like an unnamed argument", {
+  expect_error(
+    list("liver") |> sample_search(con = fake_con(backend = "api")),
+    "must be named"
+  )
+})

@@ -17,32 +17,35 @@ ProjectSingleCell(accession, limit = NULL, offset = 0, con = .con())
 \item{offset}{Number of samples to skip.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A sample tibble, empty when the study is unprocessed. The \code{study}
-and \code{n_samples_total} attributes carry the study row and its total.
+and \code{n_samples_total} attributes carry the study row and its total. The
+\code{longread_chemistry} attribute carries every PacBio/Oxford Nanopore run
+in the study (empty, not \code{NULL}, when there are none); the server only
+computes it when \code{offset = 0}.
 }
 \description{
-Returns one row per sample with matrix dimensions, read-derived species, sex
-and assay calls, and microbial flags.
+One row per sample with matrix dimensions and read-derived calls.
 }
 \details{
 \code{cells} counts matrix columns; for unfiltered 10x matrices these are
 barcodes, so the number is an upper bound and sums overcount.
 
-\verb{has_*_reads = NA} means unscreened, \code{FALSE} means screened with no gated
-hit. In \code{flags}, \code{NULL} and \code{character(0)} carry the same distinction.
-\code{calls_ambiguous} marks a sample whose read-derived calls disagree.
+\verb{has_*_reads = NA} means unscreened; \code{FALSE} means screened with no hit.
+\code{flags} preserves the same distinction.
 }
 \examples{
 \dontrun{
 sc <- ProjectSingleCell("GSE168652")
 sc[, c("sample_accession", "cells", "genes")]
 attr(sc, "study")$study_cells
+attr(sc, "longread_chemistry")
 }
 }
 \seealso{
 \code{\link[=sample_microbes]{sample_microbes()}} for the per-organism detections behind the
-viral and bacterial flags.
+viral and bacterial flags, \code{\link[=project_longread_chemistry]{project_longread_chemistry()}} to read the
+same run list without an \code{offset} argument.
 }

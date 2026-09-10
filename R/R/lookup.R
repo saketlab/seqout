@@ -1,22 +1,43 @@
-#' Find a publication and the projects linked to it
+#' Find projects linked to a publication
 #'
-#' The reverse lookup: from a paper to the datasets that name it.
-#'
+#' @param id Bare PubMed ID (digits) or DOI starting `10.`. URLs error.
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param pmid A PubMed ID.
-#' @param doi A DOI. Give one of `pmid` or `doi`.
+#' @param pmid PubMed ID.
+#' @param doi DOI.
 #'
 #' @return A tibble of linked projects, empty when the publication is unknown.
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' Paper(pmid = "34764296")
+#' Paper("34764296")
+#' Paper(doi = "10.1038/s41467-021-26864-x")
 #' }
-paper <- function(pmid = NULL, doi = NULL, con = .con()) {
+paper <- function(id = NULL, pmid = NULL, doi = NULL, con = .con()) {
   .check_connection(con)
+  if (!is.null(id)) {
+    if (!is.null(pmid) || !is.null(doi)) {
+      cli::cli_abort("Give {.arg id} or {.arg pmid}/{.arg doi}, not both.")
+    }
+    if (length(id) != 1L || is.na(id) || !(is.character(id) || is.numeric(id))) {
+      cli::cli_abort("{.arg id} must be one PubMed ID or DOI.")
+    }
+    id <- as.character(id)
+    # bare PubMed IDs are digits; bare DOIs start 10.
+    if (grepl("^10\\.", id)) {
+      doi <- id
+    } else if (grepl("^[0-9]+$", id)) {
+      pmid <- id
+    } else {
+      cli::cli_abort(c(
+        "{.arg id} is neither a PubMed ID nor a DOI.",
+        i = "A PubMed ID is digits; a DOI starts with {.val 10.}.",
+        i = "Pass {.arg pmid} or {.arg doi} to say which it is."
+      ))
+    }
+  }
   if (is.null(pmid) && is.null(doi)) {
-    cli::cli_abort("Give one of {.arg pmid} or {.arg doi}.")
+    cli::cli_abort("Give {.arg id}, {.arg pmid} or {.arg doi}.")
   }
   res <- tryCatch(
     .api_get(con, "/publication", pmid = pmid, doi = doi),
@@ -28,7 +49,7 @@ paper <- function(pmid = NULL, doi = NULL, con = .con()) {
 
 #' Datasets linked to an author
 #'
-#' Every dataset an author is linked to through its publications.
+#' Datasets named by an author's publications.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param name The author name as it appears in the publication record.
@@ -51,22 +72,16 @@ author <- function(name, limit = 200, con = .con()) {
 
 #' BibTeX for the papers behind a dataset
 #'
-#' The archive holds the link from a dataset to its paper, so the entry is
-#' assembled from the record rather than looked up by hand. The result is text,
-#' ready for [writeLines()] or a `.bib` file.
+#' Assembles entries from the dataset publication record.
+#' `type = "all"` includes reanalysis papers.
 #'
-#' `type = "original"` gives the paper the submitters wrote. `type = "all"`
-#' adds the papers that reanalysed the data afterwards.
+#' A dataset with no linked paper returns `character(0)`.
 #'
-#' A dataset with no linked paper returns `character(0)`, not an error, so a
-#' loop over many accessions does not stop at the first one without a paper.
-#'
-#' Reads the REST API. The dump has no record of the papers that reanalysed a
-#' dataset, and only about a third of its `pubmed_metadata` rows carry a
-#' publication date, so an entry built from it would be quietly less complete.
+#' Reads REST. The dump lacks reanalysis papers and often publication dates.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
-#' @param accession A project accession.
+#' @param accession A project accession, or several. Several return one
+#'   bibliography, each entry named for the dataset it came from.
 #' @param type `"original"`, the default, or `"all"`.
 #'
 #' @return A character string of BibTeX entries, or `character(0)`.
@@ -79,7 +94,7 @@ author <- function(name, limit = 200, con = .con()) {
 #' \dontrun{
 #' cat(Citations("GSE151530"))
 #'
-#' # Every paper that used the data, not only the one that produced it
+#' # include reanalysis papers
 #' cat(Citations("GSE168652", type = "all"))
 #'
 #' writeLines(Citations("GSE151530"), "GSE151530.bib")
@@ -91,13 +106,20 @@ citations <- function(accession, type = "original", con = .con()) {
   )
   rlang::check_required(accession)
   type <- match.arg(type, c("original", "all"))
-  project_citations(accession, type = type, format = "bibtex", con = con)
+  if (length(accession) == 1L) {
+    return(project_citations(accession, type = type, format = "bibtex", con = con))
+  }
+  # one bibliography over several datasets, each entry named for its source
+  each <- lapply(accession, function(a) {
+    project_citations(a, type = type, format = "bibtex", con = con)
+  })
+  stats::setNames(unlist(each, use.names = FALSE), rep(accession, lengths(each)))
 }
 
 
 #' Short project records for many accessions
 #'
-#' One request for many projects, rather than one request each.
+#' Batches project lookup.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accessions A character vector of project accessions.
@@ -113,9 +135,7 @@ summaries <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)
 
-  # A BioProject accession has no record of its own; the endpoint answers the
-  # study the archive files it under. Names keep the accession that was asked
-  # for, so a report of what is missing reads as the caller wrote it.
+  # a BioProject has no record of its own; names keep the asked-for accession
   resolved <- vapply(accessions, function(a) .prj_study(con, a), character(1))
 
   out <- if (identical(con$backend, "parquet")) {
@@ -129,8 +149,7 @@ summaries <- function(accessions, con = .con()) {
     ))
   }
 
-  # The endpoint answers only what it holds, so a row can go missing without a
-  # word. Say so: a caller binding this beside its input would misalign.
+  # a row can go missing silently; binding this beside the input would misalign
   missing <- names(resolved)[!resolved %in% out$accession]
   if (length(missing) > 0) {
     cli::cli_warn(c(
@@ -144,10 +163,7 @@ summaries <- function(accessions, con = .con()) {
 
 #' The same short records, read from the dump
 #'
-#' Each archive keeps its projects in its own table, so the accessions are
-#' grouped by the table that holds them and each group is asked for once.
-#' The dump carries no organism column here, so the result is three columns
-#' where the API answers four.
+#' Accessions are grouped by table. The dump lacks the organism column.
 #' @noRd
 .summaries_from_db <- function(con, accessions) {
   groups <- split(accessions, vapply(accessions, .accession_to_table, character(1)))

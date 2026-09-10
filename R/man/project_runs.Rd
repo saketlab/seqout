@@ -9,11 +9,11 @@ project_runs(study, full = FALSE, con = .con())
 \arguments{
 \item{study}{Character. Study accession.}
 
-\item{full}{Read every run. The default is the server's 500-run preview,
-which is enough to inspect a study but not to download one. REST only.}
+\item{full}{Read every run. The default is the server's 500-run preview.
+Downloads require the full list. REST only.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble of run metadata with download links.

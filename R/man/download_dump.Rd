@@ -6,22 +6,25 @@
 \title{Download the Parquet dump}
 \usage{
 download_dump(
+  con = .con(),
   dest_dir = "seqout-dump",
   tables = NULL,
   overwrite = FALSE,
-  quiet = FALSE,
-  con = .con()
+  quiet = FALSE
 )
 
 DownloadDump(
+  con = .con(),
   dest_dir = "seqout-dump",
   tables = NULL,
   overwrite = FALSE,
-  quiet = FALSE,
-  con = .con()
+  quiet = FALSE
 )
 }
 \arguments{
+\item{con}{A \code{seqout_connection}. Either backend works: the files are read
+from the same place both point at.}
+
 \item{dest_dir}{Directory to write into. It is created if it is absent.}
 
 \item{tables}{Which tables to fetch. The default, \code{NULL}, fetches all of
@@ -30,28 +33,18 @@ them. See \code{\link[=tables]{tables()}}.}
 \item{overwrite}{Fetch a file even when it is already on disk.}
 
 \item{quiet}{Suppress progress messages.}
-
-\item{con}{A \code{seqout_connection}. Either backend works: the files are read
-from the same place both point at.}
 }
 \value{
 The paths of the downloaded files, invisibly.
 }
 \description{
-Fetches the \code{.parquet} files that back the Parquet backend, so that later
-work reads a local disk instead of the network. Point
-\code{\link[=seqout_connect]{seqout_connect()}}\verb{(data_dir =)} at the directory afterwards.
-}
-\details{
-The whole dump is tens of gigabytes and \code{geo_series.parquet} alone is over
-four, so the size is reported before anything is fetched. Name \code{tables} to
-take only what you need. A file already on disk is left alone, which makes a
-second call finish an interrupted first one.
+Fetches \code{.parquet} files for the Parquet backend. Existing files are skipped.
+HEAD sizes are reported before transfer when available.
 }
 \examples{
 \dontrun{
-# The two tables most queries start from
-DownloadDump("~/seqout-dump", tables = c("unified_metadata", "geo_series"))
+# two common tables
+DownloadDump(dest_dir = "~/seqout-dump", tables = c("unified_metadata", "geo_series"))
 
 con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
 Query("SELECT count(*) FROM unified_metadata", con = con)
@@ -59,5 +52,5 @@ Query("SELECT count(*) FROM unified_metadata", con = con)
 }
 \seealso{
 \code{\link[=seqout_connect]{seqout_connect()}} to read the result, and \code{\link[=cache_table]{cache_table()}} to keep
-one table in local DuckDB storage instead.
+one table in local DuckDB storage.
 }

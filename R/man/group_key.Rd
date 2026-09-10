@@ -16,9 +16,8 @@ GroupKey(name)
 The grouping key.
 }
 \description{
-A canonical CellRanger directory wins over the filename; otherwise the
-filename with its compression suffix and terminal role token stripped, so
-\code{GSM123_x_matrix.mtx.gz} and \code{GSM123_x_barcodes.tsv.gz} land together.
+CellRanger directories win; otherwise strip compression and role tokens.
+Matching stems place \code{matrix.mtx}, \code{barcodes.tsv}, and \code{features.tsv} together.
 }
 \examples{
 GroupKey("GSM123_pbmc_matrix.mtx.gz")

@@ -1,11 +1,8 @@
-#' Materialise a remote view as a local DuckDB table
+#' Cache a remote view as a local DuckDB table
 #'
-#' Downloads all rows from a remote Parquet view and stores them in the local
-#' DuckDB database. Subsequent queries on this table hit local storage instead
-#' of making HTTP requests — useful for repeated analysis on the same data.
+#' Queries against the cached table use local storage.
 #'
-#' @param table Character. Name of the table/view to cache (e.g.,
-#'   `"geo_series"`). Must be one of the registered Seqout tables.
+#' @param table Table or view name, such as `"geo_series"`.
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return The local table name (invisibly).
 #' @export
@@ -37,11 +34,10 @@ cache_table <- function(table, con = .con()) {
 
 #' Run arbitrary SQL on the Seqout DuckDB connection
 #'
-#' Executes any SQL query against the DuckDB database, which includes remote
-#' Parquet views and any locally cached tables.
+#' The DuckDB database includes remote views and cached local tables.
 #'
-#' @param sql Character. SQL query to execute.
-#' @param params Optional. A list of parameters for parameterised queries.
+#' @param sql SQL query to execute.
+#' @param params Parameters for a parameterised query.
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return A tibble with query results.
 #' @export
@@ -69,9 +65,7 @@ query <- function(sql, params = NULL, con = .con()) {
 
 #' List available tables and views
 #'
-#' Every remote Seqout table, plus any table cached locally by [cache_table()].
-#' `registered` says whether the view exists in DuckDB yet; views are created on
-#' first use, so a fresh connection reports `FALSE` for most of them.
+#' `registered` is `FALSE` until a remote view is created in DuckDB.
 #'
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return A tibble with `table_name`, `table_type` and `registered` columns.
@@ -96,7 +90,7 @@ tables <- function(con = .con()) {
 
 #' Clear locally cached tables
 #'
-#' Removes all `*_local` tables created by [cache_table()].
+#' Removes `*_local` tables created by [cache_table()].
 #'
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return Number of tables removed (invisibly).

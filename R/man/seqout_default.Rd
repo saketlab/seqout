@@ -3,7 +3,7 @@
 \name{seqout_default}
 \alias{seqout_default}
 \alias{SeqoutDefault}
-\title{Set the connection every function falls back to}
+\title{Set the process-wide default connection}
 \usage{
 seqout_default(con)
 
@@ -17,8 +17,7 @@ REST default.}
 The previous default, invisibly.
 }
 \description{
-Call this once to make a Parquet connection the default for the session,
-instead of passing \verb{con =} to every call.
+Set the process-wide default connection
 }
 \examples{
 \dontrun{

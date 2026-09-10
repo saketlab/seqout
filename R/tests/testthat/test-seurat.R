@@ -28,18 +28,33 @@ test_that("an empty obs is not passed as meta.data", {
   expect_s4_class(seqout_seurat(mock_matrix(demo_X())), "Seurat")
 })
 
-test_that("a series accession says which two functions to use instead", {
+test_that("a series accession is read and bound before Seurat conversion", {
   skip_if_not_installed("SeuratObject")
+  skip_if_not_installed("Matrix")
+  a <- mock_matrix(demo_X(), demo_obs())
+  a$sample <- "GSM1"
+  b <- mock_matrix(demo_X(), data.frame(kind = c("x", "y"), row.names = c("c1", "c2")))
+  b$sample <- "GSM2"
 
-  expect_error(seqout_seurat("GSE297547"), "not a GSM accession")
+  testthat::local_mocked_bindings(
+    seqout_counts = function(accession, ...) mock_counts(accession),
+    .select_units = function(counts, sample = NULL) list(list(label = "GSM1"), list(label = "GSM2")),
+    matrices = function(counts, sample = NULL) list(GSM1 = a, GSM2 = b)
+  )
+
+  obj <- seqout_seurat("GSE297547", sample = c("GSM1", "GSM2"), max_cells = 1)
+
+  expect_s4_class(obj, "Seurat")
+  expect_equal(ncol(obj), 2)
+  expect_identical(sort(unique(obj$sample)), c("GSM1", "GSM2"))
 })
 
 test_that("anything that is neither a matrix nor one accession is rejected", {
   skip_if_not_installed("SeuratObject")
 
-  expect_error(seqout_seurat(tibble::tibble(unit = "a")), "one GSM accession")
-  expect_error(seqout_seurat(c("GSM1", "GSM2")), "one GSM accession")
-  expect_error(seqout_seurat(NA_character_), "one GSM accession")
+  expect_error(seqout_seurat(tibble::tibble(unit = "a")), "seqout_matrix")
+  expect_error(seqout_seurat(c("GSM1", "GSM2")), "seqout_matrix")
+  expect_error(seqout_seurat(NA_character_), "seqout_matrix")
 })
 
 test_that("a GSM with no readable matrix says so, and one with several says to pick", {

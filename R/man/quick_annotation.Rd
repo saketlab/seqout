@@ -25,15 +25,11 @@ A character vector of labels, named by cluster, with the cluster by
 marker-set score matrix attached as attribute \code{scores}.
 }
 \description{
-Scores each cell as the mean expression of a set's genes, averages that
-within each cluster, and labels the cluster with its highest-scoring set.
-Sets with no gene in \code{x} are dropped with a warning.
+Scores markers per cell, averages by cluster, and labels by the top set.
+Marker sets with no genes in \code{x} are dropped with a warning.
 }
 \details{
-Scores are unscaled across sets, so a housekeeping-heavy set can out-score a
-sparse but specific one. Check \code{attr(out, "scores")} before trusting a label.
-This function works best with specific markers (only expressed in one celltype
-but absent from others).
+Scores are unscaled; housekeeping-heavy sets can win.
 }
 \examples{
 \dontrun{

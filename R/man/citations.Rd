@@ -10,7 +10,8 @@ citations(accession, type = "original", con = .con())
 Citations(accession, type = "original", con = .con())
 }
 \arguments{
-\item{accession}{A project accession.}
+\item{accession}{A project accession, or several. Several return one
+bibliography, each entry named for the dataset it came from.}
 
 \item{type}{\code{"original"}, the default, or \code{"all"}.}
 
@@ -20,26 +21,19 @@ Citations(accession, type = "original", con = .con())
 A character string of BibTeX entries, or \code{character(0)}.
 }
 \description{
-The archive holds the link from a dataset to its paper, so the entry is
-assembled from the record rather than looked up by hand. The result is text,
-ready for \code{\link[=writeLines]{writeLines()}} or a \code{.bib} file.
+Assembles entries from the dataset publication record.
+\code{type = "all"} includes reanalysis papers.
 }
 \details{
-\code{type = "original"} gives the paper the submitters wrote. \code{type = "all"}
-adds the papers that reanalysed the data afterwards.
+A dataset with no linked paper returns \code{character(0)}.
 
-A dataset with no linked paper returns \code{character(0)}, not an error, so a
-loop over many accessions does not stop at the first one without a paper.
-
-Reads the REST API. The dump has no record of the papers that reanalysed a
-dataset, and only about a third of its \code{pubmed_metadata} rows carry a
-publication date, so an entry built from it would be quietly less complete.
+Reads REST. The dump lacks reanalysis papers and often publication dates.
 }
 \examples{
 \dontrun{
 cat(Citations("GSE151530"))
 
-# Every paper that used the data, not only the one that produced it
+# include reanalysis papers
 cat(Citations("GSE168652", type = "all"))
 
 writeLines(Citations("GSE151530"), "GSE151530.bib")

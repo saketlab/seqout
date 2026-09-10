@@ -51,7 +51,7 @@ excluded by default.}
 \item{limit}{The maximum number of detection rows to read, at most 1000.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 An organism tibble, or a run-by-organism tibble when
@@ -62,16 +62,13 @@ An organism tibble, or a run-by-organism tibble when
 Returns one row per organism, ordered by k-mer mass.
 }
 \details{
-Panel-unitig alignments lack raw-read, UMI and replicate confirmation and are
-not diagnostic. \code{measurable} of \code{FALSE} or \code{NA} means the sample was never
-screened, and the function warns when that happens.
+Panel-unitig alignments lack raw-read, UMI and replicate confirmation.
+\code{measurable = FALSE} or \code{NA} means unscreened and triggers a warning.
 
 \code{kmer_mass} weights k-mers within a run, so it carries no absolute scale.
 \code{n_unitigs} counts mapped unitigs.
 
-\code{spike_in_control} (PhiX) and \code{negative_control} (the papillomavirus that
-calibrates the viral threshold) are never summed into the viral or bacterial
-totals; \code{bacterial_background} is excluded unless \code{include_background} is set.
+Spike-in, negative-control and background classes are excluded from totals.
 }
 \examples{
 \dontrun{

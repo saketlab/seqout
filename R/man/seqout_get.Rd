@@ -15,13 +15,10 @@ SeqoutGet(accession, con = .con())
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
-A \code{seqout_dataset} object. Read fields with \code{$}.
+A \code{seqout_dataset} object with lazy fields.
 }
 \description{
-Takes any accession (series, study, experiment, sample or run) and resolves
-the rest itself. Each field makes its request the first time it is read and
-keeps the answer, so reading one twice costs a single request and a field you
-never touch costs nothing.
+Lazy fields fetch on first access and then cache their result.
 }
 \details{
 The fields are:
@@ -38,10 +35,8 @@ alike; \code{sample} is \code{NA} on the ones the series carries itself}
 \item{\code{links}}{the same data in other archives}
 \item{\code{enriched}}{the harmonised data for the samples: the submitter's free
 text read into one vocabulary, with ontology IDs}
-\item{\code{detail}}{the record for the accession itself, for a sample or run}
+\item{\code{detail}}{the record for a sample or run accession}
 }
-
-and four that say where the data sits: \code{kind}, \code{project}, \code{geo}, \code{sra}.
 }
 \examples{
 \dontrun{

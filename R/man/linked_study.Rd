@@ -10,14 +10,13 @@ linked_study(accession, con = .con())
 \item{accession}{A series accession (GSE, E-MTAB-N, E-GEAD-N).}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 The linked study accession, or \code{NA_character_}.
 }
 \description{
-A GEO or ArrayExpress series holds no runs of its own; they belong to a study
-in a sequence archive. This follows that link, however the archive files it:
-a cross-reference for GEO and ArrayExpress, the BioProject for GEA.
+GEO and ArrayExpress runs live under linked sequencing studies.
+GEA resolves through BioProject.
 }
 \keyword{internal}

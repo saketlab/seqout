@@ -18,14 +18,12 @@ test_that("filters must be named", {
 })
 
 test_that("the filter set is the API's, less the names that meant two things", {
-  # `year_from`/`year_to` bounded the publication year on one endpoint and
-  # `updated_at` on the other, so `date_from`/`date_to` are the only time
-  # bounds now. `center` is gone because `center_name` is on every result row.
-  # The Python client still carries all three (models/api_models.py).
+  # Date filters use updated_at consistently across endpoints; center_name is
+  # returned on each row for local filtering.
   expect_setequal(seqout:::.search_filters, c(
     "db", "source", "organism", "library_strategy", "library_source",
     "platform", "country", "journal", "instrument_model", "multi_platform",
-    "date_from", "date_to",
+    "date_from", "date_to", "long_read",
     "assay_l1", "assay_l2",
     "published_after", "published_before",
     "pub_date_after", "pub_date_before",
@@ -84,8 +82,7 @@ test_that("the endpoint is chosen from the filters, not by the caller", {
 
   expect_equal(seen[[1]]$path, "/search")
 
-  # The website sends these to /search, so this package does too: routing them
-  # to the structured endpoint changed what `country` meant.
+  # Route to /search to preserve study-country semantics.
   expect_equal(seen[[2]]$path, "/search")
 
   # db and source name the same thing; each endpoint gets its own spelling.
@@ -244,7 +241,7 @@ test_that("what counts as boolean matches the server's own trigger", {
   expect_true(seqout:::.is_boolean_query("immun*"))
   expect_true(seqout:::.is_boolean_query('"hepatocellular carcinoma"'))
 
-  # Prose is prose: lowercase operators and bare words never trigger.
+  # Lowercase operators and bare words leave structured parsing off.
   expect_false(seqout:::.is_boolean_query("colon or gut"))
   expect_false(seqout:::.is_boolean_query("liver cancer"))
   expect_false(seqout:::.is_boolean_query(NULL))
@@ -267,7 +264,7 @@ test_that("structured is forwarded, and only when asked for", {
 })
 
 test_that("a boolean query is refused rather than flattened into words", {
-  # The structured endpoint has no boolean parser, so `liver NOT mouse` would
+  # The structured endpoint has no boolean parser, so liver NOT mouse would
   # come back as everything matching liver, not and mouse.
   expect_error(
     seqout_search("liver NOT mouse", assay_l1 = "Transcriptomic", con = rest_con()),
@@ -297,7 +294,7 @@ test_that("term expansion is switched off with one flag, and off by name", {
   seqout_search("liver", expand = FALSE, con = rest_con())
   seqout_search("liver", exclude_ontology = c("mesh", "CVCL"), con = rest_con())
 
-  # Expansion off is the same exact-terms reading `structured` forces, so the
+  # Expansion off is the same exact-terms reading structured forces, so the
   # server sees one flag for the two names.
   expect_null(seen[[1]]$structured)
   expect_null(seen[[1]]$exclude_ontology)
@@ -400,6 +397,6 @@ test_that("the empty shape is the shape a correction actually comes back in", {
   )
   filled <- search_suggest("livre cancer", con = rest_con())
   expect_named(filled, c("corrected_query", "corrections"))
-  # A correction keeps its fields rather than flattening to a bare string.
+  # A correction retains its fields.
   expect_equal(filled$corrections[[1]][[1]]$suggested, "liver")
 })

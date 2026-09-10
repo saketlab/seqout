@@ -1,22 +1,15 @@
 #' The values a search filter can match
 #'
-#' `list_library_strategies()`, `list_instrument_models()`, `list_journals()`,
-#' `list_centers()`, `list_organisms()`, `list_assays()` and `list_platforms()`
-#' enumerate the values the index holds, each with a record count, most common
-#' first. Values are spelled exactly as [seqout_search()] expects them.
+#' Enumerates values accepted by [seqout_search()], with record counts.
 #'
-#' `list_assays()` covers both levels at once and marks which is which in a
-#' `level` column. These read the REST API; [query()] answers the same counts
-#' from the dump.
+#' `list_assays()` returns both assay levels in a `level` column.
+#' These functions read REST; [query()] can count from the dump.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param limit The maximum number of values. Only `list_journals()` and
 #'   `list_centers()` take it.
 #'
-#' @return A tibble, most common first: `value` and `count`, except that
-#'   `list_assays()` adds `level`, `list_organisms()` names its column
-#'   `scientific_name`, and `list_platforms()` returns `platform` with a
-#'   per-archive count beside the total.
+#' @return A tibble of values and counts.
 #'
 #' @seealso [seqout_search()].
 #'
@@ -25,12 +18,15 @@
 #' \dontrun{
 #' ListLibraryStrategies()
 #'
-#' # What to pass as instrument_model
+#' # instrument_model values
 #' ListInstrumentModels()
 #'
-#' # Straight into a search
+#' # pass a value into search
 #' top <- ListLibraryStrategies()$value[1]
 #' SeqoutSearch("liver", library_strategy = top)
+#'
+#' # connection-first call
+#' SeqoutConnect("api") |> ListJournals(limit = 20)
 #' }
 NULL
 
@@ -48,23 +44,22 @@ list_instrument_models <- function(con = .con()) {
 
 #' @rdname filter_values
 #' @export
-list_journals <- function(limit = 500, con = .con()) {
+list_journals <- function(con = .con(), limit = 500) {
   .filter_values(con, "list_journals", "/filters/journals", limit = .cap(limit))
 }
 
 #' @rdname filter_values
 #' @export
-list_centers <- function(limit = 500, con = .con()) {
+list_centers <- function(con = .con(), limit = 500) {
   .filter_values(con, "list_centers", "/filters/centers", limit = .cap(limit))
 }
 
 #' @param common_names Add a `common_name` column, `NA` where none is on record.
 #'
-#'   `list_organisms()` returns every organism any archive has recorded, which
-#'   is a large and slow request. To ask about one, use [seqout_search()].
+#'   `list_organisms()` returns every organism recorded across archives.
 #' @rdname filter_values
 #' @export
-list_organisms <- function(common_names = FALSE, con = .con()) {
+list_organisms <- function(con = .con(), common_names = FALSE) {
   .need_api(con, "list_organisms")
   if (!rlang::is_bool(common_names)) {
     cli::cli_abort("{.arg common_names} must be {.code TRUE} or {.code FALSE}.")
@@ -79,8 +74,7 @@ list_organisms <- function(common_names = FALSE, con = .con()) {
       list(scientific_name = .pnt_chr, common_name = .pnt_chr)
     ))
   }
-  # Without `common_names` the endpoint answers bare strings, which
-  # `.records_to_tibble()` would turn into one column per name.
+  # bare strings would become one column per organism name
   tibble::tibble(
     scientific_name = as.character(unlist(res$organisms, use.names = FALSE))
   )
@@ -90,7 +84,7 @@ list_organisms <- function(common_names = FALSE, con = .con()) {
 #'   `NULL`, counts over every archive.
 #' @rdname filter_values
 #' @export
-list_assays <- function(country = NULL, con = .con()) {
+list_assays <- function(con = .con(), country = NULL) {
   .need_api(con, "list_assays")
   res <- .api_get(con, "/stats/global-contribution-filters", country = country)
   .pnt_tibble(
@@ -104,7 +98,7 @@ list_assays <- function(country = NULL, con = .con()) {
 list_platforms <- function(con = .con()) {
   .need_api(con, "list_platforms")
   res <- .api_get(con, "/platforms")
-  # `name` is dropped; it is a back-compat alias carrying `platform`'s string.
+  # name aliases platform.
   archives <- stats::setNames(rep(list(.pnt_num), length(.archives)), .archives)
   .pnt_tibble(
     res$platforms %||% list(),
@@ -147,10 +141,9 @@ list_platforms <- function(con = .con()) {
 #' @noRd
 .filter_limit_max <- 5000L
 
-#' Refuse the server's own ceiling here, before it comes back as a 422
+#' Refuse the server ceiling before a 422
 #'
-#' These endpoints answer in one request, so a clamped `limit` would hand back
-#' a short result that looks complete.
+#' Clamping would make a short result look complete.
 #' @noRd
 .cap <- function(limit, max = .filter_limit_max) {
   ok <- (rlang::is_scalar_double(limit) || rlang::is_scalar_integer(limit)) &&

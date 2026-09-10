@@ -1,9 +1,6 @@
 #' Spread the submitter's characteristics into one column each
 #'
-#' GEO nests them under `channels`, as tag/text pairs, which is unreadable in a
-#' tibble and awkward to filter on. The keys are the submitter's own, so they
-#' vary by study; one that collides with a record column is made unique rather
-#' than dropped.
+#' GEO channels become columns. Colliding submitter keys are made unique.
 #' @noRd
 .unnest_characteristics <- function(samples) {
   if (!is.data.frame(samples) || nrow(samples) == 0) {
@@ -36,9 +33,7 @@
 
 #' Characteristics of one sample row, whichever shape the backend used
 #'
-#' GEO files them as tag/text pairs under `channels`; the SRA family files them
-#' as a named `attributes_json`; ArrayExpress and GEA give flat columns and so
-#' arrive here with nothing to do.
+#' GEO uses tag/text pairs; SRA uses named `attributes_json`.
 #' @noRd
 .characteristics_of <- function(row) {
   raw <- row$characteristics %||% row$channels %||% row$attributes_json %||% NULL

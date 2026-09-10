@@ -18,7 +18,7 @@ Summaries(accessions, con = .con())
 A tibble, one row per project.
 }
 \description{
-One request for many projects, rather than one request each.
+Batches project lookup.
 }
 \examples{
 \dontrun{

@@ -3,7 +3,9 @@
 \name{seqout_counts}
 \alias{seqout_counts}
 \alias{SeqoutCounts}
-\title{List counts matrices for a GEO accession}
+\alias{SeqoutListCounts}
+\alias{seqout_list_counts}
+\title{List count-matrix units for a GEO accession}
 \usage{
 seqout_counts(
   accession,
@@ -20,60 +22,63 @@ SeqoutCounts(
   cache_dir = NULL,
   con = .con()
 )
+
+SeqoutListCounts(
+  accession,
+  assay = "rna",
+  feature_type = NULL,
+  cache_dir = NULL,
+  con = .con()
+)
+
+seqout_list_counts(
+  accession,
+  assay = "rna",
+  feature_type = NULL,
+  cache_dir = NULL,
+  con = .con()
+)
 }
 \arguments{
 \item{accession}{A GSE or GSM accession.}
 
 \item{assay}{Assay preference: \code{"rna"} (default), \code{"adt"}, \code{"hto"},
-\code{"atac"}, or \code{NULL} for no preference. It selects the preferred unit when
-a sample carries several, as in CITE-seq and multiome data.}
+\code{"atac"}, or \code{NULL}.}
 
 \item{feature_type}{10x feature class to keep, overriding the one implied by
 \code{assay}. \code{NULL} keeps every row.}
 
 \item{cache_dir}{Where downloads land. Defaults to a per-accession directory
-under \code{\link[tools:R_user_dir]{tools::R_user_dir()}}, reused across sessions.}
+under \code{\link[tools:R_user_dir]{tools::R_user_dir()}}, reused across sessions.
+
+\code{assay} names the modality read from the file names, \code{NA} when none is
+named. A sample carrying several becomes a multimodal object.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
-A tibble, one row per readable unit. Pass it directly to
-\code{\link[=seqout_matrix]{seqout_matrix()}}, \code{\link[=matrices]{matrices()}} or \code{\link[=seqout_counts_files]{seqout_counts_files()}}.
+A tibble, one row per readable unit.
 }
 \description{
-Resolves the supplementary files of a series or sample and groups them into
-readable units, downloading nothing. GEO payloads run to tens of gigabytes,
-so this returns a table first and costs only the calls that list files.
+Groups supplementary files into readable units without downloading them.
 }
 \details{
-A unit is the smallest group of supplementary files that Seqout can read as
-one matrix. It may be a 10x triplet
-(\code{matrix.mtx} with \code{barcodes.tsv} and \code{features.tsv}), a CellRanger \code{.h5}, an
-\code{.h5ad}, an \code{.rds}, or a delimited table.
+A unit is a 10x triplet, CellRanger \code{.h5}, \code{.h5ad}, \code{.rds}, tar, or table.
 
-The result has one row per unit. \code{unit} is its selection label, \code{sample} is
-its GSM when known, \code{format} is its reader, and \code{files} names its matrix
-files. \code{has_metadata} is \code{TRUE} for an \code{.h5ad} or \code{.rds}, which can embed
-observation annotation, or when a sidecar file is named like cell metadata
-or annotation. A \code{TRUE} value signals that metadata was found by format or
-filename; its contents are read only by \code{\link[=seqout_matrix]{seqout_matrix()}}.
+\code{has_metadata} means embedded metadata or a named sidecar was found.
 
-\code{preferred} marks the unit \code{\link[=seqout_matrix]{seqout_matrix()}} selects when given a GSM rather
-than a unit label. Within a sample, the requested assay ranks first, then
-filtered output over raw or unfiltered output, then format: 10x MatrixMarket,
-10x HDF5, \code{.h5ad}, \code{.rds}, tar, and a delimited table. The other units remain
-selectable by \code{unit}.
+\code{preferred} ranks requested assay, filtered output, then format.
 
-\code{assay} may be one of \code{"rna"}, \code{"adt"}, \code{"hto"} or \code{"atac"}, or \code{NULL} to
-avoid assay preference. It is identified from filename hints: RNA/GEX,
-antibody/CITE-seq, hashtag, and ATAC/peak respectively. For 10x data it also
-chooses the matching feature class: Gene Expression, Antibody Capture, or
-Peaks. Set \code{feature_type} to override this filter.
+10x feature class follows \code{assay}; \code{feature_type} overrides it.
 }
 \examples{
 \dontrun{
-counts <- SeqoutCounts("GSE297547")
+counts <- SeqoutListCounts("GSE297547")
 counts[, c("unit", "sample", "format", "preferred")]
 m <- SeqoutMatrix(counts, sample = "GSM8994520")
+
+"GSE297547" |>
+  SeqoutListCounts() |>
+  SeqoutMatrix(sample = "GSM8994520")
 }
 }

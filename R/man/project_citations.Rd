@@ -12,15 +12,15 @@ project_citations(
 )
 }
 \arguments{
-\item{accession}{Character. Project accession (e.g., \code{"GSE1234"},
-\code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}).}
+\item{accession}{Project accession, e.g. \code{"GSE1234"},
+\code{"SRP012345"}, \code{"E-MTAB-1234"}, \code{"PRJNA123456"}.}
 
 \item{type}{One of \code{"original"} or \code{"all"}.}
 
 \item{format}{One of \code{"tibble"} (default) or \code{"bibtex"}.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble with citation data, or a character string of BibTeX.

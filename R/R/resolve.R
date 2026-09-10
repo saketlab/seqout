@@ -1,7 +1,6 @@
 #' Find the study an accession belongs to
 #'
-#' Walks from a child accession (a run, experiment or sample) to the study or
-#' series that holds it.
+#' Resolves a run, experiment or sample to its study or series.
 #'
 #' @param accession A run, experiment or sample accession.
 #' @inheritParams project
@@ -52,10 +51,8 @@ resolve_study <- function(accession, con = .con()) {
 
 #' Resolve a child accession to its study over REST
 #'
-#' No single endpoint answers this for every archive, so the exact lookup comes
-#' first, chosen by what the accession names, and full-text search is the last
-#' resort. `/accession/{acc}/project` only accepts samples and experiments, so
-#' a run has to go through its own record.
+#' Lookup route follows accession kind; full-text search is fallback.
+#' Runs resolve through their run record.
 #' @noRd
 .rest_study <- function(con, accession) {
   up <- toupper(accession)
@@ -67,7 +64,7 @@ resolve_study <- function(accession, con = .con()) {
     r <- .quiet_api(con, paste0("/run/", accession))
     r$study_accession %||% r$study %||% NULL
   } else if (grepl("^([SED]RX|CRX|HRX)", up)) {
-    # GSA answers on sample-detail; SRA and DDBJ only through one of its runs.
+    # GSA answers on sample-detail; SRA and DDBJ resolve through a run
     from_detail <- .project_of_sample(con, accession)
     if (!is.null(from_detail)) {
       from_detail
@@ -104,7 +101,7 @@ resolve_study <- function(accession, con = .con()) {
   if (is.null(acc) || !nzchar(acc)) NULL else acc
 }
 
-#' Last resort: works only when the accession is full-text indexed
+#' Last resort through full-text index
 #' @noRd
 .study_by_search <- function(con, accession) {
   res <- .quiet_api(con, "/search", q = accession)
@@ -147,7 +144,7 @@ gsm_series <- function(gsm, con = .con()) {
   tryCatch(
     {
       result <- .api_get(con, paste0("/sample-detail/", gsm))
-      # The detail envelope names the series `project_accession`.
+      # The detail envelope names the series project_accession.
       result$project_accession %||% result$series %||% result$series_ref %||%
         NA_character_
     },
@@ -157,9 +154,8 @@ gsm_series <- function(gsm, con = .con()) {
 
 #' Find the sequencing study linked to a series
 #'
-#' A GEO or ArrayExpress series holds no runs of its own; they belong to a study
-#' in a sequence archive. This follows that link, however the archive files it:
-#' a cross-reference for GEO and ArrayExpress, the BioProject for GEA.
+#' GEO and ArrayExpress runs live under linked sequencing studies.
+#' GEA resolves through BioProject.
 #'
 #' @param accession A series accession (GSE, E-MTAB-N, E-GEAD-N).
 #' @inheritParams project
@@ -189,8 +185,7 @@ linked_study <- function(accession, con = .con()) {
 
 #' Find the series holding the processed files
 #'
-#' The mirror of [linked_study()]: from a sequencing study to the GEO or
-#' ArrayExpress series that carries its supplementary files.
+#' Resolves a sequencing study to its GEO or ArrayExpress series.
 #'
 #' @param accession A study accession (SRP, ERP, DRP, PRJ).
 #' @inheritParams project

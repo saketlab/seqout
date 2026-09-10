@@ -19,7 +19,5 @@ preferred unit.}
 A named list of \code{seqout_matrix} objects, keyed by unit label.
 }
 \description{
-Units that cannot be read are skipped with a warning, so one broken file does
-not fail the whole call. Compare the length against the rows returned by
-\code{\link[=seqout_counts]{seqout_counts()}}.
+Broken units are skipped with a warning.
 }

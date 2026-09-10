@@ -86,7 +86,7 @@ test_that("assays come back as both levels, labelled", {
   expect_equal(nrow(out), 3)
   expect_equal(unique(out$level), c("assay_l1", "assay_l2"))
   expect_type(out$count, "double")
-  # `organisms` rides along on that endpoint; list_organisms() is its home.
+  # organisms shares this endpoint; list_organisms() exposes it.
   expect_false("organisms" %in% out$level)
 })
 
@@ -95,4 +95,14 @@ test_that("an assay list with neither level is a typed empty tibble", {
   out <- list_assays(con = rest_con())
   expect_equal(nrow(out), 0)
   expect_named(out, c("level", "value", "count"))
+})
+
+
+test_that("a connection pipes into the filter listings", {
+  testthat::local_mocked_bindings(
+    .api_get = function(con, path, ...) list(values = list())
+  )
+  expect_no_error(rest_con() |> list_journals(limit = 5))
+  expect_no_error(rest_con() |> list_centers(limit = 5))
+  expect_no_error(rest_con() |> list_library_strategies())
 })

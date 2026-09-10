@@ -2,6 +2,25 @@
 #' @noRd
 NULL
 
+#' Reject unknown query parameters
+#'
+#' The server would ignore them and return an unfiltered result.
+#' @noRd
+.check_query_params <- function(given, accepts, what) {
+  bad <- setdiff(given, accepts)
+  if (!length(bad)) {
+    return(invisible(NULL))
+  }
+  near <- accepts[colSums(utils::adist(bad, accepts, ignore.case = TRUE) <= 2) > 0]
+  cli::cli_abort(c(
+    "{.arg {bad}} {?is/are} not a parameter of {.val {what}}.",
+    i = if (length(near)) "Did you mean {.arg {near}}?",
+    i = "The server ignores a parameter it does not know rather than refusing
+         it, so this call would have returned an unfiltered result.",
+    i = "Accepted: {.arg {accepts}}."
+  ))
+}
+
 #' Build a base httr2 request with shared config
 #' @noRd
 .build_request <- function(con, path, timeout = 60) {
@@ -13,13 +32,17 @@ NULL
     httr2::req_error(is_error = function(resp) FALSE)
 }
 
-#' @param null_on Status codes returned as `NULL` instead of aborting. Match on
-#'   the code; cli line-wraps a long abort, so matching its wording is unsafe.
+#' @param null_on Status codes that return `NULL`.
+#' @param .accepts Query parameters accepted by this endpoint.
 #' @noRd
-.api_get <- function(con, path, ..., null_on = integer(0)) {
+.api_get <- function(con, path, ..., null_on = integer(0), .accepts = NULL) {
   .check_connection(con)
+  params <- list(...)
+  if (!is.null(.accepts)) {
+    .check_query_params(names(.compact(params)), .accepts, path)
+  }
   resp <- .build_request(con, path) |>
-    httr2::req_url_query(..., .multi = "explode") |>
+    httr2::req_url_query(!!!params, .multi = "explode") |>
     httr2::req_perform()
   if (httr2::resp_status(resp) %in% null_on) {
     return(NULL)
@@ -104,18 +127,27 @@ NULL
     if (any(vapply(vals, .is_structured, logical(1)))) {
       return(vals)
     }
-    vapply(vals, .flatten_value, character(1))
+    flat <- vapply(vals, .flatten_value, character(1))
+    if (nm %in% .lgl_columns) as.logical(flat) else flat
   })
   names(cols) <- all_names
   tibble::as_tibble(cols)
 }
 
-#' Is this value a record rather than a run of values?
+#' JSON boolean columns
 #'
-#' A list of lists is plainly one, and so is a named list: `attributes_json`
-#' arrives as `{"sex": "female", "tissue": "gut"}`, and pasting the values into
-#' `female; gut` keeps the answers while throwing away the questions. An
-#' unnamed list of scalars is a plain vector and still flattens.
+#' String `"FALSE"` is truthy in R, so these columns are cast back.
+#' @noRd
+.lgl_columns <- c(
+  "is_single_cell", "has_enriched", "multi_platform", "any_unfiltered",
+  "counted_matrix", "barcode_whitelist_hit", "r1_length_single_cell",
+  "has_long_read"
+)
+
+#' Whether a value is a record
+#'
+#' Named lists are records; flattening `attributes_json` would drop its keys.
+#' Unnamed scalar lists flatten as vectors.
 #' @noRd
 .is_structured <- function(v) {
   is.list(v) && (any(vapply(v, is.list, logical(1))) || !is.null(names(v)))
@@ -124,6 +156,16 @@ NULL
 #' @noRd
 .compact <- function(x) {
   x[!vapply(x, is.null, logical(1))]
+}
+
+#' Convert logical filters to lowercase strings for the server
+#' 
+#' httr2 sends bare logicals as `TRUE`/`FALSE`.
+#' @noRd
+.lower_bools <- function(x) {
+  is_lgl <- vapply(x, is.logical, logical(1))
+  x[is_lgl] <- lapply(x[is_lgl], function(v) tolower(as.character(v)))
+  x
 }
 
 #' @noRd
@@ -136,7 +178,7 @@ NULL
   list(acc_col = "accession", title_col = "title", desc_col = "abstract")
 }
 
-#' Shared SQL for parsing study_publications JSON into structured columns
+#' SQL for parsing study_publications JSON
 #' @param where_clause SQL WHERE clause (must include "sp." table alias).
 #' @noRd
 .publications_sql <- function(where_clause) {
@@ -160,34 +202,25 @@ NULL
 #' @noRd
 .valid_dbs <- c("geo", "sra", "arrayexpress", "ena")
 
-#' A float8 as a string that survives the round trip
+#' Round-trip float8 cursor text
 #'
-#' The keyset is `(rank, accession) < (cursor_rank, cursor_acc)`, so the cursor
-#' has to be the server's value *exactly*. Left as a double, httr2 formats it
-#' with `getOption("digits")` -- seven significant digits -- and the paging goes
-#' subtly wrong in one of two directions: rounded up, the boundary row is
-#' returned again on the next page; rounded down, every row between the
-#' truncated and the true rank is skipped without trace. 17 significant digits
-#' is what an IEEE-754 double needs to round-trip through text.
+#' The keyset cursor must preserve rank exactly; rounding repeats or skips rows.
+#' IEEE-754 doubles need 17 significant digits to survive text.
 #' @noRd
 .f8 <- function(x) sprintf("%.17g", as.numeric(x))
 
-#' Walk the cursor until the pages or `max_pages` run out
+#' Walk the cursor until pages or `max_pages` run out
 #'
-#' The server names the cursor fields `rank`/`accession` for a relevance sort
-#' and `sort_value`/`accession` for an explicit `sortby`; the request spells
-#' them `cursor_rank`/`cursor_acc`/`cursor_sort`. Reading the response with the
-#' request's names silently yields NULL, which re-requests page 1 forever, so
-#' the two vocabularies are mapped explicitly here.
+#' Response cursors use `rank` or `sort_value`; requests use `cursor_*`.
+#' Explicit mapping prevents page 1 loops.
 #'
-#' `max_pages` may be `Inf`, so pages accumulate in a list rather than a
-#' preallocated vector.
+#' `max_pages` may be `Inf`, so pages accumulate in a list.
 #' @noRd
 .paginate_api <- function(con, path, params, max_pages = 1) {
   pages <- list()
   rows <- 0
   result <- NULL
-  # Unbounded searches can otherwise appear to hang between 200-row pages.
+  # unbounded searches can look idle between 200-row pages
   progress <- interactive() && max_pages > 1
   if (progress) {
     cli::cli_progress_bar(

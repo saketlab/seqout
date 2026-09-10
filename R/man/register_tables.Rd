@@ -5,29 +5,30 @@
 \alias{RegisterTables}
 \title{Register the remote Parquet views}
 \usage{
-register_tables(tables = NULL, progress = interactive(), con = .con())
+register_tables(con = .con(), tables = NULL, progress = interactive())
 
-RegisterTables(tables = NULL, progress = interactive(), con = .con())
+RegisterTables(con = .con(), tables = NULL, progress = interactive())
 }
 \arguments{
+\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
+
 \item{tables}{Which tables to register. Defaults to all of them.}
 
 \item{progress}{Show a progress bar. Defaults to \code{TRUE} interactively.}
-
-\item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \value{
 The names of every registered view, invisibly.
 }
 \description{
-Views are created on first reference, which keeps \code{\link[=seqout_connect]{seqout_connect()}} quick.
-Anything that reads the DuckDB catalog directly, such as \code{dplyr::tbl()},
-needs them to exist first.
+Views are lazy; catalog reads need them registered first.
 }
 \examples{
 \dontrun{
 con <- SeqoutConnect("parquet")
-RegisterTables("unified_metadata", con = con)
+RegisterTables(con, "unified_metadata")
 dplyr::tbl(con$db, "unified_metadata")
+
+# all views
+SeqoutConnect("parquet") |> RegisterTables()
 }
 }

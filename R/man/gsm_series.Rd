@@ -10,7 +10,7 @@ gsm_series(gsm, con = .con())
 \item{gsm}{A GEO sample accession (GSM).}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 The GSE accession, or \code{NA_character_}.

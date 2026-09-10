@@ -34,32 +34,27 @@ SearchFacets(
 \code{\link[=seqout_search]{seqout_search()}}.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble of \code{facet}, \code{value}, \code{count} and \code{score}, with \code{total} and
-\code{max_rank} attributes. \code{total} is the number of matching studies;
-\code{max_rank} is the best rank any result reached, ignoring the filters.
+\code{max_rank} attributes.
 }
 \description{
-Groups what \code{\link[=seqout_search]{seqout_search()}} would return over the whole match set.
-Ask which organisms, countries or assays a query matched,
-then feed the answer back as a filter. Counts are exact and cover every
-match, so this costs about as much as the search itself.
+Groups the full \code{\link[=seqout_search]{seqout_search()}} match set by facet.
 }
 \details{
-Values come ordered by \code{score}, the summed match rank of the studies behind
-each value, not by \code{count}. \code{score} is 0 without a query to rank against.
+Values order by \code{score}, the summed match rank. \code{score} is 0 without a query.
 }
 \examples{
 \dontrun{
 f <- SearchFacets("liver cancer")
 attr(f, "total")
 
-# What organisms are in this result set?
+# organism facet
 f[f$facet == "organism", ]
 
-# Narrow, then count again within the narrower set
+# count within a narrower set
 SearchFacets("liver cancer", organism = "Homo sapiens")
 }
 }

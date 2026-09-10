@@ -11,15 +11,13 @@ sample_detail(accession, con = .con())
 (GSM/SRX/DRX/ERX/SRS/DRS/ERS/SAM*).}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble with detailed metadata.
 }
 \description{
-Accepts a sample or experiment accession from any archive Seqout holds. On
-the Parquet backend the accession prefix picks the table; over REST it is one
-request either way.
+The Parquet backend chooses a table by accession prefix.
 }
 \examples{
 \dontrun{

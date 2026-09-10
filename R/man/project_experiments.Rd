@@ -10,7 +10,7 @@ project_experiments(study, con = .con())
 \item{study}{Character. Study accession (SRP/ERP/DRP/PRJ*).}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble of experiment metadata.

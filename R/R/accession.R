@@ -1,14 +1,7 @@
-#' What Seqout knows about an accession shape, in one place
+#' Accession registry
 #'
-#' Each row carries the pattern, what the accession refers to, and where the
-#' record lives. Everything else that dispatches on an accession reads this:
-#' accession_kind(), .accession_to_table(), .table_column_map(), and the
-#' study/series prefix tests. Adding an archive means adding a row here.
-#'
-#' S/E/D are SRA, ENA and DDBJ; C/H are GSA (CNCB-NGDC) open (CRA) and human
-#' (HRA). Order matters: E-GEAD-N also matches the four-letter ArrayExpress
-#' shape, so GEA is tested first, and PRJC*/SAMC belong to GSA but share the
-#' PRJ/SAM shapes.
+#' Rows map accession shape to entity, archive, table, and child table.
+#' Order matters: E-GEAD-N precedes E-[A-Z]{4}-N; PRJC*/SAMC precede PRJ*/SAM*.
 #' @noRd
 .accession_registry <- list(
   list(
@@ -68,7 +61,7 @@
   list(pattern = "^HRS\\d+$", entity = "sample", archive = "gsa")
 )
 
-#' The registry row an accession matches, or NULL
+#' Registry row for an accession, or NULL
 #' @noRd
 .accession_row <- function(accession) {
   up <- toupper(trimws(accession))
@@ -96,7 +89,7 @@
 #' @noRd
 .geo_archives <- c("geo", "arrayexpress", "gea")
 
-#' Does this accession belong to any of these archives
+#' Whether an accession belongs to any archive listed
 #' @noRd
 .in_archive <- function(accession, archives) {
   row <- .accession_row(accession)
@@ -105,12 +98,10 @@
 
 #' What an accession refers to
 #'
-#' Names the kind of record an accession points at, using the accession shape
-#' alone. No request is made, so this works offline and costs nothing.
+#' Uses the accession shape, so no request is made.
 #'
 #' @param accession An accession from any archive Seqout holds.
-#' @param archive Also name the archive that holds the record. The answer
-#'   becomes a named vector of `kind` and `archive` rather than the kind alone.
+#' @param archive Include the archive in the result.
 #'
 #' @return One of `"series"`, `"study"`, `"experiment"`, `"sample"`, `"run"`,
 #'   `"biosample"` or `"submission"`, or `NA_character_` when the shape is not
@@ -124,7 +115,7 @@
 #' AccessionKind("SRR13927092")
 #' AccessionKind("not-an-accession")
 #'
-#' # The same shape can be filed by more than one archive
+#' # PRJCA resolves to GSA under the PRJ shape
 #' AccessionKind("PRJCA042384", archive = TRUE)
 #' AccessionKind("PRJCA042384", archive = TRUE)[["archive"]]
 accession_kind <- function(accession, archive = FALSE) {

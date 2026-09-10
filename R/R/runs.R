@@ -1,6 +1,6 @@
 #' One sequencing run
 #'
-#' The run record with its file URLs, sizes and checksums.
+#' Run metadata, file URLs, sizes and checksums.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession A run accession (SRR, ERR, DRR, CRR, HRR).

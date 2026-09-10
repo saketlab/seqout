@@ -10,9 +10,9 @@ query(sql, params = NULL, con = .con())
 Query(sql, params = NULL, con = .con())
 }
 \arguments{
-\item{sql}{Character. SQL query to execute.}
+\item{sql}{SQL query to execute.}
 
-\item{params}{Optional. A list of parameters for parameterised queries.}
+\item{params}{Parameters for a parameterised query.}
 
 \item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
@@ -20,8 +20,7 @@ Query(sql, params = NULL, con = .con())
 A tibble with query results.
 }
 \description{
-Executes any SQL query against the DuckDB database, which includes remote
-Parquet views and any locally cached tables.
+The DuckDB database includes remote views and cached local tables.
 }
 \examples{
 \dontrun{

@@ -25,23 +25,16 @@ CURIEs) and \code{has_children}. The \code{synonym_total}, \code{children_trunca
 \code{max_hops} attributes report what the server capped.
 }
 \description{
-A plain keyword search does not match words, it matches concepts: a query
-for \code{"masld"} also finds studies that say \code{"nonalcoholic fatty liver disease"}, because an ontology graph joins the two. This function looks one
-term up in that graph.
+Looks up one term in the graph used for search expansion.
+Returns source IDs, synonyms and direct children.
 }
 \details{
-The result gives the source identifiers behind the term (UBERON, MeSH, HGNC,
-Cellosaurus), the synonyms a search expands it to, and the terms below it in
-the hierarchy. Each row carries its own identifiers.
-
 \code{max_hops} bounds the walk over the synonym links only. Children are always
 the direct children of the resulting synonym cluster, at any \code{max_hops}.
 
-A term the graph does not have returns an empty tibble, not an error, so a
-loop over many words does not stop at the first one it misses.
+A term absent from the graph returns an empty tibble.
 
-Reads the REST API. The ontology graph is a separate database and is not in
-the dump.
+Reads REST. The ontology graph is absent from the dump.
 }
 \examples{
 \dontrun{

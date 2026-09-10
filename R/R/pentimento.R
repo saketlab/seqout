@@ -37,7 +37,7 @@
 #' @noRd
 .pnt_page <- 1000L
 
-# Explicit specs preserve types and tri-state nulls that `.records_to_tibble` cannot.
+# explicit specs preserve types and tri-state nulls .records_to_tibble cannot
 .pnt_sample_spec <- list(
   sample_accession = .pnt_chr,
   cells = .pnt_int,
@@ -131,7 +131,7 @@
   .pnt_evidence_spec
 )
 
-#' Flattens the nested `evidence` object into the status/summary row.
+#' Flatten nested `evidence` into status or summary row
 #' @noRd
 .pnt_flatten_evidence <- function(res) {
   ev <- res$evidence
@@ -141,8 +141,7 @@
 
 #' Determine if a study is single-cell
 #'
-#' `kind` says what the study IS as an object, which is a different question
-#' from whether it is single-cell:
+#' `kind` describes the evidence behind the call:
 #' \describe{
 #'   \item{`matrix_and_reads`}{counts and reads, both confirmed}
 #'   \item{`matrix_reads_unscanned`}{counts plus linked FASTQ no read-derived
@@ -204,7 +203,7 @@ project_single_cell_status <- function(accession, con = .con()) {
 #' @return A one-row tibble, empty when the study is not in the Pentimento.
 #'
 #' @seealso [project_single_cell_status()] when you need an answer even for a
-#'   study the Pentimento has never seen.
+#'   study absent from the Pentimento.
 #'
 #' @export
 #' @examples
@@ -248,8 +247,27 @@ project_single_cell_summary <- function(accession, con = .con()) {
 
 #' Studies with single-cell evidence
 #'
+#' `data` selects on the `kind` column, which says what a study carries:
+#'
+#' \describe{
+#'   \item{`matrix_and_reads`}{counts and reads, both confirmed}
+#'   \item{`matrix_reads_unscanned`}{counts plus linked FASTQ no read-derived
+#'     call has confirmed yet}
+#'   \item{`matrix_only`}{counts, no linked reads}
+#'   \item{`reads_only`}{no parsed matrix}
+#' }
+#'
+#' `"any"` includes reads-only studies and warns when rows lack matrices.
+#'
+#' `reads_only` means Pentimento parsed no matrix. GEO supplementary files
+#' may contain a matrix readable by [seqout_counts()].
+#'
 #' @param min_evidence Minimum independent measurements, 1 to 3.
-#' @param require_matrix Keep only studies with a counted matrix.
+#' @param data What the study must carry: `"any"`, `"matrix"`, `"fastq"` or
+#'   `"both"`.
+#'
+#'   `"matrix"` filters server-side. Other choices read every page before
+#'   `limit` counts.
 #' @param limit Maximum studies; `NULL` reads all, in pages of up to 1000.
 #' @param offset Number of studies to skip.
 #' @inheritParams project
@@ -259,60 +277,123 @@ project_single_cell_summary <- function(accession, con = .con()) {
 #' @export
 #' @examples
 #' \dontrun{
-#' sc <- SingleCellStudies(require_matrix = TRUE, limit = 100)
-#' nrow(sc)
+#' # unrestricted, with matrix warning
+#' sc <- SingleCellStudies(limit = 100)
+#'
+#' # parsed matrices
+#' SingleCellStudies(data = "matrix", limit = 100)
+#'
+#' # linked reads
+#' SingleCellStudies(data = "fastq", limit = 100)
 #' }
-single_cell_studies <- function(min_evidence = 1,
-                                require_matrix = FALSE,
+single_cell_studies <- function(con = .con(),
+                                min_evidence = 1,
+                                data = c("any", "matrix", "fastq", "both"),
                                 limit = NULL,
-                                offset = 0,
-                                con = .con()) {
+                                offset = 0) {
   .need_api(con, "single_cell_studies",
     why = "There is no Pentimento table in the dump."
   )
+  data <- match.arg(data)
+  keep <- .pnt_kinds[[data]]
 
-  page_size <- if (is.null(limit)) {
-    .pnt_studies_page
-  } else {
-    min(limit, .pnt_studies_page)
+  # require_matrix excludes reads_only; narrower filters run here
+  require_matrix <- data %in% c("matrix", "both")
+  # local filters make limit count kept rows
+  walk_all <- !is.null(keep) && !setequal(keep, .pnt_kind_matrix)
+
+  page_size <- .pnt_studies_page
+  if (!is.null(limit) && !walk_all) {
+    page_size <- min(limit, .pnt_studies_page)
   }
   pages <- list()
   n <- 0L
+  kept <- 0L
   repeat {
     res <- .api_get(
       con, "/single-cell/studies",
       min_evidence = min_evidence, require_matrix = require_matrix,
-      limit = page_size, offset = offset + n, null_on = 404L
+      limit = page_size, offset = offset + n, null_on = 404L,
+      .accepts = .pnt_studies_params
     )
     rows <- if (is.null(res)) list() else .as_record_list(res$studies)
-    # No total is returned, so a short page IS the end of the set.
-    if (length(rows) == 0) break
-    pages[[length(pages) + 1L]] <- rows
-    n <- n + length(rows)
-    if (!is.null(limit) && n >= limit) break
-    if (length(rows) < page_size) break
+    got <- length(rows)
+    if (got == 0) break
+    # n advances offset; kept enforces limit after local filtering
+    n <- n + got
+    if (!is.null(keep)) {
+      rows <- Filter(function(r) isTRUE(r$kind %in% keep), rows)
+    }
+    if (length(rows)) {
+      pages[[length(pages) + 1L]] <- rows
+      kept <- kept + length(rows)
+    }
+    if (!is.null(limit) && kept >= limit) break
+    # short page ends the set because no total is returned
+    if (got < page_size) break
   }
   if (length(pages) == 0) {
     return(.pnt_tibble(list(), .pnt_studies_spec))
   }
   records <- unlist(pages, recursive = FALSE, use.names = FALSE)
+  if (length(records) == 0) {
+    return(.pnt_tibble(list(), .pnt_studies_spec))
+  }
   if (!is.null(limit) && length(records) > limit) {
     records <- records[seq_len(limit)]
   }
-  .pnt_tibble(records, .pnt_studies_spec)
+  out <- .pnt_tibble(records, .pnt_studies_spec)
+  if (identical(data, "any")) {
+    .warn_reads_only(out)
+  }
+  out
 }
+
+#' Warn when unrestricted results include reads-only studies
+#'
+#' Reads-only studies cannot feed a counts pipeline.
+#' @noRd
+.warn_reads_only <- function(out) {
+  n <- sum(out$kind %in% "reads_only", na.rm = TRUE)
+  if (n == 0) {
+    return(invisible(NULL))
+  }
+  cli::cli_warn(c(
+    "{n} of {nrow(out)} stud{?y/ies} {?has/have} no parsed counts matrix
+     ({.val reads_only}).",
+    i = "{.code data = \"matrix\"} keeps only what you can read a matrix from;
+         {.code data = \"fastq\"} keeps what you can realign."
+  ))
+}
+
+#' The `kind` values behind each `data` choice
+#'
+#' `NULL` leaves client filtering off; `require_matrix` covers matrix choices.
+#' @noRd
+.pnt_kind_matrix <- c("matrix_and_reads", "matrix_reads_unscanned", "matrix_only")
+
+#' @noRd
+.pnt_kinds <- list(
+  matrix = NULL,
+  both   = c("matrix_and_reads", "matrix_reads_unscanned"),
+  fastq  = c("matrix_and_reads", "matrix_reads_unscanned", "reads_only"),
+  any    = NULL
+)
+
+#' @noRd
+.pnt_studies_params <- c(
+  "min_evidence", "require_matrix", "limit", "offset"
+)
 
 #' Per-sample cell and gene counts for a study
 #'
-#' Returns one row per sample with matrix dimensions, read-derived species, sex
-#' and assay calls, and microbial flags.
+#' One row per sample with matrix dimensions and read-derived calls.
 #'
 #' `cells` counts matrix columns; for unfiltered 10x matrices these are
 #' barcodes, so the number is an upper bound and sums overcount.
 #'
-#' `has_*_reads = NA` means unscreened, `FALSE` means screened with no gated
-#' hit. In `flags`, `NULL` and `character(0)` carry the same distinction.
-#' `calls_ambiguous` marks a sample whose read-derived calls disagree.
+#' `has_*_reads = NA` means unscreened; `FALSE` means screened with no hit.
+#' `flags` preserves the same distinction.
 #'
 #'
 #' @param accession A study or series accession, or one resolving to a study.
@@ -321,10 +402,14 @@ single_cell_studies <- function(min_evidence = 1,
 #' @inheritParams project
 #'
 #' @return A sample tibble, empty when the study is unprocessed. The `study`
-#'   and `n_samples_total` attributes carry the study row and its total.
+#'   and `n_samples_total` attributes carry the study row and its total. The
+#'   `longread_chemistry` attribute carries every PacBio/Oxford Nanopore run
+#'   in the study (empty, not `NULL`, when there are none); the server only
+#'   computes it when `offset = 0`.
 #'
 #' @seealso [sample_microbes()] for the per-organism detections behind the
-#'   viral and bacterial flags.
+#'   viral and bacterial flags, [project_longread_chemistry()] to read the
+#'   same run list without an `offset` argument.
 #'
 #' @export
 #' @examples
@@ -332,6 +417,7 @@ single_cell_studies <- function(min_evidence = 1,
 #' sc <- ProjectSingleCell("GSE168652")
 #' sc[, c("sample_accession", "cells", "genes")]
 #' attr(sc, "study")$study_cells
+#' attr(sc, "longread_chemistry")
 #' }
 project_single_cell <- function(accession, limit = NULL, offset = 0, con = .con()) {
   .need_api(con, "project_single_cell",
@@ -366,11 +452,14 @@ project_single_cell <- function(accession, limit = NULL, offset = 0, con = .con(
     }
   }
 
-  # Repeated `c()` would be quadratic in the page count.
+  # repeated c() would be quadratic in the page count
   records <- unlist(pages, recursive = FALSE, use.names = FALSE)
   out <- .pnt_tibble(records, .pnt_sample_spec)
   attr(out, "study") <- .pnt_tibble(list(res), .pnt_study_spec)
   attr(out, "n_samples_total") <- total
+  # NULL when offset != 0; the server only computes it on the first page
+  attr(out, "longread_chemistry") <-
+    .pnt_tibble(.as_record_list(res$longread_chemistry), .lr_chem_spec())
   out
 }
 
@@ -424,16 +513,13 @@ project_single_cell <- function(accession, limit = NULL, offset = 0, con = .con(
 #'
 #' Returns one row per organism, ordered by k-mer mass.
 #'
-#' Panel-unitig alignments lack raw-read, UMI and replicate confirmation and are
-#' not diagnostic. `measurable` of `FALSE` or `NA` means the sample was never
-#' screened, and the function warns when that happens.
+#' Panel-unitig alignments lack raw-read, UMI and replicate confirmation.
+#' `measurable = FALSE` or `NA` means unscreened and triggers a warning.
 #'
 #' `kmer_mass` weights k-mers within a run, so it carries no absolute scale.
 #' `n_unitigs` counts mapped unitigs.
 #'
-#' `spike_in_control` (PhiX) and `negative_control` (the papillomavirus that
-#' calibrates the viral threshold) are never summed into the viral or bacterial
-#' totals; `bacterial_background` is excluded unless `include_background` is set.
+#' Spike-in, negative-control and background classes are excluded from totals.
 #'
 #'
 #' @param accession A GSM, or the archive sample accession behind one.

@@ -39,60 +39,57 @@ relevance.}
 
 \item{order}{\code{"desc"}, the default, or \code{"asc"}.}
 
-\item{limit}{The maximum number of rows. The default, \code{NULL}, returns every
-match. The server sends 200 rows in one page, so a large result set costs
-more than one request. Give \code{limit} when a sample is sufficient.}
+\item{limit}{Maximum rows. \code{NULL} returns every match in 200-row pages.}
 
-\item{structured}{Read \code{query} as a boolean expression, and take its terms
-exactly: no ontology expansion, no spelling correction. A query that
-already carries \verb{()}, \code{""}, \code{*} or an uppercase \code{OR}/\code{AND}/\code{NOT} is read
-that way anyway, so this is for forcing it on a query with no operators.}
+\item{structured}{Read \code{query} as a boolean expression with exact terms.}
 
-\item{expand}{Expand each term with its ontology synonyms. \code{TRUE} is the
-default. \code{FALSE} searches the words as typed, which is what \code{structured}
-does. A filter from the structured set makes a search that never expands,
-so this parameter does nothing there.}
+\item{expand}{Expand terms with ontology synonyms. \code{FALSE} uses exact terms.}
 
 \item{exclude_ontology}{Character vector. The ontologies to keep out of the
 expansion, from \code{MONDO}, \code{MeSH}, \code{HGNC}, \code{CHEBI}, \code{UBERON}, \code{CL}, \code{EFO} and
-\code{CVCL}. A term that two ontologies know stays while one of the two is on,
-because the graph holds one node for each name.}
+\code{CVCL}. Shared ontology nodes remain while any source is kept.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble of results, with a \code{took_ms} attribute.
 }
 \description{
-\code{seqout_search()} searches seven public repositories at the same time: GEO,
-SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
+Searches GEO, SRA, ArrayExpress, ENA, GSA, DRA and GEA together.
 }
 \examples{
 \dontrun{
 SeqoutSearch("liver cancer scRNA")
 SeqoutSearch("liver cancer scRNA", db = "geo", sortby = "citations")
 
-# Filters combine freely
+# filters combine freely
 SeqoutSearch("liver cancer", organism = "Homo sapiens", country = "Japan")
 
-# A query is not necessary
+# filters can search alone
 SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic")
 
-# Take a sample of a large result set
+# sample a large result set
 SeqoutSearch("cancer", limit = 50)
 
-# A boolean query is read as one without being asked
+# boolean syntax triggers structured parsing
 SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*')
 
-# The same reading, forced on a query that carries no operators
+# force structured parsing
 SeqoutSearch("liver cancer", structured = TRUE)
 
-# The words as typed, with no ontology synonyms
+# exact words
 SeqoutSearch("spinal muscular atrophy", expand = FALSE)
 
-# Every ontology except two of them
+# exclude ontology sources
 SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"))
+
+# restrict to long-read (PacBio / Oxford Nanopore) studies
+SeqoutSearch("liver fibrosis", long_read = TRUE)
+
+# long-read AND single-cell: filter the returned is_single_cell column locally
+lr <- LongreadProjects(organism = "Homo sapiens")
+lr[lr$is_single_cell \%in\% TRUE, ]
 }
 }
 \seealso{

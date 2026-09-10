@@ -97,7 +97,7 @@ test_that(".dest_paths keeps colliding basenames apart", {
   )
   paths <- .dest_paths(urls, "d")
   expect_equal(length(unique(paths)), 3L)
-  # A name that does not collide is not lengthened.
+  # Unique names remain unchanged.
   expect_equal(paths[3], file.path("d", "GSE1_meta.csv.gz"))
   expect_true(all(grepl("GSM1|GSM2", basename(paths[1:2]))))
 })
@@ -341,7 +341,8 @@ test_that("download_dump builds one URL and one filename per table", {
     }
   )
 
-  download_dump("dump",
+  download_dump(
+    dest_dir = "dump",
     tables = c("geo_series", "unified_metadata"),
     quiet = TRUE, con = fake_con()
   )
@@ -362,13 +363,13 @@ test_that("download_dump defaults to every table", {
     }
   )
   con <- fake_con()
-  download_dump("dump", quiet = TRUE, con = con)
+  download_dump(dest_dir = "dump", quiet = TRUE, con = con)
   expect_equal(length(seen), length(con$tables))
 })
 
 test_that("download_dump names a table it does not have", {
   expect_error(
-    download_dump("dump", tables = "not_a_table", con = fake_con()),
+    download_dump(dest_dir = "dump", tables = "not_a_table", con = fake_con()),
     "Not a Seqout table"
   )
 })
@@ -379,7 +380,7 @@ test_that("the size is reported before the transfer, and survives a silent HEAD"
     .download_files = function(...) character(0)
   )
   expect_message(
-    download_dump("dump", tables = "geo_series", con = fake_con()),
+    download_dump(dest_dir = "dump", tables = "geo_series", con = fake_con()),
     "2.1 GB"
   )
 
@@ -388,7 +389,7 @@ test_that("the size is reported before the transfer, and survives a silent HEAD"
     .download_files = function(...) character(0)
   )
   expect_message(
-    download_dump("dump", tables = c("geo_series", "sra_runs"), con = fake_con()),
+    download_dump(dest_dir = "dump", tables = c("geo_series", "sra_runs"), con = fake_con()),
     "Fetching 2 tables"
   )
 })
@@ -404,6 +405,6 @@ test_that("download_dump reads the connection's own dump location", {
   )
   con <- fake_con()
   con$data_url <- "/mnt/mirror"
-  download_dump("dump", tables = "geo_series", quiet = TRUE, con = con)
+  download_dump(dest_dir = "dump", tables = "geo_series", quiet = TRUE, con = con)
   expect_equal(seen, "/mnt/mirror/geo_series.parquet")
 })

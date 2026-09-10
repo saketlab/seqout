@@ -12,8 +12,7 @@ AccessionKind(accession, archive = FALSE)
 \arguments{
 \item{accession}{An accession from any archive Seqout holds.}
 
-\item{archive}{Also name the archive that holds the record. The answer
-becomes a named vector of \code{kind} and \code{archive} rather than the kind alone.}
+\item{archive}{Include the archive in the result.}
 }
 \value{
 One of \code{"series"}, \code{"study"}, \code{"experiment"}, \code{"sample"}, \code{"run"},
@@ -23,15 +22,14 @@ recognised. With \code{archive = TRUE}, a named character vector of \code{kind} 
 \code{"arrayexpress"}, \code{"gea"}, \code{"bioproject"} or \code{"biosample"}.
 }
 \description{
-Names the kind of record an accession points at, using the accession shape
-alone. No request is made, so this works offline and costs nothing.
+Uses the accession shape, so no request is made.
 }
 \examples{
 AccessionKind("GSE168652")
 AccessionKind("SRR13927092")
 AccessionKind("not-an-accession")
 
-# The same shape can be filed by more than one archive
+# PRJCA resolves to GSA under the PRJ shape
 AccessionKind("PRJCA042384", archive = TRUE)
 AccessionKind("PRJCA042384", archive = TRUE)[["archive"]]
 }

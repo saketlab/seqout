@@ -1,10 +1,7 @@
 #' Format readers for counts matrices
 #'
-#' Every reader returns a list with `X`, `obs` and `var`, where `X` is
-#' observations by features: cells by genes for single-cell, samples by genes
-#' for bulk. That matches the orientation the Python client reads in.
-#' `.read_unit()` transposes it, so `seqout_matrix()$X` is features by
-#' observations.
+#' Readers return observations by features. `.read_unit()` transposes to
+#' features by observations.
 #' @noRd
 NULL
 
@@ -77,7 +74,7 @@ NULL
   barcodes <- .drop_label_headers(.read_lines_col(barcodes_path, 1L))
   feature_rows <- .read_split_lines(features_path)
   features <- .drop_label_headers(.column_of(feature_rows, 1L))
-  types <- .column_of(feature_rows, 3L)
+  types <- .optional_column(feature_rows, 3L)
   keep <- .keep_feature_type(features, types, feature_type)
 
   if (nrow(m) == length(features) && ncol(m) == length(barcodes)) {
@@ -93,11 +90,28 @@ NULL
     )
   }
 
+  var <- data.frame(row.names = make.unique(features))
+  # a multiome ships genes and peaks in one matrix; the type tells them apart
+  var <- .add_feature_column(var, .optional_column(feature_rows, 2L)[keep], "symbol")
+  var <- .add_feature_column(var, types[keep], "feature_type")
+
   list(
     X = methods::as(m, "CsparseMatrix"),
     obs = data.frame(row.names = make.unique(barcodes)),
-    var = data.frame(row.names = make.unique(features))
+    var = var
   )
+}
+
+#' Attach a feature column when the file carried one
+#'
+#' `values` must be subset to the retained features.
+#' @noRd
+.add_feature_column <- function(var, values, name) {
+  if (length(values) != nrow(var) || all(is.na(values))) {
+    return(var)
+  }
+  var[[name]] <- values
+  var
 }
 
 #' @noRd
@@ -143,6 +157,8 @@ NULL
   n_genes <- if (!is.null(shape)) shape[1] else length(features)
   n_cells <- if (!is.null(shape)) shape[2] else length(barcodes)
   keep <- .keep_feature_type(features, types, feature_type)
+  # cut before the branch below reassigns features
+  kept_types <- if (length(types) == length(keep)) types[keep] else character(0)
 
   data <- grp[["data"]]$read()
   indices <- grp[["indices"]]$read()
@@ -168,10 +184,11 @@ NULL
     m <- Matrix::t(m)
   }
 
+  var <- data.frame(row.names = make.unique(features))
   list(
     X = m,
     obs = data.frame(row.names = make.unique(barcodes)),
-    var = data.frame(row.names = make.unique(features))
+    var = .add_feature_column(var, kept_types, "feature_type")
   )
 }
 
@@ -262,12 +279,21 @@ NULL
 
 #' Read counts out of an .rds
 #'
-#' Handles a bare matrix, a dgCMatrix, a data.frame, and the counts slot of a
-#' Seurat or SingleCellExperiment object when those classes are available.
+#' Handles matrices, data frames, Seurat objects, and SingleCellExperiment objects.
 #' @noRd
 .read_rds <- function(path, assay = "rna") {
-  obj <- readRDS(path)
-  .counts_from_object(obj, assay)
+  .counts_from_object(.read_rds_object(path), assay)
+}
+
+#' Read an .rds through however many gzip layers it carries
+#'
+#' `saveRDS()` gzips by default. `gzcon()` over `gzfile()` handles an added
+#' gzip layer and also reads plain `.rds` files.
+#' @noRd
+.read_rds_object <- function(path) {
+  con <- gzcon(gzfile(path, "rb"))
+  on.exit(close(con), add = TRUE)
+  readRDS(con)
 }
 
 #' @noRd
@@ -356,13 +382,8 @@ NULL
 
 #' Best delimiter for a block of lines, or NULL if none splits them cleanly
 #'
-#' Among delimiters that split every line into the same number of fields (at
-#' least two, a row name plus a value), the one that splits furthest wins, so a
-#' comma inside a quoted name loses to the whitespace actually separating the
-#' columns.
-#'
-#' `sep = ""` is scan()'s whitespace mode. `quote` matters: a sample name like
-#' `"Donor1,rep2"` holds a comma that is not a delimiter.
+#' Uniform widest split wins; quotes protect commas inside sample names.
+#' `sep = ""` is scan()'s whitespace mode.
 #' @noRd
 .best_sep <- function(lines) {
   candidates <- c("\t", ";", ",", "")
@@ -371,17 +392,15 @@ NULL
       sep = sep, quote = "\"",
       comment.char = ""
     )
-    # NA is an unterminated quote, so the candidate did not split cleanly.
+    # NA means an unterminated quote, so the candidate failed
     if (!anyNA(n) && length(unique(n)) == 1L && n[1] >= 2L) n[1] else 0L
   }, integer(1), USE.NAMES = FALSE)
   if (any(score > 0L)) candidates[which.max(score)] else NULL
 }
 
-#' Pick the delimiter a table actually uses
+#' Detect a table's delimiter
 #'
-#' Data rows decide, not the header: a whitespace-delimited header can carry a
-#' comma inside a quoted sample name, and a one-sample table has no delimiter in
-#' its header at all. The header is the fallback when the rows are ragged.
+#' Data rows decide; the header is fallback when rows are ragged.
 #'
 #' @param lines The first few lines of the file, header included.
 #'
@@ -391,35 +410,107 @@ NULL
   .best_sep(lines[-1]) %||% .best_sep(lines[1]) %||% ","
 }
 
+# featureCounts and htseq tables put gene annotation in numeric columns beside
+# the sample columns; transposed blindly they would each become an observation
+.var_cols <- c(
+  "length", "genelength", "gene_length", "exonlength", "effective_length",
+  "efflength", "merged_length", "start", "end", "start_position",
+  "end_position", "width", "gc", "gc_content"
+)
+
+# htseq-count appends its summary rows to the counts; STAR does the same in
+# ReadsPerGene.out.tab. Drop summary rows to preserve library-size estimates.
+.qc_rows <- c(
+  "no_feature", "ambiguous", "too_low_aqual", "not_aligned",
+  "alignment_not_unique", "n_unmapped", "n_multimapping", "n_nofeature",
+  "n_ambiguous"
+)
+
+#' @noRd
+.is_qc_row <- function(x) {
+  startsWith(x, "__") | tolower(gsub("^_+|_+$", "", x)) %in% .qc_rows
+}
+
+#' Whether the first line contains counts
+#' 
+#' Treating an htseq-count gene/count row as a header loses the first gene
+#' and labels the sample with a count.
+#' @noRd
+.headerless <- function(line, sep) {
+  fields <- if (identical(sep, "")) {
+    strsplit(trimws(line), "[[:space:]]+")[[1]]
+  } else {
+    strsplit(line, sep, fixed = TRUE)[[1]]
+  }
+  length(fields) >= 2L && !anyNA(suppressWarnings(as.numeric(fields[-1])))
+}
+
+#' Name the unnamed count columns after the file they came from
+#' @noRd
+.headerless_names <- function(path, n) {
+  stem <- sub("\\..*$", "", basename(path))
+  if (n == 1L) stem else paste0(stem, "_", seq_len(n))
+}
+
 #' Read a delimited counts table
+#'
+#' Annotation columns, including featureCounts gene lengths and coordinates,
+#' move to `var`. htseq and STAR summary rows are dropped.
 #' @noRd
 .read_table <- function(path) {
   con <- .open_maybe_gz(path)
   head_lines <- readLines(con, n = 4L, warn = FALSE)
   close(con)
   sep <- .sniff_sep(head_lines)
+  headerless <- .headerless(head_lines[1], sep)
 
   con <- .open_maybe_gz(path)
   on.exit(close(con), add = TRUE)
-  df <- utils::read.delim(con, sep = sep, row.names = 1, check.names = FALSE)
-
-  numeric_cols <- vapply(df, is.numeric, logical(1))
-  if (!all(numeric_cols)) {
-    df <- df[, numeric_cols, drop = FALSE]
+  df <- utils::read.delim(
+    con,
+    sep = sep, row.names = 1, check.names = FALSE, header = !headerless
+  )
+  if (headerless) {
+    names(df) <- .headerless_names(path, ncol(df))
   }
+
+  qc <- .is_qc_row(rownames(df))
+  if (any(qc)) {
+    cli::cli_inform(
+      "{.path {basename(path)}}: dropped {sum(qc)} summary row{?s}: {.val {rownames(df)[qc]}}."
+    )
+    df <- df[!qc, , drop = FALSE]
+  }
+
+  is_ann <- !vapply(df, is.numeric, logical(1)) |
+    tolower(trimws(names(df))) %in% .var_cols
+  var <- df[, is_ann, drop = FALSE]
+  df <- df[, !is_ann, drop = FALSE]
   m <- t(as.matrix(df))
 
-  # A table that parses to nothing is a parse failure, not an empty dataset.
+  # empty parsed matrix means parse failure, or a table that is all annotation
   if (nrow(m) == 0L || ncol(m) == 0L) {
     cli::cli_abort(c(
       "{.path {basename(path)}}: read as an empty matrix.",
-      i = "Split on {.val {sep}} into {ncol(df)} numeric column{?s} and {nrow(df)} row{?s}."
+      i = "Split on {.val {sep}} into {ncol(df)} count column{?s}, {sum(is_ann)} annotation column{?s} and {nrow(df)} row{?s}."
     ))
   }
 
   list(
     X = m,
     obs = data.frame(row.names = rownames(m)),
-    var = data.frame(row.names = colnames(m))
+    var = var
   )
+}
+
+#' A column only when every row has it
+#'
+#' .column_of() falls back to the first column, which would pass feature ids off
+#' as feature classes on a two-column features.tsv.
+#' @noRd
+.optional_column <- function(split, column) {
+  if (length(split) == 0 || !all(lengths(split) >= column)) {
+    return(character(0))
+  }
+  .column_of(split, column)
 }

@@ -13,15 +13,14 @@ ProjectSingleCellStatus(accession, con = .con())
 \item{accession}{A study or series accession, or one resolving to a study.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A one-row tibble, or an empty one when the accession is unknown to
 both the unified catalogue and the Pentimento.
 }
 \description{
-\code{kind} says what the study IS as an object, which is a different question
-from whether it is single-cell:
+\code{kind} describes the evidence behind the call:
 \describe{
 \item{\code{matrix_and_reads}}{counts and reads, both confirmed}
 \item{\code{matrix_reads_unscanned}}{counts plus linked FASTQ no read-derived

@@ -1,6 +1,6 @@
 #' File-role classification for GEO supplementary files
 #'
-#' Mirrors the Python client so both name the same role for the same file.
+#' Mirrors the Python client role names.
 #' @noRd
 NULL
 
@@ -19,22 +19,44 @@ NULL
 #' @noRd
 .embedded_metadata_formats <- c("rds", "h5ad")
 
+#' Whether a file name is an ATAC fragments file
+#'
+#' Submitters spell it fragments.tsv.gz, atac_fragments.tsv.gz,
+#' filtered-fragments.tsv.gz and .atac.fragments.bed.gz.
 #' @noRd
+.is_fragments <- function(names) {
+  low <- tolower(names)
+  grepl("fragments", low, fixed = TRUE) &
+    grepl("[.](tsv|bed|txt)([.](gz|bgz))?$", low)
+}
+
 .sidecar_names <- c(
-  "fragments.tsv", "readme", "md5sum",
+  "readme", "md5sum",
   "tissue_positions", "scalefactors", "web_summary", "metrics_summary"
 )
 
 #' @noRd
-.barcode_names <- c("barcodes.tsv", "barcodes.csv", "_barcodes.")
+.barcode_names <- c(
+  "barcodes.tsv", "barcodes.csv", "barcodes.txt", "_barcodes.", ".barcodes."
+)
 
 #' @noRd
-.feature_names <- c("features.tsv", "genes.tsv", "features.csv", "genes.csv")
+# Protein panels use proteins as row labels; the accessibility atlas uses .txt.
+# Consensus peak lists also use peaks.bed, so that suffix stays a standalone table.
+.feature_names <- c(
+  "features.tsv", "genes.tsv", "features.csv", "genes.csv",
+  "features.txt", "genes.txt",
+  "proteins.tsv", "proteins.csv", ".proteins.", "_proteins."
+)
 
 #' @noRd
+# specific before generic: the loop keeps the first token a name ends with,
+# so matrix.mtx must precede the bare mtx
 .role_tokens <- c(
   "matrix.mtx", "barcodes.tsv", "features.tsv", "genes.tsv",
-  "barcodes.csv", "features.csv", "genes.csv", "matrix.csv"
+  "barcodes.csv", "features.csv", "genes.csv", "matrix.csv",
+  "barcodes.txt", "features.txt", "genes.txt",
+  "proteins.tsv", "proteins.csv", "proteins.txt", "mtx"
 )
 
 #' @noRd
@@ -49,7 +71,7 @@ NULL
   out
 }
 
-#' endsWith returns NA for an NA name, where grepl returns FALSE
+#' `endsWith()` returns `NA` for an `NA` name; `grepl()` returns `FALSE`.
 #' @noRd
 .ends_any <- function(x, suffixes) {
   out <- rep(FALSE, length(x))
@@ -67,8 +89,7 @@ NULL
 
 #' What a supplementary file is
 #'
-#' Names the role of a file from its name alone, which is what lets the counts
-#' table be built before anything is downloaded.
+#' Names the role from the filename, before download.
 #'
 #' @param name A file name or URL.
 #'
@@ -106,7 +127,8 @@ file_role <- function(name) {
   role[hit] <- "metadata"
   todo[hit] <- FALSE
 
-  hit <- todo & .has_any(low, .sidecar_names)
+  # fragments go through .is_fragments so the two spellings cannot diverge
+  hit <- todo & (.has_any(low, .sidecar_names) | .is_fragments(low))
   todo[hit] <- FALSE
 
   hit <- todo & .ends_any(stem, ".h5ad")
@@ -133,9 +155,8 @@ file_role <- function(name) {
 
 #' Shared key for the files of one 10x unit
 #'
-#' A canonical CellRanger directory wins over the filename; otherwise the
-#' filename with its compression suffix and terminal role token stripped, so
-#' `GSM123_x_matrix.mtx.gz` and `GSM123_x_barcodes.tsv.gz` land together.
+#' CellRanger directories win; otherwise strip compression and role tokens.
+#' Matching stems place `matrix.mtx`, `barcodes.tsv`, and `features.tsv` together.
 #'
 #' @param name A file name or path.
 #'
@@ -173,7 +194,7 @@ group_key <- function(name) {
 
 #' CellRanger filtered output
 #'
-#' Filtered output is preferred over raw when a sample ships both.
+#' Filtered output ranks before raw.
 #'
 #' @param name A file name.
 #'
@@ -189,15 +210,61 @@ is_filtered <- function(name) {
 }
 
 #' @noRd
-.modality_tokens <- list(
-  rna = c("_rna", "rna_", "gex", "geneexp"),
-  adt = c("_adt", "adt_", "antibody", "_prot", "citeseq"),
-  hto = c("_hto", "hto_", "hashing", "hashtag"),
-  atac = c("_atac", "atac_", "peak")
+# Modality order and CellRanger feature mappings.
+# filter_type selects rows; feature_types maps classes back to assays.
+# hto selects Antibody Capture but is inferred only from Multiplexing Capture.
+.modalities <- list(
+  rna = list(
+    assay = "RNA", filter_type = "Gene Expression",
+    feature_types = "gene expression",
+    tokens = c("_rna", "rna_", "gex", "geneexp")
+  ),
+  adt = list(
+    assay = "ADT", filter_type = "Antibody Capture",
+    feature_types = "antibody capture",
+    tokens = c("_adt", "adt_", "antibody", "_prot", "citeseq")
+  ),
+  hto = list(
+    assay = "HTO", filter_type = "Antibody Capture",
+    feature_types = "multiplexing capture",
+    tokens = c("_hto", "hto_", "hashing", "hashtag")
+  ),
+  atac = list(
+    assay = "ATAC", filter_type = "Peaks",
+    feature_types = "peaks",
+    tokens = c("_atac", "atac_", "peak")
+  )
 )
 
-#' One alternation per assay; the tokens hold no regex metacharacters, so this
-#' is the same test as matching each in turn.
+.modality_tokens <- lapply(.modalities, `[[`, "tokens")
+
+#' The CellRanger feature class to keep for an assay
+#' @noRd
+.assay_feature_type <- function(assay) .modalities[[assay]]$filter_type
+
+#' The assay name an object should carry for a modality
+#' @noRd
+.assay_name <- function(modality) {
+  .modalities[[modality]]$assay %||% toupper(modality)
+}
+
+#' The modality a CellRanger feature class reads back as, or NA
+#' @noRd
+.feature_type_modality <- function(types) {
+  lookup <- stats::setNames(
+    rep(names(.modalities), lengths(lapply(.modalities, `[[`, "feature_types"))),
+    unlist(lapply(.modalities, `[[`, "feature_types"), use.names = FALSE)
+  )
+  unname(lookup[tolower(trimws(as.character(types)))])
+}
+
+#' Modalities in carrying order, anything unrecognised last
+#' @noRd
+.modal_order <- function(mods) {
+  c(intersect(names(.modalities), mods), setdiff(mods, names(.modalities)))
+}
+
+#' Tokens hold no regex metacharacters, so alternation matches each in turn.
 #' @noRd
 .modality_patterns <- vapply(
   names(.modality_tokens),

@@ -1,8 +1,7 @@
 #' Data model and grouping rules behind seqout_counts()
 #'
-#' A unit is the group of supplementary files that read as one matrix. `.group_units()` turns a flat file list into
-#' units, which is where 10x triplet assembly and the filtered-over-raw
-#' preference live.
+#' A unit is the group of supplementary files that read as one matrix.
+#' Grouping assembles 10x triplets and ranks filtered output first.
 #' @noRd
 NULL
 
@@ -25,10 +24,8 @@ NULL
 
 #' Group supplementary files into readable units
 #'
-#' 10x triplets group on a shared key (a CellRanger directory, else the filename
-#' with its role token stripped); everything else is its own unit. Within a
-#' sample, filtered output wins over raw, and a complete triplet or 10x h5 wins
-#' over a loose table.
+#' 10x triplets group by CellRanger directory or stripped role token.
+#' Preferred units rank by assay, filtered state, then format.
 #'
 #' @param files A tibble of files with `url`, `role`, `sample`, `platform`,
 #'   `member` and `name` columns.
@@ -101,10 +98,7 @@ NULL
 
 #' Rescue a triplet whose files share no filename prefix
 #'
-#' Plenty of submitters ship GSE1_barcodes.tsv.gz and GSE1_features.tsv.gz
-#' alongside GSE1_someassay_dge.mtx.gz, so the name-derived key splits them three
-#' ways. When exactly one file of each role is left over within a sample scope
-#' there is only one pairing possible, so take it; ambiguity still declines.
+#' One leftover file per 10x role forms a triplet. Ambiguous leftovers stay loose.
 #' @noRd
 .pair_leftovers <- function(leftovers, accession) {
   out <- list()
@@ -131,8 +125,7 @@ NULL
 
 #' Give each unit the annotation files that describe it
 #'
-#' A file named for a sample goes to that sample's units; series-level
-#' annotation describes the whole study, so it goes to every unit.
+#' Sample metadata goes to that sample; series metadata goes to every unit.
 #' @noRd
 .attach_metadata <- function(units, metadata) {
   shared <- metadata[[.series_key]]
@@ -145,9 +138,7 @@ NULL
 
 #' Mark one unit per sample as preferred
 #'
-#' Filtered beats raw, then the most structured format wins. The rest stay in
-#' the list; a sample that ships both a 10x h5 and its mtx triplet should still
-#' let you ask for the triplet.
+#' Filtered output ranks first, then structured formats. Other units stay selectable.
 #' @noRd
 .prefer_units <- function(units, assay) {
   if (length(units) == 0) {
@@ -162,6 +153,7 @@ NULL
     idx <- groups[[g]]
     units[idx] <- .label_distinctly(names(groups)[g], units[idx])
   }
+  units <- .unique_labels(units)
 
   ranks <- .unit_ranks(units, assay)
   for (g in seq_along(groups)) {
@@ -178,9 +170,7 @@ NULL
 
 #' Give each of a sample's units a label that identifies it uniquely
 #'
-#' The format alone is not enough: a CITE-seq sample ships its RNA and antibody
-#' matrices in the same format, and duplicate labels would make selection by
-#' label return whichever came first.
+#' Duplicate labels would select the first match, so append format or stem.
 #' @noRd
 .label_distinctly <- function(sample, members) {
   members <- lapply(members, function(u) {
@@ -202,8 +192,7 @@ NULL
 
 #' Rank every unit in one pass
 #'
-#' `filtered` is decided per file, not on the joined text: a unit holding both
-#' a raw and an unfiltered name would otherwise read as unfiltered.
+#' `filtered` is per file; joined names can misread raw plus unfiltered units.
 #' @noRd
 .unit_ranks <- function(units, assay) {
   names_by_unit <- lapply(units, function(u) {
@@ -226,8 +215,7 @@ NULL
 
 #' Bulk or single-cell, decided on evidence
 #'
-#' Shape is only decisive at the extremes; a 384-column Smart-seq plate sits in
-#' the middle and stays unknown.
+#' Thresholds decide extremes; the middle stays unknown.
 #'
 #' @param obs_names Row labels of the observation table.
 #' @param n_series_samples Samples in the series, an input to the decision.
@@ -265,4 +253,19 @@ NULL
     "between %d and %d, could be a Smart-seq plate", .bulk_max_obs, .sc_min_obs
   ))
   list(kind = "unknown", evidence = ev)
+}
+
+#' Keep every unit reachable by label
+#'
+#' .select_unit() matches on the label and takes the first hit, so a repeated
+#' label hides every unit after the first.
+#' @noRd
+.unique_labels <- function(units) {
+  labels <- vapply(units, function(u) u$label, character(1))
+  if (!anyDuplicated(labels)) {
+    return(units)
+  }
+  fixed <- make.unique(labels, sep = "_")
+  for (i in seq_along(units)) units[[i]]$label <- fixed[[i]]
+  units
 }

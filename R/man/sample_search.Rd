@@ -6,7 +6,9 @@
 \title{Search samples across every project}
 \usage{
 sample_search(
+  filters = NULL,
   ...,
+  single_cell = NULL,
   include_descendants = TRUE,
   sort = "sample",
   order = "asc",
@@ -15,7 +17,9 @@ sample_search(
 )
 
 SampleSearch(
+  filters = NULL,
   ...,
+  single_cell = NULL,
   include_descendants = TRUE,
   sort = "sample",
   order = "asc",
@@ -24,8 +28,17 @@ SampleSearch(
 )
 }
 \arguments{
+\item{filters}{Filters as a named list. Names in \code{...} override it.}
+
 \item{...}{The filters, by name, from the set above. At least one is
-required; an unfiltered call would return the whole corpus.}
+required, here or in \code{filters}; an unfiltered call returns the whole corpus.}
+
+\item{single_cell}{How to decide a sample is single-cell: \code{"assay"} reads
+assay text, \code{"flag"} reads \code{assay_is_single_cell}, \code{"either"} accepts both.
+\code{NULL}, the default, does not filter.
+
+\code{"flag"} (and \code{single_cell_only}) drops samples with \code{NA} flags.
+\code{"assay"} and \code{"either"} read every page and filter locally.}
 
 \item{include_descendants}{Expand an ontology filter through the ontology
 graph, so \code{disease_ontology_id = "MONDO:0005061"} also matches the subtypes
@@ -40,19 +53,13 @@ of that term. \code{TRUE} by default. Set \code{FALSE} for the exact term only.}
 every match.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
-A tibble of samples, one row each, with a \code{total} attribute holding
-the size of the whole cohort and a \code{filters} attribute holding the filters
-the server applied.
+A sample tibble with \code{total} and \code{filters} attributes.
 }
 \description{
-Searches the harmonised data, not the submitter's free text. Seqout reads
-each sample's description and writes the tissue, the disease, the cell type,
-the assay and the age into one vocabulary, so one filter reaches every study
-that recorded the fact, whatever words its submitter used. A sample that was
-never harmonised cannot be found here.
+Searches harmonised sample metadata. Unharmonised samples are absent.
 }
 \details{
 \describe{
@@ -61,53 +68,54 @@ never harmonised cannot be found here.
 \code{sample_type}, \code{genetic_modification}, \code{strain}, \code{cell_line},
 \code{ethnicity}, \code{tissue_primary_site}. \code{"liver"} matches
 \code{"liver, left lobe"}.}
-\item{Exact}{\code{organism}, \code{sex}, \code{taxid}, \code{study_accession}. These compare
-case-insensitively and never as a substring, because \code{"male"} as a
-substring also matches \code{"female"}.}
+\item{Exact}{\code{organism}, \code{sex}, \code{taxid}, \code{study_accession}.
+Exact matching keeps \code{"male"} from matching \code{"female"}.}
 \item{Harmonised ontology ID}{\code{disease_ontology_id}, \code{tissue_ontology_id},
 \code{cell_type_ontology_id}, \code{assay_ontology_id},
 \code{development_stage_ontology_id}. Give a CURIE such as
 \code{"MONDO:0005061"}. See \code{include_descendants}.}
 \item{Range}{\code{age_min_years}, \code{age_max_years}, \code{min_cell_count},
 \code{max_cell_count}, \code{min_gene_count}, \code{max_gene_count}. An age filter
-excludes a sample whose age was never recorded, so \code{age_min_years = 0}
+excludes a sample without a recorded age, so \code{age_min_years = 0}
 means "has a recorded age".}
 \item{Matrix}{\code{has_matrix} keeps samples with a parsed cell-by-gene
 matrix.}
-\item{Read-derived}{\code{single_cell_only}, \code{has_viral_reads},
-\code{has_bacterial_reads}, \code{hpv_type}, \code{microbe}, \code{microbe_class},
-\code{microbe_min_breadth}, \code{microbe_min_kmer_mass},
+\item{Read-derived}{\code{single_cell_only} (but see \code{single_cell}),
+\code{has_viral_reads}, \code{has_bacterial_reads}, \code{hpv_type}, \code{microbe},
+\code{microbe_class}, \code{microbe_min_breadth}, \code{microbe_min_kmer_mass},
 \code{microbe_validated_only}.}
 }
 
-A \verb{microbe*} filter narrows the cohort to the samples that carry a
-matching detection, and attaches the detections to each row. That is what
-makes "cervical single-cell RNA-seq with HPV quantification" one call rather
-than a cohort search followed by one \code{\link[=sample_microbes]{sample_microbes()}} call per sample.
+A \verb{microbe*} filter keeps samples with matching detections and attaches them.
 
 Requires REST. The harmonised sample table is absent from the Parquet dump.
 }
 \examples{
 \dontrun{
-# Female human liver samples over 50, with the sample accessions
+# single-cell samples by assay text
+SampleSearch(tissue = "liver", disease = "steato", single_cell = "assay")
+
+# female human liver samples over 50
 SampleSearch(
   organism = "Homo sapiens", sex = "female",
   tissue = "liver", age_min_years = 50
 )
 
-# Cervical samples with HPV quantification, in one call. The screening
-# reference names organisms HPV16, HPV18 and so on, so search "HPV".
-# "papillomavirus" matches nothing.
+# HPV references use HPV16, HPV18, and related names
+# "papillomavirus" matches nothing
 hpv <- SampleSearch(
   tissue = "cervix", microbe = "HPV",
   sort = "cell_count", order = "desc"
 )
 attr(hpv, "total")
 
-# An ontology term and its subtypes
+# filters built in code
+list(tissue = "cervix", microbe = "HPV") |> SampleSearch()
+
+# ontology term and subtypes
 SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 100)
 
-# The exact term only
+# exact term
 SampleSearch(
   disease_ontology_id = "MONDO:0005061",
   include_descendants = FALSE, limit = 100

@@ -20,7 +20,7 @@ Author(name, limit = 200, con = .con())
 A tibble of projects.
 }
 \description{
-Every dataset an author is linked to through its publications.
+Datasets named by an author's publications.
 }
 \examples{
 \dontrun{

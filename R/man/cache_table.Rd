@@ -3,15 +3,14 @@
 \name{cache_table}
 \alias{cache_table}
 \alias{CacheTable}
-\title{Materialise a remote view as a local DuckDB table}
+\title{Cache a remote view as a local DuckDB table}
 \usage{
 cache_table(table, con = .con())
 
 CacheTable(table, con = .con())
 }
 \arguments{
-\item{table}{Character. Name of the table/view to cache (e.g.,
-\code{"geo_series"}). Must be one of the registered Seqout tables.}
+\item{table}{Table or view name, such as \code{"geo_series"}.}
 
 \item{con}{A Parquet \code{seqout_connection} from \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
@@ -19,7 +18,5 @@ CacheTable(table, con = .con())
 The local table name (invisibly).
 }
 \description{
-Downloads all rows from a remote Parquet view and stores them in the local
-DuckDB database. Subsequent queries on this table hit local storage instead
-of making HTTP requests — useful for repeated analysis on the same data.
+Queries against the cached table use local storage.
 }

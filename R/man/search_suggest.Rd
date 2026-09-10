@@ -3,7 +3,7 @@
 \name{search_suggest}
 \alias{search_suggest}
 \alias{SearchSuggest}
-\title{Find corrected query for a query with typos}
+\title{Suggest spelling corrections for a query}
 \usage{
 search_suggest(query, con = .con())
 
@@ -13,19 +13,19 @@ SearchSuggest(query, con = .con())
 \item{query}{Character. The query as it was typed.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 A tibble of suggestions, empty when the query needs no correction.
 }
 \description{
-Find corrected query for a query with typos
+Suggest spelling corrections for a query
 }
 \examples{
 \dontrun{
 SearchSuggest("livre cancr")
 
-# Nothing to correct
+# already spelled correctly
 SearchSuggest("liver cancer")
 }
 }

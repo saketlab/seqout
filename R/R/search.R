@@ -1,28 +1,18 @@
 #' Search every archive
 #'
-#' `seqout_search()` searches seven public repositories at the same time: GEO,
-#' SRA, ArrayExpress, ENA, GSA, DRA and GEA. It is the only search function.
+#' Searches GEO, SRA, ArrayExpress, ENA, GSA, DRA and GEA together.
 #'
 #' @param query Character. The text to search for; optional if you give a filter.
 #' @param ... The filters, by name, from the set above.
 #' @param sortby `"citations"`, `"journal"` or `"year"`. The default order is
 #'   relevance.
 #' @param order `"desc"`, the default, or `"asc"`.
-#' @param limit The maximum number of rows. The default, `NULL`, returns every
-#'   match. The server sends 200 rows in one page, so a large result set costs
-#'   more than one request. Give `limit` when a sample is sufficient.
-#' @param structured Read `query` as a boolean expression, and take its terms
-#'   exactly: no ontology expansion, no spelling correction. A query that
-#'   already carries `()`, `""`, `*` or an uppercase `OR`/`AND`/`NOT` is read
-#'   that way anyway, so this is for forcing it on a query with no operators.
-#' @param expand Expand each term with its ontology synonyms. `TRUE` is the
-#'   default. `FALSE` searches the words as typed, which is what `structured`
-#'   does. A filter from the structured set makes a search that never expands,
-#'   so this parameter does nothing there.
+#' @param limit Maximum rows. `NULL` returns every match in 200-row pages.
+#' @param structured Read `query` as a boolean expression with exact terms.
+#' @param expand Expand terms with ontology synonyms. `FALSE` uses exact terms.
 #' @param exclude_ontology Character vector. The ontologies to keep out of the
 #'   expansion, from `MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO` and
-#'   `CVCL`. A term that two ontologies know stays while one of the two is on,
-#'   because the graph holds one node for each name.
+#'   `CVCL`. Shared ontology nodes remain while any source is kept.
 #' @inheritParams project
 #'
 #' @return A tibble of results, with a `took_ms` attribute.
@@ -36,26 +26,33 @@
 #' SeqoutSearch("liver cancer scRNA")
 #' SeqoutSearch("liver cancer scRNA", db = "geo", sortby = "citations")
 #'
-#' # Filters combine freely
+#' # filters combine freely
 #' SeqoutSearch("liver cancer", organism = "Homo sapiens", country = "Japan")
 #'
-#' # A query is not necessary
+#' # filters can search alone
 #' SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic")
 #'
-#' # Take a sample of a large result set
+#' # sample a large result set
 #' SeqoutSearch("cancer", limit = 50)
 #'
-#' # A boolean query is read as one without being asked
+#' # boolean syntax triggers structured parsing
 #' SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*')
 #'
-#' # The same reading, forced on a query that carries no operators
+#' # force structured parsing
 #' SeqoutSearch("liver cancer", structured = TRUE)
 #'
-#' # The words as typed, with no ontology synonyms
+#' # exact words
 #' SeqoutSearch("spinal muscular atrophy", expand = FALSE)
 #'
-#' # Every ontology except two of them
+#' # exclude ontology sources
 #' SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"))
+#'
+#' # restrict to long-read (PacBio / Oxford Nanopore) studies
+#' SeqoutSearch("liver fibrosis", long_read = TRUE)
+#'
+#' # long-read AND single-cell: filter the returned is_single_cell column locally
+#' lr <- LongreadProjects(organism = "Homo sapiens")
+#' lr[lr$is_single_cell %in% TRUE, ]
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
                           limit = NULL, structured = FALSE, expand = TRUE,
@@ -76,7 +73,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   }
   exclude_ontology <- .check_ontologies(exclude_ontology)
 
-  filters <- .compact(list(...))
+  filters <- .lower_bools(.compact(list(...)))
   .check_filter_names(filters)
   .check_iso_dates(filters)
   if (is.null(query) && length(filters) == 0) {
@@ -92,16 +89,14 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
       i = "That search does not expand terms, so there is nothing to switch off."
     ))
   }
-  # The date bounds and the sort are not parameters of the structured endpoint,
-  # which would drop them without a word. Apply them here instead, off columns
-  # that come back on every row, so a filter means one thing either way.
+  # structured endpoint ignores dates and sort; apply them on returned columns
   local <- list()
   if (narrowed) {
     .reject_filters(filters, setdiff(.fulltext_only, .local_filters))
     local <- filters[intersect(names(filters), .local_filters)]
     filters <- filters[setdiff(names(filters), .local_filters)]
   }
-  # `db` and `source` name the same thing on the two endpoints.
+  # db and source name the same field on different endpoints
   if (narrowed && !is.null(filters$db)) {
     filters$source <- filters$db
     filters$db <- NULL
@@ -112,9 +107,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   }
 
   local_sort <- narrowed && !is.null(sortby)
-  # A row dropped or reordered in R has to be dropped or reordered before
-  # `limit` counts, so this path reads every page and cuts at the end. Asking
-  # for one page would return the first 200 rows minus whatever R removed.
+  # local filtering or sorting makes limit count after all pages
   walk_all <- length(local) > 0 || local_sort
 
   out <- .paginate_api(
@@ -122,11 +115,8 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
     if (narrowed) "/search/structured" else "/search",
     .compact(c(
       list(q = query),
-      # Expansion off is the same exact-terms reading that `structured` forces,
-      # so the two arrive as one flag. One comma-joined parameter carries the
-      # ontologies, which is the shape the server and the website both use.
-      # /search/structured has no such parameter and never expands anyway, so
-      # `expand = FALSE` is already true of it and nothing is sent.
+      # structured=true means exact terms and disables expansion
+      # exclude_ontology is comma-joined to match the server and website
       if (!narrowed && (structured || !expand)) list(structured = "true"),
       if (length(exclude_ontology)) {
         list(exclude_ontology = paste(exclude_ontology, collapse = ","))
@@ -159,9 +149,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Apply the day bounds in R, on the column the server would have used
 #'
-#' The server's own clause is `matched.updated_at::date >= date_from`, and
-#' `updated_at` is on every result row, so this is the same answer rather than
-#' an approximation of it.
+#' The full-text endpoint bounds `updated_at`, which every result row carries.
 #' @noRd
 .apply_local_filters <- function(out, local) {
   if (length(local) == 0 || nrow(out) == 0) {
@@ -180,7 +168,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   .keep_rows(out, keep)
 }
 
-#' Reorder in R what the structured endpoint has no `sortby` to do
+#' Sort locally for structured search
 #' @noRd
 .sort_results <- function(out, sortby, order) {
   column <- c(citations = "citation_count", journal = "journal", year = "updated_at")[[sortby]]
@@ -209,11 +197,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Filters both endpoints accept
 #'
-#' `country`, `journal`, `instrument_model` and `multi_platform` are here
-#' because `/search` takes all four -- they are what the website's own sidebar
-#' sends it (`components/search-page-body.tsx`). Routing them to the structured
-#' endpoint, as this package used to, made `country` mean the contributor's
-#' postal address instead of the study's country.
+#' Shared names match the website sidebar and keep `country` as study country.
 #' @noRd
 .shared_filters <- c(
   "organism", "library_strategy", "platform", "country", "journal",
@@ -222,26 +206,20 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Filters only the full-text `/search` accepts
 #'
-#' `db` is deliberately absent: it is the full-text spelling of `source`, so a
-#' structured search translates it rather than rejecting it.
+#' `db` is translated to structured `source`. `long_read` restricts to
+#' studies with a PacBio or Oxford Nanopore experiment, any archive.
 #' @noRd
-.fulltext_only <- c("library_source", "date_from", "date_to")
+.fulltext_only <- c("library_source", "date_from", "date_to", "long_read")
 
-#' Full-text-only filters this package applies itself
+#' Full-text filters applied locally for structured search
 #'
-#' The structured endpoint has no `date_from`/`date_to` and would ignore them
-#' silently. It does return `updated_at` on every row, which is the column the
-#' full-text endpoint bounds, so the same answer is reachable here.
+#' `date_from` and `date_to` use returned `updated_at`.
 #' @noRd
 .local_filters <- c("date_from", "date_to")
 
 #' Filters only `/search/structured` accepts
 #'
-#' `year_from`/`year_to` and `center` used to be here and are gone. The two year
-#' bounds meant the publication year on this endpoint and `updated_at` on the
-#' other, so `date_from`/`date_to` are now the only time bounds -- the same call
-#' the website makes. `center_name` comes back on every row, so `center` is
-#' better done with a filter over the result.
+#' Date and center filters stay local because endpoint semantics differ.
 #' @noRd
 .structured_only <- c(
   "assay_l1", "assay_l2",
@@ -272,15 +250,13 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' The ontologies the search expands with
 #'
-#' Mirrors `ONTOLOGIES` in the server's `expansions.py` and the toggles on the
-#' website. The server ignores a name it does not know, so an unknown one keeps
-#' every synonym and looks like a control that does nothing.
+#' Unknown ontology names would be ignored by the server, so reject them here.
 #' @noRd
 .ontologies <- c(
   "MONDO", "MeSH", "HGNC", "CHEBI", "UBERON", "CL", "EFO", "CVCL"
 )
 
-#' Take the name whatever the capitals, and refuse a name that is not one
+#' Normalize ontology names and reject unknown values
 #' @noRd
 .check_ontologies <- function(x) {
   if (is.null(x) || length(x) == 0) {
@@ -293,8 +269,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
   hit <- match(tolower(x), tolower(.ontologies))
   bad <- x[is.na(hit)]
   if (length(bad)) {
-    # cli reads `{.ontologies}` as a style, not a value, because it starts with
-    # a dot, so the set is copied to a plain name before it is interpolated.
+    # copy to a plain name so cli does not parse .ontologies as a style
     known <- .ontologies
     cli::cli_abort(c(
       "{.val {bad}} {?is/are} not an ontology this search expands with.",
@@ -306,9 +281,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Refuse a filter name no endpoint has, and guess what was meant
 #'
-#' `noun` names the set in the error, because the endpoints take different ones.
-#' `help` replaces the list of valid names with a pointer to a topic, for a set
-#' too long to print.
+#' `noun` names the allowed set; `help` replaces long lists.
 #' @noRd
 .check_filter_names <- function(filters, allowed = .search_filters,
                                 noun = "search filter", help = NULL) {
@@ -351,10 +324,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Does this query read as a boolean expression?
 #'
-#' The server decides this itself, and this has to agree with it or the warning
-#' below fires on the wrong queries. Mirrors `_TRIGGER` in the API's
-#' `boolean_query.py`: a group, a quoted phrase, a `*` wildcard, or a
-#' standalone uppercase `OR`/`AND`/`NOT`. Lowercase "colon or gut" is prose.
+#' Mirrors the server trigger: grouping, quotes, wildcard, or uppercase boolean op.
 #' @noRd
 .is_boolean_query <- function(q) {
   !is.null(q) && grepl('[()"*]|\\b(OR|AND|NOT)\\b', q)
@@ -362,10 +332,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Refuse to flatten a boolean query into a bag of words
 #'
-#' Only the full-text endpoint parses booleans. The other one takes `q` as
-#' prose, so `liver NOT mouse` would quietly come back as everything matching
-#' "liver", "not" and "mouse" -- wrong, and wrong without a word. Unlike the
-#' date bounds, nothing here can be repaired in R.
+#' Structured search reads boolean syntax as prose; R cannot repair that.
 #' @noRd
 .check_boolean_reachable <- function(query, structured, filters, narrowed) {
   if (!narrowed || !(structured || .is_boolean_query(query))) {
@@ -399,13 +366,9 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 
 #' Count the matches of a search
 #'
-#' Groups what [seqout_search()] would return over the whole match set.
-#' Ask which organisms, countries or assays a query matched,
-#' then feed the answer back as a filter. Counts are exact and cover every
-#' match, so this costs about as much as the search itself.
+#' Groups the full [seqout_search()] match set by facet.
 #'
-#' Values come ordered by `score`, the summed match rank of the studies behind
-#' each value, not by `count`. `score` is 0 without a query to rank against.
+#' Values order by `score`, the summed match rank. `score` is 0 without a query.
 #'
 #' @param query Character. The text to count the matches of. Required.
 #' @param ... Filters, by name, to count *within*: `db`, `organism`, `country`,
@@ -417,8 +380,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 #' @inheritParams project
 #'
 #' @return A tibble of `facet`, `value`, `count` and `score`, with `total` and
-#'   `max_rank` attributes. `total` is the number of matching studies;
-#'   `max_rank` is the best rank any result reached, ignoring the filters.
+#'   `max_rank` attributes.
 #'
 #' @seealso [seqout_search()] for the results themselves, [search_suggest()]
 #'   when a query returns nothing.
@@ -429,10 +391,10 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 #' f <- SearchFacets("liver cancer")
 #' attr(f, "total")
 #'
-#' # What organisms are in this result set?
+#' # organism facet
 #' f[f$facet == "organism", ]
 #'
-#' # Narrow, then count again within the narrower set
+#' # count within a narrower set
 #' SearchFacets("liver cancer", organism = "Homo sapiens")
 #' }
 search_facets <- function(query, ..., structured = FALSE,
@@ -478,15 +440,14 @@ search_facets <- function(query, ..., structured = FALSE,
 
 #' The sidebar's own filter set
 #'
-#' No `assay_*` or `geo_*` parameter, which this endpoint would drop without a
-#' word, and it keeps the `year_from`/`year_to` bounds `seqout_search()` has not.
+#' Excludes `assay_*` and `geo_*` because the endpoint would ignore them.
 #' @noRd
 .facet_filters <- sort(c(
   .shared_filters, "db", "library_source", "year_from", "year_to"
 ))
 
 
-#' Find corrected query for a query with typos
+#' Suggest spelling corrections for a query
 #'
 #' @param query Character. The query as it was typed.
 #' @inheritParams project
@@ -501,7 +462,7 @@ search_facets <- function(query, ..., structured = FALSE,
 #' \dontrun{
 #' SearchSuggest("livre cancr")
 #'
-#' # Nothing to correct
+#' # already spelled correctly
 #' SearchSuggest("liver cancer")
 #' }
 search_suggest <- function(query, con = .con()) {
@@ -510,7 +471,7 @@ search_suggest <- function(query, con = .con()) {
   .check_query(query)
   res <- .api_get(con, "/search/suggest", q = query)
   suggestions <- res$suggestions
-  # An untyped 0x0 tibble has no column for a caller to reach for.
+  # empty typed tibble keeps the corrected_query column
   if (length(suggestions) == 0) {
     return(tibble::tibble(corrected_query = character(0), corrections = list()))
   }

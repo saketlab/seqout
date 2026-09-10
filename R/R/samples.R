@@ -1,8 +1,6 @@
 #' Get detailed sample or experiment metadata
 #'
-#' Accepts a sample or experiment accession from any archive Seqout holds. On
-#' the Parquet backend the accession prefix picks the table; over REST it is one
-#' request either way.
+#' The Parquet backend chooses a table by accession prefix.
 #'
 #' @param accession Sample or experiment accession
 #'   (GSM/SRX/DRX/ERX/SRS/DRS/ERS/SAM*).
@@ -33,9 +31,7 @@ sample_detail <- function(accession, con = .con()) {
   }
 
   result <- .api_get(con, paste0("/sample-detail/", accession))
-  # The endpoint answers with an envelope: sample_type, project, sample,
-  # experiment, runs. Return the record the accession names; `seqout_get()` reaches
-  # the rest. An SRX names its experiment, everything else its sample.
+  # return the record the accession names; seqout_get() reaches the envelope
   record <- if (identical(result$sample_type, "sra_experiment")) {
     result$experiment
   } else {
@@ -46,9 +42,7 @@ sample_detail <- function(accession, con = .con()) {
 
 #' One part of the sample-detail envelope, as a tibble
 #'
-#' The endpoint answers a sample, experiment or biosample with its project,
-#' its experiment and its runs alongside the record itself, so a caller that
-#' wants the runs of one sample need not resolve the study first.
+#' Detail envelopes carry project, experiment, runs and the named record.
 #' @noRd
 .detail_part <- function(con, accession, part) {
   res <- .api_get(con, paste0("/sample-detail/", accession))

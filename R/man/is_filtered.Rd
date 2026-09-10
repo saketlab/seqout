@@ -16,7 +16,7 @@ IsFiltered(name)
 \code{TRUE} when the name marks filtered output.
 }
 \description{
-Filtered output is preferred over raw when a sample ships both.
+Filtered output ranks before raw.
 }
 \examples{
 IsFiltered("GSM1_filtered_feature_bc_matrix.h5")

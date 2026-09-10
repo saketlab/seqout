@@ -1,11 +1,10 @@
 #' Get project metadata
 #'
-#' @param accession Character. Project accession (e.g., `"GSE1234"`,
-#'   `"SRP012345"`, `"E-MTAB-1234"`, `"PRJNA123456"`).
-#' @param transpose Return one row per field instead of one wide row. A project
-#'   record runs to 25 columns, which prints unreadably.
+#' @param accession Project accession, e.g. `"GSE1234"`,
+#'   `"SRP012345"`, `"E-MTAB-1234"`, `"PRJNA123456"`.
+#' @param transpose Return one row per field. A project record is wide.
 #' @param con A `seqout_connection`. Defaults to the shared REST connection;
-#'   pass a Parquet one to read the dump instead.
+#'   a Parquet connection reads the dump.
 #' @return A tibble with project metadata, or a `field`/`value` tibble when
 #'   `transpose = TRUE`.
 #' @keywords internal
@@ -31,8 +30,7 @@ project <- function(accession, transpose = FALSE, con = .con()) {
 
 #' One row per field, for records too wide to print
 #'
-#' List columns are flattened to a semicolon-joined string, so the result is
-#' always two character columns.
+#' List columns flatten to semicolon-joined strings.
 #' @noRd
 .as_fields <- function(x) {
   if (nrow(x) == 0) {
@@ -87,7 +85,7 @@ project_samples <- function(accession, con = .con()) {
     accession <- .resolve_to_sra_study(con, accession)
   }
 
-  # GEO lacks a series column; `samples_ref` scans the whole sample table.
+  # GEO lacks a series column; samples_ref avoids a sample-table scan
   sql <- if (identical(row$child, "geo_series_samples")) {
     paste(
       "SELECT s.* FROM geo_samples s WHERE s.accession IN",
@@ -126,8 +124,8 @@ project_experiments <- function(study, con = .con()) {
 #' Get run download links for a study
 #'
 #' @param study Character. Study accession.
-#' @param full Read every run. The default is the server's 500-run preview,
-#'   which is enough to inspect a study but not to download one. REST only.
+#' @param full Read every run. The default is the server's 500-run preview.
+#'   Downloads require the full list. REST only.
 #' @inheritParams project
 #' @return A tibble of run metadata with download links.
 #' @keywords internal
@@ -153,7 +151,7 @@ project_runs <- function(study, full = FALSE, con = .con()) {
 
 #' Get cross-references for a project
 #'
-#' REST only: the Parquet dump holds no cross-reference table.
+#' REST only; the dump lacks cross-references.
 #'
 #' @inheritParams project
 #' @return A tibble with cross-reference entries.
@@ -167,7 +165,7 @@ project_xref <- function(accession, con = .con()) {
 
 #' Get the harmonised sample metadata
 #'
-#' REST only: the enrichment is computed server-side and is not in the dump.
+#' REST only; enrichment is absent from the dump.
 #'
 #' @inheritParams project
 #' @return A tibble with enriched sample metadata (v3 if available, else v1).
@@ -198,7 +196,7 @@ project_citations <- function(accession, type = "original",
 
   from_api <- function() {
     if (format == "bibtex") {
-      # A study with no paper is a 404 carrying a sentence, not a failure.
+      # 404 means no linked paper
       return(.api_get_text(con, paste0("/project/", accession, "/cite"),
         type = type, format = "bibtex", null_on = 404L
       ) %||% character(0))
@@ -211,11 +209,11 @@ project_citations <- function(accession, type = "original",
   }
 
   if (identical(con$backend, "parquet")) {
-    # BibTeX is API-only; see citations(). The dump answers the tibble form.
+    # BibTeX is API-only; the dump answers tibble form
     if (format == "bibtex") {
       return(from_api())
     }
-    # `study_publications` is no longer in the dump.
+    # dump lacks study_publications
     return(tryCatch(
       .db_query(con, .publications_sql("WHERE sp.accession = ?"),
         params = list(accession)

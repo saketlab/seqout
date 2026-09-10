@@ -23,19 +23,14 @@ the archive files alignments against one.}
 The paths of the downloaded files, invisibly.
 }
 \description{
-Distinct from \code{\link[=download_runs]{download_runs()}}, which fetches reads. These are the
-submitter's own BAMs, aligned to a reference they chose and often carrying
-work the reads alone do not reconstruct: barcode tags, methylation calls,
-long-read structural evidence. Realigning from fastq gives you neither those
-nor their coordinates.
+Fetches submitter BAMs aligned to their chosen reference.
 }
 \details{
-Most are held in requester-pays storage, which no anonymous client can read.
-Those are named rather than fetched, with the command that would get them.
+Requester-pays files are named with the command to fetch them.
 }
 \examples{
 \dontrun{
-SeqoutGet("SRP071083")$bams # 276 files, 410 GB, all requester-pays
+SeqoutGet("SRP071083")$bams # requester-pays inventory
 DownloadBams("SRP071083")
 }
 }

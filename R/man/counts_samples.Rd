@@ -20,12 +20,10 @@ GSE.}
 count go too; \code{NULL} keeps everything.}
 }
 \value{
-A tibble of the matching samples, sorted by highest cells first,
-with the \code{unit}  and \code{format} \code{\link[=seqout_matrix]{seqout_matrix()}} would read.
+Matching samples, sorted by cells, with \code{unit} and \code{format}.
 }
 \description{
-Filters a study's samples through \code{\link[=sample_search]{sample_search()}} and keeps the ones that
-have a readable unit. Use it on a series that mixes tissues or assays.
+Keeps samples matching \code{\link[=sample_search]{sample_search()}} with a readable unit.
 }
 \examples{
 \dontrun{

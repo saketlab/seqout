@@ -13,6 +13,5 @@ SeqoutClose(con = .con())
 \item{con}{A \code{seqout_connection} returned by \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
 \description{
-Only the Parquet backend holds a resource worth closing; on a REST
-connection this is a no-op.
+Parquet closes its DuckDB handle; REST has no handle.
 }

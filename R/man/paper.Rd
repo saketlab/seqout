@@ -3,16 +3,18 @@
 \name{paper}
 \alias{paper}
 \alias{Paper}
-\title{Find a publication and the projects linked to it}
+\title{Find projects linked to a publication}
 \usage{
-paper(pmid = NULL, doi = NULL, con = .con())
+paper(id = NULL, pmid = NULL, doi = NULL, con = .con())
 
-Paper(pmid = NULL, doi = NULL, con = .con())
+Paper(id = NULL, pmid = NULL, doi = NULL, con = .con())
 }
 \arguments{
-\item{pmid}{A PubMed ID.}
+\item{id}{Bare PubMed ID (digits) or DOI starting \code{10.}. URLs error.}
 
-\item{doi}{A DOI. Give one of \code{pmid} or \code{doi}.}
+\item{pmid}{PubMed ID.}
+
+\item{doi}{DOI.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
@@ -20,10 +22,11 @@ Paper(pmid = NULL, doi = NULL, con = .con())
 A tibble of linked projects, empty when the publication is unknown.
 }
 \description{
-The reverse lookup: from a paper to the datasets that name it.
+Find projects linked to a publication
 }
 \examples{
 \dontrun{
-Paper(pmid = "34764296")
+Paper("34764296")
+Paper(doi = "10.1038/s41467-021-26864-x")
 }
 }

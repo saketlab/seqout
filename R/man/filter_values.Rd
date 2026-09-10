@@ -22,27 +22,27 @@ list_library_strategies(con = .con())
 
 list_instrument_models(con = .con())
 
-list_journals(limit = 500, con = .con())
+list_journals(con = .con(), limit = 500)
 
-list_centers(limit = 500, con = .con())
+list_centers(con = .con(), limit = 500)
 
-list_organisms(common_names = FALSE, con = .con())
+list_organisms(con = .con(), common_names = FALSE)
 
-list_assays(country = NULL, con = .con())
+list_assays(con = .con(), country = NULL)
 
 list_platforms(con = .con())
 
-ListAssays(country = NULL, con = .con())
+ListAssays(con = .con(), country = NULL)
 
-ListCenters(limit = 500, con = .con())
+ListCenters(con = .con(), limit = 500)
 
 ListInstrumentModels(con = .con())
 
-ListJournals(limit = 500, con = .con())
+ListJournals(con = .con(), limit = 500)
 
 ListLibraryStrategies(con = .con())
 
-ListOrganisms(common_names = FALSE, con = .con())
+ListOrganisms(con = .con(), common_names = FALSE)
 
 ListPlatforms(con = .con())
 }
@@ -54,39 +54,34 @@ ListPlatforms(con = .con())
 
 \item{common_names}{Add a \code{common_name} column, \code{NA} where none is on record.
 
-\code{list_organisms()} returns every organism any archive has recorded, which
-is a large and slow request. To ask about one, use \code{\link[=seqout_search]{seqout_search()}}.}
+\code{list_organisms()} returns every organism recorded across archives.}
 
 \item{country}{Scope the assay counts to one country, by name. The default,
 \code{NULL}, counts over every archive.}
 }
 \value{
-A tibble, most common first: \code{value} and \code{count}, except that
-\code{list_assays()} adds \code{level}, \code{list_organisms()} names its column
-\code{scientific_name}, and \code{list_platforms()} returns \code{platform} with a
-per-archive count beside the total.
+A tibble of values and counts.
 }
 \description{
-\code{list_library_strategies()}, \code{list_instrument_models()}, \code{list_journals()},
-\code{list_centers()}, \code{list_organisms()}, \code{list_assays()} and \code{list_platforms()}
-enumerate the values the index holds, each with a record count, most common
-first. Values are spelled exactly as \code{\link[=seqout_search]{seqout_search()}} expects them.
+Enumerates values accepted by \code{\link[=seqout_search]{seqout_search()}}, with record counts.
 }
 \details{
-\code{list_assays()} covers both levels at once and marks which is which in a
-\code{level} column. These read the REST API; \code{\link[=query]{query()}} answers the same counts
-from the dump.
+\code{list_assays()} returns both assay levels in a \code{level} column.
+These functions read REST; \code{\link[=query]{query()}} can count from the dump.
 }
 \examples{
 \dontrun{
 ListLibraryStrategies()
 
-# What to pass as instrument_model
+# instrument_model values
 ListInstrumentModels()
 
-# Straight into a search
+# pass a value into search
 top <- ListLibraryStrategies()$value[1]
 SeqoutSearch("liver", library_strategy = top)
+
+# connection-first call
+SeqoutConnect("api") |> ListJournals(limit = 20)
 }
 }
 \seealso{

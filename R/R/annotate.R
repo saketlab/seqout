@@ -1,13 +1,9 @@
 #' Label clusters by their strongest marker set
 #'
-#' Scores each cell as the mean expression of a set's genes, averages that
-#' within each cluster, and labels the cluster with its highest-scoring set.
-#' Sets with no gene in `x` are dropped with a warning.
+#' Scores markers per cell, averages by cluster, and labels by the top set.
+#' Marker sets with no genes in `x` are dropped with a warning.
 #'
-#' Scores are unscaled across sets, so a housekeeping-heavy set can out-score a
-#' sparse but specific one. Check `attr(out, "scores")` before trusting a label.
-#' This function works best with specific markers (only expressed in one celltype
-#' but absent from others).
+#' Scores are unscaled; housekeeping-heavy sets can win.
 #'
 #' @param x A features by cells matrix, as `SeqoutMatrix(...)$X` and
 #'   [bind_counts()] return.
@@ -50,7 +46,7 @@ quick_annotation <- function(x, clusters, markers, normalize = "auto") {
     cli::cli_abort("None of the marker genes are in {.arg x}.")
   }
 
-  # Library size needs every gene, scoring only the marker rows.
+  # library size uses every gene; scoring uses marker rows
   normalize <- isTRUE(normalize) || (identical(normalize, "auto") && .looks_like_counts(x))
   total <- if (normalize) .col_sums(x)
   x <- x[unique(unlist(markers, use.names = FALSE)), , drop = FALSE]
@@ -86,7 +82,7 @@ quick_annotation <- function(x, clusters, markers, normalize = "auto") {
 #' @noRd
 .col_means <- function(x) if (methods::is(x, "Matrix")) Matrix::colMeans(x) else colMeans(x)
 
-#' Whole numbers mean nothing has been normalised yet. Checks a sample.
+#' Whole numbers mark raw counts; check a sample.
 #' @noRd
 .looks_like_counts <- function(x) {
   values <- if (methods::is(x, "Matrix")) methods::slot(x, "x") else x

@@ -12,11 +12,9 @@ publications(accessions, con = .con())
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection.}
 }
 \value{
-A tibble with publication metadata (accession, source, pmid, title,
-journal, doi, citation_count, etc.).
+A tibble with publication metadata.
 }
 \description{
-Parses the JSON publications column from the \code{study_publications} table
-using DuckDB's JSON functions.
+Reads publication records from project metadata.
 }
 \keyword{internal}

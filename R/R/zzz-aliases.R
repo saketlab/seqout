@@ -118,6 +118,22 @@ SampleSearch <- sample_search
 #' @export
 SingleCellStudies <- single_cell_studies
 
+#' @rdname longread_summary
+#' @export
+LongreadSummary <- longread_summary
+
+#' @rdname longread_facets
+#' @export
+LongreadFacets <- longread_facets
+
+#' @rdname longread_projects
+#' @export
+LongreadProjects <- longread_projects
+
+#' @rdname project_longread_chemistry
+#' @export
+ProjectLongreadChemistry <- project_longread_chemistry
+
 #' @rdname paper
 #' @export
 Paper <- paper
@@ -142,9 +158,25 @@ SeqoutClose <- seqout_close
 #' @export
 SeqoutCounts <- seqout_counts
 
+#' @rdname seqout_counts
+#' @export
+SeqoutListCounts <- seqout_counts
+
+#' @rdname seqout_counts
+#' @export
+seqout_list_counts <- seqout_counts
+
 #' @rdname seqout_counts_files
 #' @export
 SeqoutCountsFiles <- seqout_counts_files
+
+#' @rdname seqout_fragments
+#' @export
+SeqoutFragments <- seqout_fragments
+
+#' @rdname microbe_detections
+#' @export
+MicrobeDetections <- microbe_detections
 
 #' @rdname seqout_get
 #' @export
@@ -193,3 +225,8 @@ SeqoutDefault <- seqout_default
 #' @rdname counts_samples
 #' @export
 CountsSamples <- counts_samples
+
+
+#' @rdname counts_design
+#' @export
+CountsDesign <- counts_design

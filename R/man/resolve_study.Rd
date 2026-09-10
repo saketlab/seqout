@@ -10,14 +10,13 @@ resolve_study(accession, con = .con())
 \item{accession}{A run, experiment or sample accession.}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 The study accession, or \code{NA_character_} when nothing links back.
 }
 \description{
-Walks from a child accession (a run, experiment or sample) to the study or
-series that holds it.
+Resolves a run, experiment or sample to its study or series.
 }
 \examples{
 \dontrun{

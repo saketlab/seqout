@@ -1,52 +1,39 @@
-#' List counts matrices for a GEO accession
+#' List count-matrix units for a GEO accession
 #'
-#' Resolves the supplementary files of a series or sample and groups them into
-#' readable units, downloading nothing. GEO payloads run to tens of gigabytes,
-#' so this returns a table first and costs only the calls that list files.
+#' Groups supplementary files into readable units without downloading them.
 #'
-#' A unit is the smallest group of supplementary files that Seqout can read as
-#' one matrix. It may be a 10x triplet
-#' (`matrix.mtx` with `barcodes.tsv` and `features.tsv`), a CellRanger `.h5`, an
-#' `.h5ad`, an `.rds`, or a delimited table.
+#' A unit is a 10x triplet, CellRanger `.h5`, `.h5ad`, `.rds`, tar, or table.
 #'
-#' The result has one row per unit. `unit` is its selection label, `sample` is
-#' its GSM when known, `format` is its reader, and `files` names its matrix
-#' files. `has_metadata` is `TRUE` for an `.h5ad` or `.rds`, which can embed
-#' observation annotation, or when a sidecar file is named like cell metadata
-#' or annotation. A `TRUE` value signals that metadata was found by format or
-#' filename; its contents are read only by [seqout_matrix()].
+#' `has_metadata` means embedded metadata or a named sidecar was found.
 #'
-#' `preferred` marks the unit [seqout_matrix()] selects when given a GSM rather
-#' than a unit label. Within a sample, the requested assay ranks first, then
-#' filtered output over raw or unfiltered output, then format: 10x MatrixMarket,
-#' 10x HDF5, `.h5ad`, `.rds`, tar, and a delimited table. The other units remain
-#' selectable by `unit`.
+#' `preferred` ranks requested assay, filtered output, then format.
 #'
-#' `assay` may be one of `"rna"`, `"adt"`, `"hto"` or `"atac"`, or `NULL` to
-#' avoid assay preference. It is identified from filename hints: RNA/GEX,
-#' antibody/CITE-seq, hashtag, and ATAC/peak respectively. For 10x data it also
-#' chooses the matching feature class: Gene Expression, Antibody Capture, or
-#' Peaks. Set `feature_type` to override this filter.
+#' 10x feature class follows `assay`; `feature_type` overrides it.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession A GSE or GSM accession.
 #' @param assay Assay preference: `"rna"` (default), `"adt"`, `"hto"`,
-#'   `"atac"`, or `NULL` for no preference. It selects the preferred unit when
-#'   a sample carries several, as in CITE-seq and multiome data.
+#'   `"atac"`, or `NULL`.
 #' @param feature_type 10x feature class to keep, overriding the one implied by
 #'   `assay`. `NULL` keeps every row.
 #' @param cache_dir Where downloads land. Defaults to a per-accession directory
 #'   under [tools::R_user_dir()], reused across sessions.
 #'
-#' @return A tibble, one row per readable unit. Pass it directly to
-#'   [seqout_matrix()], [matrices()] or [seqout_counts_files()].
+#' `assay` names the modality read from the file names, `NA` when none is
+#' named. A sample carrying several becomes a multimodal object.
+#'
+#' @return A tibble, one row per readable unit.
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' counts <- SeqoutCounts("GSE297547")
+#' counts <- SeqoutListCounts("GSE297547")
 #' counts[, c("unit", "sample", "format", "preferred")]
 #' m <- SeqoutMatrix(counts, sample = "GSM8994520")
+#'
+#' "GSE297547" |>
+#'   SeqoutListCounts() |>
+#'   SeqoutMatrix(sample = "GSM8994520")
 #' }
 seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
                           cache_dir = NULL, con = .con()) {
@@ -58,7 +45,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
     cli::cli_abort("{.val {accession}}: only GSE and GSM accessions carry counts files.")
   }
   if (is.null(feature_type) && !is.null(assay)) {
-    feature_type <- .assay_feature_type[[assay]]
+    feature_type <- .assay_feature_type(assay)
   }
   if (is.null(cache_dir)) {
     cache_dir <- file.path(tools::R_user_dir("seqout", "cache"), "counts", accession)
@@ -77,13 +64,6 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
   structure(out, class = c("seqout_counts", class(out)), .counts_handle = handle)
 }
 
-#' @noRd
-.assay_feature_type <- list(
-  rna = "Gene Expression",
-  adt = "Antibody Capture",
-  hto = "Antibody Capture",
-  atac = "Peaks"
-)
 
 #' @export
 `$.seqout_counts` <- function(x, name) {
@@ -163,10 +143,9 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
   })
 }
 
-#' Supplementary URLs out of parsed JSON records
+#' Supplementary URLs from parsed JSON records
 #'
-#' Each element is either a bare URL string or an object carrying it under
-#' `#text` or `url`.
+#' URLs may be bare strings or stored under `#text` or `url`.
 #' @noRd
 .urls_in_records <- function(raw) {
   if (length(raw) == 0) {
@@ -178,10 +157,9 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
   unname(urls[!is.na(urls)])
 }
 
-#' Supplementary URLs out of the JSON column GEO stores them in
+#' Supplementary URLs from GEO JSON strings
 #'
-#' Each element is either a bare URL string or an object carrying it under
-#' `#text` or `url`.
+#' URLs may be bare strings or stored under `#text` or `url`.
 #'
 #' @return A list of character vectors, one per input string.
 #' @noRd
@@ -198,9 +176,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 
 #' Supplementary file URLs for many accessions in one query
 #'
-#' The API answers one accession per request, which costs a round trip per
-#' sample; the same JSON sits in a column DuckDB can unnest for the whole
-#' series at once. Falls back to the API when the query cannot be answered.
+#' DuckDB can unnest series JSON in one query; API fallback reads per accession.
 #'
 #' @return A list of character vectors, one per accession, in the order given.
 #' @noRd
@@ -265,6 +241,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
     unit = vapply(units, function(u) u$label, character(1)),
     sample = vapply(units, function(u) u$sample %||% NA_character_, character(1)),
     format = vapply(units, function(u) u$fmt, character(1)),
+    assay = vapply(units, .unit_modality, character(1)),
     preferred = vapply(units, function(u) isTRUE(u$preferred), logical(1)),
     has_metadata = vapply(units, .unit_has_metadata, logical(1)),
     n_files = vapply(units, function(u) length(u$files), integer(1)),
@@ -276,8 +253,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 
 #' Choose which samples of a study to read
 #'
-#' Filters a study's samples through [sample_search()] and keeps the ones that
-#' have a readable unit. Use it on a series that mixes tissues or assays.
+#' Keeps samples matching [sample_search()] with a readable unit.
 #'
 #' @param counts A `seqout_counts` tibble from [seqout_counts()], built on a
 #'   GSE.
@@ -286,8 +262,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 #' @param min_cell_count Smallest cell count to keep. Samples with no recorded
 #'   count go too; `NULL` keeps everything.
 #'
-#' @return A tibble of the matching samples, sorted by highest cells first,
-#' with the `unit`  and `format` [seqout_matrix()] would read.
+#' @return Matching samples, sorted by cells, with `unit` and `format`.
 #'
 #' @seealso [seqout_counts()] for every unit, unfiltered.
 #'
@@ -310,6 +285,18 @@ counts_samples <- function(counts, ..., min_cell_count = 1L) {
     study_accession = counts$accession, ...,
     min_cell_count = min_cell_count, con = counts$con
   )
+  if (nrow(rows) == 0 && !is.null(min_cell_count)) {
+    # bulk samples record no cell count, so the single-cell default drops them
+    rows <- sample_search(
+      study_accession = counts$accession, ...,
+      min_cell_count = NULL, con = counts$con
+    )
+    if (nrow(rows) > 0) {
+      cli::cli_inform(
+        "No sample in {counts$accession} records a cell count; ignoring {.arg min_cell_count}."
+      )
+    }
+  }
   out <- .with_units(rows, counts[counts$preferred, , drop = FALSE])
   if (nrow(out) == 0 && nrow(rows) > 0) {
     cli::cli_warn(c(
@@ -336,6 +323,28 @@ counts_samples <- function(counts, ..., min_cell_count = 1L) {
   }
   front <- intersect(c("sample", "unit", "format", "cells", "tissue"), names(out))
   out[c(front, setdiff(names(out), front))]
+}
+
+#' The study's sample table, one row per sample
+#'
+#' The submitter's characteristics spread into one column each. Reuses the
+#' sample record [seqout_counts()] fetched.
+#'
+#' @param counts A `seqout_counts` tibble from [seqout_counts()].
+#'
+#' @return A tibble, one row per sample of the study.
+#'
+#' @seealso [counts_samples()] for the harmonised cohort fields.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' counts <- SeqoutListCounts("GSE135251")
+#' col_data <- CountsDesign(counts)
+#' }
+counts_design <- function(counts) {
+  .check_counts(counts)
+  .sample_rows(counts)
 }
 
 #' The readable units behind a counts table
@@ -383,113 +392,149 @@ seqout_matrix <- function(counts, sample = NULL) {
 
 #' Convert counts to a Seurat object
 #'
-#' Hands a matrix to [SeuratObject::CreateSeuratObject()]. The matrix is
-#' already features by observations, the orientation Seurat expects, and the
-#' per-cell annotation becomes `meta.data`.
+#' `X` becomes counts and `obs` becomes `meta.data`.
+#' A GSE or GSM accession is resolved through [seqout_counts()].
+#' Requires SeuratObject.
 #'
-#' A GSM accession is read first, through [seqout_counts()] and
-#' [seqout_matrix()]. Use those two yourself for a series, for a sample that
-#' ships more than one matrix, or for an assay other than RNA.
-#'
-#' The SeuratObject package must be installed; Seurat brings it.
-#'
-#' @param x A `seqout_matrix` from [seqout_matrix()], or one GSM accession.
-#' @param ... Passed to [SeuratObject::CreateSeuratObject()], such as
-#'   `project`, `assay`, `min.cells` or `min.features`. The counts come from
-#'   `x`, and `meta.data` too unless you give your own.
+#' @param x A `seqout_matrix` from [seqout_matrix()], one GSE/GSM accession,
+#'   or a `seqout_counts` tibble from [seqout_counts()].
+#' @param sample Unit labels or sample accessions to read when `x` is a GSE or
+#'   `seqout_counts`. `NULL` reads every preferred unit.
+#' @param max_cells Cap on cells kept per unit, sampled at random. `NULL` keeps
+#'   all cells.
+#' @param multimodal Build one object per modality found, as extra assays.
+#'   `FALSE` reads the preferred unit of each sample.
+#' @param sample_metadata Join the study's sample record onto every cell, by the
+#'   accession the cell came from. A column already in the cell metadata wins.
+#' @param ... Passed to [SeuratObject::CreateSeuratObject()].
 #'
 #' @return A `Seurat` object.
 #'
-#' @seealso [seqout_matrix()] for the matrix without Seurat, and [matrices()]
-#'   with `lapply()` for a whole series.
+#' @seealso [seqout_matrix()] and [matrices()].
 #'
 #' @export
 #' @examples
 #' \dontrun{
 #' obj <- Seqout2Seurat("GSM8994520", min.cells = 3)
 #'
-#' counts <- SeqoutCounts("GSE297547")
-#' obj <- Seqout2Seurat(SeqoutMatrix(counts, sample = "GSM8994520"))
+#' obj <- Seqout2Seurat("GSE297547", sample = "GSM8994520")
+#' counts <- SeqoutListCounts("GSE297547")
+#' obj <- Seqout2Seurat(counts, sample = "GSM8994520")
 #' }
-seqout_seurat <- function(x, ...) {
+seqout_seurat <- function(x, sample = NULL, max_cells = NULL, multimodal = TRUE,
+                          sample_metadata = FALSE, ...) {
   .need("SeuratObject", "Converting to a Seurat object")
-  m <- .as_seqout_matrix(x)
-  args <- list(...)
-  args$counts <- m$X
-  if (is.null(args$meta.data) && ncol(m$obs) > 0) {
-    args$meta.data <- m$obs
+  .seurat_multimodal(
+    .converter_input(x, sample, max_cells, multimodal, sample_metadata), ...
+  )
+}
+
+#' Read the modalities when the selection carries more than one, else NULL
+#' @noRd
+.maybe_modalities <- function(counts, sample, max_cells, multimodal) {
+  if (!isTRUE(multimodal) || is.null(counts)) {
+    return(NULL)
   }
-  do.call(SeuratObject::CreateSeuratObject, args)
+  # Defer detection errors to the single-modality reader.
+  groups <- tryCatch(
+    suppressWarnings(.modal_groups(counts, sample)),
+    error = function(e) NULL
+  )
+  if (is.null(groups)) {
+    return(NULL)
+  }
+  groups <- groups[.modal_order(names(groups))]
+  cli::cli_inform(
+    "Reading {length(groups)} modalit{?y/ies} ({.val {names(groups)}}) as assays."
+  )
+  .read_modalities(counts, groups, max_cells = max_cells)
+}
+
+#' @noRd
+.seurat_multimodal <- function(mods, ...) {
+  lead <- mods[[1]]
+  args <- list(...)
+  args$counts <- lead$X
+  if (is.null(args$meta.data) && ncol(lead$obs) > 0) {
+    args$meta.data <- lead$obs
+  }
+  args$assay <- args$assay %||% .assay_name(names(mods)[[1]])
+  obj <- do.call(SeuratObject::CreateSeuratObject, args)
+  for (m in names(mods)[-1]) {
+    X <- mods[[m]]$X[, colnames(obj), drop = FALSE]
+    obj[[.assay_name(m)]] <- SeuratObject::CreateAssayObject(counts = X)
+  }
+  obj
 }
 
 #' Convert counts to a SingleCellExperiment
 #'
-#' The Bioconductor counterpart of [seqout_seurat()]. `X` becomes the `counts`
-#' assay, the per-cell annotation becomes `colData` and the per-feature
-#' annotation becomes `rowData`. A `seqout_matrix` is already features by
-#' observations, the orientation `SingleCellExperiment` expects, so nothing is
-#' transposed.
+#' `X` becomes `counts`; `obs` becomes `colData`; `var` becomes `rowData`.
+#' A GSE or GSM accession is resolved through [seqout_counts()].
+#' Requires SingleCellExperiment.
 #'
-#' A GSM accession is read first, through [seqout_counts()] and
-#' [seqout_matrix()]. Use those two yourself for a series, for a sample that
-#' ships more than one matrix, or for an assay other than RNA.
-#'
-#' The SingleCellExperiment package must be installed. It is on Bioconductor:
-#' `BiocManager::install("SingleCellExperiment")`.
-#'
-#' @param x A `seqout_matrix` from [seqout_matrix()], or one GSM accession.
-#' @param assay_name The name to give the assay. `"counts"` by default, the
-#'   name the Bioconductor single-cell packages look for.
-#' @param ... Passed to [SingleCellExperiment::SingleCellExperiment()], such as
-#'   `metadata` or `reducedDims`. The assay comes from `x`, and `colData` and
-#'   `rowData` too unless you give your own.
+#' @param x A `seqout_matrix` from [seqout_matrix()], one GSE/GSM accession,
+#'   or a `seqout_counts` tibble from [seqout_counts()].
+#' @param sample Unit labels or sample accessions to read when `x` is a GSE or
+#'   `seqout_counts`. `NULL` reads every preferred unit.
+#' @param max_cells Cap on cells kept per unit, sampled at random. `NULL` keeps
+#'   all cells.
+#' @param assay_name Assay name. Defaults to `"counts"`.
+#' @param multimodal Carry the other modalities as `altExp` entries.
+#'   `FALSE` reads the preferred unit of each sample.
+#' @param sample_metadata Join the study's sample record onto every cell, by the
+#'   accession the cell came from. A column already in the cell metadata wins.
+#' @param ... Passed to [SingleCellExperiment::SingleCellExperiment()].
 #'
 #' @return A `SingleCellExperiment` object.
 #'
-#' @seealso [seqout_seurat()] for the Seurat equivalent, [seqout_matrix()] for
-#'   the matrix on its own, and [matrices()] with `lapply()` for a whole series.
+#' @seealso [seqout_seurat()], [seqout_matrix()] and [matrices()].
 #'
 #' @export
 #' @examples
 #' \dontrun{
 #' sce <- Seqout2SCE("GSM8994520")
 #'
-#' counts <- SeqoutCounts("GSE297547")
-#' sce <- Seqout2SCE(SeqoutMatrix(counts, sample = "GSM8994520"))
+#' sce <- Seqout2SCE("GSE297547", sample = "GSM8994520")
+#' counts <- SeqoutListCounts("GSE297547")
+#' sce <- Seqout2SCE(counts, sample = "GSM8994520")
 #' }
-seqout_sce <- function(x, assay_name = "counts", ...) {
+seqout_sce <- function(x, assay_name = "counts", sample = NULL, max_cells = NULL,
+                       multimodal = TRUE, sample_metadata = FALSE, ...) {
   .need("SingleCellExperiment", "Converting to a SingleCellExperiment", bioc = TRUE)
   if (!rlang::is_string(assay_name)) {
     cli::cli_abort("{.arg assay_name} must be one name.")
   }
-  m <- .as_seqout_matrix(x)
-  args <- list(...)
-  args$assays <- stats::setNames(list(m$X), assay_name)
-  if (is.null(args$colData) && ncol(m$obs) > 0) {
-    args$colData <- m$obs
-  }
-  if (is.null(args$rowData) && ncol(m$var) > 0) {
-    args$rowData <- m$var
-  }
-  do.call(SingleCellExperiment::SingleCellExperiment, args)
+  .sce_multimodal(
+    .converter_input(x, sample, max_cells, multimodal, sample_metadata),
+    assay_name = assay_name, ...
+  )
 }
 
 #' @noRd
-.as_seqout_matrix <- function(x) {
+.as_seqout_matrix <- function(x, sample = NULL, max_cells = NULL) {
   if (inherits(x, "seqout_matrix")) {
     return(x)
   }
+  if (inherits(x, "seqout_counts")) {
+    return(.counts_as_seqout_matrix(x, sample = sample, max_cells = max_cells))
+  }
   if (!rlang::is_string(x)) {
-    cli::cli_abort("{.arg x} must be a {.cls seqout_matrix} or one GSM accession.")
+    cli::cli_abort(
+      "{.arg x} must be a {.cls seqout_matrix}, a {.cls seqout_counts} table, or one GSE/GSM accession."
+    )
   }
   acc <- toupper(trimws(x))
-  if (!startsWith(acc, "GSM")) {
+  if (!grepl("^GS[EM][0-9]+$", acc)) {
     cli::cli_abort(c(
-      "{.val {acc}} is not a GSM accession.",
-      i = "Read a series with {.fn seqout_counts}, then one sample of it with {.fn seqout_matrix}."
+      "{.val {acc}} is not a GSE or GSM accession.",
+      i = "Pass a {.cls seqout_matrix} or a {.cls seqout_counts} table."
     ))
   }
   counts <- seqout_counts(acc)
+  if (startsWith(acc, "GSE") || !is.null(sample) || !is.null(max_cells)) {
+    return(.counts_as_seqout_matrix(counts, sample = sample, max_cells = max_cells))
+  }
   units <- counts[counts$preferred, , drop = FALSE]
   if (nrow(units) == 0) {
     cli::cli_abort(c(
@@ -506,12 +551,48 @@ seqout_sce <- function(x, assay_name = "counts", ...) {
   seqout_matrix(counts)
 }
 
+#' @noRd
+.counts_as_seqout_matrix <- function(counts, sample = NULL, max_cells = NULL) {
+  .check_counts(counts)
+  units <- .select_units(counts, sample)
+  if (length(units) == 0) {
+    cli::cli_abort(c(
+      "{counts$accession} has no selected count-matrix units.",
+      i = "Inspect the table from {.fn seqout_counts}."
+    ))
+  }
+  if (startsWith(counts$accession, "GSE") || length(units) > 1) {
+    cli::cli_inform(
+      "Reading {length(units)} count-matrix unit{?s} for {counts$accession}."
+    )
+  }
+  mats <- matrices(counts, sample = sample)
+  if (length(mats) == 0) {
+    cli::cli_abort("{counts$accession}: no selected units could be read.")
+  }
+  .bind_units(mats, max_cells = max_cells)
+}
+
 #' Bind counts matrices across samples
 #'
+#' `join = "inner"`, the default, keeps the features common to every matrix and
+#' warns when that drops any. Peak-by-cell matrices called per sample rarely
+#' share a feature space, so the difference can be large.
+#'
+#' `join = "outer"` keeps the union and fills absent features with zero.
+#' A zero there means "not in this matrix", not "measured as zero".
+#' 
+#' Dense and sparse inputs may be mixed. Dense outer joins exceeding 5e7
+#' elements use sparse storage to bound memory when features barely overlap.
+#'
 #' @param x A list of `seqout_matrix` objects, as [matrices()] returns.
-#' @param labels Column-name prefix per matrix. Defaults to the list names,
+#' @param labels Column-name prefix per matrix. Defaults to the list names.
 #' @param max_cells Cap on columns kept per matrix, sampled at random. `NULL`
 #'   keeps all; set a seed for reproducibility.
+#' @param strict Stop rather than warn when the feature sets differ. Ignored
+#'   for `join = "outer"`, which drops nothing.
+#' @param join `"inner"` for the shared features, `"outer"` for the union with
+#'   absent features zero-filled.
 #'
 #' @return A matrix, dgCMatrix if the inputs were sparse.
 #'
@@ -524,28 +605,285 @@ seqout_sce <- function(x, assay_name = "counts", ...) {
 #' }
 #'
 #' @export
-bind_counts <- function(x, labels = NULL, max_cells = NULL) {
+bind_counts <- function(x, labels = NULL, max_cells = NULL, strict = FALSE,
+                        join = c("inner", "outer")) {
+  .bind_units(
+    x,
+    labels = labels, max_cells = max_cells, strict = strict,
+    join = match.arg(join)
+  )$X
+}
+
+
+#' Warn, or stop, when an inner join would drop features
+#'
+#' Peak-by-cell matrices called per sample rarely share a feature space, and
+#' binding them on the intersection discards the difference in silence.
+#' @noRd
+.check_features <- function(labels, features, shared, strict = FALSE) {
+  dropped <- lengths(features) - length(shared)
+  if (all(dropped == 0)) {
+    return(invisible(NULL))
+  }
+  worst <- order(dropped, decreasing = TRUE)[seq_len(min(3L, length(dropped)))]
+  worst <- worst[dropped[worst] > 0]
+  detail <- paste0(labels[worst], " loses ", dropped[worst])
+  msg <- c(
+    "The {length(features)} matrices do not share a feature space.",
+    i = "{length(shared)} feature{?s} {?is/are} common to all; binding on them drops up to {max(dropped)} per matrix.",
+    i = "{detail}"
+  )
+  if (isTRUE(strict)) {
+    cli::cli_abort(msg)
+  }
+  cli::cli_warn(c(msg, i = "Pass {.code strict = TRUE} to make this an error."))
+}
+
+
+# Store large zero-padded unions sparsely to bound memory use.
+.dense_element_limit <- 5e7
+
+#' Whether the bound matrix has to be built sparse to fit
+#'
+#' Sparse inputs stay sparse. Dense outer joins can require sparse storage
+#' when feature sets barely overlap.
+#' @noRd
+.bind_needs_sparse <- function(Xs, genes, n_cells, complete) {
+  if (length(genes) > .Machine$integer.max) {
+    cli::cli_abort(c(
+      "The union of features has {length(genes)} rows, more than a matrix can hold.",
+      i = 'Bind fewer units, or use {.code join = "inner"}.'
+    ))
+  }
+  if (all(vapply(Xs, function(X) methods::is(X, "sparseMatrix"), logical(1)))) {
+    return(FALSE)
+  }
+  if (all(complete)) {
+    return(FALSE)
+  }
+  as.numeric(length(genes)) * as.numeric(n_cells) > .dense_element_limit
+}
+
+#' Reindex a matrix onto a feature set, filling absent rows with zero
+#'
+#' Absent features need new rows; zero fills preserve column sums.
+#' @noRd
+.align_rows <- function(X, genes, complete, sparse = FALSE) {
+  if (isTRUE(complete)) {
+    if (identical(rownames(X), genes)) {
+      return(X)
+    }
+    return(X[genes, , drop = FALSE])
+  }
+  if (isTRUE(sparse) && !methods::is(X, "sparseMatrix")) {
+    .need("Matrix", "Binding on the union of features")
+    X <- methods::as(Matrix::Matrix(X, sparse = TRUE), "CsparseMatrix")
+  }
+  if (methods::is(X, "sparseMatrix")) {
+    map <- match(rownames(X), genes)
+    tr <- methods::as(X, "TsparseMatrix")
+    keep <- !is.na(map[tr@i + 1L])
+    return(Matrix::sparseMatrix(
+      i = map[tr@i + 1L][keep], j = tr@j[keep] + 1L, x = tr@x[keep],
+      dims = c(length(genes), ncol(X)),
+      dimnames = list(genes, colnames(X)), repr = "C"
+    ))
+  }
+  out <- matrix(vector(typeof(X), 1L),
+    nrow = length(genes), ncol = ncol(X),
+    dimnames = list(genes, colnames(X))
+  )
+  i <- match(genes, rownames(X))
+  keep <- !is.na(i)
+  out[keep, ] <- X[i[keep], , drop = FALSE]
+  out
+}
+
+#' @noRd
+.bind_units <- function(x, labels = NULL, max_cells = NULL, strict = FALSE,
+                        join = c("inner", "outer")) {
+  join <- match.arg(join)
   if (!is.list(x) || length(x) == 0) {
     cli::cli_abort("{.arg x} must be a non-empty list of {.cls seqout_matrix} objects.")
   }
-  Xs <- lapply(x, .counts_X)
-  genes <- Reduce(intersect, lapply(Xs, rownames))
+  x <- lapply(x, .check_seqout_matrix)
+  Xs <- lapply(x, function(m) m$X)
+  features <- lapply(Xs, rownames)
+  genes <- Reduce(if (join == "outer") union else intersect, features)
   if (length(genes) == 0) {
-    cli::cli_abort("The {length(Xs)} matrices share no features.")
+    cli::cli_abort(c(
+      "The {length(Xs)} matrices share no features.",
+      i = 'Pass {.code join = "outer"} to keep the union instead.'
+    ))
   }
-  labels <- labels %||% names(x) %||% seq_along(x)
+  labels <- .bind_labels(x, labels)
+  # the sample accession is the prefix that lets modalities line up by cell
+  labels <- vapply(seq_along(x), function(i) .unit_sample_label(x[[i]], labels[i]), character(1))
+  if (join == "inner") {
+    .check_features(labels, features, genes, strict = strict)
+  }
+  max_cells <- .check_max_cells(max_cells)
+  n_cells <- sum(vapply(
+    Xs, function(X) min(ncol(X), max_cells %||% ncol(X)), numeric(1)
+  ))
+  # one hash of genes per unit, shared by the storage decision and the reindex
+  complete <- vapply(Xs, function(X) all(genes %in% rownames(X)), logical(1))
+  as_sparse <- .bind_needs_sparse(Xs, genes, n_cells, complete)
+  if (as_sparse) {
+    cli::cli_inform(c(
+      "Binding {length(genes)} features x {n_cells} cells as a sparse matrix.",
+      i = "A dense one would allocate {format(as.numeric(length(genes)) * n_cells, big.mark = ',', scientific = FALSE)} elements, nearly all of them zero."
+    ))
+  }
+  obs_cols <- unique(unlist(lapply(x, function(m) names(m$obs)), use.names = FALSE))
+  sample_labels <- labels
+  # a deposited obs often names a column "sample" itself; keep the author's
+  kept <- if ("sample" %in% obs_cols) make.unique(c(obs_cols, "sample_orig"))[length(obs_cols) + 1L] else NULL
+  if (!is.null(kept)) {
+    cli::cli_warn("A unit names an {.field obs} column {.field sample}; it is kept as {.field {kept}}.")
+    obs_cols[obs_cols == "sample"] <- kept
+  }
 
-  out <- Map(function(X, label) {
+  parts <- Map(function(m, label, sample_label, whole) {
+    X <- m$X
     i <- if (!is.null(max_cells) && ncol(X) > max_cells) {
       sort(sample.int(ncol(X), max_cells))
     } else {
       seq_len(ncol(X))
     }
-    X <- X[genes, i, drop = FALSE]
-    colnames(X) <- paste0(label, "_", colnames(X) %||% seq_along(i))
-    X
-  }, Xs, labels)
-  do.call(cbind, out)
+    cell_names <- colnames(X)
+    if (is.null(cell_names)) {
+      cell_names <- as.character(seq_len(ncol(X)))
+    }
+    obs <- .unit_obs(m, ncol(X), cell_names)
+    obs <- obs[i, , drop = FALSE]
+    if (!is.null(kept) && "sample" %in% names(obs)) {
+      names(obs)[names(obs) == "sample"] <- kept
+    }
+    for (nm in setdiff(obs_cols, names(obs))) {
+      obs[[nm]] <- NA
+    }
+    if (length(obs_cols) > 0) {
+      obs <- obs[obs_cols]
+    }
+    obs[["sample"]] <- sample_label
+
+    # subsetting an unsubsampled matrix would copy it for nothing
+    if (length(i) < ncol(X)) {
+      X <- X[, i, drop = FALSE]
+    }
+    X <- .align_rows(X, genes, complete = whole, sparse = as_sparse)
+    new_names <- paste0(label, "_", cell_names[i])
+    colnames(X) <- new_names
+    rownames(obs) <- new_names
+    list(X = X, obs = obs)
+  }, x, labels, sample_labels, complete)
+
+  X <- do.call(cbind, lapply(parts, function(p) p$X))
+  obs <- do.call(rbind, unname(lapply(parts, function(p) p$obs)))
+  # an unmeasured antibody arrives as an all-NA row, which nulls any column sum
+  blank <- .all_na_rows(X)
+  if (blank > 0) {
+    cli::cli_warn(c(
+      "{blank} of {nrow(X)} features are NA in every cell.",
+      i = "Per-cell totals over them are NA; drop them before normalising."
+    ))
+  }
+  if (anyDuplicated(colnames(X))) {
+    fixed <- make.unique(colnames(X), sep = "_")
+    colnames(X) <- fixed
+    rownames(obs) <- fixed
+  }
+
+  structure(
+    list(
+      X = X, obs = obs, var = .bind_var(x, genes),
+      kind = .bind_kind(x), evidence = "bound from count-matrix units",
+      fmt = paste(unique(vapply(x, function(m) m$fmt %||% NA_character_, character(1))),
+        collapse = ", "
+      ),
+      accession = paste(unique(sample_labels), collapse = ", "),
+      source = paste(unique(vapply(x, function(m) m$source %||% "", character(1))),
+        collapse = ", "
+      )
+    ),
+    class = "seqout_matrix"
+  )
+}
+
+#' @noRd
+.bind_labels <- function(x, labels = NULL) {
+  labels <- labels %||% names(x)
+  if (is.null(labels)) {
+    labels <- seq_along(x)
+  }
+  if (length(labels) != length(x)) {
+    cli::cli_abort("{.arg labels} must have one value per matrix.")
+  }
+  labels <- as.character(labels)
+  blank <- is.na(labels) | !nzchar(labels)
+  labels[blank] <- as.character(seq_along(labels)[blank])
+  labels
+}
+
+#' @noRd
+.unit_sample_label <- function(x, label) {
+  sample <- x$sample %||% NA_character_
+  if (length(sample) == 1L && !is.na(sample) && nzchar(sample)) {
+    return(as.character(sample))
+  }
+  accession <- x$accession %||% NA_character_
+  if (length(accession) == 1L && !is.na(accession) && startsWith(accession, "GSM")) {
+    return(as.character(accession))
+  }
+  as.character(label)
+}
+
+#' @noRd
+.check_max_cells <- function(max_cells) {
+  if (is.null(max_cells)) {
+    return(NULL)
+  }
+  if (!is.numeric(max_cells) || length(max_cells) != 1L ||
+    is.na(max_cells) || max_cells < 1 || max_cells != floor(max_cells)) {
+    cli::cli_abort("{.arg max_cells} must be a positive integer or {.code NULL}.")
+  }
+  as.integer(max_cells)
+}
+
+#' @noRd
+.unit_obs <- function(x, n_cells, cell_names) {
+  obs <- x$obs
+  if (!is.data.frame(obs) || nrow(obs) != n_cells) {
+    return(data.frame(row.names = make.unique(cell_names)))
+  }
+  as.data.frame(obs, stringsAsFactors = FALSE, optional = TRUE)
+}
+
+#' @noRd
+.bind_var <- function(x, genes) {
+  for (m in x) {
+    var <- m$var
+    if (is.data.frame(var) && all(genes %in% rownames(var))) {
+      out <- var[genes, , drop = FALSE]
+      rownames(out) <- genes
+      return(out)
+    }
+  }
+  data.frame(row.names = genes)
+}
+
+#' @noRd
+.bind_kind <- function(x) {
+  kinds <- unique(vapply(x, function(m) m$kind %||% NA_character_, character(1)))
+  kinds <- kinds[!is.na(kinds)]
+  if (length(kinds) == 1L) {
+    return(kinds)
+  }
+  if ("single_cell" %in% kinds) {
+    return("single_cell")
+  }
+  "unknown"
 }
 
 #' @noRd
@@ -553,18 +891,18 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL) {
   if (methods::is(X, "Matrix")) Matrix::t(X) else t(X)
 }
 
-.counts_X <- function(x) {
+#' @noRd
+.check_seqout_matrix <- function(x) {
   if (!inherits(x, "seqout_matrix")) {
     cli::cli_abort("{.arg x} must be a {.cls seqout_matrix} (from {.fn seqout_matrix}).")
   }
-  x$X
+  x
 }
+
 
 #' Read every preferred unit
 #'
-#' Units that cannot be read are skipped with a warning, so one broken file does
-#' not fail the whole call. Compare the length against the rows returned by
-#' [seqout_counts()].
+#' Broken units are skipped with a warning.
 #'
 #' @param counts A `seqout_counts` tibble from [seqout_counts()].
 #' @param sample Unit labels or sample accessions to read. `NULL` reads every
@@ -575,26 +913,41 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL) {
 #' @export
 matrices <- function(counts, sample = NULL) {
   .check_counts(counts)
-  units <- if (is.null(sample)) {
-    .counts_units(counts, preferred_only = TRUE)
-  } else {
-    lapply(sample, function(s) .select_unit(counts, s))
-  }
+  units <- .select_units(counts, sample)
+  .prefetch_units(counts, units)
+  .read_units(counts, units)
+}
 
+#' Download every file the units need, in one batch
+#' @noRd
+.prefetch_units <- function(counts, units) {
   urls <- unique(unlist(lapply(units, .unit_urls), use.names = FALSE))
   if (length(urls) > 0) {
     .download_files(urls, counts$cache_dir)
   }
+  invisible(urls)
+}
 
+#' Read units into a named list, skipping the ones that will not parse
+#' @noRd
+.read_units <- function(counts, units, key = function(u) u$label) {
   out <- list()
   for (u in units) {
     m <- tryCatch(.read_unit(counts, u), error = function(e) {
       cli::cli_warn("Could not read {u$label}: {conditionMessage(e)}")
       NULL
     })
-    if (!is.null(m)) out[[u$label]] <- m
+    if (!is.null(m)) out[[key(u)]] <- m
   }
   out
+}
+
+#' @noRd
+.select_units <- function(counts, sample = NULL) {
+  if (is.null(sample)) {
+    return(.counts_units(counts, preferred_only = TRUE))
+  }
+  lapply(as.character(sample), function(s) .select_unit(counts, s))
 }
 
 #' @noRd
@@ -641,15 +994,9 @@ matrices <- function(counts, sample = NULL) {
   ))
 }
 
-#' Read a tar archive by extracting its matrix members and regrouping them
-#'
-#' GEO ships plenty of series as a single `_RAW.tar`, so the matrices are inside
-#' the archive rather than beside it. Extract the members that carry a role,
-#' then hand them back through `.group_units()` so a tar full of loose 10x
-#' triplets assembles exactly as it would have if GEO had listed those files
-#' individually. Extraction happens once; the marker directory is the cache.
-#'
-#' Mirrors the Python client's `SeqoutCounts._expand_tar()`.
+#' Extract and regroup a tar archive
+#' 
+#' Regrouping assembles loose 10x triplets. The marker directory caches extraction.
 #'
 #' @param counts A seqout_counts object.
 #' @param unit The tar unit to expand.
@@ -667,8 +1014,7 @@ matrices <- function(counts, sample = NULL) {
     if (length(members) == 0) {
       cli::cli_abort("{basename(tar_path)}: no readable matrix inside.")
     }
-    # Extract to a scratch directory and rename, so an interrupted run never
-    # leaves a half-populated dest that later runs would trust.
+    # extract to scratch and rename; partial dest must fail cache trust
     tmp <- tempfile("untar", tmpdir = counts$cache_dir)
     utils::untar(tar_path, files = members, exdir = tmp)
     file.rename(tmp, dest)
@@ -710,10 +1056,9 @@ matrices <- function(counts, sample = NULL) {
   units[[1]]
 }
 
-#' Is this a local path rather than something to download?
+#' Whether a unit URL is a local path
 #'
-#' Members extracted out of a tar carry their on-disk path where a remote file
-#' carries a URL, so both fetching and path resolution have to tell them apart.
+#' Extracted tar members use local paths, so fetching must skip them.
 #' @noRd
 .is_local_path <- function(x) {
   !grepl("^[A-Za-z][A-Za-z0-9+.-]*://", x)
@@ -774,6 +1119,7 @@ matrices <- function(counts, sample = NULL) {
       X = X, obs = parsed$obs, var = parsed$var,
       kind = decided$kind, evidence = decided$evidence,
       fmt = unit$fmt, accession = unit$sample %||% counts$accession,
+      sample = unit$sample %||% NA_character_, unit = unit$label,
       source = paste(file_names, collapse = ", ")
     ),
     class = "seqout_matrix"
@@ -791,4 +1137,335 @@ print.seqout_matrix <- function(x, ...) {
     " " = "Source: {x$source}"
   ))
   invisible(x)
+}
+
+#' The modality a unit carries, from its file names
+#' @noRd
+.unit_modality <- function(u) {
+  names <- vapply(u$files, function(f) f$name, character(1))
+  found <- stats::na.omit(.modality_in_vec(names))
+  if (length(found) == 0) NA_character_ else found[[1]]
+}
+
+#' Group selected units by modality, keyed by sample
+#'
+#' Only samples carrying more than one modality can make a multimodal object.
+#' @noRd
+.modal_groups <- function(counts, sample = NULL) {
+  units <- .counts_units(counts, preferred_only = FALSE)
+  if (!is.null(sample)) {
+    want <- toupper(trimws(as.character(sample)))
+    keep <- vapply(units, function(u) {
+      toupper(u$label) %in% want || toupper(u$sample %||% "") %in% want
+    }, logical(1))
+    units <- units[keep]
+  }
+  mods <- vapply(units, .unit_modality, character(1))
+  units <- units[!is.na(mods)]
+  mods <- mods[!is.na(mods)]
+  if (length(units) == 0) {
+    return(NULL)
+  }
+  keys <- vapply(units, function(u) u$sample %||% NA_character_, character(1))
+  if (anyNA(keys)) {
+    return(NULL)
+  }
+  per_sample <- split(mods, keys)
+  if (!any(vapply(per_sample, function(m) length(unique(m)) > 1L, logical(1)))) {
+    return(NULL)
+  }
+  # a sample missing a modality the others have would misalign the assays
+  shared <- Reduce(intersect, lapply(per_sample, unique))
+  if (length(shared) < 2L) {
+    return(NULL)
+  }
+  out <- lapply(shared, function(m) .one_unit_per_sample(units[mods == m], m))
+  stats::setNames(out, shared)
+}
+
+#' Keep the best-ranked unit for each sample within a modality
+#'
+#' Units of the same modality share a sample key; extra formats or raw
+#' copies would overwrite the preferred unit.
+#' @noRd
+.one_unit_per_sample <- function(units, assay) {
+  keys <- vapply(units, function(u) u$sample %||% NA_character_, character(1))
+  if (!anyDuplicated(keys)) {
+    return(units)
+  }
+  ranks <- .unit_ranks(units, assay)
+  best <- vapply(
+    split(seq_along(units), keys),
+    function(i) i[which.min(ranks[i])], integer(1)
+  )
+  units[sort(best)]
+}
+
+#' Read each modality into one matrix, on the cells they share
+#'
+#' Binding uses the sample accession as the cell-name prefix, so the same cell
+#' carries the same name in every modality.
+#' @noRd
+.read_modalities <- function(counts, groups, max_cells = NULL) {
+  read_group <- function(units) {
+    mats <- .read_units(counts, units, key = function(u) u$sample %||% u$label)
+    if (length(mats) == 0) NULL else .bind_units(mats, labels = names(mats))
+  }
+  .prefetch_units(counts, unlist(groups, recursive = FALSE))
+  out <- Filter(Negate(is.null), lapply(groups, read_group))
+  if (length(out) < 2L) {
+    return(NULL)
+  }
+  cells <- Reduce(intersect, lapply(out, function(m) colnames(m$X)))
+  if (length(cells) == 0) {
+    cli::cli_warn(
+      "The {length(out)} modalities share no cell names, so they stay separate."
+    )
+    return(NULL)
+  }
+  if (!is.null(max_cells) && length(cells) > max_cells) {
+    cells <- cells[sort(sample.int(length(cells), max_cells))]
+  }
+  lapply(out, function(m) {
+    m$X <- m$X[, cells, drop = FALSE]
+    m$obs <- m$obs[cells, , drop = FALSE]
+    m
+  })
+}
+
+
+#' @noRd
+.sce_multimodal <- function(mods, assay_name = "counts", ...) {
+  lead <- mods[[1]]
+  args <- list(...)
+  args$assays <- stats::setNames(list(lead$X), assay_name)
+  if (is.null(args$colData) && ncol(lead$obs) > 0) {
+    args$colData <- lead$obs
+  }
+  if (is.null(args$rowData) && ncol(lead$var) > 0) {
+    args$rowData <- lead$var
+  }
+  sce <- do.call(SingleCellExperiment::SingleCellExperiment, args)
+  for (m in names(mods)[-1]) {
+    alt <- SingleCellExperiment::SingleCellExperiment(
+      assays = stats::setNames(list(mods[[m]]$X), assay_name)
+    )
+    SingleCellExperiment::altExp(sce, .assay_name(m)) <- alt
+  }
+  sce
+}
+
+#' Count features that are NA in every cell, without densifying
+#'
+#' A sparse matrix stores NA explicitly, so a row is wholly NA only when it
+#' holds one NA per column.
+#' @noRd
+.all_na_rows <- function(X) {
+  if (!methods::is(X, "sparseMatrix")) {
+    # anyNA scans without allocating; the common case leaves here
+    if (!anyNA(X)) {
+      return(0L)
+    }
+    return(sum(rowSums(is.na(X)) == ncol(X)))
+  }
+  if (!anyNA(X@x)) {
+    return(0L)
+  }
+  rows <- X@i[is.na(X@x)] + 1L
+  sum(tabulate(rows, nrow(X)) == ncol(X))
+}
+
+#' Join the study's sample record onto the cells
+#'
+#' Sample accessions link cells to sample metadata. Existing `obs` columns
+#' win because the submitter's per-cell values are more specific.
+#' @noRd
+.attach_sample_metadata <- function(m, counts) {
+  if (is.null(counts) || !"sample" %in% names(m$obs)) {
+    return(m)
+  }
+  rows <- tryCatch(.sample_rows(counts), error = function(e) NULL)
+  if (is.null(rows) || nrow(rows) == 0) {
+    return(m)
+  }
+  rows <- as.data.frame(rows)
+  add <- setdiff(names(rows), c(names(m$obs), "accession"))
+  i <- match(m$obs$sample, rows$accession)
+  for (nm in add) {
+    value <- rows[[nm]][i]
+    # a list column would not survive into meta.data
+    if (!is.list(value)) m$obs[[nm]] <- value
+  }
+  m
+}
+
+#' The study's sample table, reusing the counts handle's cache
+#' 
+#' `.counts_files()` fetches this table for a GSE; reuse avoids another request.
+#' @noRd
+.sample_rows <- function(counts) {
+  cached <- counts$cache
+  rows <- if (!is.null(cached) && exists("samples", envir = cached, inherits = FALSE)) {
+    base::get("samples", envir = cached)
+  } else {
+    seqout_get(counts$accession, con = counts$con)$samples
+  }
+  # both paths spread the characteristics, so callers see one shape either way
+  .unnest_characteristics(rows)
+}
+
+#' The counts handle behind whatever the caller passed
+#' @noRd
+.counts_of <- function(x, assay = "rna") {
+  if (inherits(x, "seqout_counts")) {
+    return(x)
+  }
+  if (rlang::is_string(x) && grepl("^GS[EM][0-9]+$", toupper(trimws(x)))) {
+    return(tryCatch(seqout_counts(toupper(trimws(x)), assay = assay),
+      error = function(e) NULL
+    ))
+  }
+  NULL
+}
+
+
+#' Split a multiome unit into one matrix per feature class
+#'
+#' A 10x multiome stores genes and peaks in one matrix, identified by feature type.
+#' @noRd
+.split_feature_types <- function(m) {
+  types <- m$var[["feature_type"]]
+  if (is.null(types)) {
+    return(NULL)
+  }
+  mods <- .feature_type_modality(types)
+  known <- !is.na(mods)
+  if (length(unique(mods[known])) < 2L) {
+    return(NULL)
+  }
+  if (any(!known)) {
+    dropped <- unique(as.character(types)[!known])
+    cli::cli_warn(c(
+      "{sum(!known)} feature{?s} of an unknown class {?is/are} left out of the assays.",
+      i = "Unmapped: {.val {dropped}}."
+    ))
+  }
+  parts <- lapply(split(which(known), mods[known]), function(i) {
+    m$X <- m$X[i, , drop = FALSE]
+    m$var <- m$var[i, , drop = FALSE]
+    m
+  })
+  parts[.modal_order(names(parts))]
+}
+
+#' Fragments files for an ATAC study
+#'
+#' A fragments file holds one bgzipped BED-like row per ATAC fragment, with
+#' columns `chrom`, `start`, `end`, `barcode` and `read_support`.
+#' 
+#' Files download only when `download = TRUE`.
+#'
+#' GEO rarely holds the `.tbi` index Signac wants. Build one after downloading
+#' with `Rsamtools::indexTabix(path, format = "bed")`.
+#'
+#' That works on a CellRanger fragments file, which is bgzipped and sorted by
+#' coordinate. Some deposits are neither: GSE184462 ships plain-gzipped files
+#' sorted by barcode, and tabix rejects them with "Chromosome blocks not
+#' continuous". Sort and recompress first:
+#' `sort -k1,1 -k2,2n`, then `Rsamtools::bgzip()`, then `indexTabix()`.
+#'
+#' @param counts A `seqout_counts` tibble from [seqout_counts()].
+#' @param sample Sample accessions to keep. `NULL` returns every fragments file
+#'   in the study.
+#' @param download Fetch the files and report where they landed. `FALSE`, the
+#'   default, only lists them.
+#'
+#' @return A tibble of `sample`, `file`, `url`, `indexed` and `path`. `path` is
+#'   `NA` until the file is downloaded.
+#'
+#' @seealso [seqout_counts()] for the matrices, [seqout_counts_files()] for a
+#'   unit's own files.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' counts <- SeqoutListCounts("GSE156478")
+#' SeqoutFragments(counts)
+#'
+#' frags <- SeqoutFragments(counts, sample = "GSM5065524", download = TRUE)
+#' Rsamtools::indexTabix(frags$path[1], format = "bed")
+#' }
+seqout_fragments <- function(counts, sample = NULL, download = FALSE) {
+  .check_counts(counts)
+  rows <- .counts_files(counts)
+  keep <- .is_fragments(rows$name)
+  if (!is.null(sample)) {
+    keep <- keep & rows$sample %in% toupper(trimws(as.character(sample)))
+  }
+  out <- tibble::tibble(
+    sample = rows$sample[keep], file = rows$name[keep], url = rows$url[keep],
+    indexed = paste0(rows$url[keep], ".tbi") %in% rows$url,
+    path = NA_character_
+  )
+  out <- out[order(out$sample, out$file), , drop = FALSE]
+  if (nrow(out) == 0) {
+    cli::cli_warn(c(
+      "{counts$accession} lists no fragments file.",
+      i = "Only ATAC and multiome studies ship one."
+    ))
+    return(out)
+  }
+  if (isTRUE(download)) {
+    .download_files(out$url, counts$cache_dir)
+    # .dest_paths holds downloaded names in request order.
+    out$path <- .dest_paths(out$url, counts$cache_dir)
+  }
+  if (!any(out$indexed)) {
+    cli::cli_inform(
+      "No {.file .tbi} index is deposited; build one with {.fn Rsamtools::indexTabix}."
+    )
+  }
+  out
+}
+
+
+#' A named list of matrices, one per assay, for both converters
+#' 
+#' Resolving the counts handle once avoids repeated manifest reads.
+#' @noRd
+.converter_input <- function(x, sample, max_cells, multimodal, sample_metadata) {
+  counts <- .counts_of(x, assay = if (isTRUE(multimodal)) NULL else "rna")
+  mods <- .maybe_modalities(counts, sample, max_cells, multimodal)
+  if (is.null(mods)) {
+    # Reuse counts handles; other inputs resolve through x for error reporting.
+    from <- if (inherits(counts, "seqout_counts")) counts else x
+    mods <- list(rna = .as_seqout_matrix(from, sample = sample, max_cells = max_cells))
+  }
+  if (isTRUE(sample_metadata)) {
+    mods[[1]] <- .attach_sample_metadata(mods[[1]], counts)
+  }
+  if (isTRUE(multimodal)) mods <- .expand_feature_types(mods) else mods
+}
+
+#' Split any modality that turns out to carry several feature classes
+#'
+#' A 10x multiome can carry several feature classes under one filename.
+#' CellRanger feature classes take precedence; existing class matrices are kept.
+#' @noRd
+.expand_feature_types <- function(mods) {
+  out <- list()
+  for (nm in names(mods)) {
+    parts <- .split_feature_types(mods[[nm]])
+    if (is.null(parts)) {
+      if (is.null(out[[nm]])) out[[nm]] <- mods[[nm]]
+      next
+    }
+    cli::cli_inform(
+      "Splitting {nrow(mods[[nm]]$X)} features into {length(parts)} assay{?s} ({.val {names(parts)}})."
+    )
+    for (pn in names(parts)) {
+      if (is.null(out[[pn]])) out[[pn]] <- parts[[pn]]
+    }
+  }
+  out[.modal_order(names(out))]
 }

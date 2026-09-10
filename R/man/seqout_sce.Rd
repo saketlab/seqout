@@ -5,47 +5,63 @@
 \alias{Seqout2SCE}
 \title{Convert counts to a SingleCellExperiment}
 \usage{
-seqout_sce(x, assay_name = "counts", ...)
+seqout_sce(
+  x,
+  assay_name = "counts",
+  sample = NULL,
+  max_cells = NULL,
+  multimodal = TRUE,
+  sample_metadata = FALSE,
+  ...
+)
 
-Seqout2SCE(x, assay_name = "counts", ...)
+Seqout2SCE(
+  x,
+  assay_name = "counts",
+  sample = NULL,
+  max_cells = NULL,
+  multimodal = TRUE,
+  sample_metadata = FALSE,
+  ...
+)
 }
 \arguments{
-\item{x}{A \code{seqout_matrix} from \code{\link[=seqout_matrix]{seqout_matrix()}}, or one GSM accession.}
+\item{x}{A \code{seqout_matrix} from \code{\link[=seqout_matrix]{seqout_matrix()}}, one GSE/GSM accession,
+or a \code{seqout_counts} tibble from \code{\link[=seqout_counts]{seqout_counts()}}.}
 
-\item{assay_name}{The name to give the assay. \code{"counts"} by default, the
-name the Bioconductor single-cell packages look for.}
+\item{assay_name}{Assay name. Defaults to \code{"counts"}.}
 
-\item{...}{Passed to \code{\link[SingleCellExperiment:SingleCellExperiment]{SingleCellExperiment::SingleCellExperiment()}}, such as
-\code{metadata} or \code{reducedDims}. The assay comes from \code{x}, and \code{colData} and
-\code{rowData} too unless you give your own.}
+\item{sample}{Unit labels or sample accessions to read when \code{x} is a GSE or
+\code{seqout_counts}. \code{NULL} reads every preferred unit.}
+
+\item{max_cells}{Cap on cells kept per unit, sampled at random. \code{NULL} keeps
+all cells.}
+
+\item{multimodal}{Carry the other modalities as \code{altExp} entries.
+\code{FALSE} reads the preferred unit of each sample.}
+
+\item{sample_metadata}{Join the study's sample record onto every cell, by the
+accession the cell came from. A column already in the cell metadata wins.}
+
+\item{...}{Passed to \code{\link[SingleCellExperiment:SingleCellExperiment]{SingleCellExperiment::SingleCellExperiment()}}.}
 }
 \value{
 A \code{SingleCellExperiment} object.
 }
 \description{
-The Bioconductor counterpart of \code{\link[=seqout_seurat]{seqout_seurat()}}. \code{X} becomes the \code{counts}
-assay, the per-cell annotation becomes \code{colData} and the per-feature
-annotation becomes \code{rowData}. A \code{seqout_matrix} is already features by
-observations, the orientation \code{SingleCellExperiment} expects, so nothing is
-transposed.
-}
-\details{
-A GSM accession is read first, through \code{\link[=seqout_counts]{seqout_counts()}} and
-\code{\link[=seqout_matrix]{seqout_matrix()}}. Use those two yourself for a series, for a sample that
-ships more than one matrix, or for an assay other than RNA.
-
-The SingleCellExperiment package must be installed. It is on Bioconductor:
-\code{BiocManager::install("SingleCellExperiment")}.
+\code{X} becomes \code{counts}; \code{obs} becomes \code{colData}; \code{var} becomes \code{rowData}.
+A GSE or GSM accession is resolved through \code{\link[=seqout_counts]{seqout_counts()}}.
+Requires SingleCellExperiment.
 }
 \examples{
 \dontrun{
 sce <- Seqout2SCE("GSM8994520")
 
-counts <- SeqoutCounts("GSE297547")
-sce <- Seqout2SCE(SeqoutMatrix(counts, sample = "GSM8994520"))
+sce <- Seqout2SCE("GSE297547", sample = "GSM8994520")
+counts <- SeqoutListCounts("GSE297547")
+sce <- Seqout2SCE(counts, sample = "GSM8994520")
 }
 }
 \seealso{
-\code{\link[=seqout_seurat]{seqout_seurat()}} for the Seurat equivalent, \code{\link[=seqout_matrix]{seqout_matrix()}} for
-the matrix on its own, and \code{\link[=matrices]{matrices()}} with \code{lapply()} for a whole series.
+\code{\link[=seqout_seurat]{seqout_seurat()}}, \code{\link[=seqout_matrix]{seqout_matrix()}} and \code{\link[=matrices]{matrices()}}.
 }

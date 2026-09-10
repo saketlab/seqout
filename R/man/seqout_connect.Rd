@@ -26,23 +26,18 @@ SeqoutConnect(
 \arguments{
 \item{backend}{\code{"api"}, the default, or \code{"parquet"}. See the description.}
 
-\item{base_url}{The address of the Seqout server. The default is the
-\code{SEQOUT_BASE_URL} environment variable, or \code{"https://seqout.org"} when
-that variable is empty. The variable lets CI use an origin that is not
-behind the public CDN, with no change to the code.}
+\item{base_url}{Seqout server URL. Defaults to \code{SEQOUT_BASE_URL}, then
+\code{"https://seqout.org"}.}
 
-\item{data_dir}{Where the \code{.parquet} files are, when they are not the
-published dump: a directory that holds \code{geo_series.parquet} and its
-siblings, or the URL of another dump. Give the directory that holds the
-files themselves. The default, \code{NULL}, reads \code{"<base_url>/data"}. The
-\code{"api"} backend ignores this argument.}
+\item{data_dir}{Directory or URL holding the \code{.parquet} files. \code{NULL} reads
+\code{"<base_url>/data"}. The \code{"api"} backend ignores it.}
 
 \item{read_only}{Make the DuckDB connection read-only. The default is
 \code{FALSE}, so that \code{\link[=cache_table]{cache_table()}} can write views to local storage. The
 \code{"api"} backend ignores this argument.}
 
-\item{eager}{Register every Parquet view now, and not at the first use. The
-\code{"api"} backend ignores this argument.}
+\item{eager}{Register every Parquet view at connection time. The \code{"api"}
+backend ignores it.}
 
 \item{quiet}{Do not show the message at the start.}
 }
@@ -50,30 +45,28 @@ files themselves. The default, \code{NULL}, reads \code{"<base_url>/data"}. The
 A \code{seqout_connection} object.
 }
 \description{
-There are currently two backends supported:
+Two backends are supported:
 }
 \details{
 \itemize{
 \item \code{"api"}, the default, reads \url{https://seqout.org} with HTTP.
 \item \code{"parquet"} reads the Parquet dump with DuckDB through \code{httpfs}. It
-answers SQL, and it works offline against a local dump. It is slower over
-a remote URL, and it lags the live index. Requires the \code{duckdb} package.
+answers SQL and can read a local dump. Requires the \code{duckdb} package.
 }
 
-You must select the Parquet backend. The package does not change to it for
-you, because one lookup would become a scan of many gigabytes.
+Select Parquet explicitly; one lookup can become a dump scan.
 }
 \examples{
 \dontrun{
-# The REST API is the default
+# REST API default
 project("GSE297547")
 
-# Select Parquet for SQL and for offline work
+# Parquet for SQL and local dumps
 con <- SeqoutConnect("parquet")
 Query("SELECT * FROM geo_series LIMIT 5", con = con)
 SeqoutClose(con)
 
-# A dump of your own, on disk
+# local dump
 con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
 Query("SELECT count(*) FROM geo_series", con = con)
 SeqoutClose(con)

@@ -139,3 +139,30 @@ test_that("sample selection keeps only annotated samples that ship a unit", {
   expect_equal(out$unit, c("GSM3", "GSM2:rds"))
   expect_equal(names(out)[1:4], c("sample", "unit", "format", "cells"))
 })
+
+test_that("RNA leads the assays whatever order the modalities were found in", {
+  expect_equal(seqout:::.modal_order(c("atac", "adt", "rna")), c("rna", "adt", "atac"))
+  expect_equal(seqout:::.modal_order(c("hto", "rna")), c("rna", "hto"))
+})
+
+test_that("modality names map to the assay names users expect", {
+  expect_equal(seqout:::.assay_name("rna"), "RNA")
+  expect_equal(seqout:::.assay_name("adt"), "ADT")
+  expect_equal(seqout:::.assay_name("hto"), "HTO")
+  expect_equal(seqout:::.assay_name("atac"), "ATAC")
+})
+
+test_that("feature types map to modalities, and one type alone does not split", {
+  one <- mock_matrix(demo_X())
+  one$var$feature_type <- rep("Gene Expression", 3)
+  expect_null(seqout:::.split_feature_types(one))
+
+  expect_null(seqout:::.split_feature_types(mock_matrix(demo_X())))
+
+  two <- mock_matrix(demo_X())
+  two$var$feature_type <- c("Gene Expression", "Peaks", "Peaks")
+  parts <- seqout:::.split_feature_types(two)
+  expect_equal(names(parts), c("rna", "atac"))
+  expect_equal(nrow(parts$rna$X), 1L)
+  expect_equal(nrow(parts$atac$X), 2L)
+})

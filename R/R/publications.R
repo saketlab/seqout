@@ -1,12 +1,10 @@
 #' Get publications linked to study accessions
 #'
-#' Parses the JSON publications column from the `study_publications` table
-#' using DuckDB's JSON functions.
+#' Reads publication records from project metadata.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accessions Character vector of study accessions.
-#' @return A tibble with publication metadata (accession, source, pmid, title,
-#'   journal, doi, citation_count, etc.).
+#' @return A tibble with publication metadata.
 #' @keywords internal
 publications <- function(accessions, con = .con()) {
   .check_connection(con)

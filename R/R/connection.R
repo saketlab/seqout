@@ -1,8 +1,6 @@
-#' A dump on disk, checked before DuckDB is asked for it
+#' Validate a local dump path
 #'
-#' A missing directory would otherwise surface as one warning per table, 29 of
-#' them, none saying the path is wrong. A URL is passed through untouched:
-#' `read_parquet()` takes either, and only a local path can be tested here.
+#' A missing directory gives noisy table errors. URLs pass through to DuckDB.
 #' @noRd
 .check_data_dir <- function(data_dir, backend) {
   if (is.null(data_dir)) {
@@ -32,31 +30,24 @@
 
 #' Connect to Seqout
 #'
-#' There are currently two backends supported:
+#' Two backends are supported:
 #'
 #' * `"api"`, the default, reads <https://seqout.org> with HTTP.
 #' * `"parquet"` reads the Parquet dump with DuckDB through `httpfs`. It
-#'   answers SQL, and it works offline against a local dump. It is slower over
-#'   a remote URL, and it lags the live index. Requires the `duckdb` package.
+#'   answers SQL and can read a local dump. Requires the `duckdb` package.
 #'
-#' You must select the Parquet backend. The package does not change to it for
-#' you, because one lookup would become a scan of many gigabytes.
+#' Select Parquet explicitly; one lookup can become a dump scan.
 #'
 #' @param backend `"api"`, the default, or `"parquet"`. See the description.
-#' @param base_url The address of the Seqout server. The default is the
-#'   `SEQOUT_BASE_URL` environment variable, or `"https://seqout.org"` when
-#'   that variable is empty. The variable lets CI use an origin that is not
-#'   behind the public CDN, with no change to the code.
-#' @param data_dir Where the `.parquet` files are, when they are not the
-#'   published dump: a directory that holds `geo_series.parquet` and its
-#'   siblings, or the URL of another dump. Give the directory that holds the
-#'   files themselves. The default, `NULL`, reads `"<base_url>/data"`. The
-#'   `"api"` backend ignores this argument.
+#' @param base_url Seqout server URL. Defaults to `SEQOUT_BASE_URL`, then
+#'   `"https://seqout.org"`.
+#' @param data_dir Directory or URL holding the `.parquet` files. `NULL` reads
+#'   `"<base_url>/data"`. The `"api"` backend ignores it.
 #' @param read_only Make the DuckDB connection read-only. The default is
 #'   `FALSE`, so that [cache_table()] can write views to local storage. The
 #'   `"api"` backend ignores this argument.
-#' @param eager Register every Parquet view now, and not at the first use. The
-#'   `"api"` backend ignores this argument.
+#' @param eager Register every Parquet view at connection time. The `"api"`
+#'   backend ignores it.
 #' @param quiet Do not show the message at the start.
 #'
 #' @return A `seqout_connection` object.
@@ -64,15 +55,15 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' # The REST API is the default
+#' # REST API default
 #' project("GSE297547")
 #'
-#' # Select Parquet for SQL and for offline work
+#' # Parquet for SQL and local dumps
 #' con <- SeqoutConnect("parquet")
 #' Query("SELECT * FROM geo_series LIMIT 5", con = con)
 #' SeqoutClose(con)
 #'
-#' # A dump of your own, on disk
+#' # local dump
 #' con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
 #' Query("SELECT count(*) FROM geo_series", con = con)
 #' SeqoutClose(con)
@@ -119,17 +110,11 @@ seqout_connect <- function(backend = c("api", "parquet"),
   con
 }
 
-#' The connection used when a call does not name one
-#'
-#' Holds the process-wide default so `.con()` can hand the same REST connection
-#' to every call without reopening it.
+#' Process-wide default connection state
 #' @noRd
 .seqout_state <- new.env(parent = emptyenv())
 
-#' Set the connection every function falls back to
-#'
-#' Call this once to make a Parquet connection the default for the session,
-#' instead of passing `con =` to every call.
+#' Set the process-wide default connection
 #'
 #' @param con A `seqout_connection`, or `NULL` to go back to the built-in
 #'   REST default.
@@ -152,9 +137,7 @@ seqout_default <- function(con) {
 
 #' Resolve the connection for a call
 #'
-#' Every exported function defaults its `con` argument to `.con()`. The
-#' argument is lazy, so the default connection is only built if a call actually
-#' needs one -- loading the package opens nothing.
+#' The default connection is built lazily, so package load opens nothing.
 #' @noRd
 .con <- function() {
   if (is.null(.seqout_state$default)) {
@@ -163,11 +146,9 @@ seqout_default <- function(con) {
   .seqout_state$default
 }
 
-#' Refuse a REST connection where only DuckDB can answer
+#' Require a Parquet connection
 #'
-#' Some functions are SQL over the whole dump with no REST equivalent. Erroring
-#' beats silently opening DuckDB: that would turn one call into a multi-gigabyte
-#' scan the caller never asked for.
+#' Abort before a REST call triggers a dump scan.
 #' @noRd
 .need_parquet <- function(con, what = NULL) {
   .check_connection(con)
@@ -182,10 +163,9 @@ seqout_default <- function(con) {
   ))
 }
 
-#' Refuse a Parquet connection where only REST can answer
+#' Require a REST connection
 #'
-#' The mirror of `.need_parquet()`: some tables are served and never dumped,
-#' so there is nothing for DuckDB to read.
+#' Some API data is absent from the dump.
 #' @param why An extra hint naming what the dump is missing.
 #' @noRd
 .need_api <- function(con, what, why = NULL) {
@@ -238,6 +218,8 @@ seqout_default <- function(con) {
   DBI::dbExecute(db, "SET enable_http_metadata_cache = true")
   DBI::dbExecute(db, "SET enable_object_cache = true")
   try(DBI::dbExecute(db, "SET http_keep_alive = false"), silent = TRUE)
+  # Appended to DuckDB's User-Agent so seqout.org can attribute parquet reads.
+  try(DBI::dbExecute(db, sprintf("SET custom_user_agent = '%s'", .user_agent())), silent = TRUE)
 
   con$state$drv <- drv
   con$state$db <- db
@@ -246,13 +228,11 @@ seqout_default <- function(con) {
 
 #' Register the remote Parquet views
 #'
-#' Views are created on first reference, which keeps [seqout_connect()] quick.
-#' Anything that reads the DuckDB catalog directly, such as `dplyr::tbl()`,
-#' needs them to exist first.
+#' Views are lazy; catalog reads need them registered first.
 #'
+#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @param tables Which tables to register. Defaults to all of them.
 #' @param progress Show a progress bar. Defaults to `TRUE` interactively.
-#' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #'
 #' @return The names of every registered view, invisibly.
 #'
@@ -260,10 +240,14 @@ seqout_default <- function(con) {
 #' @examples
 #' \dontrun{
 #' con <- SeqoutConnect("parquet")
-#' RegisterTables("unified_metadata", con = con)
+#' RegisterTables(con, "unified_metadata")
 #' dplyr::tbl(con$db, "unified_metadata")
+#'
+#' # all views
+#' SeqoutConnect("parquet") |> RegisterTables()
 #' }
-register_tables <- function(tables = NULL, progress = interactive(), con = .con()) {
+register_tables <- function(con = .con(), tables = NULL,
+                            progress = interactive()) {
   .need_parquet(con, "register_tables")
   tables <- tables %||% con$tables
   unknown <- setdiff(tables, con$tables)
@@ -273,10 +257,9 @@ register_tables <- function(tables = NULL, progress = interactive(), con = .con(
   invisible(.register_views(con, tables, progress = progress))
 }
 
-#' Create any of `tables` that is not registered yet
+#' Register missing views
 #'
-#' `con$views` is an environment, so a view registered through one copy of the
-#' connection is visible from every other.
+#' `con$views` is shared, so copied connections see the same views.
 #' @noRd
 .register_views <- function(con, tables, progress = FALSE) {
   pending <- setdiff(tables, ls(con$views))
@@ -321,8 +304,7 @@ register_tables <- function(tables = NULL, progress = interactive(), con = .con(
 
 #' Close a Seqout connection
 #'
-#' Only the Parquet backend holds a resource worth closing; on a REST
-#' connection this is a no-op.
+#' Parquet closes its DuckDB handle; REST has no handle.
 #'
 #' @param con A `seqout_connection` returned by [seqout_connect()].
 #'
@@ -377,8 +359,7 @@ print.seqout_connection <- function(x, ...) {
   invisible(x)
 }
 
-#' Keep in sync with EXPORT_TABLES in pysradb-server/scripts/export_parquet.py
-#' and with _ALL_PARQUET_FILES in the Python client.
+#' Keep in sync with EXPORT_TABLES and Python _ALL_PARQUET_FILES.
 #' @noRd
 .seqout_tables <- function() {
   c(

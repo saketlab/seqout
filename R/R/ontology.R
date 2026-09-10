@@ -1,7 +1,6 @@
 #' One term, its synonyms and its children, as a tibble
 #'
-#' Rows are the term itself, then its synonyms, then its children. `xrefs` is a
-#' list column because a term can carry an identifier from several ontologies.
+#' `xrefs` is a list column because a term can carry several source IDs.
 #' @noRd
 .onto_tibble <- function(rows) {
   tibble::tibble(
@@ -26,23 +25,15 @@
 
 #' What the ontology graph knows about a term
 #'
-#' A plain keyword search does not match words, it matches concepts: a query
-#' for `"masld"` also finds studies that say `"nonalcoholic fatty liver
-#' disease"`, because an ontology graph joins the two. This function looks one
-#' term up in that graph.
-#'
-#' The result gives the source identifiers behind the term (UBERON, MeSH, HGNC,
-#' Cellosaurus), the synonyms a search expands it to, and the terms below it in
-#' the hierarchy. Each row carries its own identifiers.
+#' Looks up one term in the graph used for search expansion.
+#' Returns source IDs, synonyms and direct children.
 #'
 #' `max_hops` bounds the walk over the synonym links only. Children are always
 #' the direct children of the resulting synonym cluster, at any `max_hops`.
 #'
-#' A term the graph does not have returns an empty tibble, not an error, so a
-#' loop over many words does not stop at the first one it misses.
+#' A term absent from the graph returns an empty tibble.
 #'
-#' Reads the REST API. The ontology graph is a separate database and is not in
-#' the dump.
+#' Reads REST. The ontology graph is absent from the dump.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param term The word or phrase to look up. Case does not matter.
@@ -102,29 +93,15 @@ ontology <- function(term, max_hops = 2, children = TRUE, con = .con()) {
 
 #' Map a column of labels to ontology identifiers
 #'
-#' Free-text labels are what a metadata table holds: "T cell", "hepatocyte",
-#' "HeLa". This function looks each label up in the same ontology graph that a
-#' search expands with, and puts the identifiers beside it.
+#' Adds `<column>_ontology_id` columns with comma-separated CURIEs.
+#' Missing or empty labels become `NA`.
 #'
-#' Each column that you name gets a `<column>_ontology_id` column next to it.
-#' The new column holds the source CURIEs for that label, separated by commas:
-#' `CL:0000084,MeSH:D013601`. A label that the graph does not have, and an empty
-#' cell, become `NA`.
+#' Only the identifiers of the label itself are read. Under `use_synonyms`,
+#' synonym IDs can be narrower; own IDs win.
 #'
-#' Only the identifiers of the label itself are read. Set `use_synonyms = TRUE`
-#' to let a label that carries no identifier take the identifiers of its
-#' synonyms. This maps more labels, and it trusts more: a synonym link
-#' frequently joins a more narrow concept, for example "t cell" to "immature t
-#' cell". A label that has its own identifier does not take one from a synonym
-#' in either mode.
+#' Reads REST. The ontology graph is absent from the dump.
 #'
-#' One request goes out for each different label. Rows that repeat a label cost
-#' nothing more.
-#'
-#' Reads the REST API. The ontology graph is a separate database and is not in
-#' the dump.
-#'
-#' @param x A data frame. It is not changed; a copy comes back.
+#' @param x A data frame to copy and annotate.
 #' @param columns Character. The name of one column, or of several.
 #' @param ontology Keep the identifiers of one source only, for example `"CL"`
 #'   for cell types or `"UBERON"` for anatomy. The default keeps all of them.
@@ -144,10 +121,10 @@ ontology <- function(term, max_hops = 2, children = TRUE, con = .con()) {
 #' meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
 #' MapToOntology(meta, "celltype")
 #'
-#' # Cell Ontology identifiers alone
+#' # Cell Ontology IDs
 #' MapToOntology(meta, "celltype", ontology = "CL")
 #'
-#' # Let a label with no identifier take one from a synonym
+#' # allow synonym IDs
 #' MapToOntology(meta, "celltype", use_synonyms = TRUE)
 #' }
 map_to_ontology <- function(x, columns, ontology = NULL, use_synonyms = FALSE,
@@ -167,9 +144,7 @@ map_to_ontology <- function(x, columns, ontology = NULL, use_synonyms = FALSE,
 
   labels <- unique(unlist(lapply(x[columns], function(v) trimws(as.character(v)))))
   labels <- labels[!is.na(labels) & nzchar(labels)]
-  # `ontology` here names both this argument and the lookup function. R reads a
-  # call position as a function, so `ontology(l, ...)` is the lookup and the
-  # argument is what filters its answer.
+  # call position resolves to ontology(); the argument filters IDs
   found <- vapply(labels, function(l) {
     onto <- ontology(l, max_hops = max_hops, children = FALSE, con = con)
     .ontology_ids(onto, ontology, use_synonyms)
@@ -182,10 +157,9 @@ map_to_ontology <- function(x, columns, ontology = NULL, use_synonyms = FALSE,
   x
 }
 
-#' The CURIEs for one label: its own, or its synonyms' when it is asked for
+#' CURIEs for one label
 #'
-#' `onto` is the tibble [ontology()] returns, so the first row is the label
-#' itself and the rows after it are its synonyms.
+#' Term CURIEs win; synonym CURIEs fill gaps when requested.
 #' @noRd
 .ontology_ids <- function(onto, ontology = NULL, use_synonyms = FALSE) {
   if (nrow(onto) == 0) {
@@ -196,7 +170,7 @@ map_to_ontology <- function(x, columns, ontology = NULL, use_synonyms = FALSE,
     xrefs <- unlist(onto$xrefs[onto$relation == "synonym"], use.names = FALSE)
   }
   if (!is.null(ontology)) {
-    # CVCL_0030 has no colon, so the prefix ends at whichever comes first.
+    # CVCL_0030 has no colon, so prefix ends at colon or underscore
     xrefs <- xrefs[sub("[:_].*$", "", xrefs) == ontology]
   }
   if (!length(xrefs)) {

@@ -6,42 +6,66 @@
 \title{Studies with single-cell evidence}
 \usage{
 single_cell_studies(
+  con = .con(),
   min_evidence = 1,
-  require_matrix = FALSE,
+  data = c("any", "matrix", "fastq", "both"),
   limit = NULL,
-  offset = 0,
-  con = .con()
+  offset = 0
 )
 
 SingleCellStudies(
+  con = .con(),
   min_evidence = 1,
-  require_matrix = FALSE,
+  data = c("any", "matrix", "fastq", "both"),
   limit = NULL,
-  offset = 0,
-  con = .con()
+  offset = 0
 )
 }
 \arguments{
+\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
+a Parquet connection reads the dump.}
+
 \item{min_evidence}{Minimum independent measurements, 1 to 3.}
 
-\item{require_matrix}{Keep only studies with a counted matrix.}
+\item{data}{What the study must carry: \code{"any"}, \code{"matrix"}, \code{"fastq"} or
+\code{"both"}.
+
+\code{"matrix"} filters server-side. Other choices read every page before
+\code{limit} counts.}
 
 \item{limit}{Maximum studies; \code{NULL} reads all, in pages of up to 1000.}
 
 \item{offset}{Number of studies to skip.}
-
-\item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
 }
 \value{
 A study tibble, one row per study.
 }
 \description{
-Studies with single-cell evidence
+\code{data} selects on the \code{kind} column, which says what a study carries:
+}
+\details{
+\describe{
+\item{\code{matrix_and_reads}}{counts and reads, both confirmed}
+\item{\code{matrix_reads_unscanned}}{counts plus linked FASTQ no read-derived
+call has confirmed yet}
+\item{\code{matrix_only}}{counts, no linked reads}
+\item{\code{reads_only}}{no parsed matrix}
+}
+
+\code{"any"} includes reads-only studies and warns when rows lack matrices.
+
+\code{reads_only} means Pentimento parsed no matrix. GEO supplementary files
+may contain a matrix readable by \code{\link[=seqout_counts]{seqout_counts()}}.
 }
 \examples{
 \dontrun{
-sc <- SingleCellStudies(require_matrix = TRUE, limit = 100)
-nrow(sc)
+# unrestricted, with matrix warning
+sc <- SingleCellStudies(limit = 100)
+
+# parsed matrices
+SingleCellStudies(data = "matrix", limit = 100)
+
+# linked reads
+SingleCellStudies(data = "fastq", limit = 100)
 }
 }

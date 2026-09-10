@@ -24,7 +24,7 @@ MapToOntology(
 )
 }
 \arguments{
-\item{x}{A data frame. It is not changed; a copy comes back.}
+\item{x}{A data frame to copy and annotate.}
 
 \item{columns}{Character. The name of one column, or of several.}
 
@@ -43,38 +43,24 @@ identifiers of its synonyms. \code{FALSE} by default.}
 \code{x} with one new character column for each column that you named.
 }
 \description{
-Free-text labels are what a metadata table holds: "T cell", "hepatocyte",
-"HeLa". This function looks each label up in the same ontology graph that a
-search expands with, and puts the identifiers beside it.
+Adds \verb{<column>_ontology_id} columns with comma-separated CURIEs.
+Missing or empty labels become \code{NA}.
 }
 \details{
-Each column that you name gets a \verb{<column>_ontology_id} column next to it.
-The new column holds the source CURIEs for that label, separated by commas:
-\verb{CL:0000084,MeSH:D013601}. A label that the graph does not have, and an empty
-cell, become \code{NA}.
+Only the identifiers of the label itself are read. Under \code{use_synonyms},
+synonym IDs can be narrower; own IDs win.
 
-Only the identifiers of the label itself are read. Set \code{use_synonyms = TRUE}
-to let a label that carries no identifier take the identifiers of its
-synonyms. This maps more labels, and it trusts more: a synonym link
-frequently joins a more narrow concept, for example "t cell" to "immature t
-cell". A label that has its own identifier does not take one from a synonym
-in either mode.
-
-One request goes out for each different label. Rows that repeat a label cost
-nothing more.
-
-Reads the REST API. The ontology graph is a separate database and is not in
-the dump.
+Reads REST. The ontology graph is absent from the dump.
 }
 \examples{
 \dontrun{
 meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
 MapToOntology(meta, "celltype")
 
-# Cell Ontology identifiers alone
+# Cell Ontology IDs
 MapToOntology(meta, "celltype", ontology = "CL")
 
-# Let a label with no identifier take one from a synonym
+# allow synonym IDs
 MapToOntology(meta, "celltype", use_synonyms = TRUE)
 }
 }

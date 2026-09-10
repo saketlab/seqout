@@ -1,9 +1,6 @@
 #' Everything reachable from one accession
 #'
-#' Takes any accession (series, study, experiment, sample or run) and resolves
-#' the rest itself. Each field makes its request the first time it is read and
-#' keeps the answer, so reading one twice costs a single request and a field you
-#' never touch costs nothing.
+#' Lazy fields fetch on first access and then cache their result.
 #'
 #' The fields are:
 #'
@@ -19,15 +16,13 @@
 #'   \item{`links`}{the same data in other archives}
 #'   \item{`enriched`}{the harmonised data for the samples: the submitter's free
 #'     text read into one vocabulary, with ontology IDs}
-#'   \item{`detail`}{the record for the accession itself, for a sample or run}
+#'   \item{`detail`}{the record for a sample or run accession}
 #' }
-#'
-#' and four that say where the data sits: `kind`, `project`, `geo`, `sra`.
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession Any accession Seqout holds.
 #'
-#' @return A `seqout_dataset` object. Read fields with `$`.
+#' @return A `seqout_dataset` object with lazy fields.
 #'
 #' @export
 #' @examples
@@ -76,7 +71,7 @@ print.seqout_dataset <- function(x, ...) {
   .dataset_field(x, name)
 }
 
-# `[[` reads the same fields as `$`; without it the lazy ones answer NULL.
+# [[ reads lazy fields; default [[ would answer NULL.
 #' @export
 `[[.seqout_dataset` <- function(x, i, ...) {
   if (!is.character(i) || length(i) != 1L) {
@@ -136,12 +131,9 @@ names.seqout_dataset <- function(x) {
   )
 }
 
-#' The study or series a BioProject accession stands for
+#' Study or series behind a BioProject accession
 #'
-#' A PRJ accession names the project, not the record: the archive files that
-#' under its own accession, and which one depends on the archive (PRJCA to a
-#' GSA CRA, PRJNA to a GEO series or an SRA study). `/prj/` answers the mapping
-#' in one request; it is what the website resolves through.
+#' PRJ accessions name a project; `/prj/` maps them to the archive record.
 #' @noRd
 .prj_study <- function(con, accession) {
   if (!grepl("^PRJ", accession, ignore.case = TRUE) ||
@@ -203,13 +195,9 @@ names.seqout_dataset <- function(x) {
   }
 }
 
-#' The sample records of a study the SRA family files
+#' Sample records for an SRA-family study
 #'
-#' `/project/{acc}/samples` answers with an accession, a title and a species,
-#' and each sample's attributes are a further request away. The merged metadata
-#' rows carry both, with the attributes already unnested into
-#' `sample_attribute:` columns, for one request per five hundred runs. A study
-#' files many runs against one sample, so the rows reduce to one per sample.
+#' Merged metadata includes sample attributes; duplicate sample rows are removed.
 #' @noRd
 .study_samples <- function(con, accession) {
   if (!identical(con$backend, "api")) {
@@ -229,10 +217,9 @@ names.seqout_dataset <- function(x) {
   tibble::as_tibble(out)
 }
 
-#' Every merged metadata row of a study, a page at a time
+#' Merged metadata rows for a study, page by page
 #'
-#' `cursor` is an offset the endpoint echoes back rather than advances, so the
-#' caller counts. `truncated` says whether more remain.
+#' The endpoint echoes `cursor`; the caller advances it.
 #' @noRd
 .metadata_rows <- function(con, accession) {
   out <- list()
@@ -266,11 +253,9 @@ names.seqout_dataset <- function(x) {
   native
 }
 
-#' Does this accession carry its own detail envelope?
+#' Whether an accession has its own detail envelope
 #'
-#' A sample, experiment or biosample reaches its experiment and its runs
-#' through the detail endpoint, which asks for no study. Resolving one would
-#' be a second request, and GEO does not always serve a parent for a GSM.
+#' Samples, experiments and biosamples can fetch detail before resolving a study.
 #' @noRd
 .has_detail_envelope <- function(fields) {
   fields$kind %in% c("sample", "experiment", "biosample") &&
@@ -308,8 +293,7 @@ names.seqout_dataset <- function(x) {
 
 #' Flatten one `supplementary_data` cell into url / type rows
 #'
-#' GEO files each entry as a record carrying `#text` and `@type`. The Parquet
-#' dump holds the same JSON as a string, which keeps no type.
+#' GEO records carry `#text` and `@type`; dump strings carry URL only.
 #' @noRd
 .supp_rows <- function(raw, sample) {
   pairs <- if (is.character(raw)) {
@@ -325,7 +309,7 @@ names.seqout_dataset <- function(x) {
       }
     })
   }
-  # GEO writes a literal "NONE" for a sample that carries no files.
+  # GEO writes literal NONE when a sample carries no files
   pairs <- Filter(function(p) !is.na(p[1]) && grepl("://", p[1], fixed = TRUE), pairs)
   if (length(pairs) == 0) {
     return(NULL)
@@ -342,9 +326,7 @@ names.seqout_dataset <- function(x) {
 #' @noRd
 .dataset_supplementary <- function(x) {
   fields <- unclass(x)
-  # A sample carries its own files. Reading them through the series would ask
-  # for a parent the archive does not always serve, and would answer with the
-  # whole series when only this accession was named.
+  # sample files must stay scoped to that accession
   if (identical(fields$kind, "sample")) {
     detail <- x$detail
     if (!"supplementary_data" %in% names(detail)) {
@@ -371,13 +353,9 @@ names.seqout_dataset <- function(x) {
   do.call(rbind, rows)
 }
 
-#' The alignment files a submitter sent, rather than the reads
+#' Submitter alignment files for a dataset
 #'
-#' SRA keeps these apart from the read files: they are listed as `Original`
-#' entries beside the copies it made itself, and the archive publishes them
-#' under whatever the submitter called them. Aligned to a reference the
-#' submitter chose, so they are the paper's alignment rather than one of yours.
-#' The endpoint answers for a study accession, which is what `$sra` resolves to.
+#' Original BAMs are aligned to the submitter's reference and keyed by study.
 #' @noRd
 .dataset_bams <- function(x) {
   fields <- unclass(x)
@@ -420,9 +398,7 @@ names.seqout_dataset <- function(x) {
     return(run(fields$accession, con = fields$con))
   }
   if (fields$kind %in% c("sample", "experiment", "biosample")) {
-    # The record reads the same way a row of $samples does: one column per
-    # attribute, whether the archive filed them as GEO channels or as a
-    # named attributes_json.
+    # detail rows flatten attributes like samples rows
     return(.unnest_characteristics(sample_detail(fields$accession, con = fields$con)))
   }
   cli::cli_abort(c(

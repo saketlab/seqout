@@ -235,3 +235,49 @@ test_that("a tar with nothing readable inside is an error, not an empty unit", {
   )
   expect_error(seqout:::.expand_tar(counts, unit), "no readable matrix inside")
 })
+
+test_that("a gene length column does not become a sample", {
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "counts.txt")
+  # the per-sample bulk shape GEO ships: gene id, Length, one count column
+  writeLines(c("EntrezID\tLength\tS1", "497097\t3634\t438", "100503874\t3259\t1"), path)
+  res <- seqout:::.read_table(path)
+  expect_equal(rownames(res$obs), "S1")
+  expect_equal(rownames(res$var), c("497097", "100503874"))
+  expect_equal(names(res$var), "Length")
+  expect_equal(as.vector(res$X), c(438, 1))
+})
+
+test_that("a headerless htseq file keeps its first gene and drops summary rows", {
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "GSM1_liver.counts.txt")
+  writeLines(
+    c("ENSG1\t5", "ENSG2\t7", "__no_feature\t99", "__alignment_not_unique\t3"),
+    path
+  )
+  expect_message(res <- seqout:::.read_table(path), "summary row")
+  expect_equal(rownames(res$obs), "GSM1_liver")
+  expect_equal(rownames(res$var), c("ENSG1", "ENSG2"))
+  expect_equal(as.vector(res$X), c(5L, 7L))
+})
+
+test_that("STAR summary rows are dropped too", {
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "GSM1_ReadsPerGene.out.tab")
+  writeLines(c("N_unmapped\t9", "N_multimapping\t8", "ENSG1\t5", "ENSG2\t7"), path)
+  res <- suppressMessages(seqout:::.read_table(path))
+  expect_equal(rownames(res$var), c("ENSG1", "ENSG2"))
+  expect_equal(as.vector(res$X), c(5L, 7L))
+})
+
+test_that("the txt triplet spelling classifies and groups as one unit", {
+  expect_equal(seqout::file_role("GSM1_x_features.txt.gz"), "features")
+  expect_equal(seqout::file_role("GSM1_x_barcodes.txt.gz"), "barcodes")
+  # a series-level consensus peak list stays a table of its own
+  expect_equal(seqout::file_role("GSE1_atac_consensus_peaks.txt.gz"), "table")
+  # A shared key groups the triplet by name.
+  keys <- seqout::group_key(
+    c("GSM1_x_barcodes.txt.gz", "GSM1_x_features.txt.gz", "GSM1_x_matrix.mtx.gz")
+  )
+  expect_equal(length(unique(keys)), 1L)
+})

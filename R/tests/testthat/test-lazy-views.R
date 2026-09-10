@@ -51,12 +51,12 @@ test_that("registration is recorded on the connection's environment", {
 })
 
 test_that("register_tables rejects a name that is not a Seqout table", {
-  expect_error(register_tables("not_a_table", con = fake_con()), "Not a Seqout table")
+  expect_error(register_tables(fake_con(), "not_a_table"), "Not a Seqout table")
 })
 
 test_that("register_tables defaults to every table", {
   con <- fake_con()
-  sql <- with_recorded_views(register_tables(progress = FALSE, con = con))
+  sql <- with_recorded_views(register_tables(con, progress = FALSE))
   expect_length(sql, length(seqout:::.seqout_tables()))
 })
 

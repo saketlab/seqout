@@ -10,13 +10,12 @@ linked_geo(accession, con = .con())
 \item{accession}{A study accession (SRP, ERP, DRP, PRJ).}
 
 \item{con}{A \code{seqout_connection}. Defaults to the shared REST connection;
-pass a Parquet one to read the dump instead.}
+a Parquet connection reads the dump.}
 }
 \value{
 The linked series accession, or \code{NA_character_}.
 }
 \description{
-The mirror of \code{\link[=linked_study]{linked_study()}}: from a sequencing study to the GEO or
-ArrayExpress series that carries its supplementary files.
+Resolves a sequencing study to its GEO or ArrayExpress series.
 }
 \keyword{internal}

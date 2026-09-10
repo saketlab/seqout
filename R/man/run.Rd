@@ -15,7 +15,7 @@ run(accession, con = .con())
 A one-row tibble, or an empty tibble when the run is unknown.
 }
 \description{
-The run record with its file URLs, sizes and checksums.
+Run metadata, file URLs, sizes and checksums.
 }
 \examples{
 \dontrun{
