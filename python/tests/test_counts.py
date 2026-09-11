@@ -853,9 +853,6 @@ def test_sample_frame_is_empty_not_broken_for_no_samples():
     assert sample_frame([]).empty
 
 
-
-
-
 def _cm(cells, genes, values):
     import numpy as np
     import pandas as pd
@@ -903,7 +900,7 @@ def test_bind_counts_max_cells_is_reproducible():
 
 
 def test_bind_counts_refuses_disjoint_features():
-    import pytest
+    pytest.importorskip("anndata")
 
     from seqout import bind_counts
 
@@ -1059,6 +1056,7 @@ def test_bind_counts_warns_when_feature_sets_differ(caplog):
 
 
 def test_bind_counts_strict_raises_on_differing_features():
+    pytest.importorskip("anndata")
     mats = {"A": _tiny(["g1", "g2", "g3"]), "B": _tiny(["g1", "g2"])}
     with pytest.raises(ValueError, match="do not share a feature space"):
         bind_counts(mats, strict=True)

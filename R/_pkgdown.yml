@@ -128,6 +128,15 @@ reference:
   - project_single_cell_summary
   - single_cell_studies
   - sample_microbes
+  - microbe_detections
+
+- title: Long reads
+  desc: PacBio and Oxford Nanopore studies, across every archive
+  contents:
+  - longread_summary
+  - longread_facets
+  - longread_projects
+  - project_longread_chemistry
 
 - title: Datasets
   desc: >
@@ -144,6 +153,7 @@ reference:
   contents:
   - seqout_counts
   - counts_samples
+  - counts_design
   - seqout_units
   - seqout_matrix
   - seqout_seurat
@@ -152,6 +162,7 @@ reference:
   - bind_counts
   - quick_annotation
   - seqout_counts_files
+  - seqout_fragments
   - file_role
   - group_key
   - is_filtered
