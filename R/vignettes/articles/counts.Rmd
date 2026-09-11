@@ -38,6 +38,7 @@ Load `seqout` and set the GEO accession used throughout the article:
 
 ```{r setup}
 library(seqout)
+library(Seurat)
 
 ACCESSION <- "GSE297547" # PBMCs from patients with myasthenia gravis and healthy controls
 ```
@@ -230,8 +231,6 @@ picked_units[picked_units[["sample"]] %in% picked, c("sample", "unit", "format",
 `Seqout2Seurat()` accepts a parsed `seqout_matrix`, a GSM accession, a GSE accession, or the table from `SeqoutListCounts()`. Arguments in `...` go to `CreateSeuratObject()`.
 
 ```{r seurat-one, message = FALSE, warning = FALSE}
-library(Seurat)
-
 m1 <- SeqoutMatrix(counts, sample = picked[1])
 Seqout2Seurat(m1, project = picked[1])
 ```
