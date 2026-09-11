@@ -4,7 +4,7 @@ description: "Programmatic data access, filtered search, matrix parsing, and fil
 
 # Python Library
 
-You can use the `seqout` library in your own Python code to programmatically search metadata, query study designs, parse expression matrices, and download raw or processed files.
+`seqout` searches metadata, retrieves study designs, parses expression matrices, and downloads raw or processed files.
 
 ## Connect to a backend
 
@@ -51,7 +51,7 @@ with connect() as sq:
     dataset.enriched      # Harmonized cell-level and sample-level metadata
 ```
 
-To optimize network performance, the `Dataset` object uses lazy loading. It queries the API and caches results only when you access a specific field for the first time.
+`Dataset` fields load on first access and cache their results.
 
 You can inspect the mapped parent accessions and archive types directly:
 
@@ -155,7 +155,7 @@ To run exact queries using boolean logic, supply a query string containing upper
 results = sq.search('("aging" OR "aged") (gut OR colon) immun*')
 ```
 
-Structured searches match terms exactly without applying synonym expansion or spelling correction. 
+Structured searches match terms exactly with no synonym expansion or spelling correction. 
 
 To run an exact match query without using boolean operators, set `structured=True`:
 
@@ -169,17 +169,17 @@ sq.search("liver cancer", structured=True)
 
 ### Term expansion
 
-Every query expands before it runs: the server adds each term's synonyms from eight ontologies (`MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO`, `CVCL`), so a search for `masld` also finds `nafld`. These are the same two controls the website offers.
+Every query expands before it runs: the server adds each term's synonyms from eight ontologies (`MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO`, `CVCL`), so a search for `masld` also finds `nafld`.
 
 ```python
-# The words as typed — the same request as structured=True
+# The words as typed; same request as structured=True
 sq.search("spinal muscular atrophy", expand=False)
 
 # Expansion on, but without these two sources
 sq.search("spinal muscular atrophy", exclude_ontology=["MeSH", "CVCL"])
 ```
 
-A term that two ontologies know survives while either one is on, because the graph holds one node per name. An unknown name is refused rather than sent: the server ignores one it does not know, which would look like a control that does nothing. Neither applies to `search/structured` filters (`assay_l1`, `geo_*`, …); that search never expands, and naming an ontology alongside them is an error.
+A term known to two ontologies stays available while either ontology is enabled. An unknown ontology name is refused before the request. `search/structured` filters (`assay_l1`, `geo_*`, ...) never expand, and naming an ontology with them is an error.
 
 ### Sort search results
 
@@ -213,7 +213,7 @@ sq.ontology("breast cancer", children=False)
 
 ### Map a metadata column to ontology identifiers
 
-Metadata tables hold free text — `"T cell"`, `"hepatocyte"`, `"HeLa"`. `map_to_ontology()` looks each label up in that same graph and puts the CURIEs beside it, as `<column>_ontology_id`:
+Metadata tables hold free text: `"T cell"`, `"hepatocyte"`, `"HeLa"`. `map_to_ontology()` looks each label up in that same graph and puts the CURIEs beside it, as `<column>_ontology_id`:
 
 ```python
 meta = pd.DataFrame({"celltype": ["T cell", "hepatocyte", "HeLa"]})
@@ -231,7 +231,7 @@ sq.map_to_ontology(meta, ["celltype", "tissue"], ontology="CL")
 sq.map_to_ontology(meta, "celltype", use_synonyms=True)
 ```
 
-A label the graph does not have, and an empty cell, come back as NA. Only the label's own identifiers are read by default. `use_synonyms=True` lets a label that carries none borrow from its synonyms (within `max_hops`, default 1): that maps more labels and trusts more, since a synonym edge often joins a narrower concept (`"t cell"` → `"immature t cell"`). A label with identifiers of its own never borrows either way. One request goes out per distinct label, however many rows repeat it.
+Unknown labels and empty cells become NA. Labels use their own identifiers by default. `use_synonyms=True` fills missing identifiers from synonyms within `max_hops` (default 1). Synonym links can join narrower concepts, such as `"t cell"` and `"immature t cell"`. Each distinct label requires one request.
 
 ## Find publications and authors
 
@@ -279,9 +279,7 @@ hpv_samples = sq.sample_search(tissue="cervix", microbe="HPV")
 
 ### A worked cohort: HPV16 in single-cell cervical cancer
 
-Filters combine, so a question stated in prose maps onto one call. Build it one
-filter at a time and read `total` after each, which tells you which filter is
-doing the narrowing:
+Add filters one at a time and read `total` to see how each narrows the cohort:
 
 ```python
 with connect() as sq:
@@ -303,9 +301,8 @@ with connect() as sq:
         print(s.sample, s.study_accession, s.cells, s.hpv_top_type)
 ```
 
-`hpv_type` asks for one strain. Use `microbe="HPV"` instead to keep every strain
-and attach the detections (k-mer mass, breadth, the run they came from) to each
-row:
+`hpv_type` selects one strain. `microbe="HPV"` includes all strains and attaches
+detections, including k-mer mass, breadth, and source run, to each row:
 
 ```python
 cohort = sq.sample_search(
@@ -315,9 +312,7 @@ for s in cohort:
     print(s.sample, [(d["organism"], d["breadth_frac"]) for d in s.microbes])
 ```
 
-An age filter drops a sample whose age was never recorded, and few single-cell
-cervical studies deposit one, so `age_min_years=45` empties this cohort. Check
-how much age metadata a cohort has before you filter on it:
+Age filters exclude samples without recorded ages. Check age coverage before filtering:
 
 ```python
 with connect() as sq:
@@ -369,18 +364,15 @@ dist.sort_values("any detection").plot.barh()  # needs matplotlib
 A detection is a k-mer hit against the reference, down to a few unitigs
 against a mostly uncovered genome, which is why the two tables differ.
 `is_viral_evidence` is the screen's gate; `breadth_frac` and `kmer_mass` are the
-numbers behind it, if you would rather set your own threshold.
+inputs for custom thresholds.
 
-`hpv_top_type` is filled in only for the samples the Pentimento single-cell
-pass covers, so it is `None` on most of this cohort even where `microbes` names
-a strain. Tabulate `microbes`.
+`hpv_top_type` covers samples processed by the Pentimento single-cell pass.
+`microbes` holds strain detections beyond that coverage.
 
-The denominator is samples that were screened and had a detection, not every
-cervical cancer sample in Seqout. The table describes the screened data, not HPV
-prevalence.
+The denominator includes only screened samples with detections, so these counts cannot estimate HPV prevalence.
 
 From here, `sq.get(s.study_accession)` opens the study behind any row, and
-`SeqoutCounts` reads its matrices.
+`SeqoutListCounts` reads its matrices.
 
 ## Query read-derived quality metrics
 
@@ -405,14 +397,14 @@ with connect() as sq:
 
 ## Read counts matrices
 
-Use `SeqoutCounts` to resolve, download, and parse processed supplementary files into matrices. This feature requires the `counts` installation extra.
+Use `SeqoutListCounts` to resolve, download, and parse processed supplementary files into matrices. This feature requires the `counts` installation extra.
 
 Query the file manifest without downloading files:
 
 ```python
-from seqout import SeqoutCounts
+from seqout import SeqoutListCounts
 
-counts = SeqoutCounts("GSE297547")
+counts = SeqoutListCounts("GSE297547")
 manifest = counts.manifest()
 ```
 
@@ -453,6 +445,37 @@ from seqout import bind_counts
 
 merged_adata = bind_counts(counts.matrices(), max_cells=1200, seed=0)
 ```
+
+### Bulk studies
+
+Bulk series work the same way. Per-sample count files read as one observation each, so
+`anndata()` returns samples by genes with the study's sample characteristics in `obs`:
+
+```python
+counts = SeqoutListCounts("GSE135251")   # 216 bulk liver samples, htseq-count output
+adata = counts.anndata()                 # (216, 64253)
+adata.obs[["group in paper", "fibrosis stage", "nas score"]].head()
+```
+
+`counts.design` returns the same characteristics as a DataFrame, one row per sample,
+without reading a matrix. That is the design table a differential-expression model needs:
+
+```python
+from pydeseq2.dds import DeseqDataSet
+from pydeseq2.ds import DeseqStats
+
+adata.obs["condition"] = adata.obs["group in paper"].astype(str)
+sub = adata[adata.obs["condition"].isin(["control", "NASH_F4"])].copy()
+sub = sub[:, sub.X.sum(axis=0) >= 10].copy()   # DESeq2's usual pre-filter
+
+dds = DeseqDataSet(adata=sub, design="~condition")
+dds.deseq2()
+res = DeseqStats(dds, contrast=["condition", "NASH_F4", "control"])
+res.summary()
+```
+
+htseq and STAR summary rows (`__no_feature`, `N_unmapped`, and the rest) are dropped
+while reading, so they never reach the library-size estimate.
 
 ### Annotate cell clusters
 
@@ -547,7 +570,7 @@ runs.to_csv("runs.csv")
 
 ## Direct imports
 
-Instead of using `connect()`, you can import the client classes directly:
+The client classes can also be imported directly:
 
 ```python
 from seqout.clients.api import SeqoutAPIClient

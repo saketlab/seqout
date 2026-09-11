@@ -37,11 +37,10 @@ makes its request the first time you read it, and it keeps the answer.
 
 | Backend | How it works | When to use it |
 | --- | --- | --- |
-| REST API (default) | It calls the seqout.org web API. | Normal use. It is always up to date. |
+| REST API (default) | It calls the seqout.org web API. | Normal use. |
 | Parquet | It reads Parquet data dumps with DuckDB. | Offline or local use, SQL, and large batch jobs. |
 
-The REST API is the default, and it needs no setup: the examples above call no
-other function first.
+The REST API needs no connection setup.
 
 Select the Parquet backend with `SeqoutConnect()`. Use SQL for a filter or a
 count over the full index:
@@ -62,13 +61,13 @@ SeqoutDefault(con) # or make it the default for the session
 ## From a GEO accession to a counts matrix
 
 Supplementary files are grouped into units that read as one matrix: a 10x triplet, a
-CellRanger `.h5`, an `.h5ad`, an `.rds` or a table. `SeqoutCounts()` lists them without
+CellRanger `.h5`, an `.h5ad`, an `.rds` or a table. `SeqoutListCounts()` lists them without
 downloading anything.
 
 ```r
-counts <- SeqoutCounts("GSE297547")
+counts <- SeqoutListCounts("GSE297547")
 counts
-m <- SeqoutMatrix(counts, sample = "GSM8994520")
+obj <- Seqout2Seurat(counts, sample = "GSM8994520")
 ```
 
 ## Downloads

@@ -8,8 +8,15 @@ https://seqout.org/data, and both default to REST. The backend is always chosen
 explicitly, never silently: `connect(backend="parquet")` in Python,
 `seqout_connect("parquet")` in R. Parquet answers SQL and works offline, and it is
 the only backend for the functions that scan the whole index; REST is current and
-needs no extra packages. In R a connection is optional entirely — every function
-takes `con` as its last argument and falls back to a shared REST connection.
+needs no extra packages. In R a connection is optional: every function
+falls back to a shared REST connection. Every R function is pipe-ready: its subject
+is its first argument, with `con` last (`"GSE151530" |> SeqoutGet()`). The calls whose subject
+*is* the connection take `con` first instead, so a connection pipes into them
+(`SeqoutConnect("parquet") |> RegisterTables()`): `ListJournals`, `ListCenters`,
+`ListOrganisms`, `ListAssays`, `ListPlatforms`, `ListLibraryStrategies`,
+`ListInstrumentModels`, `SingleCellStudies`, `Tables`, `ClearCache`, `SeqoutClose`,
+`SeqoutDefault`, `RegisterTables`, `DownloadDump`. A whole single-cell read is one
+chain: `"GSE297547" |> Seqout2Seurat(sample = "GSM8994520")`.
 
 Install:
 
@@ -34,13 +41,13 @@ install.packages("seqout", repos = "https://saketlab.r-universe.dev")      # or 
 Python:
 
 ```python
-from seqout import connect, SeqoutCounts
+from seqout import connect, SeqoutListCounts
 
 sq = connect()
 sq.seqout_search("liver cancer scRNA", organism="Homo sapiens")
 sq.seqout_get("GSE151530").samples
 
-counts = SeqoutCounts(gse="GSE297547")
+counts = SeqoutListCounts(gse="GSE297547")
 counts.manifest()                        # readable units, nothing downloaded yet
 counts.matrix(sample="GSM8994520")       # AnnData, cells by genes
 counts.design                            # one row per sample
@@ -56,7 +63,7 @@ SeqoutGet("GSE151530")
 SeqoutGet("GSE151530")$samples
 SeqoutSearch("liver cancer scRNA", db = "geo")
 
-counts <- SeqoutCounts("GSE297547")
+counts <- SeqoutListCounts("GSE297547")
 SeqoutUnits(counts)
 SeqoutMatrix(counts, sample = "GSM8994520")
 
@@ -98,6 +105,40 @@ connection and says so if given a REST one. Its views are DuckDB tables, so
 `dplyr` and `dbplyr` work directly on it, and `cache_table()` materialises one
 locally.
 
+Long-read (PacBio / Oxford Nanopore) studies are a `long_read=True` /
+`long_read = TRUE` filter on the ordinary search, restricted to studies with a
+long-read experiment in any archive. The collection itself has its own
+endpoints: totals (`fetch_longread_summary()` / `LongreadSummary()`), the
+filter values (`fetch_longread_facets()` / `LongreadFacets()`), one row per
+study (`fetch_longread_projects()` / `LongreadProjects()`, with
+`long_read_only`, `chemistries` and `is_single_cell` columns), and one
+study's per-run chemistry calls (`fetch_longread_chemistry()` /
+`ProjectLongreadChemistry()`). There is no server-side single-cell filter on
+the collection, so combining the two filters locally on `is_single_cell`:
+
+```python
+# keyword search restricted to long-read studies
+sq.search("liver fibrosis", long_read=True)
+
+# the collection itself: long-read-only datasets (no short-read platform
+# on the same study)
+sq.longread_projects(long_read_only=True, limit=100)
+
+# long-read AND single-cell
+sq.longread_projects(single_cell=True, limit=100)
+```
+
+```r
+# keyword search restricted to long-read studies
+SeqoutSearch("liver fibrosis", long_read = TRUE)
+
+# the collection itself: long-read-only datasets
+LongreadProjects(long_read_only = TRUE, limit = 100)
+
+# long-read AND single-cell
+LongreadProjects(single_cell = TRUE, limit = 100)
+```
+
 ## Documentation
 
 - [Overview](https://seqout.org/cli/): both clients, install commands and a worked example
@@ -110,7 +151,7 @@ locally.
 - [Client reference](https://seqout.org/cli/python/reference/client/): `connect()` and the method surface both backends share
 - [Dataset reference](https://seqout.org/cli/python/reference/dataset/): the `Dataset` façade and every field it lazily resolves
 - [Search reference](https://seqout.org/cli/python/reference/search/): search, filters and structured queries
-- [Counts matrices](https://seqout.org/cli/python/reference/counts/): `SeqoutCounts`, manifests, units and readers
+- [Counts matrices](https://seqout.org/cli/python/reference/counts/): `SeqoutListCounts` (aka `SeqoutCounts`), manifests, units and readers
 - [Utilities reference](https://seqout.org/cli/python/reference/utilities/): retries, resumable downloads and other helpers
 - [R package](https://seqout.org/cli/R/): reference index and articles
 - [R function reference](https://seqout.org/cli/R/reference/): every exported function, grouped by task

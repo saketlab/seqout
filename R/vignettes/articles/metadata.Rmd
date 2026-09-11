@@ -14,7 +14,7 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-The `SeqoutGet()` function serves as the single entry point for retrieving dataset metadata. It queries the `seqout.org` API using any supported database accession and retrieves all associated records across public archives.
+`SeqoutGet()` resolves an archive accession to dataset metadata and related records across archives.
 
 ```{r setup}
 library(seqout)
@@ -23,7 +23,7 @@ d <- SeqoutGet("GSE168652")
 d
 ```
 
-To conserve system resources and network bandwidth, the dataset object loads fields lazily. The package fetches data from the API only when you access a field for the first time, and caches the result for subsequent reads. Fields you do not access incur no API requests.
+Fields load on first access and cache their results for later reads.
 
 The dataset object contains the following fields:
 
@@ -47,7 +47,7 @@ names(d)
 
 ## Study-level metadata
 
-To inspect the attributes available in the study-level metadata, check the names of the `meta` field:
+List study metadata fields with `names()`:
 
 ```{r meta-names}
 names(d$meta)
@@ -63,7 +63,7 @@ c(published = d$meta$published_at, organisms = d$meta$organisms)
 
 ## Samples, experiments, and runs
 
-The `samples` field contains a data frame where each row represents a single sample. The package automatically unpacks author-defined attributes into flat columns:
+`samples` has one row per sample, with submitter attributes unpacked into columns:
 
 ```{r samples}
 d$samples
@@ -107,7 +107,7 @@ AccessionKind("E-MTAB-11467")
 
 ## Harmonized sample metadata
 
-Because authors describe sample attributes using free-text fields, metadata varies widely across studies. `seqout.org` parses these text attributes and maps them to a standardized vocabulary covering tissue types, diseases, cell types, assay methods, and developmental stages.
+`seqout.org` maps free-text sample attributes to a shared vocabulary of tissues, diseases, cell types, assays, and developmental stages.
 
 You can access these standardized attributes in the `enriched` field:
 
@@ -131,7 +131,7 @@ The `pubs` field lists the publications linked to the dataset, including journal
 d$pubs[, c("pmid", "title", "journal", "citation_count")]
 ```
 
-This field maps a dataset to its publications. To perform the reverse query (mapping a publication or author to their datasets), use the `Paper()` and `Author()` functions documented in [Search](search.html).
+[Search](search.html) covers publication and author lookups with `Paper()` and `Author()`.
 
 ## Retrieve summaries for multiple accessions
 
@@ -155,7 +155,7 @@ sc[, c("sample_accession", "cells", "genes", "assay_display", "sex_verdict")]
 ```
 
 > [!NOTE]
-> The `cells` field counts the total number of columns in the raw expression matrix. For unfiltered 10x Genomics datasets, this represents all detected barcodes and serves as an upper bound rather than the final cell count.
+> The `cells` field counts columns in the raw expression matrix. For unfiltered 10x Genomics datasets, this is all detected barcodes and an upper bound for final cells.
 
 ### Microbial screening
 
@@ -172,7 +172,7 @@ m <- SampleMicrobes("GSM5155196", kind = "viral")
 m[, c("organism", "n_unitigs", "max_breadth_frac")]
 ```
 
-The `max_breadth_frac` column indicates the fraction of the reference genome covered by the reads. In this example, the HPV16 detection covers 17.3% of the genome, which is below the reporting gate, meaning `has_viral_reads` remains `FALSE`.
+`max_breadth_frac` is the fraction of the reference genome covered. Detections below the reporting gate leave `has_viral_reads` as `FALSE`.
 
 To filter out low-confidence detections and keep only those that pass the quality gate, set `validated_only = TRUE`. The function automatically excludes common spike-ins, negative controls, and background contaminants unless you set `include_background = TRUE`.
 
@@ -186,7 +186,7 @@ s$kind
 s$detail[, c("accession", "title", "tissue", "platform_ref")]
 ```
 
-The other fields in the dataset object still resolve to the parent study to provide context:
+The other fields resolve to the parent study:
 
 ```{r detail-project}
 s$project

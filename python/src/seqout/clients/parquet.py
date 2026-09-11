@@ -101,7 +101,7 @@ _ALL_PARQUET_FILES: list[ParquetFile] = list(get_args(ParquetFile))
 
 
 def _rest_only(method: str, reason: str) -> NoReturn:
-    """Raise because `method` requires the REST API."""
+    """Raise because method requires the REST API."""
     msg = f"{method} reads the REST API; this client is Parquet. {reason}"
     raise SeqoutError(msg)
 

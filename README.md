@@ -22,13 +22,11 @@
 Clients for [seqout.org](https://seqout.org), which aggregates study metadata from
 GEO, SRA, ENA, DDBJ, ArrayExpress, GEA and GSA. 
 
-Seqout client can be used search across all the databases, resolve
-an accession to its records in every archive, access harmonised sample metadata and read GEO supplementary files as
-counts matrices.
+Seqout searches every database, resolves an accession to its records in every archive, accesses harmonised sample metadata, and reads GEO supplementary files as counts matrices.
 
 ## CLI
 
-Seqout can be used as a standalone CLI tool.
+The CLI searches metadata and downloads data files.
 
 Install using `uv`:
 
@@ -42,7 +40,6 @@ or using `pip`:
 pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
-The CLI can be used for searching, inspecting metadata and downloading associated files.
 
 ```bash
 seqout search "liver cancer scRNA" --organism "Homo sapiens"
@@ -103,9 +100,7 @@ Learn more here: [seqout.org/cli/R](https://seqout.org/cli/R/)
 
 ## From a GEO accession to a single-cell matrix
 
-Seqout library (both python and R) can be used to directly fetch counts,
-cell-level and sample-level metadata at once, i.e., you do not need to leave
-your programming environment.
+The Python and R clients fetch counts, cell-level metadata, and sample-level metadata from one accession.
 
 Supplementary files are grouped into units that read as one matrix: a 10x triplet,
 a CellRanger `.h5`, an `.h5ad`, an `.rds` or a table. The manifest resolves them
@@ -113,9 +108,9 @@ without downloading anything, and the donor covariates come from the same
 accession.
 
 ```python
-from seqout import SeqoutCounts
+from seqout import SeqoutListCounts
 
-counts = SeqoutCounts("GSE297547")
+counts = SeqoutListCounts("GSE297547")
 counts.manifest()                        # units found, nothing downloaded yet
 m = counts.matrix(sample="GSM8994520")   # genes x cells, obs carries the donor
 adata = counts.anndata()                 # every sample, concatenated
@@ -123,14 +118,13 @@ counts.design                            # sample-level covariates
 ```
 
 ```r
-counts <- SeqoutCounts("GSE297547")
+counts <- SeqoutListCounts("GSE297547")
 SeqoutUnits(counts)                       # units found, nothing downloaded yet
-m <- SeqoutMatrix(counts, sample = "GSM8994520")
-obj <- Seqout2Seurat(m)                   # Seurat object, obs as meta.data
+obj <- Seqout2Seurat(counts, sample = "GSM8994520") # Seurat object, obs as meta.data
 CountsSamples(counts, min_cell_count = 1000)
 ```
 
-## Issues & support
+## Issues and Support
 
 Found a bug or have a feature request? Please use [GitHub Issues](https://github.com/saketlab/seqout/issues).
 
@@ -140,7 +134,7 @@ Found a bug or have a feature request? Please use [GitHub Issues](https://github
 
 ## Citation
 
-If you have found Seqout helpful for your research, please cite us with the following:
+If Seqout helped your research, cite:
 
 ```bib
 @misc{seqout,

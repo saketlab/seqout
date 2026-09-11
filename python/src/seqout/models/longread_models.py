@@ -24,8 +24,7 @@ class LongreadRun(BaseModel):
     instrument_platform: str | None = None
     instrument_model: str | None = None
     chemistry: str | None = None
-    # exact (BAM header), declared (ONT protocol text), bucket (instrument_model
-    # only), or unknown
+    # exact=bam header, declared=ont protocol, bucket=instrument_model, else unknown
     chemistry_confidence: str | None = None
     chemistry_source: str | None = None
     basecaller_software: str | None = None
@@ -95,7 +94,7 @@ class LongreadProject(BaseModel):
     library_strategies: list[str] = []
     n_experiments: int | None = None
     n_experiments_total: int | None = None
-    # None means no experiment rows exist to judge hybrid status by
+    # None: no experiment rows to judge hybrid status by
     long_read_only: bool | None = None
     title: str | None = None
     organism: str | None = None

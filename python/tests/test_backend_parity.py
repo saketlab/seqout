@@ -33,6 +33,14 @@ SHARED_METHODS = [
     "microbes",
     "ontology",
     "fetch_ontology_term",
+    "fetch_longread_summary",
+    "fetch_longread_facets",
+    "fetch_longread_projects",
+    "fetch_longread_chemistry",
+    "longread_summary",
+    "longread_facets",
+    "longread_projects",
+    "longread_chemistry",
 ]
 
 
@@ -49,7 +57,7 @@ def test_counts_rejects_a_client_that_cannot_back_it():
     with pytest.raises(TypeError) as excinfo:
         SeqoutCounts("GSE1", client=Useless())
     msg = str(excinfo.value)
-    assert "cannot back SeqoutCounts" in msg
+    assert "cannot back SeqoutListCounts" in msg
     assert "connect('api')" in msg
     assert "connect('parquet')" in msg
 

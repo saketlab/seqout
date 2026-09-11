@@ -1,5 +1,5 @@
 #' Per-run PacBio/Oxford Nanopore chemistry schema
-#' 
+#'
 #' Build lazily: pentimento.R defines the field parsers after this file loads.
 #' @noRd
 .lr_chem_spec <- function() {
@@ -148,7 +148,7 @@ longread_facets <- function(con = .con()) {
 #'
 #' `single_cell` keeps only studies also flagged single-cell
 #' (`is_single_cell`). The server has no such parameter, so this filters
-#' locally and every page is read before `limit` counts.
+#' locally.
 #'
 #' @param technology,platform,instrument_model,library_strategy,organism,archive,chemistry,assay_l1
 #'   Character. Filter to one value from [longread_facets()].
@@ -205,7 +205,7 @@ longread_projects <- function(technology = NULL, platform = NULL,
     has_exact_chemistry = has_exact_chemistry,
     sort = sort, order = order
   ))
-  # local filtering makes limit count kept rows, so every page must be read
+  # survivor count is unknown, so want can't shrink toward limit
   walk_all <- !is.null(single_cell)
 
   pages <- list()
@@ -235,8 +235,7 @@ longread_projects <- function(technology = NULL, platform = NULL,
     }
     # a stale total would otherwise page forever
     if (got == 0 || at >= total) break
-    # pages arrive in the server's sort order, so once enough rows survive
-    # the local filter, no later page can outrank them
+    # later pages can't outrank kept rows: results arrive in sort order
     if (!is.null(limit) && kept >= limit) break
   }
 

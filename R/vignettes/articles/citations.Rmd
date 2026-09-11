@@ -13,9 +13,9 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-To ensure scientific reproducibility, you should cite the original publications associated with any datasets used in your research. Public repositories record the publications linked to each dataset. 
+Cite the original publications linked to datasets used in your research.
 
-The `seqout` package provides the `Citations()` function to automatically retrieve and format these publication records as BibTeX entries, saving you from searching for literature details manually.
+`Citations()` retrieves publication records and formats them as BibTeX entries.
 
 ```{r setup}
 library(seqout)
@@ -23,7 +23,7 @@ library(seqout)
 
 ## Retrieve a single citation
 
-To fetch the BibTeX citation for a specific project accession, call `Citations()` and pass the accession ID:
+Pass a project accession to `Citations()`:
 
 ```{r one}
 cat(Citations("GSE151530"))
@@ -39,21 +39,20 @@ writeLines(Citations("GSE151530"), "GSE151530.bib")
 
 ## Distinguish original papers from reanalyses
 
-By default, `Citations()` retrieves the paper published by the dataset's original authors (`type = "original"`). 
+By default, `Citations()` retrieves the original dataset paper (`type = "original"`). 
 
-To include both the original publication and subsequent publications that reanalyzed the dataset, set `type = "all"`. This allows you to explore how a dataset has been used across different studies:
+Set `type = "all"` to include reanalysis publications:
 
 ```{r all}
 cat(Citations("GSE168652", type = "all"))
 ```
 
-In this example, the study is linked to one original paper and one reanalysis paper.
 
 ## Handle datasets without publications
 
-Many datasets are deposited before publication, and some may not have an associated paper. 
+Many datasets are deposited before publication, and some have no linked paper. 
 
-For datasets without a recorded publication, `Citations()` returns an empty character vector (`character(0)`) rather than raising an error. This behavior ensures that batch queries and loops do not terminate when encountering a dataset without a citation:
+For datasets without a recorded publication, `Citations()` returns `character(0)`. Batch loops can drop empty results:
 
 ```{r none}
 length(Citations("CRA027437"))
@@ -61,34 +60,32 @@ length(Citations("CRA027437"))
 
 ## Compile a bibliography
 
-Because `Citations()` returns plain text, you can concatenate citations from multiple accessions into a single bibliography file:
+`Citations()` returns plain text, so multiple accessions can be concatenated into one bibliography file:
 
 ```{r many}
 accessions <- c("GSE151530", "GSE168652", "SRP267291", "CRA027437")
-bib <- unlist(lapply(accessions, Citations))
+bib <- Citations(accessions)
 
 length(bib)
 ```
 
-In this example, querying four accessions returns three bibliography entries. The accession without a recorded publication returned `character(0)`, which `unlist()` automatically dropped.
+`unlist()` drops `character(0)` results.
 
-To write the compiled bibliography to disk, call `writeLines()`:
+Write the bibliography with `writeLines()`:
 
 ```{r many-write, eval = FALSE}
 writeLines(bib, "study-bibliography.bib")
 ```
 
-If you need to verify which accessions successfully returned a citation, check their return lengths first:
+Check return lengths to see which accessions produced a citation:
 
 ```{r many-named}
-vapply(accessions, function(a) length(Citations(a)) > 0, logical(1))
+table(names(bib))
 ```
 
 ## Access publication metadata as data frames
 
-While BibTeX is suitable for rendering bibliographies, you may want to filter or count publications programmatically. 
-
-To retrieve publication records as a structured data frame, access the `pubs` field of the dataset object returned by `SeqoutGet()`. The returned table includes publication details like the journal name and citation count:
+The `pubs` field of `SeqoutGet()` returns publication records as a data frame:
 
 ```{r pubs}
 d <- SeqoutGet("GSE168652")
@@ -99,7 +96,7 @@ For more details on dataset metadata, see [Metadata](metadata.html#publications)
 
 ## Backend support
 
-The `Citations()` function queries the REST API and is not supported by the Parquet backend. Attempting to run `Citations()` on a Parquet connection raises an error:
+`Citations()` queries the REST API. A Parquet connection raises an error:
 
 ```{r parquet, error = TRUE}
 con <- SeqoutConnect("parquet", quiet = TRUE)
@@ -111,4 +108,4 @@ SeqoutClose(con)
 ```
 
 > [!NOTE]
-> The database dump does not store citation data because it lacks records for reanalysis publications, and many publication records do not contain release years. Restricting `Citations()` to the REST API ensures that you always receive complete and accurate citation metadata.
+> The database dump lacks reanalysis publications and many release years. `Citations()` uses the REST API for complete citation metadata.

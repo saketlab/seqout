@@ -1,8 +1,11 @@
+import logging
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from seqout.counts import SeqoutCounts
+from seqout.counts import SeqoutCounts, bind_counts
 from seqout.counts_model import (
     CountMatrix,
     SuppFile,
@@ -142,7 +145,7 @@ def test_infer_kind_bulk_from_gsm_labels():
 
 
 def test_infer_kind_uses_series_sample_count():
-    # 68 unlabeled columns in an 87-sample series are sample rows.
+    # Unlabeled columns below the series sample count are sample rows.
     obs = pd.DataFrame(index=pd.Index([f"SD{i:03d}" for i in range(68)]))
     assert infer_kind(obs, 87)[0] == "bulk"
     assert infer_kind(obs)[0] == "unknown"
@@ -170,7 +173,7 @@ def test_non_hdf5_files_are_not_checked(tmp_path):
 
 
 def test_infer_kind_is_honest_about_smartseq_plates():
-    # 384 columns are in the undecided Smart-seq range.
+    # Smart-seq-sized matrices remain unclassified.
     obs = pd.DataFrame(index=pd.Index([f"cell_{i}" for i in range(384)]))
     kind, ev = infer_kind(obs)
     assert kind == "unknown"
@@ -248,7 +251,7 @@ def test_gsm_manifest_end_to_end():
 
 
 def test_triplet_group_key_does_not_collide_on_missing_sample():
-    # stringifying sample=None once merged unrelated series-level triplets
+    # Preserve sample=None to keep unrelated series triplets separate.
     files = [
         SuppFile(f"{FTP}/GSE1_a_{part}", classify(part), None)
         for part in _TRIPLET_PARTS
@@ -355,7 +358,7 @@ def test_ftp_short_transfer_falls_back_and_leaves_no_partial(tmp_path, monkeypat
     from seqout import counts_ftp
 
     monkeypatch.setattr(counts_ftp, "_ftp_blocked", False)
-    # FTP SIZE can report 999 bytes while transfer sends 6
+    # FTP SIZE can exceed the transferred body length.
     monkeypatch.setattr(counts_ftp, "_connect", lambda _h: _FakeFTP(b"abcdef", 999))
     dest = tmp_path / "m.h5"
     assert counts_ftp.fetch("ftp://host/path/m.h5", dest) is False
@@ -554,7 +557,7 @@ def test_drops_header_rows_from_10x_label_files(tmp_path):
     pytest.importorskip("scipy")
     from seqout.counts_readers import read_10x_mtx
 
-    # GSE165686 label files include headers on a 3 genes x 2 cells matrix
+    # GSE165686 label files include headers.
     (tmp_path / "matrix.mtx").write_text(
         "%%MatrixMarket matrix coordinate integer general\n3 2 3\n1 1 5\n2 2 7\n3 1 9\n"
     )
@@ -659,7 +662,7 @@ def test_download_accepts_a_transport_compressed_body(tmp_path, monkeypatch):
     """
     NCBI serves some .rds/.gz with Content-Encoding: gzip and a compressed
     Content-Length. requests decompresses transparently, so the bytes on disk
-    legitimately exceed the header and the size check must not fire.
+    exceed the header; skip the encoded-size check.
     """
     from seqout import helpers
 
@@ -689,7 +692,7 @@ def test_download_still_checks_size_when_not_encoded(tmp_path, monkeypatch):
     from seqout import helpers
 
     def fake_get(url, headers=None, **_kw):
-        # HTTP Content-Length can claim 999 bytes while transfer sends 10
+        # HTTP Content-Length can exceed the transferred body length.
         return _FakeResponse(b"0123456789", {"Content-Length": "999"})
 
     monkeypatch.setattr(helpers._session, "get", fake_get)
@@ -850,7 +853,7 @@ def test_sample_frame_is_empty_not_broken_for_no_samples():
     assert sample_frame([]).empty
 
 
-# --- parity with the R client: bind_counts, quick_annotation, .samples() ---
+
 
 
 def _cm(cells, genes, values):
@@ -942,3 +945,201 @@ def test_quick_annotation_drops_absent_marker_sets():
 
     with pytest.raises(ValueError, match="clusters has 1 entries"):
         quick_annotation(m, ["a"], {"neuron": ["NEU"]})
+
+
+def test_read_table_keeps_a_gene_length_column_out_of_obs(tmp_path):
+    from seqout.counts_readers import read_table
+
+    # the per-sample bulk shape GEO ships: gene id, Length, one count column
+    p = tmp_path / "GSM1_counts.txt"
+    p.write_text("EntrezID\tLength\tS1\n497097\t3634\t438\n100503874\t3259\t1\n")
+    x, obs, var = read_table(p)
+    assert list(obs.index) == ["S1"]
+    assert list(var.index) == [497097, 100503874]
+    assert list(var.columns) == ["Length"]
+    assert x.shape == (1, 2)
+    assert x[0].tolist() == [438.0, 1.0]
+
+
+def test_read_table_errors_when_only_annotation_is_left(tmp_path):
+    from seqout.counts_readers import read_table
+
+    p = tmp_path / "ann.csv"
+    p.write_text("gene,symbol,length\nENSG1,ACTB,3634\n")
+    with pytest.raises(ValueError, match="read as an empty matrix"):
+        read_table(p)
+
+
+def test_samples_ignores_the_cell_count_filter_for_a_bulk_study():
+    """Bulk samples record no cell count; the single-cell default would drop them."""
+    rows = pd.DataFrame([{"sample": "GSM1", "tissue": "liver"}])
+
+    class Fake:
+        def __init__(self):
+            self.calls = []
+
+        def fetch_geo_sample_detailed_metadata(self, _):  # only the capability check
+            raise NotImplementedError
+
+        def sample_search(self, **kw):
+            self.calls.append(kw["min_cell_count"])
+            return SimpleNamespace(
+                to_df=lambda: rows if kw["min_cell_count"] is None else rows.iloc[:0]
+            )
+
+    client = Fake()
+    c = SeqoutCounts("GSE1", client=client)
+    c._files = [SuppFile(f"{FTP}/GSM1_counts.csv.gz", Role.Table, "GSM1")]
+    out = c.samples()
+    assert client.calls == [1, None]
+    assert out["sample"].tolist() == ["GSM1"]
+
+
+def test_read_table_reads_a_headerless_htseq_file(tmp_path):
+    from seqout.counts_readers import read_table
+
+    # htseq-count output: no header, gene/count pairs, summary rows at the end
+    p = tmp_path / "GSM1_liver.counts.txt"
+    p.write_text("ENSG1\t5\nENSG2\t7\n__no_feature\t99\n__alignment_not_unique\t3\n")
+    x, obs, var = read_table(p)
+    assert list(obs.index) == ["GSM1_liver"]
+    assert list(var.index) == ["ENSG1", "ENSG2"]
+    assert x.shape == (1, 2)
+    assert x[0].tolist() == [5.0, 7.0]
+
+
+def test_read_table_drops_star_summary_rows(tmp_path):
+    from seqout.counts_readers import read_table
+
+    p = tmp_path / "GSM1_ReadsPerGene.out.tab"
+    p.write_text("N_unmapped\t9\nN_multimapping\t8\nENSG1\t5\nENSG2\t7\n")
+    x, _, var = read_table(p)
+    assert list(var.index) == ["ENSG1", "ENSG2"]
+    assert x[0].tolist() == [5.0, 7.0]
+
+
+def test_txt_triplet_spelling_groups_as_one_unit():
+    # GSE165659 uses .txt for triplet labels.
+    for name in ("GSM1_x_features.txt.gz", "GSM1_x_genes.txt"):
+        assert classify(name) is Role.Features, name
+    assert classify("GSM1_x_barcodes.txt.gz") is Role.Barcodes
+    # a series-level consensus peak list stays a table of its own
+    assert classify("GSE1_atac_consensus_peaks.txt.gz") is Role.Table
+
+    files = [
+        SuppFile(f"{FTP}/GSM1_x_{part}", classify(f"GSM1_x_{part}"), "GSM1")
+        for part in ("barcodes.txt.gz", "features.txt.gz", "matrix.mtx.gz")
+    ]
+    units = group(files, "GSE1")
+    assert [u.fmt for u in units] == ["10x_mtx"]
+    assert len(units[0].files) == 3
+    # A shared key groups the triplet by name.
+    assert len({group_key(f.name) for f in files}) == 1
+
+
+def _tiny(genes, n_obs=2):
+    x = np.ones((n_obs, len(genes)), dtype=np.float32)
+    return CountMatrix(
+        X=x,
+        obs=pd.DataFrame(index=[f"c{i}" for i in range(n_obs)]),
+        var=pd.DataFrame(index=list(genes)),
+        kind="single_cell",
+        fmt="table",
+    )
+
+
+def test_bind_counts_warns_when_feature_sets_differ(caplog):
+    pytest.importorskip("anndata")
+    mats = {"A": _tiny(["g1", "g2", "g3"]), "B": _tiny(["g1", "g2"])}
+    with caplog.at_level(logging.WARNING, logger="seqout.counts"):
+        out = bind_counts(mats)
+    assert out.n_vars == 2
+    assert "do not share a feature space" in caplog.text
+    assert "A loses 1" in caplog.text
+
+
+def test_bind_counts_strict_raises_on_differing_features():
+    mats = {"A": _tiny(["g1", "g2", "g3"]), "B": _tiny(["g1", "g2"])}
+    with pytest.raises(ValueError, match="do not share a feature space"):
+        bind_counts(mats, strict=True)
+
+
+def test_bind_counts_is_quiet_when_features_match(caplog):
+    pytest.importorskip("anndata")
+    mats = {"A": _tiny(["g1", "g2"]), "B": _tiny(["g1", "g2"])}
+    with caplog.at_level(logging.WARNING, logger="seqout.counts"):
+        out = bind_counts(mats, strict=True)
+    assert out.n_vars == 2
+    assert "feature space" not in caplog.text
+
+
+def test_bind_counts_outer_keeps_the_union_and_fills_zero(caplog):
+    pytest.importorskip("anndata")
+    mats = {"A": _tiny(["g1", "g2"]), "B": _tiny(["g2", "g3"])}
+    with caplog.at_level(logging.WARNING, logger="seqout.counts"):
+        out = bind_counts(mats, join="outer")
+    assert list(out.var_names) == ["g1", "g2", "g3"]
+    assert out.n_obs == 4
+    # nothing is dropped, so nothing is warned about
+    assert "feature space" not in caplog.text
+    frame = pd.DataFrame(out.X, index=out.obs_names, columns=out.var_names)
+    assert frame.loc["c0-A", "g3"] == 0
+    assert frame.loc["c0-B", "g1"] == 0
+    assert frame.loc["c0-A", "g1"] == 1
+
+
+def test_bind_counts_outer_binds_matrices_with_no_shared_features():
+    pytest.importorskip("anndata")
+    mats = {"A": _tiny(["g1"]), "B": _tiny(["g2"])}
+    with pytest.raises(ValueError, match='join="outer"'):
+        bind_counts(mats)
+    assert list(bind_counts(mats, join="outer").var_names) == ["g1", "g2"]
+
+
+def test_bind_counts_rejects_an_unknown_join():
+    with pytest.raises(ValueError, match="join must be"):
+        bind_counts({"A": _tiny(["g1"])}, join="left")
+
+
+def test_bind_counts_outer_stays_dense_when_small():
+    pytest.importorskip("anndata")
+    out = bind_counts(
+        {"A": _tiny(["g1", "g2"]), "B": _tiny(["g2", "g3"])}, join="outer"
+    )
+    assert not hasattr(out.X, "nnz")
+
+
+def test_bind_counts_outer_goes_sparse_rather_than_allocating_a_huge_dense_block():
+    pytest.importorskip("anndata")
+    pytest.importorskip("scipy")
+    # Disjoint dense units make the union exceed the dense limit.
+    mats = {
+        f"U{k}": _tiny([f"u{k}_g{i}" for i in range(3000)], n_obs=40) for k in range(25)
+    }
+    out = bind_counts(mats, join="outer")
+    assert out.shape == (1000, 75000)
+    assert hasattr(out.X, "nnz")
+
+
+def test_bind_counts_dense_and_sparse_inputs_mix():
+    pytest.importorskip("anndata")
+    sparse = pytest.importorskip("scipy.sparse")
+    dense = _tiny(["g1", "g2", "g3"])
+    spar = _tiny(["g2", "g3", "g4"])
+    spar.X = sparse.csr_matrix(spar.X)
+    out = bind_counts({"A": dense, "B": spar}, join="outer")
+    assert list(out.var_names) == ["g1", "g2", "g3", "g4"]
+    assert out.n_obs == 4
+
+
+def test_read_table_keeps_a_late_gc_column_as_a_sample(tmp_path):
+    from seqout.counts_readers import read_table
+
+    # GC is a real sample name in immunology submissions; only the leading
+    # featureCounts block may claim it as annotation
+    p = tmp_path / "counts.csv"
+    p.write_text("gene,Length,WT,GC\nENSG1,3634,5,7\nENSG2,900,1,2\n")
+    x, obs, var = read_table(p)
+    assert list(obs.index) == ["WT", "GC"]
+    assert list(var.columns) == ["Length"]
+    assert x.shape == (2, 2)

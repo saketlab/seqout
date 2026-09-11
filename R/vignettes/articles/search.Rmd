@@ -28,7 +28,7 @@ library(seqout)
 
 ## Search for studies
 
-To search for studies across all seven genomic archives, call `SeqoutSearch()`. The function matches your search terms against the title, abstract, and experimental design description of each study.
+`SeqoutSearch()` matches study titles, abstracts, and experimental designs across archives.
 
 ```{r first-search}
 SeqoutSearch("liver cancer scRNA", limit = 5)
@@ -38,7 +38,7 @@ The `source` column indicates which archive hosts each study.
 
 ### Apply search filters
 
-You can narrow your search by specifying filter arguments. You do not need to supply a query string when using filters.
+Filters narrow results and can be used without query text.
 
 ```{r filters-only}
 SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 5)
@@ -109,9 +109,9 @@ SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*', limit = 5)
 
 By default, adjacent terms are joined with an implicit `AND` operator. 
 
-Unlike standard text search, which expands terms through ontology mappings and performs spelling corrections, a structured search matches terms **exactly** as written.
+Structured search matches terms exactly, with synonym expansion and spelling correction disabled.
 
-To force an exact term search on queries that do not contain explicit boolean operators, set `structured = TRUE`. This bypasses synonym expansion and typo correction:
+`structured = TRUE` disables synonym expansion and typo correction for queries without boolean operators:
 
 ```{r boolean-forced}
 SeqoutSearch("liver cancer", limit = 3)$accession
@@ -119,7 +119,7 @@ SeqoutSearch("liver cancer", structured = TRUE, limit = 3)$accession
 ```
 
 > [!CAUTION]
-> Boolean operators are only parsed by full-text search fields. If you combine a boolean query with filters like `assay_l1`, `assay_l2`, or `geo_*`, the search engine will raise an error rather than silently flattening the query.
+> Boolean operators are parsed only by full-text search fields. Combining a boolean query with filters like `assay_l1`, `assay_l2`, or `geo_*` raises an error.
 
 ```{r boolean-clash, error = TRUE}
 SeqoutSearch("liver NOT mouse", assay_l1 = "Transcriptomic")
@@ -153,7 +153,7 @@ because the server ignores a name it does not know.
 
 ## Explore ontology mappings
 
-Standard searches query concepts rather than literal text. For example, a search for `"masld"` automatically matches studies containing `"nonalcoholic fatty liver disease"` because they map to the same concept node in the ontology graph. 
+Standard searches query ontology concepts. A search for `"masld"` matches studies containing `"nonalcoholic fatty liver disease"` when both labels map to the same concept node. 
 
 To inspect the synonyms and child terms linked to a search query in the ontology graph, call `Ontology()`:
 
@@ -222,8 +222,7 @@ identifier take the identifiers of its synonyms:
 MapToOntology(data.frame(celltype = "nbc"), "celltype", use_synonyms = TRUE)
 ```
 
-This maps more labels, and it trusts more: a synonym link frequently joins a
-more narrow concept. One request goes out for each different label.
+Synonym links can join narrower concepts. Each distinct label requires one request.
 
 ## Sort results and manage limits
 
@@ -376,7 +375,7 @@ hpv[, c("sample", "study_accession", "cells", "hpv_top_type", "microbe_n_detecti
 
 ### A worked cohort: HPV16 in single-cell cervical cancer
 
-Filters combine, so a question stated in prose maps onto a single call. Build it one filter at a time and read the `total` attribute after each one to see which filter does the narrowing:
+Add filters one at a time and read `total` to see how each narrows the cohort:
 
 ```{r cohort-hpv-funnel}
 cervical <- SampleSearch(disease_ontology_id = "MONDO:0002974", limit = 1)
@@ -402,7 +401,7 @@ hpv16 <- SampleSearch(
 hpv16[, c("sample", "study_accession", "disease", "cells", "hpv_top_type")]
 ```
 
-`hpv_type` asks for one strain. Use `microbe = "HPV"` instead to keep every strain and attach the detections to each row, one row of `microbes` per sample:
+`hpv_type` selects one strain. `microbe = "HPV"` includes all strains and attaches detections in each sample's `microbes` field:
 
 ```{r cohort-hpv-any}
 hpv <- SampleSearch(
@@ -411,12 +410,10 @@ hpv <- SampleSearch(
   microbe = "HPV"
 )
 
-vapply(hpv$microbes, function(m) {
-  paste(vapply(m, function(d) d$organism, character(1)), collapse = ", ")
-}, character(1))
+MicrobeDetections(hpv)
 ```
 
-An age filter drops a sample whose age was never recorded, and few single-cell cervical studies deposit one, so `age_min_years = 45` empties this cohort. Count the recorded ages before filtering on them:
+Age filters exclude samples without recorded ages. Check age coverage before filtering:
 
 ```{r cohort-age-coverage}
 # age_min_years = 0 means "has a recorded age at all"
@@ -439,27 +436,19 @@ Drop `single_cell_only`, keep `microbe = "HPV"`, and count the detections. A sam
 hpv_all <- SampleSearch(disease_ontology_id = "MONDO:0002974", microbe = "HPV")
 c(samples = nrow(hpv_all), studies = length(unique(hpv_all$study_accession)))
 
-detections <- function(x, keep = function(d) TRUE) {
-  unlist(lapply(x$microbes, function(m) {
-    vapply(Filter(keep, m), function(d) d$organism, character(1))
-  }))
-}
-
-all_types <- sort(table(detections(hpv_all)), decreasing = TRUE)
+all_types <- sort(table(MicrobeDetections(hpv_all)$organism), decreasing = TRUE)
 all_types
 ```
 
-Every k-mer hit counts in that table, down to a few unitigs against a mostly uncovered genome. `is_viral_evidence` is the screen's own gate:
+Every k-mer hit counts in that table, down to a few unitigs against a mostly uncovered genome. `is_viral_evidence` is the screen gate:
 
 ```{r cohort-hpv-gated}
-gated_types <- sort(
-  table(detections(hpv_all, function(d) isTRUE(d$is_viral_evidence))),
-  decreasing = TRUE
-)
+gated <- MicrobeDetections(hpv_all, validated_only = TRUE)
+gated_types <- sort(table(gated$organism), decreasing = TRUE)
 gated_types
 ```
 
-`breadth_frac` and `kmer_mass` are the numbers behind the gate, if you would rather set your own threshold.
+`breadth_frac` and `kmer_mass` are the gate inputs for custom thresholds.
 
 Both counts on one axis show how much of the tail is trace signal:
 
@@ -477,11 +466,11 @@ ggplot2::ggplot(dist, ggplot2::aes(stats::reorder(type, Freq), Freq, fill = set)
   ggplot2::theme_minimal()
 ```
 
-`hpv_top_type` is filled in only for the samples the Pentimento single-cell pass covers, so it is `NA` on most of this cohort even where `microbes` names a strain. Tabulate `microbes`.
+`hpv_top_type` covers samples processed by the Pentimento single-cell pass. `microbes` holds strain detections beyond that coverage.
 
-The denominator is samples that were screened and had a detection, not every cervical cancer sample in Seqout. The table describes the screened data, not HPV prevalence.
+The denominator includes only screened samples with detections, so these counts cannot estimate HPV prevalence.
 
-From here, `SeqoutGet()` opens the study behind any row and `SeqoutCounts()` reads its matrices.
+From here, `SeqoutGet()` opens the study behind any row and `SeqoutListCounts()` reads its matrices.
 
 ## Execute SQL queries offline
 

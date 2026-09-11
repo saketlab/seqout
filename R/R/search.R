@@ -49,10 +49,6 @@
 #'
 #' # restrict to long-read (PacBio / Oxford Nanopore) studies
 #' SeqoutSearch("liver fibrosis", long_read = TRUE)
-#'
-#' # long-read AND single-cell: filter the returned is_single_cell column locally
-#' lr <- LongreadProjects(organism = "Homo sapiens")
-#' lr[lr$is_single_cell %in% TRUE, ]
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
                           limit = NULL, structured = FALSE, expand = TRUE,

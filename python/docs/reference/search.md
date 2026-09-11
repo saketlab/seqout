@@ -4,14 +4,12 @@ description: SearchParams, StructuredSearchParams, SearchResults and the plan th
 
 # Search
 
-Two endpoints answer a project search and they take different filter sets. You
-do not choose between them: [`plan_search`][seqout.search_plan.plan_search]
-reads the filters, picks the endpoint, and reports whatever the endpoint cannot
-do so the client can finish the job. See
-[Search](../library.md#search) for the filters and the worked examples.
+[`plan_search`][seqout.search_plan.plan_search] selects the endpoint from the
+filters and identifies filtering or sorting that the client must apply locally.
+See [Search](../library.md#search-for-studies) for filters and examples.
 
-Both parameter models forbid a field they do not declare. Pydantic's default is
-to drop one, which turned a typo into an unfiltered search that looked filtered.
+Both parameter models reject undeclared fields to prevent typos from
+producing unfiltered searches.
 
 ::: seqout.models.api_models.SearchParams
 

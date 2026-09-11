@@ -581,7 +581,7 @@ seqout_sce <- function(x, assay_name = "counts", sample = NULL, max_cells = NULL
 #'
 #' `join = "outer"` keeps the union and fills absent features with zero.
 #' A zero there means "not in this matrix", not "measured as zero".
-#' 
+#'
 #' Dense and sparse inputs may be mixed. Dense outer joins exceeding 5e7
 #' elements use sparse storage to bound memory when features barely overlap.
 #'
@@ -995,7 +995,7 @@ matrices <- function(counts, sample = NULL) {
 }
 
 #' Extract and regroup a tar archive
-#' 
+#'
 #' Regrouping assembles loose 10x triplets. The marker directory caches extraction.
 #'
 #' @param counts A seqout_counts object.
@@ -1300,7 +1300,7 @@ print.seqout_matrix <- function(x, ...) {
 }
 
 #' The study's sample table, reusing the counts handle's cache
-#' 
+#'
 #' `.counts_files()` fetches this table for a GSE; reuse avoids another request.
 #' @noRd
 .sample_rows <- function(counts) {
@@ -1362,7 +1362,7 @@ print.seqout_matrix <- function(x, ...) {
 #'
 #' A fragments file holds one bgzipped BED-like row per ATAC fragment, with
 #' columns `chrom`, `start`, `end`, `barcode` and `read_support`.
-#' 
+#'
 #' Files download only when `download = TRUE`.
 #'
 #' GEO rarely holds the `.tbi` index Signac wants. Build one after downloading
@@ -1430,7 +1430,7 @@ seqout_fragments <- function(counts, sample = NULL, download = FALSE) {
 
 
 #' A named list of matrices, one per assay, for both converters
-#' 
+#'
 #' Resolving the counts handle once avoids repeated manifest reads.
 #' @noRd
 .converter_input <- function(x, sample, max_cells, multimodal, sample_metadata) {

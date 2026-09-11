@@ -182,8 +182,7 @@ class SingleCellStudy(BaseModel):
     has_donor: bool | None = None
     has_demographics: bool | None = None
     flags: list[str] | None = None
-    # every PacBio/Oxford Nanopore run in the study; None on pages after the
-    # first, since the server only computes it at offset 0
+    # None past the first page: only offset 0 computes it
     longread_chemistry: list[LongreadRun] | None = None
 
 

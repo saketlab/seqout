@@ -432,7 +432,7 @@ NULL
 }
 
 #' Whether the first line contains counts
-#' 
+#'
 #' Treating an htseq-count gene/count row as a header loses the first gene
 #' and labels the sample with a count.
 #' @noRd

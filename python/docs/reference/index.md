@@ -44,7 +44,7 @@ Needs the `counts` extra.
 
 | | |
 | --- | --- |
-| [`SeqoutCounts()`](counts.md#seqout.counts.SeqoutCounts) | A lazy reader for a series or sample; `seqout_counts` is the same object |
+| [`SeqoutListCounts()`](counts.md#seqout.counts.SeqoutCounts) | A lazy reader for a series or sample; `SeqoutCounts`, `seqout_list_counts` and `seqout_counts` are the same object |
 | [`CountMatrix`](counts.md#seqout.counts_model.CountMatrix) | A matrix in AnnData orientation, with its annotation |
 | [`SuppFile`](counts.md#seqout.counts_model.SuppFile) | One supplementary file, before download |
 | [`Unit`](counts.md#seqout.counts_model.Unit) | A group of files that read as one matrix |

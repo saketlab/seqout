@@ -4,7 +4,7 @@ description: "Configure and query the seqout Parquet dump offline using DuckDB. 
 
 # Parquet Backend
 
-The Parquet backend queries `seqout` metadata directly from local or remote Parquet files using DuckDB. This backend does not query the `seqout.org` REST API.
+The Parquet backend queries local or remote metadata files using DuckDB.
 
 Use the Parquet backend to:
 *   Work offline with local copies of the database tables.
@@ -41,7 +41,7 @@ seqout parquet set-source /data/seqout
 seqout parquet set-source https://example.org/seqout-data
 ```
 
-Once configured, all Parquet commands use this source. You do not need to specify `--source` for every command.
+The saved source applies to subsequent Parquet commands.
 
 ## Download database tables
 
@@ -51,7 +51,7 @@ To query data offline, download the Parquet files to a local directory:
 seqout parquet download /data/seqout
 ```
 
-To download specific tables rather than the entire database, use the `--files` argument:
+To download selected tables, use the `--files` argument:
 
 ```bash
 seqout parquet download /data/seqout --files geo_series geo_samples
@@ -60,7 +60,7 @@ seqout parquet download /data/seqout --files geo_series geo_samples
 To display download progress indicators, add the `--with-pbar` flag.
 
 > [!WARNING]
-> The database dump contains large files. For example, the `run_download_links` table exceeds 11 GB. Download only the specific tables required for your analysis.
+> Download only the tables your analysis needs to limit transfers and disk use.
 
 ## Execute SQL queries
 
@@ -90,7 +90,7 @@ seqout parquet show SRP123456 --experiments
 
 ## Enable Parquet mode in standard commands
 
-Most standard CLI commands support the `--parquet` flag. When you append this flag, the command resolves data using the Parquet backend instead of making REST API requests:
+Most standard CLI commands support the `--parquet` flag. With this flag, the command resolves data using the Parquet backend with no REST API request:
 
 ```bash
 # Query study samples using the default Parquet source

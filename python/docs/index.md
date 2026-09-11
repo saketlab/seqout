@@ -4,7 +4,7 @@ description: "Python library and command-line client for seqout.org: query and d
 
 # Home
 
-`seqout` is a Python client for [seqout.org](https://seqout.org). Use this package to search, retrieve, and download metadata and datasets from seven major public genomic archives:
+`seqout` is a Python client for [seqout.org](https://seqout.org). It searches and downloads metadata and datasets from public genomic archives:
 *   Gene Expression Omnibus (GEO)
 *   Sequence Read Archive (SRA)
 *   European Nucleotide Archive (ENA)
@@ -22,7 +22,7 @@ The package supports two data retrieval backends:
 
 | Backend | Mechanism | Best Use Cases |
 | --- | --- | --- |
-| **API** (Default) | Queries the `seqout.org` REST API over HTTP. | Standard workflows. The data is always up-to-date. |
+| **API** (Default) | Queries the `seqout.org` REST API over HTTP. | Queries against the live index. |
 | **Parquet** | Queries the published Parquet database dump using DuckDB. | Offline workflows, large batch queries, and custom SQL analytics. |
 
 The Parquet backend executes queries locally without sending HTTP requests to the REST API. You can read database files directly from a local directory or a remote static server. For more details, see [Parquet backend](parquet.md).
@@ -62,8 +62,8 @@ with connect() as sq:
 
 ## Next steps
 
-*   [Installation](installation.md) — Guide to installing the library, CLI, and optional components.
-*   [Command-Line Interface](cli.md) — Detailed reference for CLI commands and flags.
-*   [Python Library](library.md) — Reference guide for programmatic metadata queries and downloads.
-*   [Parquet Backend](parquet.md) — Running offline SQL queries on Parquet database dumps.
-*   [API Reference](reference/index.md) — Documentation for public functions, classes, and models.
+* [Installation](installation.md): install the library, CLI, and optional components.
+* [Command-Line Interface](cli.md): CLI commands and flags.
+* [Python Library](library.md): programmatic metadata queries and downloads.
+* [Parquet Backend](parquet.md): offline SQL queries on Parquet database dumps.
+* [API Reference](reference/index.md): public functions, classes, and models.

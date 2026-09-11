@@ -158,14 +158,12 @@ NULL
   x[!vapply(x, is.null, logical(1))]
 }
 
-#' Convert logical filters to lowercase strings for the server
-#' 
-#' httr2 sends bare logicals as `TRUE`/`FALSE`.
+#' Convert logical filter values to the lowercase strings 
+#'
+#' httr2 sends a bare logical as TRUE/FALSE; the server wants lowercase.
 #' @noRd
 .lower_bools <- function(x) {
-  is_lgl <- vapply(x, is.logical, logical(1))
-  x[is_lgl] <- lapply(x[is_lgl], function(v) tolower(as.character(v)))
-  x
+  lapply(x, function(v) if (is.logical(v)) tolower(as.character(v)) else v)
 }
 
 #' @noRd

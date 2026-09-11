@@ -84,7 +84,7 @@ no experiment rows to judge by (GEO-only entries). Filter values come from
 \details{
 \code{single_cell} keeps only studies also flagged single-cell
 (\code{is_single_cell}). The server has no such parameter, so this filters
-locally and every page is read before \code{limit} counts.
+locally.
 }
 \examples{
 \dontrun{

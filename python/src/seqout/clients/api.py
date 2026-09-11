@@ -795,8 +795,7 @@ class SeqoutAPIClient(ShortNames):
 
         return SingleCellSamples(
             rows,
-            # longread_chemistry is None past the first page; it is only ever
-            # computed at offset 0
+            # longread_chemistry is None past the first page; only offset 0 computes it
             study=SingleCellStudy.model_validate(first.model_dump()),
             n_samples_total=total,
         )
@@ -893,8 +892,8 @@ class SeqoutAPIClient(ShortNames):
         A study mirrored in more than one archive counts once. `long_read_only`
         filters to studies with no other platform (None rows have no experiment
         rows to judge by). `single_cell` keeps only studies also flagged
-        single-cell (`is_single_cell`); the server has no such parameter, so this
-        filters locally and every page is read before `limit` counts.
+        single-cell (`is_single_cell`); the server has no such parameter, so
+        this filters locally.
         """
         params = {
             "technology": technology,
@@ -913,7 +912,7 @@ class SeqoutAPIClient(ShortNames):
             "sort": sort,
             "order": order,
         }
-        # local filtering makes limit count kept rows, so every page must be read
+        # survivor count is unknown, so want can't shrink toward limit
         walk_all = single_cell is not None
         rows: list[LongreadProject] = []
         total = 0
@@ -938,8 +937,7 @@ class SeqoutAPIClient(ShortNames):
             # a stale total would otherwise page forever
             if page.count == 0 or at >= page.total:
                 break
-            # pages arrive in the server's sort order, so once enough rows
-            # survive the local filter, no later page can outrank them
+            # later pages can't outrank kept rows: results arrive in sort order
             if limit is not None and len(rows) >= limit:
                 break
         if limit is not None and len(rows) > limit:
