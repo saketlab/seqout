@@ -223,7 +223,7 @@ Select three samples for the rest of the article. `CountsSamples()` covers the s
 picked <- c("GSM8994520", "GSM8994523", "GSM8994533")
 
 picked_units <- CountsSamples(counts, min_cell_count = NULL)
-picked_units[picked_units[["sample"]] %in% picked, c("sample", "unit", "format", "title")]
+picked_units[picked_units[["sample"]] %in% picked, c("sample", "unit", "format")]
 ```
 
 ## Step 3: Create a Seurat object
