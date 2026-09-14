@@ -23,7 +23,7 @@ test_that("the filter set is the API's, less the names that meant two things", {
   expect_setequal(seqout:::.search_filters, c(
     "db", "source", "organism", "library_strategy", "library_source",
     "platform", "country", "journal", "instrument_model", "multi_platform",
-    "date_from", "date_to", "long_read",
+    "date_from", "date_to", "long_read", "case_sensitive",
     "assay_l1", "assay_l2",
     "published_after", "published_before",
     "pub_date_after", "pub_date_before",
@@ -261,6 +261,25 @@ test_that("structured is forwarded, and only when asked for", {
 
   expect_null(seen[[1]]$structured)
   expect_equal(seen[[2]]$structured, "true")
+})
+
+test_that("case_sensitive is sent to the full-text search only", {
+  seen <- list()
+  testthat::local_mocked_bindings(
+    .paginate_api = function(con, path, params, max_pages = 1) {
+      seen[[length(seen) + 1]] <<- params
+      tibble::tibble()
+    }
+  )
+
+  seqout_search("LINE", case_sensitive = TRUE, con = rest_con())
+  expect_equal(seen[[1]]$case_sensitive, "true")
+
+  # /search/structured has no case-sensitive match, so it must not be dropped silently.
+  expect_error(
+    seqout_search("LINE", case_sensitive = TRUE, assay_l1 = "Transcriptomic", con = rest_con()),
+    "cannot be combined with"
+  )
 })
 
 test_that("a boolean query is refused rather than flattened into words", {

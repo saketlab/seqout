@@ -151,6 +151,22 @@ holds one node for each name, and that node carries the identifiers of every
 ontology that supplies the name. A name outside the eight causes an error,
 because the server ignores a name it does not know.
 
+## Case-sensitive search
+
+Search ignores case, so `"LINE"` also finds every "cell line". Set
+`case_sensitive = TRUE` to keep only the studies whose title or summary has
+each query word as a whole word, in the case you typed:
+
+```{r case-sensitive}
+nrow(SeqoutSearch("LINE", limit = 1000))
+nrow(SeqoutSearch("LINE", case_sensitive = TRUE, limit = 1000))
+```
+
+The words still follow the query's `OR`, `AND` and `NOT`, and a trailing `*`
+still matches a prefix. Spelling correction is off. Filters such as `assay_l1`
+and `geo_*` have no case-sensitive match, so combining them with
+`case_sensitive` causes an error.
+
 ## Explore ontology mappings
 
 Standard searches query ontology concepts. A search for `"masld"` matches studies containing `"nonalcoholic fatty liver disease"` when both labels map to the same concept node. 

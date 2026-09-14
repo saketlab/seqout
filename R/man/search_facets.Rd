@@ -26,7 +26,7 @@ SearchFacets(
 
 \item{...}{Filters, by name, to count \emph{within}: \code{db}, \code{organism}, \code{country},
 \code{library_strategy}, \code{library_source}, \code{instrument_model}, \code{platform},
-\code{journal}, \code{multi_platform}, \code{year_from} and \code{year_to}.}
+\code{journal}, \code{multi_platform}, \code{year_from}, \code{year_to} and \code{case_sensitive}.}
 
 \item{structured}{Read \code{query} as a boolean expression, as \code{\link[=seqout_search]{seqout_search()}}.}
 

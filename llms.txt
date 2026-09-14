@@ -105,6 +105,11 @@ connection and says so if given a REST one. Its views are DuckDB tables, so
 `dplyr` and `dbplyr` work directly on it, and `cache_table()` materialises one
 locally.
 
+Search ignores case. `case_sensitive=True` / `case_sensitive = TRUE` (CLI
+`--case-sensitive`) keeps only studies whose title or summary has the query
+words in the exact case, so `LINE` drops "cell line". It is a full-text filter,
+so it cannot be combined with `assay_l1`, `assay_l2` or `geo_*`.
+
 Long-read (PacBio / Oxford Nanopore) studies are a `long_read=True` /
 `long_read = TRUE` filter on the ordinary search, restricted to studies with a
 long-read experiment in any archive. The collection itself has its own

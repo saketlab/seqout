@@ -46,6 +46,7 @@ seqout search --organism "Homo sapiens" --db geo -d 2020:2023
 | `--exact` | Forces the query to be interpreted as a boolean expression. |
 | `--no-expand` | Searches the words as typed, with no ontology synonyms. Same flag as `--exact`. |
 | `--exclude-ontology` | Keeps one ontology out of the expansion. Repeatable. |
+| `--case-sensitive` | Keeps only studies whose title or summary has the query words in the exact case. |
 | `-d`, `--date` | Filters by update date. Accepts year (`2020`), exact date (`15-08-2020`), or range (`2018:2022`). |
 | `--sort` | Sorts search results by `citations`, `journal`, or `year`. |
 | `-m`, `--max` | Caps the number of results returned. |
@@ -90,6 +91,16 @@ seqout search "spinal muscular atrophy" --exclude-ontology MeSH --exclude-ontolo
 ```
 
 A term that two ontologies know survives while either one is on, because the graph holds one node per name.
+
+### Case-sensitive search
+
+Search ignores case, so `LINE` also finds every "cell line". `--case-sensitive` keeps only the studies whose title or summary has each query word as a whole word, in the case you typed:
+
+```bash
+seqout search LINE --case-sensitive
+```
+
+The words still follow the query's `OR`, `AND` and `NOT`, and a trailing `*` still matches a prefix. Spelling correction is off. The flag works with the full-text filters, but not with `--assay` or `--assay-class`.
 
 ### Interactive page navigation
 

@@ -59,6 +59,8 @@ class SearchParams(BaseModel):
     structured: bool | None = None
     # ontology sources omitted from term expansion
     exclude_ontology: list[str] | None = None
+    # keep matches whose title or summary has the query words in the exact case
+    case_sensitive: bool | None = None
     offset: int | None = None
     cursor_rank: float | None = None
     cursor_acc: str | None = None

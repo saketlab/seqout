@@ -86,6 +86,9 @@ SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"))
 
 # restrict to long-read (PacBio / Oxford Nanopore) studies
 SeqoutSearch("liver fibrosis", long_read = TRUE)
+
+# exact case: LINE retrotransposons, not "cell line"
+SeqoutSearch("LINE", case_sensitive = TRUE)
 }
 }
 \seealso{

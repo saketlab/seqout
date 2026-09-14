@@ -442,6 +442,13 @@ def main() -> None:
         f"One of: {', '.join(ONTOLOGIES)}",
     )
     p_search.add_argument(
+        "--case-sensitive",
+        dest="case_sensitive",
+        action="store_true",
+        help="match the query words in their exact case, in the title or "
+        'summary: "LINE" drops "cell line"',
+    )
+    p_search.add_argument(
         "-o",
         "--saveto",
         dest="save_to",
@@ -654,6 +661,7 @@ def main() -> None:
             args.exclude_ontology,
             multi_platform=args.multi_platform,
             structured=args.structured,
+            case_sensitive=args.case_sensitive,
         ),
         "bams": lambda: cmd_bams(args.accession, args.out, args.max_rows, args.save_to),
         "onto": lambda: cmd_onto(
@@ -1240,6 +1248,7 @@ def cmd_search(
     *,
     multi_platform: bool = False,
     structured: bool = False,
+    case_sensitive: bool = False,
 ) -> None:
     console = Console()
     date_from, date_to = date_range or (None, None)
@@ -1258,9 +1267,11 @@ def cmd_search(
         "date_from": date_from.isoformat() if date_from else None,
         "date_to": date_to.isoformat() if date_to else None,
         "exclude_ontology": exclude_ontology,
+        "case_sensitive": case_sensitive or None,
     }
-    # ontology switches shape expansion; they do not satisfy the query requirement
-    if not query and not any(v for k, v in filters.items() if k != "exclude_ontology"):
+    # match switches; they do not satisfy the query requirement
+    switches = {"exclude_ontology", "case_sensitive"}
+    if not query and not any(v for k, v in filters.items() if k not in switches):
         console.print(
             "[red]Provide a search query or at least one filter[/] "
             "(-O/-S/-P/-C/-d/--db/--country/--journal/--assay).",

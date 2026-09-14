@@ -613,6 +613,14 @@ def test_expansion_off_asks_for_the_words_as_typed():
     )
 
 
+def test_case_sensitive_is_a_full_text_switch():
+    sent = plan_search("LINE", case_sensitive=True).params.model_dump(exclude_none=True)
+    assert sent["case_sensitive"] is True
+    # /search/structured has no case-sensitive match; refuse rather than drop it.
+    with pytest.raises(ValueError, match="case_sensitive"):
+        plan_search("LINE", assay_l1="Transcriptomic", case_sensitive=True)
+
+
 def test_an_ontology_is_switched_off_by_name_whatever_the_capitals():
     sent = plan_search("liver", exclude_ontology=["mesh", "CVCL"]).params.model_dump(
         exclude_none=True

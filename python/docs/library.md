@@ -181,6 +181,16 @@ sq.search("spinal muscular atrophy", exclude_ontology=["MeSH", "CVCL"])
 
 A term known to two ontologies stays available while either ontology is enabled. An unknown ontology name is refused before the request. `search/structured` filters (`assay_l1`, `geo_*`, ...) never expand, and naming an ontology with them is an error.
 
+### Case-sensitive search
+
+Search ignores case, so `"LINE"` also finds every "cell line". Set `case_sensitive=True` to keep only the studies whose title or summary has each query word as a whole word, in the case you typed:
+
+```python
+sq.search("LINE", case_sensitive=True)
+```
+
+The words still follow the query's `OR`, `AND` and `NOT`, and a trailing `*` still matches a prefix. Spelling correction is off. `search/structured` filters (`assay_l1`, `geo_*`, ...) have no case-sensitive match, and combining them with `case_sensitive` is an error.
+
 ### Sort search results
 
 To sort results, specify `sortby` (`"citations"`, `"journal"`, or `"year"`) and `order` (`"desc"` or `"asc"`):

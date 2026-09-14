@@ -25,7 +25,15 @@ SearchParamsType = SearchParams | StructuredSearchParams
 
 # full-text-only fields; exclude_ontology belongs here because expansion does
 FULLTEXT_ONLY = frozenset(
-    {"db", "library_source", "date_from", "date_to", "exclude_ontology", "long_read"}
+    {
+        "db",
+        "library_source",
+        "date_from",
+        "date_to",
+        "exclude_ontology",
+        "long_read",
+        "case_sensitive",
+    }
 )
 
 # applied locally when structured filters choose the structured endpoint
@@ -116,6 +124,7 @@ def plan_search(
 
     `expand=False` uses exact terms through the server's `structured` wire flag.
     `exclude_ontology` removes selected ontology sources from expansion.
+    `case_sensitive=True` keeps matches with the query words in the exact case.
     """
     filters = {k: v for k, v in filters.items() if v is not None}
     _reject_removed(filters)

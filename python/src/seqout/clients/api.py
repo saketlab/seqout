@@ -209,6 +209,7 @@ class SeqoutAPIClient(ShortNames):
             "db",
             "structured",
             "exclude_ontology",
+            "case_sensitive",
             "organism",
             "country",
             "library_strategy",
@@ -307,6 +308,8 @@ class SeqoutAPIClient(ShortNames):
 
         Pass `limit` to stop early. `expand=False` uses exact terms, and
         `exclude_ontology` removes named ontology sources from expansion.
+        `case_sensitive=True` keeps only matches whose title or summary has the
+        query words in the exact case, so "LINE" drops "cell line".
         """
         plan = _as_plan(params, filters)
         rows: Iterable[SearchResult] = self._iter_search_pages(plan.params)

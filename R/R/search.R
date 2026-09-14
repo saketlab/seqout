@@ -49,6 +49,9 @@
 #'
 #' # restrict to long-read (PacBio / Oxford Nanopore) studies
 #' SeqoutSearch("liver fibrosis", long_read = TRUE)
+#'
+#' # exact case: LINE retrotransposons, not "cell line"
+#' SeqoutSearch("LINE", case_sensitive = TRUE)
 #' }
 seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
                           limit = NULL, structured = FALSE, expand = TRUE,
@@ -204,8 +207,12 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 #'
 #' `db` is translated to structured `source`. `long_read` restricts to
 #' studies with a PacBio or Oxford Nanopore experiment, any archive.
+#' `case_sensitive` keeps matches whose title or summary has the query words in
+#' the exact case.
 #' @noRd
-.fulltext_only <- c("library_source", "date_from", "date_to", "long_read")
+.fulltext_only <- c(
+  "library_source", "date_from", "date_to", "long_read", "case_sensitive"
+)
 
 #' Full-text filters applied locally for structured search
 #'
@@ -369,7 +376,7 @@ seqout_search <- function(query = NULL, ..., sortby = NULL, order = "desc",
 #' @param query Character. The text to count the matches of. Required.
 #' @param ... Filters, by name, to count *within*: `db`, `organism`, `country`,
 #'   `library_strategy`, `library_source`, `instrument_model`, `platform`,
-#'   `journal`, `multi_platform`, `year_from` and `year_to`.
+#'   `journal`, `multi_platform`, `year_from`, `year_to` and `case_sensitive`.
 #' @param structured Read `query` as a boolean expression, as [seqout_search()].
 #' @param exclude_ontology Ontologies to keep out of the query expansion. See
 #'   [seqout_search()].
@@ -439,7 +446,8 @@ search_facets <- function(query, ..., structured = FALSE,
 #' Excludes `assay_*` and `geo_*` because the endpoint would ignore them.
 #' @noRd
 .facet_filters <- sort(c(
-  .shared_filters, "db", "library_source", "year_from", "year_to"
+  .shared_filters, "db", "library_source", "year_from", "year_to",
+  "case_sensitive"
 ))
 
 
