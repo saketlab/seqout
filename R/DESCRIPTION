@@ -1,6 +1,6 @@
 Package: seqout
 Title: Client for Querying the 'Seqout' Genomics Metadata Database
-Version: 0.2.6
+Version: 0.2.7
 Authors@R: c(
     person("Aniruddha", "Mukherjee", role = "aut",
            comment = c(ORCID = "0009-0008-1350-6787")),
