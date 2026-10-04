@@ -12,6 +12,9 @@ SeqoutClose(con = .con())
 \arguments{
 \item{con}{A \code{seqout_connection} returned by \code{\link[=seqout_connect]{seqout_connect()}}.}
 }
+\value{
+\code{NULL}, invisibly. Called for its side effect.
+}
 \description{
 Parquet closes its DuckDB handle; REST has no handle.
 }

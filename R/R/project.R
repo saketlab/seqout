@@ -8,10 +8,6 @@
 #' @return A tibble with project metadata, or a `field`/`value` tibble when
 #'   `transpose = TRUE`.
 #' @keywords internal
-#' @examples
-#' \dontrun{
-#' project("GSE297547", transpose = TRUE)
-#' }
 project <- function(accession, transpose = FALSE, con = .con()) {
   .check_connection(con)
   check_required(accession)

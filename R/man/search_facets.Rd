@@ -47,7 +47,7 @@ Groups the full \code{\link[=seqout_search]{seqout_search()}} match set by facet
 Values order by \code{score}, the summed match rank. \code{score} is 0 without a query.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 f <- SearchFacets("liver cancer")
 attr(f, "total")
 
@@ -56,7 +56,7 @@ f[f$facet == "organism", ]
 
 # count within a narrower set
 SearchFacets("liver cancer", organism = "Homo sapiens")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=seqout_search]{seqout_search()}} for the results themselves, \code{\link[=search_suggest]{search_suggest()}}

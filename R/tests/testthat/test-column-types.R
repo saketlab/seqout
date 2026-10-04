@@ -1,5 +1,4 @@
-# Check scalar types after record flattening.
-# The string "FALSE" is truthy in R, so logical columns must retain their type.
+# Flattened records keep scalar types; the string "FALSE" is truthy in R.
 
 test_that("a boolean column arrives as a logical", {
   out <- seqout:::.records_to_tibble(list(

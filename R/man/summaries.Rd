@@ -21,7 +21,7 @@ A tibble, one row per project.
 Batches project lookup.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 Summaries(c("GSE168652", "GSE100379"))
-}
+\dontshow{\}) # examplesIf}
 }

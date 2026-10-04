@@ -1,4 +1,4 @@
-# Manifest-level checks against real series. These list files and download none.
+# Manifest checks against real series; nothing is downloaded.
 
 test_that("the real-GSE catalogue spans organisms, tissues and formats", {
   organisms <- unique(unlist(strsplit(

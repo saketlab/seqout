@@ -180,7 +180,8 @@
 #'
 #' @param con A `seqout_connection`. Either backend works: the files are read
 #'   from the same place both point at.
-#' @param dest_dir Directory to write into. It is created if it is absent.
+#' @param dest_dir Directory to write into, created when missing. There is no
+#'   default, so nothing lands in the working directory unasked.
 #' @param tables Which tables to fetch. The default, `NULL`, fetches all of
 #'   them. See [tables()].
 #' @param overwrite Fetch a file even when it is already on disk.
@@ -200,9 +201,10 @@
 #' con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
 #' Query("SELECT count(*) FROM unified_metadata", con = con)
 #' }
-download_dump <- function(con = .con(), dest_dir = "seqout-dump", tables = NULL,
+download_dump <- function(con = .con(), dest_dir, tables = NULL,
                           overwrite = FALSE, quiet = FALSE) {
   .check_connection(con)
+  rlang::check_required(dest_dir)
   tables <- tables %||% con$tables
   unknown <- setdiff(tables, con$tables)
   if (length(unknown) > 0) {
@@ -262,7 +264,8 @@ download_dump <- function(con = .con(), dest_dir = "seqout-dump", tables = NULL,
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession Any accession Seqout holds.
-#' @param dest_dir Directory to write into. Defaults to the accession.
+#' @param dest_dir Directory to write into, created when missing. There is no
+#'   default, so nothing lands in the working directory unasked.
 #' @param quiet Suppress progress messages.
 #'
 #' @return The paths of the downloaded files, invisibly.
@@ -270,13 +273,14 @@ download_dump <- function(con = .con(), dest_dir = "seqout-dump", tables = NULL,
 #' @export
 #' @examples
 #' \dontrun{
-#' DownloadSupplementary("GSE168652") # series files and every sample's
-#' DownloadSupplementary("GSM8433846") # that one sample's
-#' DownloadSupplementary("E-MTAB-11467") # processed archives and raw
+#' DownloadSupplementary("GSE168652", "GSE168652") # series files and every sample's
+#' DownloadSupplementary("GSM8433846", "GSM8433846") # that one sample's
+#' DownloadSupplementary("E-MTAB-11467", "E-MTAB-11467") # processed archives and raw
 #' }
-download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, con = .con()) {
+download_supplementary <- function(accession, dest_dir, quiet = FALSE, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
+  rlang::check_required(dest_dir)
 
   accession <- trimws(accession)
   kind <- accession_kind(accession)
@@ -293,12 +297,10 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
     cli::cli_abort(c(
       "{accession} is a {kind}; supplementary files belong to its project.",
       "i" = if (!is.null(project)) {
-        "Ask for that instead: {.code download_supplementary(\"{project}\")}"
+        "Ask for that instead: {.code download_supplementary(\"{project}\", dest_dir)}"
       }
     ))
   }
-  if (is.null(dest_dir)) dest_dir <- accession
-
   urls <- .supplementary_for(con, accession)
   if (length(urls) == 0) {
     cli::cli_alert_warning("{accession} lists no supplementary files.")
@@ -322,7 +324,8 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
   targets <- if (.in_archive(project, .geo_archives)) {
     project
   } else {
-    .geo_twins(con, project)
+    # files are additive, so keep every linked GEO or ArrayExpress series
+    .xrefs_in(con, project, .geo_archives)
   }
   urls <- lapply(targets, function(target) {
     own <- if (identical(target, project)) d else seqout_get(target, con = con)
@@ -331,17 +334,14 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
   unique(unlist(urls, use.names = FALSE))
 }
 
-#' GEO or ArrayExpress accessions cross-referenced from a project
-#'
-#' Files are additive, so keep every linked series.
+#' Accessions cross-referenced from a project that sit in one of `archives`
 #' @noRd
-.geo_twins <- function(con, accession) {
+.xrefs_in <- function(con, accession, archives) {
   xref <- tryCatch(project_xref(accession, con = con), error = function(e) NULL)
   if (is.null(xref) || nrow(xref) == 0 || !"accession" %in% names(xref)) {
     return(character(0))
   }
-  hits <- xref$accession[vapply(xref$accession, .in_archive, logical(1), .geo_archives)]
-  unique(hits)
+  unique(xref$accession[vapply(xref$accession, .in_archive, logical(1), archives)])
 }
 
 #' Project-level supplementary URLs, straight from the endpoint
@@ -352,16 +352,38 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
   if (!identical(con$backend, "api") || !.in_archive(accession, .geo_archives)) {
     return(character(0))
   }
-  res <- tryCatch(
-    .api_get(con, paste0("/project/", accession, "/supplementary")),
-    error = function(e) NULL
+  urls <- tryCatch(
+    as.character(supplementary_files(accession, con)[["url"]]),
+    error = function(e) character(0)
   )
-  urls <- vapply(
-    res$files %||% list(),
-    function(f) f$url %||% NA_character_,
-    character(1)
+  urls[!is.na(urls)]
+}
+
+#' List a project's supplementary files, with Excel gene-corruption scan results
+#'
+#' Only GEO, ArrayExpress and DDBJ GEA projects expose this endpoint. Each row's
+#' `gene_corruption` is `NULL` when the file has not been scanned yet for Excel's
+#' gene-symbol-to-date autocorrupt bug (e.g. "SEPT1" -> "1-Sep"). `NULL` means
+#' no data, not a clean result.
+#'
+#' @param accession A GEO (GSE), ArrayExpress (E-*) or DDBJ GEA (E-GEAD-*) accession.
+#' @param con A `seqout_connection`. Defaults to the shared REST connection.
+#'
+#' @return A tibble with one row per supplementary file: `accession`, `source`,
+#'   `url`, `filename`, `path`, `download_command`, and `gene_corruption` (a
+#'   list-column, each element `NULL` or a list with `n_hits`, `kinds`,
+#'   `examples`, `checked_at`).
+#'
+#' @export
+#' @examplesIf SeqoutOnline()
+#' supplementary_files("GSE139368")
+supplementary_files <- function(accession, con = .con()) {
+  .need_api(con, "supplementary_files",
+    why = "There is no supplementary-file scan table in the dump."
   )
-  unname(urls[!is.na(urls)])
+  rlang::check_required(accession)
+  res <- .api_get(con, paste0("/project/", accession, "/supplementary"))
+  .records_to_tibble(.as_record_list(res$files %||% list()))
 }
 
 #' Download the read files of an accession
@@ -372,7 +394,8 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
 #'
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession Any accession Seqout holds.
-#' @param dest_dir Directory to write into. Defaults to the accession.
+#' @param dest_dir Directory to write into, created when missing. There is no
+#'   default, so nothing lands in the working directory unasked.
 #' @param mode Which copy to take: `"fastq"`, `"sra"` (NCBI's full-quality
 #'   copy) or `"sra_lite"` (the same reads with binned quality scores). `NULL`
 #'   takes the first each run offers, in that order.
@@ -383,14 +406,15 @@ download_supplementary <- function(accession, dest_dir = NULL, quiet = FALSE, co
 #' @export
 #' @examples
 #' \dontrun{
-#' DownloadRuns("SRR12012336") # one run
-#' DownloadRuns("SRP267291") # every run of a study
-#' DownloadRuns("SRP150719", mode = "fastq") # insist on ENA fastq
+#' DownloadRuns("SRR12012336", "SRR12012336") # one run
+#' DownloadRuns("SRP267291", "SRP267291") # every run of a study
+#' DownloadRuns("SRP150719", "SRP150719", mode = "fastq") # insist on ENA fastq
 #' }
-download_runs <- function(accession, dest_dir = NULL, mode = NULL,
+download_runs <- function(accession, dest_dir, mode = NULL,
                           quiet = FALSE, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
+  rlang::check_required(dest_dir)
 
   accession <- trimws(accession)
   if (!is.null(mode)) {
@@ -402,8 +426,6 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
     }
     mode <- match.arg(mode, names(.run_modes))
   }
-  if (is.null(dest_dir)) dest_dir <- accession
-
   runs <- seqout_get(accession, con = con)$runs
   if (!is.data.frame(runs) || nrow(runs) == 0) {
     cli::cli_alert_warning("{accession} has no runs.")
@@ -442,7 +464,7 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   }
   kind <- accession_kind(accession)
   if (kind %in% .root_entities) {
-    size <- .pretty_bytes(.run_bytes(runs, picked$column))
+    size <- .pretty_bytes(sum(unlist(picked$bytes), na.rm = TRUE))
     scale <- paste0(sum(found), " run", if (sum(found) != 1) "s" else "")
     if (!is.na(size)) {
       scale <- paste0(scale, ", ", size)
@@ -450,7 +472,7 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
     one <- picked$ids[found][1]
     cli::cli_warn(c(
       "{accession} is a {kind}: this downloads all of it ({scale}) into {.path {dest_dir}}.",
-      "i" = if (!is.na(one)) "For a single run, name it: {.code download_runs(\"{one}\")}."
+      "i" = if (!is.na(one)) "For a single run, name it: {.code download_runs(\"{one}\", dest_dir)}."
     ))
   }
   if (any(!found)) {
@@ -520,8 +542,8 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
   urls <- vector("list", nrow(runs))
   dest <- vector("list", nrow(runs))
   md5 <- vector("list", nrow(runs))
+  bytes <- vector("list", nrow(runs))
   source <- rep(NA_character_, nrow(runs))
-  column <- rep(NA_character_, nrow(runs))
 
   for (mode in modes) {
     for (from in .run_modes[[mode]] %||% character(0)) {
@@ -535,28 +557,66 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
         found <- unlist(strsplit(values[i], ";", fixed = TRUE))
         urls[[i]] <- found
         dest[[i]] <- .run_dest_names(ids[i], found, mode)
-        md5[[i]] <- .run_md5(runs, i, from, length(found))
+        md5[[i]] <- .run_per_file(runs, i, unname(.run_md5_of[from]), length(found))
+        bytes[[i]] <- suppressWarnings(as.numeric(
+          .run_per_file(runs, i, unname(.run_bytes_of[from]), length(found))
+        ))
         source[i] <- mode
-        column[i] <- from
       }
     }
   }
-  list(ids = ids, urls = urls, names = dest, md5 = md5, source = source, column = column)
+  list(ids = ids, urls = urls, names = dest, md5 = md5, bytes = bytes, source = source)
 }
 
-#' The published checksum of each file of one run, `NA` where there is none
+#' One `;`-joined per-run column split into one value per file, `NA` where the
+#' column is absent or its list doesn't line up with the `n` URLs
 #' @noRd
-.run_md5 <- function(runs, i, from, n) {
-  column <- unname(.run_md5_of[from])
+.run_per_file <- function(runs, i, column, n) {
   if (is.na(column) || !column %in% names(runs)) {
     return(rep(NA_character_, n))
   }
   found <- unlist(strsplit(as.character(runs[[column]][i]), ";", fixed = TRUE))
-  # trust a checksum list only where it lines up with the URL list
   if (length(found) != n) {
     return(rep(NA_character_, n))
   }
   found
+}
+
+#' The files each run would download as, without downloading them
+#'
+#' One row per file: a paired run gives two. Uses the same choice of copy as
+#' [download_runs()], so this is what that call would fetch.
+#'
+#' @param x A runs table (e.g. `seqout_get(acc)$runs`) or any accession
+#'   Seqout holds.
+#' @inheritParams download_runs
+#'
+#' @return A tibble with `run`, `mode`, `url`, `name` (the file name on disk),
+#'   `bytes` and `md5`; `bytes`/`md5` are `NA` where the archive publishes
+#'   none. Runs with no downloadable copy are left out.
+#'
+#' @export
+#' @examplesIf SeqoutOnline()
+#' files <- RunFiles("SRP148597", mode = "fastq")
+#' sum(files$bytes, na.rm = TRUE) / 1e9 # GB to fetch
+#' "SRR7191948" |> RunFiles()
+run_files <- function(x, mode = NULL, con = .con()) {
+  rlang::check_required(x)
+  if (!is.null(mode)) mode <- match.arg(mode, names(.run_modes))
+  runs <- if (is.data.frame(x)) x else seqout_get(trimws(x), con = con)$runs
+  if (!is.data.frame(runs) || nrow(runs) == 0) {
+    runs <- tibble::tibble(run_accession = character())
+  }
+  picked <- .pick_run_files(runs, mode %||% .run_auto_order)
+  keep <- which(!is.na(picked$source))
+  n <- lengths(picked$urls[keep])
+  tibble::tibble(
+    run = rep(picked$ids[keep], n), mode = rep(picked$source[keep], n),
+    url = as.character(unlist(picked$urls[keep])),
+    name = as.character(unlist(picked$names[keep])),
+    bytes = as.numeric(unlist(picked$bytes[keep])),
+    md5 = as.character(unlist(picked$md5[keep]))
+  )
 }
 
 #' What each run file is called on disk
@@ -571,23 +631,6 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
     return(paste0(id, ".sra"))
   }
   paste0(id, "_", seq_along(urls), ".sra")
-}
-
-#' Total bytes of the chosen copies, `NA` where the archive gives no size
-#' @noRd
-.run_bytes <- function(runs, column) {
-  totals <- vapply(seq_along(column), function(i) {
-    if (is.na(column[i])) {
-      return(NA_real_)
-    }
-    from <- unname(.run_bytes_of[column[i]])
-    if (is.na(from) || !from %in% names(runs)) {
-      return(NA_real_)
-    }
-    parts <- strsplit(as.character(runs[[from]][i]), ";", fixed = TRUE)[[1]]
-    sum(suppressWarnings(as.numeric(parts)), na.rm = TRUE)
-  }, numeric(1))
-  sum(totals, na.rm = TRUE)
 }
 
 #' @noRd
@@ -609,7 +652,8 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
 #' @param con A `seqout_connection`. Defaults to the shared REST connection.
 #' @param accession Any accession Seqout holds. Resolved to its study, since
 #'   the archive files alignments against one.
-#' @param dest_dir Directory to write into. Defaults to the accession.
+#' @param dest_dir Directory to write into, created when missing. There is no
+#'   default, so nothing lands in the working directory unasked.
 #' @param quiet Suppress progress messages.
 #'
 #' @return The paths of the downloaded files, invisibly.
@@ -621,15 +665,14 @@ download_runs <- function(accession, dest_dir = NULL, mode = NULL,
 #' @examples
 #' \dontrun{
 #' SeqoutGet("SRP071083")$bams # requester-pays inventory
-#' DownloadBams("SRP071083")
+#' DownloadBAMs("SRP071083", "SRP071083")
 #' }
-download_bams <- function(accession, dest_dir = NULL, quiet = FALSE, con = .con()) {
+download_bams <- function(accession, dest_dir, quiet = FALSE, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
+  rlang::check_required(dest_dir)
 
   accession <- trimws(accession)
-  if (is.null(dest_dir)) dest_dir <- accession
-
   bams <- seqout_get(accession, con = con)$bams
   if (!is.data.frame(bams) || nrow(bams) == 0) {
     cli::cli_alert_warning("{accession} has no submitted alignment files.")

@@ -1,5 +1,4 @@
-# Check single-cell filtering when assay_is_single_cell is NA.
-# Flag filtering excludes unscored samples.
+# Single-cell flag filtering drops samples with NA assay_is_single_cell.
 
 cohort_rows <- function() {
   list(

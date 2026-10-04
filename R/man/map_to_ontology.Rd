@@ -53,7 +53,7 @@ synonym IDs can be narrower; own IDs win.
 Reads REST. The ontology graph is absent from the dump.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
 MapToOntology(meta, "celltype")
 
@@ -62,7 +62,7 @@ MapToOntology(meta, "celltype", ontology = "CL")
 
 # allow synonym IDs
 MapToOntology(meta, "celltype", use_synonyms = TRUE)
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=ontology]{ontology()}} for what the graph holds about one term.

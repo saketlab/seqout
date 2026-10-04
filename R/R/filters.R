@@ -14,19 +14,19 @@
 #' @seealso [seqout_search()].
 #'
 #' @name filter_values
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' ListLibraryStrategies()
 #'
 #' # instrument_model values
 #' ListInstrumentModels()
 #'
-#' # pass a value into search
-#' top <- ListLibraryStrategies()$value[1]
-#' SeqoutSearch("liver", library_strategy = top)
-#'
 #' # connection-first call
 #' SeqoutConnect("api") |> ListJournals(limit = 20)
+#'
+#' \dontrun{
+#' # pass a value into search
+#' top <- ListLibraryStrategies()$value[1]
+#' SeqoutSearch("liver", library_strategy = top, limit = 10)
 #' }
 NULL
 

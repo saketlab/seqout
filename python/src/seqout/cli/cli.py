@@ -45,6 +45,7 @@ from seqout.clients.parquet import (
 from seqout.constants import ONTOLOGIES, PARQUET_DUMP_BASE_URL
 from seqout.models.api_models import (
     ExperimentSample,
+    RunFile,
     SearchCorrection,
     SearchResult,
     StudyExperimentsResult,
@@ -54,16 +55,12 @@ from seqout.models.api_models import (
 from seqout.models.parquet_models import GeoSample
 from seqout.search_plan import apply_plan, plan_search
 from seqout.seqout import connect_to_seqout
-from seqout.utils import (
-    StudyRunDownloadMode,
-    _extract_download_info_for_study_run,
-    _validate_study_runs_data,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
     from seqout.clients.api import SeqoutAPIClient
+    from seqout.utils import StudyRunDownloadMode
 
 VALID_PREFIXES = ("GSE", "GSM", "SRP", "SRS", "SRX")
 
@@ -254,8 +251,6 @@ def main() -> None:
         ("--fastq", "fastq"),
         ("--sra", "sra"),
         ("--sra-lite", "sra_lite"),
-        ("--s3", "s3"),
-        ("--gcs", "gcs"),
     ]:
         g.add_argument(
             flag,
@@ -1456,8 +1451,8 @@ def _by_size(bams: Any) -> list:
     return sorted(bams.root, key=lambda b: b.size or 0, reverse=True)
 
 
-def _pretty_bytes(n: int) -> str:
-    if n <= 0:
+def _pretty_bytes(n: int | None) -> str:
+    if not n or n <= 0:
         return "—"
     units = ["B", "kB", "MB", "GB", "TB", "PB"]
     i = min(len(units) - 1, int(math.log(n, 1000)))
@@ -1708,66 +1703,24 @@ def cmd_download_supplementary(
 
 RUN_PREFIXES = ("SRR", "ERR", "DRR")
 
-# non-fastq modes carry size/md5 in the sra_* fields
-_MODE_FIELDS = {
-    "fastq": ("fastq_ftp", "fastq_bytes", "fastq_md5"),
-    "sra": ("sra_ftp", "sra_bytes", "sra_md5"),
-    "sra_lite": ("ncbi_sra_lite_url", "sra_bytes", "sra_md5"),
-    "s3": ("ncbi_sra_lite_s3_url", "sra_bytes", "sra_md5"),
-    "gcs": ("ncbi_sra_lite_gs_url", "sra_bytes", "sra_md5"),
-}
-
-
-_KILOBYTE = 1024
-
-
-def _fmt_bytes(b: str) -> str:
-    try:
-        n = float(b)
-    except (TypeError, ValueError):
-        return b or "?"
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < _KILOBYTE or unit == "TB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
-        n /= _KILOBYTE
-    return f"{n:.1f} TB"
-
-
-def _sum_run_bytes(runs: StudyRunsResults, mode: str) -> int:
-    """Total bytes across runs for a download mode (fields are ';'-joined per run)."""
-    field = _MODE_FIELDS[mode][1]
-    total = 0
-    for r in runs:
-        raw = getattr(r, field, None)
-        for part in str(raw or "").split(";"):
-            if part.strip().isdigit():
-                total += int(part)
-    return total
-
-
-def _mode_available(runs: StudyRunsResults, mode: str) -> bool:
-    url_field = _MODE_FIELDS[mode][0]
-    return any(getattr(r, url_field, None) for r in runs)
-
 
 def _resolve_run_study(sq: SeqoutAPIClient, run_acc: str) -> str | None:
     return sq.resolve_study(run_acc)
 
 
 def _select_run_files(
-    console: Console, run: StudyRunsResult, mode: StudyRunDownloadMode
-) -> StudyRunsResults | None:
-    """Return a StudyRunsResults holding run with only the chosen files, or None."""
-    try:
-        _validate_study_runs_data(StudyRunsResults([run]), mode)
-    except ValueError as e:
-        console.print(f"[red]{e}[/]")
+    console: Console, run: StudyRunsResult, mode: StudyRunDownloadMode | None
+) -> list[RunFile] | None:
+    """Return the run's files the user picks, or None when there are none."""
+    files = run.files(mode)
+    if not files:
+        console.print(
+            f"[red]{run.run_accession} is not served as"
+            f" {mode or 'any downloadable copy'}.[/]"
+        )
         return None
 
-    urls, sizes, md5s = _extract_download_info_for_study_run(run, mode)
-    files = list(zip(urls, sizes, md5s, strict=False))
-
-    if run.library_layout == "PAIRED" and len(urls) == 1:
+    if run.library_layout == "PAIRED" and len(files) == 1:
         console.print(
             "[yellow]⚠ Interleaved PE:[/] paired-end reads are in a single interleaved "
             "file. Use [bold]fasterq-dump --split-3[/] to extract R1/R2."
@@ -1776,16 +1729,15 @@ def _select_run_files(
     if len(files) > 1 and sys.stdin.isatty():
         choices = [
             questionary.Choice(
-                title=f"{u.split('/')[-1]}  ({_fmt_bytes(b)})", value=f, checked=False
+                title=f"{f.name}  ({_pretty_bytes(f.bytes)})", value=i, checked=False
             )
-            for f in files
-            for u, b, _ in [f]
+            for i, f in enumerate(files)
         ]
         plain = questionary.Style(
             [("highlighted", "noreverse"), ("selected", "noreverse")]
         )
         picks = questionary.checkbox(
-            f"{run.run_accession}: select {mode} files "
+            f"{run.run_accession}: select {files[0].mode} files "
             "(space to toggle, enter to confirm)",
             choices=choices,
             style=plain,
@@ -1796,24 +1748,16 @@ def _select_run_files(
         if not picks:
             console.print("[yellow]Nothing selected.[/]")
             return None
-        files = picks
+        files = [files[i] for i in picks]
 
-    url_f, bytes_f, md5_f = _MODE_FIELDS[mode]
-    sel = run.model_copy(
-        update={
-            url_f: ";".join(u for u, _, _ in files),
-            bytes_f: ";".join(b for _, b, _ in files),
-            md5_f: ";".join(m for _, _, m in files),
-        }
-    )
     console.print(f"Selected [bold]{len(files)}[/] file(s).")
-    return StudyRunsResults([sel])
+    return files
 
 
 def cmd_download_runs(
     accession: str,
     out: str | None,
-    mode: StudyRunDownloadMode,
+    mode: StudyRunDownloadMode | None,
     *,
     parquet: bool = False,
     source: str | None = None,
@@ -1838,9 +1782,19 @@ def cmd_download_runs(
                     console.print(f"[yellow]Run {acc} not found in {study}.[/]")
                     raise SystemExit(1)
                 console.print(f"[dim]{acc} → {study}[/]")
-                runs = _select_run_files(console, run, mode)
-                if runs is None:
+                files = _select_run_files(console, run, mode)
+                if files is None:
                     return
+                console.print(
+                    f"Downloading [bold]{len(files)}[/] file(s) of {run.run_accession}"
+                    f" → [bold]{out_dir}/[/]"
+                )
+                sq.download_files(
+                    [f.url for f in files],
+                    out_dir,
+                    names=[f.name for f in files],
+                    with_pbar=True,
+                )
             else:
                 with console.status(f"[bold]Fetching runs for {acc}…[/]"):
                     study = _resolve_accession(sq, acc, "runs")
@@ -1856,12 +1810,12 @@ def cmd_download_runs(
                 if not runs:
                     console.print(f"[yellow]No runs found for {study}.[/]")
                     return
-
-            console.print(
-                "Downloading"
-                f" [bold]{len(runs)}[/] run(s) as [bold]{mode}[/] → [bold]{out_dir}/[/]"
-            )
-            sq.download_study_runs_data(runs, out_dir, mode=mode)
+                console.print(
+                    f"Downloading [bold]{len(runs)}[/] run(s) as"
+                    f" [bold]{mode or 'first available copy'}[/]"
+                    f" → [bold]{out_dir}/[/]"
+                )
+                sq.download_study_runs_data(runs, out_dir, mode=mode)
     except ValueError as e:
         console.print(f"[red]{e}[/]")
         raise SystemExit(1) from e
@@ -1925,11 +1879,8 @@ def cmd_download_sample_supplementary(
 
 def _runs_label(label: str, runs: StudyRunsResults) -> str:
     """Append fastq/sra-lite totals to a run-group menu label."""
-    sizes = " · ".join(
-        f"{m} {_fmt_bytes(str(_sum_run_bytes(runs, m)))}"
-        for m in ("fastq", "sra_lite")
-        if _sum_run_bytes(runs, m)
-    )
+    totals = {m: runs.total_bytes(m) for m in ("fastq", "sra_lite")}
+    sizes = " · ".join(f"{m} {_pretty_bytes(n)}" for m, n in totals.items() if n)
     return f"{label}  ({sizes})" if sizes else label
 
 
@@ -1956,7 +1907,7 @@ def _download_run_group(
     console: Console, sq: SeqoutAPIClient, runs: StudyRunsResults, out_dir: Path
 ) -> None:
     """Interactive run download: pick a format, confirm the size, then fetch."""
-    modes = [m for m in _MODE_FIELDS if _mode_available(runs, m)]
+    modes = [m for m, n in runs.formats().items() if n]
     if not modes:
         console.print("[yellow]No downloadable run files found.[/]")
         return
@@ -1968,8 +1919,8 @@ def _download_run_group(
     ).ask()
     if mode is None:
         return
-    total = _sum_run_bytes(runs, mode)
-    size = f" ({_fmt_bytes(str(total))})" if total else ""
+    total = runs.total_bytes(mode)
+    size = f" ({_pretty_bytes(total)})" if total else ""
     if not questionary.confirm(
         f"Download {len(runs)} run(s) as {mode}{size} into {out_dir}/?",
         default=False,

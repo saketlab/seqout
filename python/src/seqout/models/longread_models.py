@@ -7,11 +7,9 @@ where the enclosing study supplies `study_accession`.
 
 from __future__ import annotations
 
-from typing import Any
+from pydantic import BaseModel, ConfigDict
 
-from pydantic import BaseModel, ConfigDict, RootModel
-
-from seqout.models.models import BaseContainer
+from seqout.models.models import Facets, FacetValue, OffsetPage, TotalContainer
 
 
 class LongreadRun(BaseModel):
@@ -26,6 +24,8 @@ class LongreadRun(BaseModel):
     chemistry: str | None = None
     # exact=bam header, declared=ont protocol, bucket=instrument_model, else unknown
     chemistry_confidence: str | None = None
+    # display spelling of chemistry_confidence; sort and filter on that instead
+    chemistry_confidence_label: str | None = None
     chemistry_source: str | None = None
     basecaller_software: str | None = None
     basecaller_software_version: str | None = None
@@ -71,13 +71,7 @@ class LongreadSummary(BaseModel):
     last_year: int | None = None
 
 
-class LongreadFacetValue(BaseModel):
-    """One value of one `/longread/facets` facet."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    value: str | None = None
-    studies: int = 0
+LongreadFacetValue = FacetValue
 
 
 class LongreadProject(BaseModel):
@@ -116,29 +110,11 @@ class LongreadProject(BaseModel):
     n_chemistry_exact: int | None = None
 
 
-class LongreadFacets(RootModel[dict[str, list[LongreadFacetValue]]]):
-    """The `/longread/facets` envelope: facet name to its values and counts."""
+LongreadFacets = Facets
 
 
-class LongreadProjectsResponse(BaseModel):
-    """The `/longread/projects` envelope."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    total: int = 0
-    count: int = 0
-    offset: int = 0
-    results: list[LongreadProject] = []
+LongreadProjectsResponse = OffsetPage[LongreadProject]
 
 
-class LongreadProjects(BaseContainer[LongreadProject]):
+class LongreadProjects(TotalContainer[LongreadProject]):
     """Studies matching `fetch_longread_projects`, with the server's total."""
-
-    def __init__(self, root: list[LongreadProject], /, **kwargs: Any) -> None:
-        super().__init__(root)
-        self.__dict__["total"] = kwargs.get("total", len(root))
-
-    @property
-    def total(self) -> int:
-        """How many studies match, before `limit` cut the result."""
-        return self.__dict__["total"]

@@ -74,7 +74,7 @@ Query("SELECT count(*) FROM unified_metadata WHERE n_samples >= 10", con = con)
 
 The command line has `seqout search`, `show`, `download`, `pmid`, `author` and
 `convert`. `download` takes `--supplementary`, `--sample-supplementary` and
-`--fastq` (also `--sra`, `--sra-lite`, `--s3`, `--gcs`). `convert --to` maps an
+`--fastq` (also `--sra`, `--sra-lite`). `convert --to` maps an
 accession to `study`, `experiment`, `sample`, `run`, `srp`, `srx`, `srs`, `srr`,
 `gsm`, `gse`, `pmid` or `doi`, and the `srp-to-pmid` style shorthands do the same.
 `seqout parquet download|query|show|set-source` works against the Parquet dump, and
@@ -98,6 +98,39 @@ returned too much can be narrowed without paging through it, and
 `list_library_strategies()`, `list_instrument_models()`, `list_journals()` and
 `list_centers()` enumerate the values a filter will actually match, each with a
 count. All of these read the REST API.
+
+The Python client has the same names as short methods over `fetch_*`
+(`sq.search_facets()` / `fetch_search_facets()`, `sq.search_suggest()`,
+`sq.list_organisms(common_names=False)`, `sq.list_assays(country=None)`,
+`sq.list_platforms()`, `sq.list_library_strategies()`,
+`sq.list_instrument_models()`, `sq.list_journals(limit=500)`,
+`sq.list_centers(limit=500)`), each returning a container with `to_df()`.
+`search_facets()` carries `total` and `max_rank`, and takes the filters `db`,
+`organism`, `country`, `library_strategy`, `library_source`,
+`instrument_model`, `platform`, `journal`, `multi_platform`, `year_from` and
+`year_to`; any other name is refused before the request. On the Parquet
+client they raise and point at the REST client, and `pq.tables()` lists the
+dump's tables (the REST client's `tables()` raises and points at Parquet).
+
+```python
+f = sq.search_facets("liver cancer", organism="Homo sapiens")
+f.total, f.to_df().query("facet == 'library_strategy'")
+sq.search_suggest("livre cancr")[0].corrected_query      # "liver cancer"
+sq.list_journals(limit=20).to_df()
+```
+
+Study-level single-cell calls: `sq.single_cell_status(acc)` /
+`ProjectSingleCellStatus()` says whether a study is single-cell and on what
+evidence (`kind`: `matrix_and_reads`, `matrix_reads_unscanned`, `matrix_only`,
+`reads_only`); `sq.single_cell_summary(acc)` / `ProjectSingleCellSummary()` is
+the rollup (cells, runs scanned, microbes measured). Both are one row, or none
+for an unknown study. `sq.single_cell_studies(min_evidence=1, data="any",
+limit=None, offset=0)` / `SingleCellStudies()` lists every study with
+single-cell evidence; `data` is `"any"`, `"matrix"`, `"fastq"` or `"both"`.
+`seqout.microbe_detections(cohort, validated_only=False)` /
+`MicrobeDetections()` flattens a `sample_search(microbe=...)` cohort into one
+row per detection. `seqout.file_role()`, `group_key()` and `is_filtered()` /
+`FileRole()` expose the file-name rules the counts reader groups by.
 
 In R a connection is not necessary at all: every function has `con` as its last
 argument, and the default is a shared REST connection. `query()` needs a Parquet
@@ -142,6 +175,94 @@ LongreadProjects(long_read_only = TRUE, limit = 100)
 
 # long-read AND single-cell
 LongreadProjects(single_cell = TRUE, limit = 100)
+```
+
+Country, single-cell, disease and tissue are four more corpus-wide
+collections, each shaped like long-read: totals, facet values, and one row
+per matching study, all reading the REST API only (Parquet has no table for
+any of them). Country (`fetch_country_summary()` / `CountrySummary()`,
+`fetch_country_facets()` / `CountryFacets()`, `fetch_country_projects()` /
+`CountryProjects()`) takes an ISO-3166-1 alpha-2 code. Single-cell
+(`fetch_singlecell_summary()` / `SingleCellSummary()`,
+`fetch_singlecell_facets()` / `SingleCellFacets()`,
+`fetch_singlecell_projects()` / `SingleCellProjects()`) is corpus-wide and
+separate from the per-study Pentimento single-cell endpoints. It has one row
+per study with matrix or read-derived single-cell evidence. Disease (`fetch_disease_summary()` / `DiseaseSummary()`,
+`fetch_disease_facets()` / `DiseaseFacets()`, `fetch_disease_projects()` /
+`DiseaseProjects()`) takes a `collection`: `"rare"` (NIH GARD) or `"nord"`
+(NORD) read a curated catalogue; any other string is resolved as free text
+against the full MONDO ontology instead, which changes the columns a project
+row carries (a MONDO-resolved row has no catalogue/scope columns, but adds
+`assay_l2`, `journal` and `pub_date`). `fetch_disease_aliases()` /
+`DiseaseAliases()` looks up a disease name's MONDO ids directly. Tissue
+(`fetch_tissue_summary()` / `TissueSummary()`, `fetch_tissue_facets()` /
+`TissueFacets()`, `fetch_tissue_projects()` / `TissueProjects()`) has no
+curated mode; `term` is always resolved against UBERON.
+
+Paging a curated disease collection (`"rare"`/`"nord"`) is offset-based, same
+as country and single-cell. A free-text term (every tissue term, and any
+disease `collection` other than `"rare"`/`"nord"`) pages by keyset cursor,
+the scheme `search()`'s `sortby` pagination uses, because OFFSET rescans every
+earlier row of a broad term. Both clients walk the cursor internally, so
+`..._projects(..., limit=N)` reads the same either way. A free-text term takes
+no `offset` argument.
+
+```python
+# corpus totals for one country, then its studies newest first
+sq.country_summary("US")
+sq.country_projects("US", organism="Homo sapiens", sort="year", limit=50)
+
+# corpus-wide single-cell collection, not a per-study lookup
+sq.singlecell_projects(chemistry="10x 3' v3", has_matrix=True, limit=50)
+
+# a curated disease catalogue, then the same shape for free MONDO text
+sq.disease_projects("rare", category="Neurology", limit=50)
+sq.disease_projects("fatty liver disease", limit=50)
+
+# free-text UBERON tissue term
+sq.tissue_projects("liver", organism="Homo sapiens", limit=50)
+```
+
+```r
+# corpus totals for one country, then its studies newest first
+CountrySummary("US")
+CountryProjects("US", organism = "Homo sapiens", sort = "year", limit = 50)
+
+# corpus-wide single-cell collection, not a per-study lookup
+SingleCellProjects(chemistry = "10x 3' v3", has_matrix = TRUE, limit = 50)
+
+# a curated disease catalogue, then the same shape for free MONDO text
+DiseaseProjects("rare", category = "Neurology", limit = 50)
+DiseaseProjects("fatty liver disease", limit = 50)
+
+# free-text UBERON tissue term
+TissueProjects("liver", organism = "Homo sapiens", limit = 50)
+```
+
+Run files and downloads follow one rule in both clients. A run's reads come as
+`fastq` (ENA), `sra` (NCBI's full-quality copy, from the anonymous AWS mirror
+first, then NCBI, then ENA's `.sra`) or `sra_lite` (binned quality scores).
+With no mode, each run takes the first of those it offers. `s3`/`gcs` are the
+same reads in requester-pays buckets and are refused. `RunFiles(x, mode)` in R
+and `runs.files(mode)` in Python list what a download would fetch, one row per
+file with `run`, `mode`, `url`, `name`, `bytes` and `md5` (NCBI copies carry no
+checksum); `runs.total_bytes(mode)` and `runs.formats()` size a download
+first. `DownloadRuns()` / `sq.download_study_runs_data(runs, out_dir, mode)`
+fetch those files and skip runs not served in the mode, with a warning.
+
+```r
+RunFiles("SRP267291", mode = "sra")          # one .sra per run, sized
+DiseaseAliases("marfan")                     # a colloquial name -> MONDO ids
+LinkedGEO("SRP310948"); GSMSeries("GSM5155196"); ResolveStudy("SRR13927092")
+CountryCodeToName("IND")                     # ISO 3166-1 alpha-3, both ways
+fixed |> SeqoutGeneReport()                  # the audit a gene-name repair left
+```
+
+```python
+runs = sq.fetch_study_runs("SRP267291", full=True)
+runs.formats()                               # {"fastq": 34, "sra": 34, "sra_lite": 34}
+[f.name for f in runs[0].files("sra")]       # ["SRR12012336.sra"]
+sq.disease_aliases("marfan")
 ```
 
 ## Documentation

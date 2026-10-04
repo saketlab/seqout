@@ -18,3 +18,24 @@ fake_con <- function(registered = character(0), backend = "parquet") {
 
 #' A REST connection, for the argument checks that abort before any request
 rest_con <- function() seqout_connect("api", quiet = TRUE)
+
+#' Mock `.api_get` to replay `pages` in order for the calling test
+#'
+#' Calls past the last page get the last page again. Returns a function giving
+#' each call's `...` params, in request order.
+mock_pages <- function(pages, .env = parent.frame()) {
+  seen <- list()
+  testthat::local_mocked_bindings(
+    .api_get = function(con, path, ...) {
+      seen[[length(seen) + 1L]] <<- list(...)
+      pages[[min(length(seen), length(pages))]]
+    },
+    .env = .env
+  )
+  function() seen
+}
+
+two_offset_pages <- list(
+  list(total = 2, count = 1, offset = 0, results = list(list(study_accession = "GSE1"))),
+  list(total = 2, count = 1, offset = 1, results = list(list(study_accession = "GSE2")))
+)

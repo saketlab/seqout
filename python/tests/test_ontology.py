@@ -1,9 +1,4 @@
-"""The ontology lookup.
-
-Offline: the endpoint is mocked, so what is checked here is the request that
-goes out, the shape that comes back, and that a missing term is an answer
-rather than an error.
-"""
+"""Ontology lookup: request, response shape, missing terms."""
 
 from __future__ import annotations
 
@@ -59,8 +54,7 @@ class TestOntology:
 
     def test_sources_names_the_ontologies_behind_the_ids(self):
         sq, _ = _client()
-        # CVCL_0030 is a CURIE without a colon, so the prefix has to be read
-        # from either separator.
+        # CVCL_0030 has no colon, so the prefix is read from either separator.
         term = sq.ontology("liver")
         term.xrefs = [*term.xrefs, "CVCL_0030"]
         assert term.sources == ["CVCL", "MeSH", "UBERON"]
@@ -152,8 +146,7 @@ class TestMapToOntology:
     def test_synonyms_are_off_until_they_are_asked_for(self):
         sq, _ = _graph_client()
         ids = sq.map_to_ontology(self._frame(), "celltype")["celltype_ontology_id"]
-        # "nbc" carries nothing of its own, so by default it stays unmapped
-        # rather than taking the identifier of a term one hop away.
+        # "nbc" has no id of its own, so by default it stays unmapped.
         assert ids[0] == "CL:0000084,MeSH:D013601"
         assert pd.isna(ids[1])
 

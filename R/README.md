@@ -14,7 +14,7 @@ pak::pak("saketlab/seqout/R")
 or from [r-universe](https://saketlab.r-universe.dev/seqout):
 
 ```r
-install.packages("seqout", repos = "https://saketlab.r-universe.dev")
+install.packages("seqout", repos = c("https://saketlab.r-universe.dev", "https://cloud.r-project.org"))
 ```
 
 ## Usage
@@ -73,9 +73,10 @@ obj <- Seqout2Seurat(counts, sample = "GSM8994520")
 ## Downloads
 
 ```r
-DownloadSupplementary("GSE168652") # the processed files
-DownloadRuns("SRR12012336")        # the reads
-DownloadBams("ERP117016")          # the submitted alignments
+# accession first, then the directory to write into
+DownloadSupplementary("GSE168652", "GSE168652") # the processed files
+DownloadRuns("SRR12012336", "SRR12012336")      # the reads
+DownloadBAMs("ERP117016", "ERP117016")          # the submitted alignments
 ```
 
 ## Next

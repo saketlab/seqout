@@ -1,3 +1,15 @@
+#' @rdname seqout_gene_names
+#' @export
+SeqoutGeneNames <- seqout_gene_names
+
+#' @rdname seqout_correct_names
+#' @export
+SeqoutCorrectNames <- seqout_correct_names
+
+#' @rdname seqout_gene_report
+#' @export
+SeqoutGeneReport <- seqout_gene_report
+
 #' @rdname accession_kind
 #' @export
 AccessionKind <- accession_kind
@@ -26,9 +38,13 @@ ClearCache <- clear_cache
 #' @export
 SeqoutConnect <- seqout_connect
 
+#' @rdname seqout_online
+#' @export
+SeqoutOnline <- seqout_online
+
 #' @rdname download_bams
 #' @export
-DownloadBams <- download_bams
+DownloadBAMs <- download_bams
 
 #' @rdname download_dump
 #' @export
@@ -38,9 +54,17 @@ DownloadDump <- download_dump
 #' @export
 DownloadRuns <- download_runs
 
+#' @rdname run_files
+#' @export
+RunFiles <- run_files
+
 #' @rdname download_supplementary
 #' @export
 DownloadSupplementary <- download_supplementary
+
+#' @rdname supplementary_files
+#' @export
+SupplementaryFiles <- supplementary_files
 
 #' @rdname file_role
 #' @export
@@ -133,6 +157,78 @@ LongreadProjects <- longread_projects
 #' @rdname project_longread_chemistry
 #' @export
 ProjectLongreadChemistry <- project_longread_chemistry
+
+#' @rdname country_summary
+#' @export
+CountrySummary <- country_summary
+
+#' @rdname country_facets
+#' @export
+CountryFacets <- country_facets
+
+#' @rdname country_projects
+#' @export
+CountryProjects <- country_projects
+
+#' @rdname singlecell_summary
+#' @export
+SingleCellSummary <- singlecell_summary
+
+#' @rdname singlecell_facets
+#' @export
+SingleCellFacets <- singlecell_facets
+
+#' @rdname singlecell_projects
+#' @export
+SingleCellProjects <- singlecell_projects
+
+#' @rdname perturbation_summary
+#' @export
+PerturbationSummary <- perturbation_summary
+
+#' @rdname perturbation_facets
+#' @export
+PerturbationFacets <- perturbation_facets
+
+#' @rdname perturbation_projects
+#' @export
+PerturbationProjects <- perturbation_projects
+
+#' @rdname spatial_summary
+#' @export
+SpatialSummary <- spatial_summary
+
+#' @rdname spatial_facets
+#' @export
+SpatialFacets <- spatial_facets
+
+#' @rdname spatial_projects
+#' @export
+SpatialProjects <- spatial_projects
+
+#' @rdname disease_summary
+#' @export
+DiseaseSummary <- disease_summary
+
+#' @rdname disease_facets
+#' @export
+DiseaseFacets <- disease_facets
+
+#' @rdname disease_projects
+#' @export
+DiseaseProjects <- disease_projects
+
+#' @rdname tissue_summary
+#' @export
+TissueSummary <- tissue_summary
+
+#' @rdname tissue_facets
+#' @export
+TissueFacets <- tissue_facets
+
+#' @rdname tissue_projects
+#' @export
+TissueProjects <- tissue_projects
 
 #' @rdname paper
 #' @export
@@ -230,3 +326,39 @@ CountsSamples <- counts_samples
 #' @rdname counts_design
 #' @export
 CountsDesign <- counts_design
+
+#' @rdname seqout_sex
+#' @export
+SeqoutSex <- seqout_sex
+
+#' @rdname seqout_sex_plot
+#' @export
+SeqoutSexPlot <- seqout_sex_plot
+
+#' @rdname resolve_study
+#' @export
+ResolveStudy <- resolve_study
+
+#' @rdname gsm_series
+#' @export
+GSMSeries <- gsm_series
+
+#' @rdname linked_study
+#' @export
+LinkedStudy <- linked_study
+
+#' @rdname linked_geo
+#' @export
+LinkedGEO <- linked_geo
+
+#' @rdname disease_aliases
+#' @export
+DiseaseAliases <- disease_aliases
+
+#' @rdname country_code_to_name
+#' @export
+CountryCodeToName <- country_code_to_name
+
+#' @rdname country_code_to_name
+#' @export
+CountryNameToCode <- country_name_to_code

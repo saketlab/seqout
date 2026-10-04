@@ -1,4 +1,4 @@
-"""Offline check for the CLI's augmented-correction merge (dedup + order)."""
+"""CLI augmented-correction merge: dedup and order."""
 
 from types import SimpleNamespace
 

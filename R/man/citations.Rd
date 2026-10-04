@@ -30,14 +30,14 @@ A dataset with no linked paper returns \code{character(0)}.
 Reads REST. The dump lacks reanalysis papers and often publication dates.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 cat(Citations("GSE151530"))
 
 # include reanalysis papers
 cat(Citations("GSE168652", type = "all"))
 
-writeLines(Citations("GSE151530"), "GSE151530.bib")
-}
+writeLines(Citations("GSE151530"), file.path(tempdir(), "GSE151530.bib"))
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{seqout_get(x)$pubs} for the same papers as a tibble, and \code{\link[=paper]{paper()}}

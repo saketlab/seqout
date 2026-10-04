@@ -30,11 +30,11 @@ call has confirmed yet}
 }
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 st <- ProjectSingleCellStatus("GSE168652")
 st$single_cell_status
 st$n_independent_evidence
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=project_single_cell_summary]{project_single_cell_summary()}} for the study-level rollup,

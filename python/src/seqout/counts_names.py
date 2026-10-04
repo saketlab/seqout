@@ -156,6 +156,16 @@ def classify(name: str) -> Role:  # noqa: PLR0911
     return Role.Skip
 
 
+def file_role(name: str) -> str:
+    """
+    Name what a supplementary file is, from its file name or URL alone.
+
+    One of "mtx", "barcodes", "features", "h5", "h5ad", "rds", "table",
+    "tar", "metadata" or "skip".
+    """
+    return classify(name).value
+
+
 def group_key(name: str) -> str:
     """
     Shared key for files in one 10x unit.

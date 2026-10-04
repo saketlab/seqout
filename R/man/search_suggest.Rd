@@ -22,12 +22,12 @@ A tibble of suggestions, empty when the query needs no correction.
 Suggest spelling corrections for a query
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 SearchSuggest("livre cancr")
 
 # already spelled correctly
 SearchSuggest("liver cancer")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=seqout_search]{seqout_search()}}, and \code{\link[=search_facets]{search_facets()}} for a query that matched

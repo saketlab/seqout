@@ -308,6 +308,8 @@ register_tables <- function(con = .con(), tables = NULL,
 #'
 #' @param con A `seqout_connection` returned by [seqout_connect()].
 #'
+#' @return `NULL`, invisibly. Called for its side effect.
+#'
 #' @export
 seqout_close <- function(con = .con()) {
   .check_connection(con)

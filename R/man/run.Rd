@@ -17,9 +17,4 @@ A one-row tibble, or an empty tibble when the run is unknown.
 \description{
 Run metadata, file URLs, sizes and checksums.
 }
-\examples{
-\dontrun{
-run("SRR13927092")
-}
-}
 \keyword{internal}

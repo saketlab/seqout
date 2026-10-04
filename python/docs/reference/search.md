@@ -35,6 +35,20 @@ producing unfiltered searches.
 
 ::: seqout.models.cohort_models.Microbes
 
+::: seqout.cohort.microbe_detections
+
+::: seqout.models.search_models.SearchFacetCounts
+
+::: seqout.models.search_models.SearchSuggestions
+
+::: seqout.models.search_models.FilterValues
+
+::: seqout.models.pentimento_models.SingleCellStatus
+
+::: seqout.models.pentimento_models.SingleCellStudySummary
+
+::: seqout.models.pentimento_models.SingleCellCorpusStudy
+
 ::: seqout.models.api_models.OntologyTerm
 
 ::: seqout.models.api_models.OntologyName

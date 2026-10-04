@@ -7,7 +7,7 @@
 \usage{
 download_dump(
   con = .con(),
-  dest_dir = "seqout-dump",
+  dest_dir,
   tables = NULL,
   overwrite = FALSE,
   quiet = FALSE
@@ -15,7 +15,7 @@ download_dump(
 
 DownloadDump(
   con = .con(),
-  dest_dir = "seqout-dump",
+  dest_dir,
   tables = NULL,
   overwrite = FALSE,
   quiet = FALSE
@@ -25,7 +25,8 @@ DownloadDump(
 \item{con}{A \code{seqout_connection}. Either backend works: the files are read
 from the same place both point at.}
 
-\item{dest_dir}{Directory to write into. It is created if it is absent.}
+\item{dest_dir}{Directory to write into, created when missing. There is no
+default, so nothing lands in the working directory unasked.}
 
 \item{tables}{Which tables to fetch. The default, \code{NULL}, fetches all of
 them. See \code{\link[=tables]{tables()}}.}

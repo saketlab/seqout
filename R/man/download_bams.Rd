@@ -2,18 +2,19 @@
 % Please edit documentation in R/download.R, R/zzz-aliases.R
 \name{download_bams}
 \alias{download_bams}
-\alias{DownloadBams}
+\alias{DownloadBAMs}
 \title{Download the alignment files a submitter sent}
 \usage{
-download_bams(accession, dest_dir = NULL, quiet = FALSE, con = .con())
+download_bams(accession, dest_dir, quiet = FALSE, con = .con())
 
-DownloadBams(accession, dest_dir = NULL, quiet = FALSE, con = .con())
+DownloadBAMs(accession, dest_dir, quiet = FALSE, con = .con())
 }
 \arguments{
 \item{accession}{Any accession Seqout holds. Resolved to its study, since
 the archive files alignments against one.}
 
-\item{dest_dir}{Directory to write into. Defaults to the accession.}
+\item{dest_dir}{Directory to write into, created when missing. There is no
+default, so nothing lands in the working directory unasked.}
 
 \item{quiet}{Suppress progress messages.}
 
@@ -31,7 +32,7 @@ Requester-pays files are named with the command to fetch them.
 \examples{
 \dontrun{
 SeqoutGet("SRP071083")$bams # requester-pays inventory
-DownloadBams("SRP071083")
+DownloadBAMs("SRP071083", "SRP071083")
 }
 }
 \seealso{

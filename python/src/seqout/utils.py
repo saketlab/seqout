@@ -1,58 +1,50 @@
+import logging
 import os
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
 
 import pandas as pd
 
 from seqout.constants import COUNTRY_CODE_MAP, COUNTRY_NAME_MAP
-from seqout.models.api_models import StudyRunsResult, StudyRunsResults
+from seqout.models.api_models import RunFile, StudyRunsResult
 
-StudyRunDownloadMode = Literal["fastq", "sra", "sra_lite", "s3", "gcs"]
+logger = logging.getLogger(__name__)
 
-
-def _validate_study_runs_data(
-    runs: StudyRunsResults, mode: StudyRunDownloadMode
-) -> None:
-    if mode == "fastq" and not all(r.fastq_ftp is not None for r in runs):
-        missing = [r.run_accession for r in runs if r.fastq_ftp is None]
-        raise ValueError(f"missing fastq ftp url for runs: {missing}")
-    if mode == "sra" and not all(r.sra_ftp is not None for r in runs):
-        missing = [r.run_accession for r in runs if r.sra_ftp is None]
-        raise ValueError(f"missing sra ftp url for runs: {missing}")
-    if mode == "sra_lite" and not all(r.ncbi_sra_lite_url is not None for r in runs):
-        missing = [r.run_accession for r in runs if r.ncbi_sra_lite_url is None]
-        raise ValueError(f"missing sra lite url for runs: {missing}")
-    if mode == "s3" and not all(r.ncbi_sra_lite_s3_url is not None for r in runs):
-        missing = [r.run_accession for r in runs if r.ncbi_sra_lite_s3_url is None]
-        raise ValueError(f"missing ncbi sra s3 url for runs: {missing}")
-    if mode == "gcs" and not all(r.ncbi_sra_lite_gs_url is not None for r in runs):
-        missing = [r.run_accession for r in runs if r.ncbi_sra_lite_gs_url is None]
-        raise ValueError(f"missing ncbi sra gcs url for runs: {missing}")
+StudyRunDownloadMode = Literal["fastq", "sra", "sra_lite"]
 
 
-def _extract_download_info_for_study_run(
-    run: StudyRunsResult, mode: StudyRunDownloadMode
-) -> tuple[list[str], list[str], list[str]]:
-    if mode == "fastq":
-        url_text = run.fastq_ftp
-    elif mode == "sra":
-        url_text = run.sra_ftp
-    elif mode == "sra_lite":
-        url_text = run.ncbi_sra_lite_url
-    elif mode == "s3":
-        url_text = run.ncbi_sra_lite_s3_url
-    elif mode == "gcs":
-        url_text = run.ncbi_sra_lite_gs_url
+def _run_files_to_fetch(
+    runs: Iterable[StudyRunsResult], mode: StudyRunDownloadMode | None
+) -> list[RunFile]:
+    """Pick each run's files in `mode`; skip runs not served so, fail if all are."""
+    per_run = [(r.run_accession, r.files(mode)) for r in runs]
+    files = [f for _, fs in per_run for f in fs]
+    if not files:
+        msg = f"No run is served as {mode or 'any downloadable copy'}."
+        raise ValueError(msg)
+    missing = [acc for acc, fs in per_run if not fs]
+    if missing:
+        logger.warning(
+            "%d of %d runs have no %s copy and are skipped: %s",
+            len(missing),
+            len(per_run),
+            mode or "downloadable",
+            ", ".join(missing),
+        )
+    return files
 
-    if mode == "fastq":
-        bytes_text = run.fastq_bytes
-        md5_checksum_text = run.fastq_md5
-    else:
-        bytes_text = run.sra_bytes
-        md5_checksum_text = run.sra_md5
 
-    return (url_text.split(";"), bytes_text.split(";"), md5_checksum_text.split(";"))
+def _url_destinations(
+    urls: list[str], out_dir: Path, names: list[str] | None = None
+) -> dict[str, Path]:
+    """Map each normalized URL to its path in out_dir, named by `names` if given."""
+    dest: dict[str, Path] = {}
+    for url, name in zip(urls, names or [None] * len(urls), strict=True):
+        normalized = _normalize_url(url)
+        dest[normalized] = out_dir / (name or normalized.split("/")[-1])
+    return dest
 
 
 def _normalize_num_workers(num_workers: int | None) -> int:
@@ -76,12 +68,12 @@ def _normalize_url(url: str) -> str:
 
 
 def country_name_to_code(name: str) -> str | None:
-    """Return the ISO 3166-1 alpha-2 code for a country name, or None."""
+    """Return the ISO 3166-1 alpha-3 code for a country name, or None."""
     return COUNTRY_NAME_MAP.get(name)
 
 
 def country_code_to_name(code: str) -> str | None:
-    """Return the country name for an ISO 3166-1 alpha-2 code, or None."""
+    """Return the country name for an ISO 3166-1 alpha-3 code, or None."""
     return COUNTRY_CODE_MAP.get(code)
 
 

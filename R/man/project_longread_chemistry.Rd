@@ -26,9 +26,9 @@ the depositor's own protocol text, \code{bucket} when inferred from
 \code{instrument_model} alone, \code{unknown} otherwise.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 ProjectLongreadChemistry("GSE297547")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=project_single_cell]{project_single_cell()}}, whose \code{longread_chemistry} attribute

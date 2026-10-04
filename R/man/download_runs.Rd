@@ -5,26 +5,15 @@
 \alias{DownloadRuns}
 \title{Download the read files of an accession}
 \usage{
-download_runs(
-  accession,
-  dest_dir = NULL,
-  mode = NULL,
-  quiet = FALSE,
-  con = .con()
-)
+download_runs(accession, dest_dir, mode = NULL, quiet = FALSE, con = .con())
 
-DownloadRuns(
-  accession,
-  dest_dir = NULL,
-  mode = NULL,
-  quiet = FALSE,
-  con = .con()
-)
+DownloadRuns(accession, dest_dir, mode = NULL, quiet = FALSE, con = .con())
 }
 \arguments{
 \item{accession}{Any accession Seqout holds.}
 
-\item{dest_dir}{Directory to write into. Defaults to the accession.}
+\item{dest_dir}{Directory to write into, created when missing. There is no
+default, so nothing lands in the working directory unasked.}
 
 \item{mode}{Which copy to take: \code{"fastq"}, \code{"sra"} (NCBI's full-quality
 copy) or \code{"sra_lite"} (the same reads with binned quality scores). \code{NULL}
@@ -44,8 +33,8 @@ Published checksums are verified.
 }
 \examples{
 \dontrun{
-DownloadRuns("SRR12012336") # one run
-DownloadRuns("SRP267291") # every run of a study
-DownloadRuns("SRP150719", mode = "fastq") # insist on ENA fastq
+DownloadRuns("SRR12012336", "SRR12012336") # one run
+DownloadRuns("SRP267291", "SRP267291") # every run of a study
+DownloadRuns("SRP150719", "SRP150719", mode = "fastq") # insist on ENA fastq
 }
 }

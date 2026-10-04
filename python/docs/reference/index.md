@@ -36,6 +36,8 @@ its full signature, arguments, and return type.
 | --- | --- |
 | [`SearchParams`](search.md#seqout.models.api_models.SearchParams) | A reusable filter set |
 | [`SearchResults`](search.md#seqout.models.api_models.SearchResults) | A list-like container of hits, with subsetting and summaries |
+| [`SearchFacetCounts`](search.md#seqout.models.search_models.SearchFacetCounts) | `search_facets()`: per-facet counts over a whole match set |
+| [`microbe_detections()`](search.md#seqout.cohort.microbe_detections) | One row per microbe detection in a `sample_search()` cohort |
 | [`BaseContainer`](search.md#seqout.models.models.BaseContainer) | `to_df`, `to_csv`, `to_dict`, on every result container |
 
 ## Counts matrices
@@ -48,6 +50,9 @@ Needs the `counts` extra.
 | [`CountMatrix`](counts.md#seqout.counts_model.CountMatrix) | A matrix in AnnData orientation, with its annotation |
 | [`SuppFile`](counts.md#seqout.counts_model.SuppFile) | One supplementary file, before download |
 | [`Unit`](counts.md#seqout.counts_model.Unit) | A group of files that read as one matrix |
+| [`file_role()`](counts.md#seqout.counts_names.file_role) | What a supplementary file is, from its name |
+| [`group_key()`](counts.md#seqout.counts_names.group_key) | The key files of one 10x unit share |
+| [`is_filtered()`](counts.md#seqout.counts_names.is_filtered) | Whether a name is CellRanger filtered output |
 
 ## Utilities
 

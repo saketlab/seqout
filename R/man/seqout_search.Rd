@@ -59,37 +59,38 @@ A tibble of results, with a \code{took_ms} attribute.
 Searches GEO, SRA, ArrayExpress, ENA, GSA, DRA and GEA together.
 }
 \examples{
-\dontrun{
-SeqoutSearch("liver cancer scRNA")
-SeqoutSearch("liver cancer scRNA", db = "geo", sortby = "citations")
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+SeqoutSearch("liver cancer scRNA", limit = 10)
 
+\donttest{
 # filters combine freely
-SeqoutSearch("liver cancer", organism = "Homo sapiens", country = "Japan")
-
-# filters can search alone
-SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic")
-
-# sample a large result set
-SeqoutSearch("cancer", limit = 50)
-
-# boolean syntax triggers structured parsing
-SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*')
-
-# force structured parsing
-SeqoutSearch("liver cancer", structured = TRUE)
+SeqoutSearch("liver cancer", organism = "Homo sapiens", country = "Japan", limit = 10)
 
 # exact words
-SeqoutSearch("spinal muscular atrophy", expand = FALSE)
+SeqoutSearch("spinal muscular atrophy", expand = FALSE, limit = 10)
+}
+
+\dontrun{
+# boolean syntax triggers structured parsing
+SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*', limit = 10)
+
+# force structured parsing
+SeqoutSearch("liver cancer", structured = TRUE, limit = 10)
 
 # exclude ontology sources
-SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"))
+SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL"), limit = 10)
+
+# rank or count a broad match set
+SeqoutSearch("liver cancer scRNA", db = "geo", sortby = "citations", limit = 10)
+SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 10)
 
 # restrict to long-read (PacBio / Oxford Nanopore) studies
-SeqoutSearch("liver fibrosis", long_read = TRUE)
+SeqoutSearch("liver fibrosis", long_read = TRUE, limit = 10)
 
 # exact case: LINE retrotransposons, not "cell line"
-SeqoutSearch("LINE", case_sensitive = TRUE)
+SeqoutSearch("LINE", case_sensitive = TRUE, limit = 10)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=sample_search]{sample_search()}} when the answer should be samples, and the

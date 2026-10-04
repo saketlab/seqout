@@ -1,9 +1,4 @@
-"""Regression tests for accession conversion (`convert` + the a-to-b commands).
-
-The core join/routing logic runs offline against a fake client, so a broken
-mesh, target-token map, or GSM-title parse fails here without touching the API.
-A couple of network-marked checks pin the real data shape and skip if offline.
-"""
+"""Accession conversion routing and data shape."""
 
 from types import SimpleNamespace
 
@@ -151,7 +146,7 @@ def test_convert_directions(acc, to_kind, expected):
 
 
 def test_archive_prefixes_route_to_mesh_columns():
-    # ENA/DDBJ/GSA source prefixes must map to a mesh column (else no conversion)
+    # ENA/DDBJ/GSA prefixes must map to a mesh column or nothing converts
     for prefix, col in [
         ("ERP1", "study"),
         ("DRP1", "study"),

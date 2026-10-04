@@ -115,7 +115,7 @@ test_that("the day bounds survive a structured search, applied in R", {
     con = rest_con()
   )
 
-  # Never sent: the endpoint has no such parameter and would drop it in silence.
+  # Not sent: the endpoint would silently drop it.
   expect_null(seen[[1]]$params$date_from)
   expect_equal(seen[[1]]$path, "/search/structured")
   expect_equal(out$accession, c("B", "C"))
@@ -313,14 +313,13 @@ test_that("term expansion is switched off with one flag, and off by name", {
   seqout_search("liver", expand = FALSE, con = rest_con())
   seqout_search("liver", exclude_ontology = c("mesh", "CVCL"), con = rest_con())
 
-  # Expansion off is the same exact-terms reading structured forces, so the
-  # server sees one flag for the two names.
+  # Expansion off and structured both mean exact terms: one server flag.
   expect_null(seen[[1]]$structured)
   expect_null(seen[[1]]$exclude_ontology)
   expect_equal(seen[[2]]$structured, "true")
 
-  # One comma-joined parameter, with the ids spelled the way the server has
-  # them: a name it does not know would keep every synonym in silence.
+  # One comma-joined parameter with server-spelled ids; an unknown name
+  # silently keeps every synonym.
   expect_equal(seen[[3]]$exclude_ontology, "MeSH,CVCL")
 })
 

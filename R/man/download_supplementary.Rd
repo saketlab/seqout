@@ -5,14 +5,15 @@
 \alias{DownloadSupplementary}
 \title{Download the supplementary files of an accession}
 \usage{
-download_supplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
+download_supplementary(accession, dest_dir, quiet = FALSE, con = .con())
 
-DownloadSupplementary(accession, dest_dir = NULL, quiet = FALSE, con = .con())
+DownloadSupplementary(accession, dest_dir, quiet = FALSE, con = .con())
 }
 \arguments{
 \item{accession}{Any accession Seqout holds.}
 
-\item{dest_dir}{Directory to write into. Defaults to the accession.}
+\item{dest_dir}{Directory to write into, created when missing. There is no
+default, so nothing lands in the working directory unasked.}
 
 \item{quiet}{Suppress progress messages.}
 
@@ -27,8 +28,8 @@ Samples stay scoped to their own files.
 }
 \examples{
 \dontrun{
-DownloadSupplementary("GSE168652") # series files and every sample's
-DownloadSupplementary("GSM8433846") # that one sample's
-DownloadSupplementary("E-MTAB-11467") # processed archives and raw
+DownloadSupplementary("GSE168652", "GSE168652") # series files and every sample's
+DownloadSupplementary("GSM8433846", "GSM8433846") # that one sample's
+DownloadSupplementary("E-MTAB-11467", "E-MTAB-11467") # processed archives and raw
 }
 }

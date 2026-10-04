@@ -5,16 +5,21 @@
 #' @noRd
 NULL
 
+#' Abort unless `pkg` is installed, naming where to install it from
 #' @noRd
-.need <- function(pkg, what = "Reading this format", bioc = FALSE) {
+.need <- function(pkg, what = "Reading this format",
+                  repo = c("cran", "bioc", "universe")) {
   if (requireNamespace(pkg, quietly = TRUE)) {
     return(invisible(TRUE))
   }
-  install <- if (bioc) {
-    'BiocManager::install("{pkg}")'
-  } else {
-    'install.packages("{pkg}")'
-  }
+  install <- switch(match.arg(repo),
+    cran = 'install.packages("{pkg}")',
+    bioc = 'BiocManager::install("{pkg}")',
+    universe = paste0(
+      'install.packages("{pkg}", ',
+      'repos = c("https://saketlab.r-universe.dev", getOption("repos")))'
+    )
+  )
   cli::cli_abort(c(
     "{what} needs the {.pkg {pkg}} package.",
     i = paste0("Install it with {.code ", install, "}.")
@@ -123,11 +128,62 @@ NULL
   if (!any(keep)) rep(TRUE, length(features)) else keep
 }
 
+#' Put rhdf5filters' plugins (LZF, Blosc, Zstd, ...) on HDF5's plugin path
+#'
+#' HDF5 caches the path at its first failed lookup, so this must run before
+#' any read.
+#' @noRd
+.h5_plugins <- function() {
+  if (!.has_rhdf5filters()) {
+    return(invisible(FALSE))
+  }
+  dir <- rhdf5filters::hdf5_plugin_path()
+  cur <- Sys.getenv("HDF5_PLUGIN_PATH")
+  if (!dir %in% strsplit(cur, .Platform$path.sep, fixed = TRUE)[[1]]) {
+    Sys.setenv(HDF5_PLUGIN_PATH = paste(c(dir, if (nzchar(cur)) cur), collapse = .Platform$path.sep))
+  }
+  invisible(TRUE)
+}
+
+#' @noRd
+.has_rhdf5filters <- function() requireNamespace("rhdf5filters", quietly = TRUE)
+
+#' Evaluate an HDF5 read, turning a missing compression filter into one clear error
+#' @noRd
+.with_h5_filters <- function(path, label, code) {
+  .h5_plugins()
+  tryCatch(code, error = function(e) {
+    hit <- regmatches(
+      conditionMessage(e),
+      regexec("required filter '([^']+)' is not registered", conditionMessage(e))
+    )[[1]]
+    if (length(hit) < 2) stop(e)
+    filter <- hit[2]
+    cli::cli_abort(c(
+      "{label}: {.file {basename(path)}} is compressed with the HDF5 filter {.val {filter}}, which this HDF5 cannot decode.",
+      i = if (identical(tolower(filter), "lzf")) {
+        "LZF is h5py's own filter; seqout's Python client reads this file as is."
+      },
+      i = if (.has_rhdf5filters()) {
+        "Restart R so HDF5 rereads {.envvar HDF5_PLUGIN_PATH}, or point it at a plugin for {.val {filter}}."
+      } else {
+        "Install the plugins with {.code BiocManager::install(\"rhdf5filters\")}, then restart R."
+      },
+      i = "Or convert the file once in Python: {.code anndata.read_h5ad(p).write_h5ad(q, compression=\"gzip\")}."
+    ), call = NULL)
+  })
+}
+
 #' Read a CellRanger HDF5 matrix
 #' @noRd
-.read_10x_h5 <- function(path, feature_type = NULL) {
+.read_10x_h5 <- function(path, feature_type = NULL, label = basename(path)) {
   .need("hdf5r")
   .need("Matrix")
+  .with_h5_filters(path, label, .read_10x_h5_file(path, feature_type))
+}
+
+#' @noRd
+.read_10x_h5_file <- function(path, feature_type) {
   h5 <- hdf5r::H5File$new(path, mode = "r")
   on.exit(h5$close_all(), add = TRUE)
 
@@ -194,9 +250,21 @@ NULL
 
 #' Read an .h5ad written by anndata
 #' @noRd
-.read_h5ad <- function(path) {
+.read_h5ad <- function(path, label = basename(path)) {
   .need("hdf5r")
   .need("Matrix")
+  out <- .with_h5_filters(path, label, .read_h5ad_file(path))
+  if (.bare_index(rownames(out$obs)) && .bare_index(rownames(out$var))) {
+    cli::cli_warn(c(
+      "{label}: obs and var are indexed by row number only, so there are no gene names or barcodes.",
+      i = "Orientation cannot be checked; obs is read as cells."
+    ))
+  }
+  out
+}
+
+#' @noRd
+.read_h5ad_file <- function(path) {
   h5 <- hdf5r::H5File$new(path, mode = "r")
   on.exit(h5$close_all(), add = TRUE)
 
@@ -205,6 +273,15 @@ NULL
   X <- .read_h5ad_x(h5[["X"]], nrow(obs), nrow(var))
 
   list(X = X, obs = obs, var = var)
+}
+
+#' @noRd
+.bare_index <- function(x) {
+  n <- length(x)
+  # endpoints first: named indexes fail here without allocating n strings
+  n > 0 && is.character(x) && identical(x[[1]], "0") &&
+    identical(x[[n]], as.character(n - 1L)) &&
+    identical(x, as.character(seq_len(n) - 1L))
 }
 
 #' @noRd
@@ -243,7 +320,7 @@ NULL
 .read_h5ad_frame <- function(grp) {
   index_key <- .h5_attr(grp, "_index")
   if (is.na(index_key)) index_key <- "_index"
-  idx <- if (index_key %in% names(grp)) as.character(grp[[index_key]]$read()) else character(0)
+  idx <- if (index_key %in% names(grp)) as.character(.read_h5ad_array(grp[[index_key]])) else character(0)
 
   cols <- setdiff(names(grp), c(index_key, "__categories"))
   out <- list()
@@ -268,12 +345,25 @@ NULL
       cats <- as.character(node[["categories"]]$read())
       return(cats[codes + 1L])
     }
+  }
+  v <- .read_h5ad_array(node)
+  if (is.null(v) || (is.array(v) && length(dim(v)) > 1)) {
     return(NULL)
   }
-  v <- node$read()
-  if (is.array(v) && length(dim(v)) > 1) {
+  v
+}
+
+#' A dataset, or an anndata nullable array (values + mask), as newer anndata writes indexes
+#' @noRd
+.read_h5ad_array <- function(node) {
+  if (!inherits(node, "H5Group")) {
+    return(node$read())
+  }
+  if (!all(c("values", "mask") %in% names(node))) {
     return(NULL)
   }
+  v <- node[["values"]]$read()
+  v[as.logical(node[["mask"]]$read())] <- NA
   v
 }
 
@@ -328,6 +418,7 @@ NULL
   if (length(available) == 0) {
     cli::cli_abort("The object carries no assays.")
   }
+  .check_assay(assay)
   if (is.null(assay) || is.na(assay)) {
     return(available[1])
   }

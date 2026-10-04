@@ -1,7 +1,5 @@
 ---
-title: "Get Started with seqout"
-description: >
-  Core seqout workflows: search genomic databases, retrieve study metadata, read counts matrices, download files, and select backends.
+title: "Getting started with seqout"
 output:
   rmarkdown::html_vignette:
     self_contained: true
@@ -14,7 +12,10 @@ vignette: >
 
 ```{r, include = FALSE}
 seqout::SeqoutDefault(NULL)
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+# live API calls run only off CRAN, when online
+online <- (identical(Sys.getenv("NOT_CRAN"), "true") ||
+  identical(Sys.getenv("IN_PKGDOWN"), "true")) && seqout::SeqoutOnline()
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = online)
 ```
 
 `seqout` is an R client for [seqout.org](https://seqout.org). It queries study-level and sample-level metadata from public genomic archives:
@@ -25,18 +26,16 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 *   DNA Data Bank of Japan (DDBJ DRA and GEA)
 *   Genome Sequence Archive (GSA)
 
-This guide covers the main workflows and links to task-specific articles.
-
 ## Installation
 
-Install the package using the `pak` manager:
+Install with `pak`:
 
 ```{r install, eval = FALSE}
 # install.packages("pak")
 pak::pak("saketlab/seqout/R")
 ```
 
-By default, the package connects to the REST API. It needs no API key or local setup.
+The default backend is the REST API, which needs no API key or local setup.
 
 ```{r setup}
 library(seqout)
@@ -44,11 +43,9 @@ library(seqout)
 
 ## Search the archives
 
-`seqout` can search study-level or sample-level metadata.
-
 ### Query studies
 
-Use `SeqoutSearch()` to search all archives. Supply free-text queries, filters, or both.
+`SeqoutSearch()` searches all archives with free text, filters, or both.
 
 ```{r search}
 SeqoutSearch("cervical cancer single cell", db = "geo", limit = 5)
@@ -56,7 +53,7 @@ SeqoutSearch("cervical cancer single cell", db = "geo", limit = 5)
 
 ### Query samples (cohorts)
 
-Use `SampleSearch()` to search individual samples. Harmonized metadata supports filters such as tissue, disease, and age across studies.
+`SampleSearch()` searches individual samples, filtering on harmonized metadata such as tissue, disease, and age across studies.
 
 ```{r cohort}
 liver <- SampleSearch(
@@ -72,9 +69,9 @@ For query operators and filters, see [Search](articles/search.html).
 
 ### Everything pipes
 
-Each function takes its subject first, so calls chain with R's native pipe: an
-accession, a `seqout_counts` table, a list of cohort filters, or the connection
-itself when the call has no other subject.
+Each function takes its subject first (an accession, a `seqout_counts` table, a
+list of cohort filters, or the connection when the call has no other subject),
+so calls chain with R's native pipe.
 
 ```{r pipes}
 # A PubMed ID or a DOI, told apart by the value, to the datasets that cite it
@@ -91,16 +88,14 @@ list(tissue = "liver", organism = "Homo sapiens") |>
 
 ## Retrieve study metadata
 
-Use `SeqoutGet()` to fetch metadata for a study, sample, or run accession. The function maps the accession to related records in other archives. 
+`SeqoutGet()` fetches metadata for a study, sample, or run accession and maps it to related records in other archives.
 
-The returned dataset uses lazy loading: it queries the API and caches results when you read a field.
+The returned dataset is lazy: each field is fetched from the API and cached on first read.
 
 ```{r dataset}
 d <- SeqoutGet("GSE168652")
 d
 ```
-
-Access specific metadata fields directly:
 
 ```{r dataset-fields}
 d$meta$title
@@ -109,7 +104,7 @@ c(samples = nrow(d$samples), runs = nrow(d$runs), papers = nrow(d$pubs))
 
 ### Harmonized sample attributes
 
-The `enriched` field contains harmonized cell-level and sample-level metadata, such as tissue, disease, and assay labels:
+The `enriched` field holds harmonized sample-level and cell-level labels:
 
 ```{r enriched}
 d$enriched[, c("sample", "tissue", "disease", "assay")]
@@ -119,13 +114,11 @@ For metadata fields, see [Metadata](articles/metadata.html).
 
 ## Read counts matrices
 
-`seqout` can resolve, download, and parse processed GEO supplementary files into R matrices.
+`seqout` resolves, downloads, and parses processed GEO supplementary files into R matrices.
 
 ### List counts files
 
-Use `SeqoutListCounts()` to list matrix units for a GEO accession. A unit is the smallest file group that `seqout` can parse as one matrix, such as a 10x triplet, `.h5`, `.h5ad`, or `.rds` file.
-
-This function queries metadata and downloads no matrix files.
+`SeqoutListCounts()` lists the matrix units for a GEO accession without downloading any matrix files. A unit is the smallest file group that `seqout` can parse as one matrix, such as a 10x triplet, `.h5`, `.h5ad`, or `.rds` file.
 
 ```{r counts-table}
 counts <- SeqoutListCounts("GSE297547")
@@ -137,7 +130,7 @@ head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 4)
 
 ### Load a matrix
 
-Use `SeqoutMatrix()` to read one matrix unit. The returned list contains `X`, `obs`, and `var`.
+`SeqoutMatrix()` reads one unit into a list of `X`, `obs`, and `var`.
 
 ```{r counts-read, eval = FALSE}
 rna <- SeqoutMatrix(counts, sample = "GSM8994520")
@@ -146,7 +139,7 @@ dim(rna$X)
 
 ### Convert to Seurat
 
-Use `Seqout2Seurat()` with a matrix unit, GSM accession, GSE accession, or `SeqoutListCounts()` table. Extra arguments go to `CreateSeuratObject()`.
+`Seqout2Seurat()` accepts a matrix unit, GSM accession, GSE accession, or `SeqoutListCounts()` table. Extra arguments go to `CreateSeuratObject()`.
 
 ```{r counts-seurat, eval = FALSE}
 obj <- Seqout2Seurat("GSE297547", sample = "GSM8994520", min.cells = 3, min.features = 200)
@@ -154,14 +147,39 @@ obj <- Seqout2Seurat("GSE297547", sample = "GSM8994520", min.cells = 3, min.feat
 
 For unit selection and Seurat workflows, see [Counts](articles/counts.html).
 
+### Convert old gene IDs and repair Excel errors
+
+`SeqoutGeneNames()` uses genevintage to select an annotation and convert IDs.
+`SeqoutCorrectNames()` repairs Excel-damaged symbols against a specified reference.
+Both preserve expression values and keep an audit; `SeqoutGeneReport()` reads it.
+
+```{r gene-names-demo, eval = FALSE}
+# GSE52529: original Ensembl IDs, FPKM not raw counts
+old <- SeqoutListCounts("GSE52529") |>
+  SeqoutMatrix(sample = "GSE52529_fpkm_matrix.txt.gz")
+named <- old |> SeqoutGeneNames()
+named$gene_annotation[[1]]$annotation
+
+# GSE101942: verified Excel-damaged gene names
+damaged <- SeqoutListCounts("GSE101942") |>
+  SeqoutMatrix(sample = "GSE101942_IPSC_rawCounts.txt.gz")
+repaired <- damaged |> SeqoutCorrectNames(species = "human", release = 116)
+report <- SeqoutGeneReport(repaired)
+report[report$status != "unchanged", ]
+```
+
+genevintage selects GENCODE 17 on GRCh37 for GSE52529 without a version argument.
+See [Gene names: old identifiers and Excel errors](gene-names.html) for runnable
+excerpts and a comparison of historical and newer symbols.
+
 ## Download data files
 
 Three functions download raw and processed files:
 * `DownloadSupplementary()`: processed dataset files, such as counts matrices, annotations, and archives.
 * `DownloadRuns()`: raw sequencing reads in FASTQ or SRA format.
-* `DownloadBams()`: submitted BAM alignment files.
+* `DownloadBAMs()`: submitted BAM alignment files.
 
-These functions save files in a directory named after the accession, verify checksums, and skip files already present on disk.
+Each saves files in a directory named after the accession, verifies checksums, and skips files already on disk.
 
 Check the `supplementary` field before downloading:
 
@@ -169,19 +187,15 @@ Check the `supplementary` field before downloading:
 head(d$supplementary, 4)
 ```
 
-Download with:
-
 ```{r downloads, eval = FALSE}
-DownloadSupplementary("GSE168652")
-DownloadRuns("SRR12012336")
-DownloadBams("ERP117016")
+DownloadSupplementary("GSE168652", "GSE168652")
+DownloadRuns("SRR12012336", "SRR12012336")
+DownloadBAMs("ERP117016", "ERP117016")
 ```
 
 For download modes and checksums, see [Downloads](articles/downloads.html).
 
 ## Choose a backend
-
-The package supports two backends:
 
 | Backend | Mechanism | Best Use Cases |
 | --- | --- | --- |
@@ -208,7 +222,6 @@ For Parquet downloads, see [Downloads](articles/downloads.html).
 
 ## Next steps
 
-Next guides:
 * [Search](articles/search.html): query operators, filters, and sample cohort construction.
 * [Metadata](articles/metadata.html): dataset structures, publication records, and read-derived metrics.
 * [Counts](articles/counts.html): GEO supplementary file parsing and Seurat object construction.

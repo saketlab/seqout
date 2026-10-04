@@ -19,9 +19,4 @@ A tibble with detailed metadata.
 \description{
 The Parquet backend chooses a table by accession prefix.
 }
-\examples{
-\dontrun{
-sample_detail("GSM5677584")
-}
-}
 \keyword{internal}

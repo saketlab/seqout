@@ -146,37 +146,35 @@
 #'   [seqout_search()] when the answer should be projects.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' # single-cell samples by assay text
-#' SampleSearch(tissue = "liver", disease = "steato", single_cell = "assay")
+#' SampleSearch(tissue = "liver", disease = "steato", single_cell = "assay", limit = 10)
 #'
 #' # female human liver samples over 50
 #' SampleSearch(
 #'   organism = "Homo sapiens", sex = "female",
-#'   tissue = "liver", age_min_years = 50
+#'   tissue = "liver", age_min_years = 50, limit = 10
 #' )
 #'
 #' # HPV references use HPV16, HPV18, and related names
 #' # "papillomavirus" matches nothing
 #' hpv <- SampleSearch(
 #'   tissue = "cervix", microbe = "HPV",
-#'   sort = "cell_count", order = "desc"
+#'   sort = "cell_count", order = "desc", limit = 10
 #' )
 #' attr(hpv, "total")
 #'
 #' # filters built in code
-#' list(tissue = "cervix", microbe = "HPV") |> SampleSearch()
+#' list(tissue = "cervix", microbe = "HPV") |> SampleSearch(limit = 10)
 #'
 #' # ontology term and subtypes
-#' SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 100)
+#' SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 10)
 #'
 #' # exact term
 #' SampleSearch(
 #'   disease_ontology_id = "MONDO:0005061",
-#'   include_descendants = FALSE, limit = 100
+#'   include_descendants = FALSE, limit = 10
 #' )
-#' }
 sample_search <- function(filters = NULL, ..., single_cell = NULL,
                           include_descendants = TRUE,
                           sort = "sample", order = "asc", limit = NULL,
@@ -335,15 +333,15 @@ sample_search <- function(filters = NULL, ..., single_cell = NULL,
 #'   detection in one sample.
 #'
 #' @export
-#' @examples
-#' \dontrun{
-#' hpv <- SampleSearch(disease_ontology_id = "MONDO:0002974", microbe = "HPV")
+#' @examplesIf SeqoutOnline()
+#' hpv <- SampleSearch(
+#'   disease_ontology_id = "MONDO:0002974", microbe = "HPV", limit = 10
+#' )
 #' d <- MicrobeDetections(hpv)
 #' sort(table(d$organism), decreasing = TRUE)
 #'
 #' # only the detections that pass the gates
 #' MicrobeDetections(hpv, validated_only = TRUE)
-#' }
 microbe_detections <- function(x, validated_only = FALSE,
                                columns = c(
                                  "organism", "class", "kingdom",

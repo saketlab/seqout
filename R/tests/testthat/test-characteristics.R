@@ -58,7 +58,7 @@ test_that("the characteristics become one column each, beside the record columns
   out <- seqout:::.unnest_characteristics(samples)
   expect_equal(out$accession, c("GSM1", "GSM2"))
   expect_equal(out$tissue, c("PBMC", "liver"))
-  # The nested column it came from is spent.
+  # The source nested column is dropped.
   expect_false("channels" %in% names(out))
 })
 

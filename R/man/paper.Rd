@@ -25,8 +25,8 @@ A tibble of linked projects, empty when the publication is unknown.
 Find projects linked to a publication
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 Paper("34764296")
 Paper(doi = "10.1038/s41467-021-26864-x")
-}
+\dontshow{\}) # examplesIf}
 }

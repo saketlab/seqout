@@ -8,10 +8,6 @@
 #' @return A one-row tibble, or an empty tibble when the run is unknown.
 #'
 #' @keywords internal
-#' @examples
-#' \dontrun{
-#' run("SRR13927092")
-#' }
 run <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)

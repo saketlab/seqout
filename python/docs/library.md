@@ -199,6 +199,32 @@ To sort results, specify `sortby` (`"citations"`, `"journal"`, or `"year"`) and 
 results = sq.search("hepatocellular carcinoma", sortby="citations", order="desc")
 ```
 
+### Count, correct and discover
+
+`search_facets()` counts a query's whole match set per organism, country,
+library strategy and source, instrument, platform and journal, without paging
+through it. Rows are `facet`, `value`, `count` and `score` (the summed match
+rank); `total` and `max_rank` ride on the result. Filters narrow the set
+counted: `db`, `organism`, `country`, `library_strategy`, `library_source`,
+`instrument_model`, `platform`, `journal`, `multi_platform`, `year_from` and
+`year_to`. `search_suggest()` corrects a query that returned nothing.
+
+```python
+with connect() as sq:
+    f = sq.search_facets("liver cancer", organism="Homo sapiens")
+    f.total
+    f.to_df().query("facet == 'library_strategy'")
+
+    sq.search_suggest("livre cancr")[0].corrected_query  # "liver cancer"
+```
+
+The discovery lists enumerate the values a filter will match, each with a
+count: `list_organisms(common_names=False)`, `list_assays(country=None)` (both
+assay levels, in a `level` column), `list_platforms()` (per-archive counts),
+`list_library_strategies()`, `list_instrument_models()`, `list_journals(limit=500)`
+and `list_centers(limit=500)`; `limit` runs 1 to 5000. Each returns a container
+with `to_df()`. Like the search itself, these read the REST API only.
+
 ## Explore ontology mappings
 
 The search engine uses an ontology graph to resolve synonyms (e.g., mapping `"masld"` to `"nonalcoholic fatty liver disease"`). To inspect mapped terms, synonyms, and identifiers, call `ontology()`:
@@ -260,6 +286,34 @@ with connect() as sq:
 
     # Retrieve short summaries for multiple projects
     summaries = sq.summaries(["GSE168652", "GSE100379"])
+```
+
+## Corpus-wide collections
+
+Each collection exposes `*_summary` (corpus totals), `*_facets` (filter
+values), and `*_projects` (the studies, `limit=None` walks every page):
+
+```python
+with connect() as sq:
+    # Single-cell studies with genetic or chemical perturbation evidence
+    sq.perturbation_summary()
+    sq.perturbation_projects(min_confidence="medium", data_availability="both")
+
+    # Spatial transcriptomics studies, by named platform
+    sq.spatial_projects(platform="Xenium", organism="Homo sapiens")
+
+    # Single-cell corpus, any archive
+    sq.singlecell_projects(chemistry="10x 3' v3", organism="Homo sapiens")
+
+    # PacBio / Oxford Nanopore studies
+    sq.longread_projects(technology="Oxford Nanopore")
+
+    # Studies submitted from one country (ISO2 code)
+    sq.country_projects("IN", organism="Homo sapiens")
+
+    # Free-text UBERON tissue or MONDO disease terms
+    sq.tissue_projects("liver")
+    sq.disease_projects("rare", organism="Homo sapiens")  # or a MONDO term
 ```
 
 ## Construct sample cohorts
@@ -371,6 +425,17 @@ dist = pd.DataFrame({"any detection": any_hit, "passes the gate": gated}).fillna
 dist.sort_values("any detection").plot.barh()  # needs matplotlib
 ```
 
+`microbe_detections()` flattens the same detections into one row per (sample,
+organism, run), with `organism`, `class`, `kingdom`, `breadth_frac` and
+`kmer_mass` columns; `validated_only=True` keeps the gated ones:
+
+```python
+from seqout import microbe_detections
+
+d = microbe_detections(cohort, validated_only=True)
+d["organism"].value_counts()
+```
+
 A detection is a k-mer hit against the reference, down to a few unitigs
 against a mostly uncovered genome, which is why the two tables differ.
 `is_viral_evidence` is the screen's gate; `breadth_frac` and `kmer_mass` are the
@@ -405,6 +470,21 @@ with connect() as sq:
         print(d.organism, d.n_unitigs, d.max_breadth_frac)
 ```
 
+Whether a study is single-cell at all, and on what evidence, is
+`single_cell_status()`; `single_cell_summary()` is the study-level rollup
+(cells, runs scanned, microbes measured). Both return one row, or none for an
+accession the Pentimento does not know. `single_cell_studies()` lists every
+study with single-cell evidence. `data` picks what a study must carry, by its
+`kind`: `"matrix"` (a parsed counts matrix), `"fastq"` (linked reads),
+`"both"`, or `"any"`, which logs a warning when reads-only studies come back:
+
+```python
+with connect() as sq:
+    sq.single_cell_status("GSE168652")[0].kind  # "matrix_and_reads"
+    sq.single_cell_summary("GSE168652").to_df()
+    sq.single_cell_studies(data="matrix", min_evidence=2, limit=100)
+```
+
 ## Read counts matrices
 
 Use `SeqoutListCounts` to resolve, download, and parse processed supplementary files into matrices. This feature requires the `counts` installation extra.
@@ -433,6 +513,10 @@ The study's sample-level covariates are available as `design`, indexed by access
 ```python
 counts.design
 ```
+
+`file_role()`, `group_key()` and `is_filtered()` are the file-name rules
+`SeqoutListCounts` groups supplementary files by, exported for use before any
+download: `file_role("GSM1_barcodes.tsv.gz")` is `"barcodes"`.
 
 ### Filter samples within a study
 
@@ -558,6 +642,9 @@ with connect(backend="parquet") as pq:
     dataset = pq.get("GSE169470")
     runs = dataset.runs
 ```
+
+`pq.tables()` lists the dump's tables; `registered` is
+`True` only for tables created in the DuckDB session itself.
 
 For Parquet backend limitations and configuration details, see [Parquet Backend](parquet.md).
 

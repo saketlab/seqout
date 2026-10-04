@@ -13,21 +13,29 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
+    "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Typing :: Typed",
 ]
+# ORCIDs live in CITATION.cff at the repo root; core metadata has no field for them
 authors = [
+    { name = "Aniruddha Mukherjee", email = "amkhrjee@iitb.ac.in" },
     { name = "Mukesh Reddy", email = "mukeshreddy.work@gmail.com" },
-    { name = "Aniruddha Mukherjee", email = "amkhrjee@iitb.ac.in" }
+    { name = "Saket Choudhary", email = "saketc@iitb.ac.in" },
+]
+maintainers = [
+    { name = "Saket Choudhary", email = "saketc@iitb.ac.in" },
 ]
 requires-python = ">=3.13"
 dependencies = [
     "duckdb>=1.5.4",
     "httpx>=0.28.1",
-    "langchain>=1.3.9",
+    "numpy>=2",
     "pandas>=3.0.3",
     "pydantic>=2.13.4",
     "questionary>=2.1.1",
@@ -38,6 +46,8 @@ dependencies = [
 
 [project.optional-dependencies]
 counts = ["anndata>=0.10", "h5py>=3.11", "isal>=1.6", "rdata>=0.11", "scipy>=1.14"]
+# FTP through SEQOUT_SOCKS_PROXY
+socks = ["pysocks>=1.7"]
 
 [project.urls]
 Homepage = "https://seqout.org"
@@ -52,11 +62,12 @@ seqout = "seqout.cli.cli:main"
 requires = ["uv_build>=0.10.12,<0.11.0"]
 build-backend = "uv_build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/seqout"]
-
-[tool.setuptools.package-data]
-seqout = ["py.typed"]
+[tool.uv.build-backend]
+# tests ship in the sdist so downstream packagers can run them; the wheel stays
+# the package alone
+source-include = ["tests/**"]
+source-exclude = ["**/.DS_Store", "**/*.orig", "**/*.rej", "**/*.swp"]
+wheel-exclude = ["**/.DS_Store", "**/*.orig", "**/*.rej", "**/*.swp"]
 
 [tool.ruff]
 target-version = "py313"

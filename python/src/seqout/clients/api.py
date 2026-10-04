@@ -12,13 +12,14 @@ from concurrent.futures import (
     as_completed,
 )
 from pathlib import Path
-from typing import Any, Literal, Self, TypeVar
+from typing import Any, Literal, NoReturn, Self, TypeVar
+from urllib.parse import quote
 
 import pandas as pd
 import requests
 
 from seqout.cohort import PAGE as COHORT_PAGE
-from seqout.cohort import SORTABLE, check_filters
+from seqout.cohort import SORTABLE, check_filters, check_names
 from seqout.constants import (
     API_BASE_URL,
     DEFAULT_DOWNLOAD_CHUNK_SIZE,
@@ -69,6 +70,7 @@ from seqout.models.api_models import (
     StudyRunsResponse,
     StudyRunsResult,
     StudyRunsResults,
+    SupplementaryFilesResult,
 )
 from seqout.models.cohort_models import (
     Cohort,
@@ -80,23 +82,90 @@ from seqout.models.cohort_models import (
     SingleCellSamples,
     SingleCellStudy,
 )
+from seqout.models.country_models import (
+    CountryFacetValue,
+    CountryProjects,
+    CountryProjectsResponse,
+    CountrySummary,
+)
+from seqout.models.disease_models import (
+    DISEASE_CURATED_COLLECTIONS,
+    DiseaseAliasResponse,
+    DiseaseAliasResults,
+    DiseaseFacetValue,
+    DiseaseProjects,
+    DiseaseProjectsResponse,
+    DiseaseSummary,
+    DiseaseTermProjects,
+    DiseaseTermProjectsResponse,
+    OntologyTermSummary,
+)
 from seqout.models.longread_models import (
     LongreadChemistryResponse,
-    LongreadFacets,
     LongreadFacetValue,
-    LongreadProject,
     LongreadProjects,
     LongreadProjectsResponse,
     LongreadRun,
     LongreadSummary,
 )
+from seqout.models.models import Facets, FacetValue
 from seqout.models.parquet_models import Study
+from seqout.models.pentimento_models import (
+    SingleCellCorpusStudies,
+    SingleCellCorpusStudy,
+    SingleCellStatus,
+    SingleCellStatusResult,
+    SingleCellStudiesResponse,
+    SingleCellStudySummary,
+    SingleCellStudySummaryResult,
+)
+from seqout.models.perturbation_models import (
+    PerturbationFacetValue,
+    PerturbationProjects,
+    PerturbationProjectsResponse,
+    PerturbationSummary,
+)
+from seqout.models.search_models import (
+    AssayFiltersResponse,
+    AssayValue,
+    AssayValues,
+    FilterValues,
+    FilterValuesResponse,
+    Organism,
+    Organisms,
+    OrganismsResponse,
+    PlatformCounts,
+    PlatformsResponse,
+    SearchFacetCounts,
+    SearchFacetsResponse,
+    SearchFacetValue,
+    SearchSuggestions,
+    SearchSuggestResponse,
+)
+from seqout.models.singlecell_models import (
+    SingleCellFacetValue,
+    SingleCellProjects,
+    SingleCellProjectsResponse,
+    SingleCellSummary,
+)
+from seqout.models.spatial_models import (
+    SpatialFacetValue,
+    SpatialProjects,
+    SpatialProjectsResponse,
+    SpatialSummary,
+)
+from seqout.models.tissue_models import (
+    TissueFacetValue,
+    TissueProjects,
+    TissueProjectsResponse,
+)
 from seqout.search_plan import SearchPlan, apply_plan, plan_search
 from seqout.utils import (
-    _extract_download_info_for_study_run,
+    StudyRunDownloadMode,
     _normalize_num_workers,
     _normalize_url,
-    _validate_study_runs_data,
+    _run_files_to_fetch,
+    _url_destinations,
 )
 
 logger = logging.getLogger(__name__)
@@ -106,12 +175,57 @@ _NOT_FOUND = 404
 # /project/{acc}/single-cell caps a page at 1000 rows.
 PENTIMENTO_PAGE = 1000
 
-# /longread/projects caps a page at 200 rows.
-LONGREAD_PAGE = 200
+# every collection's /projects endpoint caps a page at 200 rows
+COLLECTION_PAGE = 200
 
 SearchParamsType = SearchParams | StructuredSearchParams
-_NOT_FOUND = 404
 T = TypeVar("T")
+
+# refuse rather than clamp; a clamped result would look complete
+FILTER_LIMIT_MAX = 5000
+
+# /single-cell/studies caps a page at 1000 rows.
+SINGLE_CELL_STUDIES_PAGE = 1000
+
+# None leaves filtering to require_matrix
+_SINGLE_CELL_KINDS: dict[str, frozenset[str] | None] = {
+    "any": None,
+    "matrix": None,
+    "both": frozenset({"matrix_and_reads", "matrix_reads_unscanned"}),
+    "fastq": frozenset({"matrix_and_reads", "matrix_reads_unscanned", "reads_only"}),
+}
+
+
+def _parquet_only(method: str, reason: str) -> NoReturn:
+    """Raise because method reads the Parquet dump."""
+    msg = (
+        f"{method} reads the Parquet dump; this client is REST. {reason} "
+        f"Open a Parquet client for it: connect('parquet')."
+    )
+    raise SeqoutError(msg)
+
+
+def _term_segment(term: str) -> str:
+    """Percent-encode a free-text ontology term for a path segment."""
+    # terms routinely carry spaces and punctuation ("fatty liver disease")
+    return quote(term.strip(), safe="")
+
+
+def _disease_segment(collection: str) -> tuple[str, bool]:
+    """Return the path segment for a disease collection, and if it is curated."""
+    canon = collection.strip().lower()
+    if canon in DISEASE_CURATED_COLLECTIONS:
+        return canon, True
+    return _term_segment(collection), False
+
+
+def _check_limit(limit: int) -> int:
+    """Refuse a limit past the server's ceiling before it answers 422."""
+    most = FILTER_LIMIT_MAX
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= most:
+        msg = f"limit must be one whole number between 1 and {most}, not {limit!r}."
+        raise ValueError(msg)
+    return limit
 
 
 def _md5_matches(path: Path, want: str) -> bool:
@@ -224,6 +338,12 @@ class SeqoutAPIClient(ShortNames):
         }
     )
 
+    # /search/facets bounds by year_*, not date_*; long_read times it out
+    FACET_FILTERS = (
+        _COUNTABLE
+        - {"q", "structured", "exclude_ontology", "long_read", "date_from", "date_to"}
+    ) | {"year_from", "year_to"}
+
     def _search_total(self, params: SearchParamsType) -> int | None:
         """Count matches exactly when /search/facets can answer cheaply."""
         if isinstance(params, StructuredSearchParams):
@@ -279,6 +399,51 @@ class SeqoutAPIClient(ShortNames):
                 update["cursor_rank"] = response.next_cursor.rank
             params = params.model_copy(update=update)
             response = self._fetch_search_page(params)
+
+    def _walk_pages(
+        self,
+        url: str,
+        params: dict[str, Any],
+        response_model: type[Any],
+        *,
+        limit: int | None,
+        offset: int = 0,
+        keyset: bool = False,
+        keep: Callable[[Any], bool] | None = None,
+    ) -> tuple[list[Any], int]:
+        """Walk a `/projects` endpoint by offset or `next_cursor` to `limit` rows."""
+        rows: list[Any] = []
+        total = 0
+        at: dict[str, Any] = (
+            {"cursor_sort": None, "cursor_acc": None} if keyset else {"offset": offset}
+        )
+        # results arrive in sort order, so later pages can't outrank kept rows
+        while limit is None or len(rows) < limit:
+            # a local filter makes the kept count unknown, so read whole pages
+            want = COLLECTION_PAGE
+            if limit is not None and keep is None:
+                want = min(limit - len(rows), COLLECTION_PAGE)
+            page = self._sender(
+                url=url,
+                params={**params, **at, "limit": want},
+                response_model=response_model,
+            )
+            total = page.total
+            rows.extend(page.results if keep is None else filter(keep, page.results))
+            if keyset:
+                # an empty page ends the walk even if a cursor came back
+                if page.next_cursor is None or not page.results:
+                    break
+                at = {
+                    "cursor_sort": page.next_cursor.sort_value,
+                    "cursor_acc": page.next_cursor.accession,
+                }
+                continue
+            at = {"offset": at["offset"] + page.count}
+            # a stale total would otherwise page forever
+            if page.count == 0 or at["offset"] >= page.total:
+                break
+        return rows if limit is None else rows[:limit], total
 
     def _search_with_correction(
         self,
@@ -367,6 +532,18 @@ class SeqoutAPIClient(ShortNames):
             response_model=ProjectMetadataResult,
         )
 
+    def fetch_supplementary_files(self, accession_id: str) -> SupplementaryFilesResult:
+        """
+        List a GEO/ArrayExpress/GEA project's supplementary files.
+
+        Each file carries `gene_corruption`, its scan for Excel's
+        gene-symbol-to-date autocorrupt bug; `None` means unscanned, not clean.
+        """
+        return self._sender(
+            url=f"{self._base_url}/project/{accession_id}/supplementary",
+            response_model=SupplementaryFilesResult,
+        )
+
     def fetch_samples(self, accession_id: str) -> ExperimentSampleList:
         """
         Fetch GEO or ArrayExpress sample records.
@@ -400,16 +577,12 @@ class SeqoutAPIClient(ShortNames):
         self, accession_id: str
     ) -> ProjectLLMEnrichedSampleMetadataResults:
         """Fetch prepared per-sample labels. Missing coverage returns empty."""
-        try:
-            response = self._sender(
-                url=f"{self._base_url}/project/{accession_id}/enriched",
-                response_model=ProjectLLMEnrichedSampleMetadataResponse,
-            )
-        except requests.exceptions.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
-                return ProjectLLMEnrichedSampleMetadataResults([])
-            raise
-
+        response = self._get_or_none(
+            f"{self._base_url}/project/{accession_id}/enriched",
+            ProjectLLMEnrichedSampleMetadataResponse,
+        )
+        if response is None:
+            return ProjectLLMEnrichedSampleMetadataResults([])
         return response.samples
 
     def fetch_study_experiments(self, study_id: str) -> StudyExperimentsResults:
@@ -583,16 +756,10 @@ class SeqoutAPIClient(ShortNames):
         A publication seqout does not hold comes back as an empty result.
         """
         params = {"pmid": pmid} if pmid else {"doi": doi}
-        try:
-            return self._sender(
-                url=f"{self._base_url}/publication",
-                params=params,
-                response_model=PublicationLookupResult,
-            )
-        except requests.exceptions.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
-                return PublicationLookupResult()
-            raise
+        res = self._get_or_none(
+            f"{self._base_url}/publication", PublicationLookupResult, params
+        )
+        return PublicationLookupResult() if res is None else res
 
     def fetch_sample_metadata(self, sample_id: str) -> SampleMetadataResult:
         """Fetch one sample record."""
@@ -767,16 +934,9 @@ class SeqoutAPIClient(ShortNames):
         path = f"{self._base_url}/project/{accession.strip().upper()}/single-cell"
 
         def page(want: int, at: int) -> SingleCellResponse | None:
-            try:
-                return self._sender(
-                    url=path,
-                    params={"limit": want, "offset": at},
-                    response_model=SingleCellResponse,
-                )
-            except requests.HTTPError as exc:
-                if exc.response is not None and exc.response.status_code == _NOT_FOUND:
-                    return None
-                raise
+            return self._get_or_none(
+                path, SingleCellResponse, {"limit": want, "offset": at}
+            )
 
         want = PENTIMENTO_PAGE if limit is None else min(limit, PENTIMENTO_PAGE)
         first = page(want, offset)
@@ -862,10 +1022,7 @@ class SeqoutAPIClient(ShortNames):
 
         Per technology, platform, instrument, organism, archive, chemistry and year.
         """
-        return self._sender(
-            url=f"{self._base_url}/longread/facets",
-            response_model=LongreadFacets,
-        ).root
+        return self._facets("/longread/facets")
 
     def fetch_longread_projects(
         self,
@@ -915,36 +1072,17 @@ class SeqoutAPIClient(ShortNames):
             "sort": sort,
             "order": order,
         }
-        # survivor count is unknown, so want can't shrink toward limit
-        walk_all = single_cell is not None
-        rows: list[LongreadProject] = []
-        total = 0
-        at = offset
-        while True:
-            want = LONGREAD_PAGE
-            if not walk_all and limit is not None:
-                want = min(limit - len(rows), LONGREAD_PAGE)
-                if want <= 0:
-                    break
-            page = self._sender(
-                url=f"{self._base_url}/longread/projects",
-                params={**params, "limit": want, "offset": at},
-                response_model=LongreadProjectsResponse,
-            )
-            total = page.total
-            got = page.results
-            if single_cell is not None:
-                got = [r for r in got if r.is_single_cell is single_cell]
-            rows.extend(got)
-            at += page.count
-            # a stale total would otherwise page forever
-            if page.count == 0 or at >= page.total:
-                break
-            # later pages can't outrank kept rows: results arrive in sort order
-            if limit is not None and len(rows) >= limit:
-                break
-        if limit is not None and len(rows) > limit:
-            rows = rows[:limit]
+        keep = None
+        if single_cell is not None:
+            keep = lambda r: r.is_single_cell is single_cell  # noqa: E731
+        rows, total = self._walk_pages(
+            f"{self._base_url}/longread/projects",
+            params,
+            LongreadProjectsResponse,
+            limit=limit,
+            offset=offset,
+            keep=keep,
+        )
         return LongreadProjects(rows, total=total)
 
     def fetch_longread_chemistry(self, accession: str) -> list[LongreadRun]:
@@ -957,6 +1095,719 @@ class SeqoutAPIClient(ShortNames):
             url=f"{self._base_url}/project/{accession.strip().upper()}/longread-chemistry",
             response_model=LongreadChemistryResponse,
         ).runs
+
+    def fetch_country_summary(self, code: str) -> CountrySummary:
+        """
+        Corpus-wide totals for studies submitted from one country.
+
+        `code` is an ISO-3166-1 alpha-2 code (e.g. "US", "IN"), case-folded to
+        upper. A malformed code raises `requests.HTTPError` with a 404; a
+        well-formed code the server has no stats for raises one with a 503.
+        """
+        return self._sender(
+            url=f"{self._base_url}/country/{code.strip().upper()}/summary",
+            response_model=CountrySummary,
+        )
+
+    def fetch_country_facets(self, code: str) -> dict[str, list[CountryFacetValue]]:
+        """Study counts per organism, assay, archive, year and single-cell status."""
+        return self._facets(f"/country/{code.strip().upper()}/facets")
+
+    def fetch_country_projects(
+        self,
+        code: str,
+        *,
+        organism: str | None = None,
+        assay_l1: str | None = None,
+        source: str | None = None,
+        has_fastq: bool | None = None,
+        has_sra: bool | None = None,
+        is_single_cell: bool | None = None,
+        q: str | None = None,
+        sort: str = "year",
+        order: str = "desc",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> CountryProjects:
+        """
+        Studies submitted from one country.
+
+        Filter values come from `fetch_country_facets`. `q` matches title or
+        study_accession (case-insensitive substring). `limit=None` (the
+        default) walks every page; pass a `limit` for a large country such
+        as "US".
+        """
+        params = {
+            "organism": organism,
+            "assay_l1": assay_l1,
+            "source": source,
+            "has_fastq": has_fastq,
+            "has_sra": has_sra,
+            "is_single_cell": is_single_cell,
+            "q": q,
+            "sort": sort,
+            "order": order,
+        }
+        rows, total = self._walk_pages(
+            url=f"{self._base_url}/country/{code.strip().upper()}/projects",
+            params=params,
+            response_model=CountryProjectsResponse,
+            limit=limit,
+            offset=offset,
+        )
+        return CountryProjects(rows, total=total)
+
+    def fetch_singlecell_summary(self) -> SingleCellSummary:
+        """
+        Corpus-wide totals for studies with single-cell evidence.
+
+        Matrix or read-derived evidence, or a declared single-cell
+        classification; the population `fetch_singlecell_projects` lists.
+        `cells` excludes studies whose only matrix is unfiltered (raw 10x
+        barcodes, not real cells).
+        """
+        return self._sender(
+            url=f"{self._base_url}/single-cell/summary",
+            response_model=SingleCellSummary,
+        )
+
+    def fetch_singlecell_facets(self) -> dict[str, list[SingleCellFacetValue]]:
+        """Study counts per chemistry, organism, tissue, modality and assay."""
+        return self._facets("/single-cell/facets")
+
+    def fetch_singlecell_projects(
+        self,
+        *,
+        chemistry: str | None = None,
+        organism: str | None = None,
+        tissue: str | None = None,
+        cell_or_nucleus: str | None = None,
+        perturbation_method: str | None = None,
+        intervention_kind: str | None = None,
+        modality: str | None = None,
+        assay_l1: str | None = None,
+        year: int | None = None,
+        has_matrix: bool | None = None,
+        has_fastq: bool | None = None,
+        has_sra: bool | None = None,
+        is_long_read: bool | None = None,
+        q: str | None = None,
+        sort: str = "year",
+        order: str = "desc",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> SingleCellProjects:
+        """
+        Studies with matrix or read-derived single-cell evidence, corpus-wide.
+
+        Filter values come from `fetch_singlecell_facets`; `year` is the
+        publication year. `q` matches title or study_accession
+        (case-insensitive substring). `limit=None` (the default) walks every
+        page.
+        """
+        params = {
+            "chemistry": chemistry,
+            "organism": organism,
+            "tissue": tissue,
+            "cell_or_nucleus": cell_or_nucleus,
+            "perturbation_method": perturbation_method,
+            "intervention_kind": intervention_kind,
+            "modality": modality,
+            "assay_l1": assay_l1,
+            "year": year,
+            "has_matrix": has_matrix,
+            "has_fastq": has_fastq,
+            "has_sra": has_sra,
+            "is_long_read": is_long_read,
+            "q": q,
+            "sort": sort,
+            "order": order,
+        }
+        rows, total = self._walk_pages(
+            url=f"{self._base_url}/single-cell/projects",
+            params=params,
+            response_model=SingleCellProjectsResponse,
+            limit=limit,
+            offset=offset,
+        )
+        return SingleCellProjects(rows, total=total)
+
+    def fetch_perturbation_summary(self) -> PerturbationSummary:
+        """Corpus-wide totals for single-cell studies with perturbation evidence."""
+        return self._sender(
+            url=f"{self._base_url}/perturbation/summary",
+            response_model=PerturbationSummary,
+        )
+
+    def fetch_perturbation_facets(self) -> dict[str, list[PerturbationFacetValue]]:
+        """
+        Perturbation facet study counts.
+
+        Per perturbation type, confidence, data availability, genetic
+        subtype, perturbation method, compound, organism, tissue, readout
+        assay, cell line, sample type and year.
+        """
+        return self._facets("/perturbation/facets")
+
+    def fetch_perturbation_projects(
+        self,
+        *,
+        perturbation_type: str | None = None,
+        confidence: str | None = None,
+        min_confidence: str | None = None,
+        data_availability: str | None = None,
+        genetic_subtype: str | None = None,
+        perturbation_method: str | None = None,
+        compound: str | None = None,
+        readout_assay: str | None = None,
+        cell_line: str | None = None,
+        organism: str | None = None,
+        tissue: str | None = None,
+        year: int | None = None,
+        has_matrix: bool | None = None,
+        has_fastq: bool | None = None,
+        has_control_arm: bool | None = None,
+        is_pooled: bool | None = None,
+        is_long_read: bool | None = None,
+        q: str | None = None,
+        sort: str = "confidence",
+        order: str = "desc",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> PerturbationProjects:
+        """
+        Single-cell studies with genetic or chemical perturbation evidence.
+
+        Detection is rule-based; `confidence` is `"high"`, `"medium"` or
+        `"low"`. Use `min_confidence="medium"` for studies to rely on;
+        `confidence` matches one tier exactly. Filter values come from
+        `fetch_perturbation_facets`. `limit=None` (the default) walks every
+        page.
+        """
+        params = {
+            "perturbation_type": perturbation_type,
+            "confidence": confidence,
+            "min_confidence": min_confidence,
+            "data_availability": data_availability,
+            "genetic_subtype": genetic_subtype,
+            "perturbation_method": perturbation_method,
+            "compound": compound,
+            "readout_assay": readout_assay,
+            "cell_line": cell_line,
+            "organism": organism,
+            "tissue": tissue,
+            "year": year,
+            "has_matrix": has_matrix,
+            "has_fastq": has_fastq,
+            "has_control_arm": has_control_arm,
+            "is_pooled": is_pooled,
+            "is_long_read": is_long_read,
+            "q": q,
+            "sort": sort,
+            "order": order,
+        }
+        rows, total = self._walk_pages(
+            url=f"{self._base_url}/perturbation/projects",
+            params=params,
+            response_model=PerturbationProjectsResponse,
+            limit=limit,
+            offset=offset,
+        )
+        return PerturbationProjects(rows, total=total)
+
+    def fetch_spatial_summary(self) -> SpatialSummary:
+        """Corpus-wide totals for studies flagged spatial transcriptomics."""
+        return self._sender(
+            url=f"{self._base_url}/spatial/summary",
+            response_model=SpatialSummary,
+        )
+
+    def fetch_spatial_facets(self) -> dict[str, list[SpatialFacetValue]]:
+        """
+        Spatial transcriptomics facet study counts.
+
+        Per platform, resolution, data availability, organism, tissue,
+        readout assay, cell line, sample type and year.
+        """
+        return self._facets("/spatial/facets")
+
+    def fetch_spatial_projects(
+        self,
+        *,
+        platform: str | None = None,
+        resolution: str | None = None,
+        technology: str | None = None,
+        data_availability: str | None = None,
+        organism: str | None = None,
+        tissue: str | None = None,
+        readout_assay: str | None = None,
+        cell_line: str | None = None,
+        sample_type: str | None = None,
+        year: int | None = None,
+        has_matrix: bool | None = None,
+        has_fastq: bool | None = None,
+        is_long_read: bool | None = None,
+        q: str | None = None,
+        sort: str = "year",
+        order: str = "desc",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> SpatialProjects:
+        """
+        Studies flagged single-cell modality "Spatial Transcriptomics".
+
+        `platform` filters on a name from `fetch_spatial_facets` (Visium,
+        Xenium, MERFISH, ...). A row's platform is often null, and a named one
+        is a text mention, not proof the study ran it. `resolution` is
+        "single-cell", "spot" or "roi" (GeoMx DSP). `technology` is "imaging",
+        "sequencing" or "hybrid" (GeoMx DSP); a separate column from
+        `resolution`, though the two match one-to-one today. `limit=None`
+        (the default) walks every page.
+        """
+        params = {
+            "platform": platform,
+            "resolution": resolution,
+            "technology": technology,
+            "data_availability": data_availability,
+            "organism": organism,
+            "tissue": tissue,
+            "readout_assay": readout_assay,
+            "cell_line": cell_line,
+            "sample_type": sample_type,
+            "year": year,
+            "has_matrix": has_matrix,
+            "has_fastq": has_fastq,
+            "is_long_read": is_long_read,
+            "q": q,
+            "sort": sort,
+            "order": order,
+        }
+        rows, total = self._walk_pages(
+            url=f"{self._base_url}/spatial/projects",
+            params=params,
+            response_model=SpatialProjectsResponse,
+            limit=limit,
+            offset=offset,
+        )
+        return SpatialProjects(rows, total=total)
+
+    def fetch_disease_summary(
+        self, collection: str
+    ) -> DiseaseSummary | OntologyTermSummary:
+        """
+        Corpus-wide totals for a disease collection or a free-text MONDO term.
+
+        `collection` is `"rare"` (NIH GARD, matched by exact MONDO xref) or
+        `"nord"` (NORD, matched by name): both return `DiseaseSummary`. Any
+        other string is resolved as free text against the full MONDO
+        ontology and returns `OntologyTermSummary`. The model is picked from
+        `collection` (`DISEASE_CURATED_COLLECTIONS`), never from the response.
+        An unresolvable term raises `requests.HTTPError` with a 404.
+        """
+        seg, is_curated = _disease_segment(collection)
+        model = DiseaseSummary if is_curated else OntologyTermSummary
+        return self._sender(
+            url=f"{self._base_url}/disease/{seg}/summary",
+            response_model=model,
+        )
+
+    def fetch_disease_facets(
+        self, collection: str
+    ) -> dict[str, list[DiseaseFacetValue]]:
+        """
+        Study counts per facet for a disease collection or free-text term.
+
+        Both modes return the same `{value, studies}` facet shape.
+        """
+        return self._facets(f"/disease/{_disease_segment(collection)[0]}/facets")
+
+    def fetch_disease_projects(
+        self,
+        collection: str,
+        *,
+        category: str | None = None,
+        specialty: str | None = None,
+        group: str | None = None,
+        nord_type: str | None = None,
+        ancestry: str | None = None,
+        inheritance: str | None = None,
+        disease: str | None = None,
+        assay_category: str | None = None,
+        organism: str | None = None,
+        assay_l1: str | None = None,
+        source: str | None = None,
+        is_single_cell: bool | None = None,
+        is_long_read: bool | None = None,
+        has_fastq: bool | None = None,
+        has_sra: bool | None = None,
+        q: str | None = None,
+        scope: str = "human_primary",
+        sort: str | None = None,
+        order: str = "desc",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> DiseaseProjects | DiseaseTermProjects:
+        """
+        Studies with a sample in a disease collection, or matching a MONDO term.
+
+        `category`/`specialty`/`group`/`nord_type`/`ancestry`/`inheritance`/
+        `disease`/`assay_category` apply only to a curated `collection`
+        (`"rare"` or `"nord"`) and `assay_l1`/`source`/`is_single_cell`/
+        `is_long_read` only to a free-text term; passing one that does not
+        apply to `collection` is rejected server-side with a 400 naming what
+        does apply. `scope` (`"human_primary"`, `"patient_derived_model"`,
+        `"cell_line"`, `"all"`) applies only to a curated collection.
+        `sort=None` (the default) uses the server's default for each mode
+        ("cells" curated, "pub_date" term). `limit=None` walks every page.
+
+        A curated collection pages by `offset`. A free-text term pages by
+        keyset: each page's `next_cursor` becomes the next request's
+        `cursor_sort`/`cursor_acc`, and a nonzero `offset` raises `ValueError`.
+        """
+        seg, is_curated = _disease_segment(collection)
+        if not is_curated and offset:
+            msg = (
+                "offset does not apply to a free-text disease term, which pages "
+                "by cursor; use limit to cap the rows."
+            )
+            raise ValueError(msg)
+        params = {
+            "category": category,
+            "specialty": specialty,
+            "group": group,
+            "nord_type": nord_type,
+            "ancestry": ancestry,
+            "inheritance": inheritance,
+            "disease": disease,
+            "assay_category": assay_category,
+            "organism": organism,
+            "assay_l1": assay_l1,
+            "source": source,
+            "is_single_cell": is_single_cell,
+            "is_long_read": is_long_read,
+            "has_fastq": has_fastq,
+            "has_sra": has_sra,
+            "q": q,
+            "scope": scope,
+            "sort": sort,
+            "order": order,
+        }
+        rows, total = self._walk_pages(
+            url=f"{self._base_url}/disease/{seg}/projects",
+            params=params,
+            response_model=DiseaseProjectsResponse
+            if is_curated
+            else DiseaseTermProjectsResponse,
+            limit=limit,
+            offset=offset,
+            keyset=not is_curated,
+        )
+        result = DiseaseProjects if is_curated else DiseaseTermProjects
+        return result(rows, total=total)
+
+    def fetch_disease_aliases(self, q: str, limit: int = 20) -> DiseaseAliasResults:
+        """Resolve a GARD or NORD disease name to its MONDO ids."""
+        page = self._sender(
+            url=f"{self._base_url}/disease/aliases",
+            params={"q": q, "limit": limit},
+            response_model=DiseaseAliasResponse,
+        )
+        return DiseaseAliasResults(
+            page.results, total=page.total, truncated=page.truncated
+        )
+
+    def fetch_tissue_summary(self, term: str) -> OntologyTermSummary:
+        """
+        Corpus-wide totals for a free-text UBERON tissue term.
+
+        `term` is always resolved against UBERON. An unresolvable term raises
+        `requests.HTTPError` with a 404.
+        """
+        return self._sender(
+            url=f"{self._base_url}/tissue/{_term_segment(term)}/summary",
+            response_model=OntologyTermSummary,
+        )
+
+    def fetch_tissue_facets(self, term: str) -> dict[str, list[TissueFacetValue]]:
+        """Study counts per organism, assay, source, journal, country and year."""
+        return self._facets(f"/tissue/{_term_segment(term)}/facets")
+
+    def fetch_tissue_projects(
+        self,
+        term: str,
+        *,
+        organism: str | None = None,
+        assay_l1: str | None = None,
+        source: str | None = None,
+        has_fastq: bool | None = None,
+        has_sra: bool | None = None,
+        is_single_cell: bool | None = None,
+        is_long_read: bool | None = None,
+        q: str | None = None,
+        sort: str = "pub_date",
+        order: str = "desc",
+        limit: int | None = None,
+    ) -> TissueProjects:
+        """
+        Studies with a sample in a tissue matching `term`.
+
+        Filter values come from `fetch_tissue_facets`. `q` matches title or
+        study_accession (case-insensitive substring). `limit=None` walks
+        every page.
+
+        Pages by keyset: each page's `next_cursor` becomes the next request's
+        `cursor_sort`/`cursor_acc`, as in `/search` `sortby` pagination. There
+        is no `offset` parameter.
+        """
+        params = {
+            "organism": organism,
+            "assay_l1": assay_l1,
+            "source": source,
+            "has_fastq": has_fastq,
+            "has_sra": has_sra,
+            "is_single_cell": is_single_cell,
+            "is_long_read": is_long_read,
+            "q": q,
+            "sort": sort,
+            "order": order,
+        }
+        rows, total = self._walk_pages(
+            url=f"{self._base_url}/tissue/{_term_segment(term)}/projects",
+            params=params,
+            response_model=TissueProjectsResponse,
+            limit=limit,
+            keyset=True,
+        )
+        return TissueProjects(rows, total=total)
+
+    def _facets(self, path: str) -> dict[str, list[FacetValue]]:
+        """GET a collection's `/facets`; every collection shares one shape."""
+        return self._sender(url=f"{self._base_url}{path}", response_model=Facets).root
+
+    def _get_or_none(
+        self, url: str, response_model: type[T], params: dict | None = None
+    ) -> T | None:
+        """GET url; None when the server answers 404."""
+        try:
+            return self._sender(url=url, params=params, response_model=response_model)
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
+                return None
+            raise
+
+    def fetch_search_suggest(self, query: str) -> SearchSuggestions:
+        """Suggest spelling corrections for a query; empty when it needs none."""
+        q = SearchParams(q=query).q
+        res = self._sender(
+            url=f"{self._base_url}/search/suggest",
+            params={"q": q},
+            response_model=SearchSuggestResponse,
+        )
+        return SearchSuggestions(res.suggestions)
+
+    def fetch_search_facets(
+        self,
+        query: str,
+        *,
+        structured: bool = False,
+        exclude_ontology: list[str] | None = None,
+        **filters: Any,
+    ) -> SearchFacetCounts:
+        """
+        Count a search's full match set by facet.
+
+        Values order by `score`, the summed match rank; it is 0 without a
+        query. Filters narrow the set counted: see `FACET_FILTERS`.
+
+        Returns:
+            One row per facet value, with `total` and `max_rank` attributes.
+
+        """
+        check_names(filters, self.FACET_FILTERS, "facet filter", "sq.FACET_FILTERS")
+        checked = SearchParams(q=query, exclude_ontology=exclude_ontology)
+        params: dict[str, Any] = {
+            "q": checked.q,
+            **{k: v for k, v in filters.items() if v is not None},
+        }
+        if structured:
+            params["structured"] = "true"
+        if checked.exclude_ontology:
+            params["exclude_ontology"] = list(dict.fromkeys(checked.exclude_ontology))
+        res = self._sender(
+            url=f"{self._base_url}/search/facets",
+            params=params,
+            response_model=SearchFacetsResponse,
+        )
+        rows = [
+            SearchFacetValue.model_construct(facet=facet, **dict(b))
+            for facet, buckets in res.facets.items()
+            for b in buckets
+        ]
+        return SearchFacetCounts(rows, total=res.total, max_rank=res.max_rank)
+
+    def _filter_values(self, path: str, **params: Any) -> FilterValues:
+        res = self._sender(
+            url=f"{self._base_url}{path}",
+            params=params or None,
+            response_model=FilterValuesResponse,
+        )
+        return FilterValues(res.values, total=res.total)
+
+    def fetch_library_strategies(self) -> FilterValues:
+        """Values `library_strategy` accepts, with record counts."""
+        return self._filter_values("/filters/library-strategies")
+
+    def fetch_instrument_models(self) -> FilterValues:
+        """Values `instrument_model` accepts, with record counts."""
+        return self._filter_values("/filters/instrument-models")
+
+    def fetch_journals(self, limit: int = 500) -> FilterValues:
+        """Values `journal` accepts, most records first; `limit` is 1 to 5000."""
+        return self._filter_values("/filters/journals", limit=_check_limit(limit))
+
+    def fetch_centers(self, limit: int = 500) -> FilterValues:
+        """List submitting centers, most records first; `limit` is 1 to 5000."""
+        return self._filter_values("/filters/centers", limit=_check_limit(limit))
+
+    def fetch_organisms(self, *, common_names: bool = False) -> Organisms:
+        """Every organism recorded across archives; optionally its common name."""
+        res = self._sender(
+            url=f"{self._base_url}/organisms",
+            params={"common_names": "true" if common_names else "false"},
+            response_model=OrganismsResponse,
+        )
+        rows = [
+            o if isinstance(o, Organism) else Organism(scientific_name=o)
+            for o in res.organisms
+        ]
+        return Organisms(rows, common_names=common_names)
+
+    def fetch_assays(self, country: str | None = None) -> AssayValues:
+        """
+        Assay values at both levels, with study counts.
+
+        `level` is `assay_l1` or `assay_l2`. `country` scopes the counts to
+        one country, by name; None counts over every archive.
+        """
+        res = self._sender(
+            url=f"{self._base_url}/stats/global-contribution-filters",
+            params={"country": country},
+            response_model=AssayFiltersResponse,
+        )
+        return AssayValues(
+            [
+                AssayValue(level=level, value=v.value, count=v.count)
+                for level, values in (
+                    ("assay_l1", res.assay_l1),
+                    ("assay_l2", res.assay_l2),
+                )
+                for v in values
+            ]
+        )
+
+    def fetch_platforms(self) -> PlatformCounts:
+        """Sequencing platforms, with record counts per archive."""
+        res = self._sender(
+            url=f"{self._base_url}/platforms",
+            response_model=PlatformsResponse,
+        )
+        return PlatformCounts(res.platforms)
+
+    def fetch_single_cell_studies(
+        self,
+        min_evidence: int = 1,
+        data: Literal["any", "matrix", "fastq", "both"] = "any",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> SingleCellCorpusStudies:
+        """
+        Studies with single-cell evidence, one row each.
+
+        `data` selects on `kind`: "matrix" keeps studies with a parsed counts
+        matrix (filtered server-side), "fastq" those with linked reads, "both"
+        those with both, "any" everything. Filters other than "matrix" run
+        locally, so they read every page before `limit` counts. "any" warns
+        when reads-only studies, which cannot feed a counts pipeline, came back.
+
+        Args:
+            min_evidence: Minimum independent measurements, 1 to 3.
+            data: What the study must carry.
+            limit: Maximum studies; None reads all, in pages of up to 1000.
+            offset: Number of studies to skip, before local filtering.
+
+        """
+        if data not in _SINGLE_CELL_KINDS:
+            msg = f"data must be one of {', '.join(_SINGLE_CELL_KINDS)}, not {data!r}."
+            raise ValueError(msg)
+        keep = _SINGLE_CELL_KINDS[data]
+        require_matrix = data in ("matrix", "both")
+        # local filters make limit count kept rows, so every page is read
+        page_size = SINGLE_CELL_STUDIES_PAGE
+        if limit is not None and keep is None:
+            page_size = min(limit, SINGLE_CELL_STUDIES_PAGE)
+
+        rows: list[SingleCellCorpusStudy] = []
+        seen = 0
+        while True:
+            res = self._get_or_none(
+                f"{self._base_url}/single-cell/studies",
+                SingleCellStudiesResponse,
+                {
+                    "min_evidence": min_evidence,
+                    "require_matrix": "true" if require_matrix else "false",
+                    "limit": page_size,
+                    "offset": offset + seen,
+                },
+            )
+            got = res.studies if res is not None else []
+            if not got:
+                break
+            seen += len(got)
+            rows.extend(r for r in got if keep is None or r.kind in keep)
+            if limit is not None and len(rows) >= limit:
+                break
+            # no total comes back, so a short page is the last
+            if len(got) < page_size:
+                break
+        if limit is not None:
+            rows = rows[:limit]
+        if data == "any":
+            reads_only = sum(r.kind == "reads_only" for r in rows)
+            if reads_only:
+                logger.warning(
+                    "%d of %d studies have no parsed counts matrix (reads_only). "
+                    "data='matrix' keeps only what a matrix can be read from; "
+                    "data='fastq' keeps what can be realigned.",
+                    reads_only,
+                    len(rows),
+                )
+        return SingleCellCorpusStudies(rows)
+
+    def fetch_single_cell_status(self, accession: str) -> SingleCellStatusResult:
+        """
+        Whether a study is single-cell, and the evidence behind the call.
+
+        `kind` is matrix_and_reads, matrix_reads_unscanned, matrix_only or
+        reads_only. Empty when neither the unified catalogue nor the
+        Pentimento knows the accession.
+        """
+        res = self._get_or_none(
+            f"{self._base_url}/project/{accession.strip().upper()}/single-cell/status",
+            SingleCellStatus,
+        )
+        return SingleCellStatusResult([] if res is None else [res])
+
+    def fetch_single_cell_summary(self, accession: str) -> SingleCellStudySummaryResult:
+        """Study-level single-cell rollup; empty when not in the Pentimento."""
+        res = self._get_or_none(
+            f"{self._base_url}/project/{accession.strip().upper()}/single-cell/summary",
+            SingleCellStudySummary,
+        )
+        return SingleCellStudySummaryResult([] if res is None else [res])
+
+    def tables(self) -> pd.DataFrame:
+        """Raise because the table listing describes the Parquet dump."""
+        _parquet_only("tables", "The REST API has no tables to list.")
 
     def fetch_bams(self, accession: str) -> BamFiles:
         """
@@ -1066,16 +1917,11 @@ class SeqoutAPIClient(ShortNames):
             children: Set False to skip the children, which is much cheaper.
 
         """
-        try:
-            return self._sender(
-                url=f"{self._base_url}/ontology/term",
-                params={"term": term, "max_hops": max_hops, "children": children},
-                response_model=OntologyTerm,
-            )
-        except requests.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == _NOT_FOUND:
-                return None
-            raise
+        return self._get_or_none(
+            f"{self._base_url}/ontology/term",
+            OntologyTerm,
+            {"term": term, "max_hops": max_hops, "children": children},
+        )
 
     def map_to_ontology(
         self,
@@ -1156,68 +2002,34 @@ class SeqoutAPIClient(ShortNames):
             with_pbar: Show a per-file progress bar.
 
         """
-        num_workers = _normalize_num_workers(num_workers)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        url_to_dest: dict[str, Path] = {}
-
-        for url, _ in metadata.supplementary_data:
-            normalized_url = _normalize_url(url)
-            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
-
-        with ThreadPoolExecutor(num_workers) as pool:
-            futures = {
-                pool.submit(
-                    self._downloader,
-                    url=url,
-                    dest_path=dest_path,
-                    chunk_size=chunk_size,
-                    with_pbar=with_pbar,
-                ): url
-                for url, dest_path in url_to_dest.items()
-            }
-
-            for f in as_completed(futures):
-                f.result()
+        self.download_files(
+            [url for url, _ in metadata.supplementary_data],
+            out_dir,
+            num_workers=num_workers,
+            chunk_size=chunk_size,
+            with_pbar=with_pbar,
+        )
 
     def download_files(
         self,
         urls: list[str],
         out_dir: Path,
         *,
+        names: list[str] | None = None,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
     ) -> None:
-        """Download a bare list of URLs into out_dir."""
-        num_workers = _normalize_num_workers(num_workers)
+        """Download a bare list of URLs into out_dir, as `names` when given."""
         out_dir.mkdir(parents=True, exist_ok=True)
-
-        url_to_dest: dict[str, Path] = {}
-        for url in urls:
-            normalized_url = _normalize_url(url)
-            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
-
-        with ThreadPoolExecutor(num_workers) as pool:
-            futures = {
-                pool.submit(
-                    self._downloader,
-                    url=url,
-                    dest_path=dest_path,
-                    chunk_size=chunk_size,
-                    with_pbar=with_pbar,
-                ): url
-                for url, dest_path in url_to_dest.items()
-            }
-
-            for f in as_completed(futures):
-                f.result()
+        url_to_dest = _url_destinations(urls, out_dir, names)
+        self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
     def download_study_runs_data(
         self,
         runs: StudyRunsResults,
         out_dir: Path,
-        mode: Literal["fastq", "sra", "sra_lite", "s3", "gcs"],
+        mode: StudyRunDownloadMode | None = None,
         *,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
@@ -1226,55 +2038,34 @@ class SeqoutAPIClient(ShortNames):
         """
         Download the read files of every run into out_dir.
 
+        Takes the same copy per run as the R client's `download_runs()`, and the
+        same files `runs.files(mode)` lists. Runs not served in `mode` are
+        skipped with a warning.
+
         Args:
             runs: The runs to fetch, from fetch_study_runs or Dataset.runs. Pass a
                 filtered list to fetch a subset.
             out_dir: Created if it does not exist.
-            mode: Which copy to take: fastq, sra, sra_lite, s3, or gcs. Not every
-                run offers every mode.
+            mode: Which copy to take: "fastq", "sra" (NCBI's full-quality copy)
+                or "sra_lite" (binned quality scores). None takes the first each
+                run offers, in that order.
             num_workers: Parallel downloads. Defaults to the core count less two.
             chunk_size: Bytes per read from the socket.
             with_pbar: Show a per-file progress bar.
 
         Raises:
-            ValueError: If a run carries no URL for the requested mode.
+            ValueError: If no run is served in `mode`, or `mode` is not one.
 
         """
-        _validate_study_runs_data(runs, mode)
-        num_workers = _normalize_num_workers(num_workers)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        url_to_dest: dict[str, Path] = {}
-
-        for r in runs:
-            run_urls, run_bytes, run_md5s = _extract_download_info_for_study_run(
-                r, mode
-            )
-
-            if not run_urls or not run_bytes or not run_md5s:
-                raise ValueError(
-                    f"failed to extract download info for {r.run_accession}"
-                )
-
-            for _i, url in enumerate(run_urls):
-                normalized_url = _normalize_url(url)
-                dest_path = out_dir / Path(normalized_url.split("/")[-1])
-                url_to_dest[normalized_url] = dest_path
-
-        with ThreadPoolExecutor(num_workers) as pool:
-            futures = {
-                pool.submit(
-                    self._downloader,
-                    url=url,
-                    dest_path=dest_path,
-                    chunk_size=chunk_size,
-                    with_pbar=with_pbar,
-                ): url
-                for url, dest_path in url_to_dest.items()
-            }
-
-            for f in as_completed(futures):
-                f.result()
+        files = _run_files_to_fetch(runs, mode)
+        self.download_files(
+            [f.url for f in files],
+            out_dir,
+            names=[f.name for f in files],
+            num_workers=num_workers,
+            chunk_size=chunk_size,
+            with_pbar=with_pbar,
+        )
 
     def close(self) -> None:
         """Release client resources. The HTTP session is process-wide and stays open."""

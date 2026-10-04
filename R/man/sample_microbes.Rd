@@ -71,12 +71,12 @@ Panel-unitig alignments lack raw-read, UMI and replicate confirmation.
 Spike-in, negative-control and background classes are excluded from totals.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 m <- SampleMicrobes("GSM5155196", kind = "viral")
 m[, c("organism", "n_unitigs", "max_breadth_frac")]
 attr(m, "measurable")
 attr(m, "detections")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=project_single_cell]{project_single_cell()}} for the study-wide flags.

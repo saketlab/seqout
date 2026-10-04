@@ -80,8 +80,18 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
   ))
 }
 
+#' The handle behind a counts table, or the handle itself
+#'
+#' `$` on the table prefers columns, and the units table has its own `assay`
+#' (one per unit), so internals read handle fields through this.
+#' @noRd
+.handle <- function(x) {
+  attr(x, ".counts_handle", exact = TRUE) %||% x
+}
+
 #' @noRd
 .counts_files <- function(x) {
+  x <- .handle(x)
   if (exists("files", envir = x$cache, inherits = FALSE)) {
     return(base::get("files", envir = x$cache))
   }
@@ -224,6 +234,7 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 
 #' @noRd
 .counts_units <- function(x, preferred_only = TRUE) {
+  x <- .handle(x)
   if (!exists("units", envir = x$cache, inherits = FALSE)) {
     files <- .counts_files(x)
     keep <- files$role != "skip"
@@ -275,25 +286,27 @@ seqout_counts <- function(accession, assay = "rna", feature_type = NULL,
 #' }
 counts_samples <- function(counts, ..., min_cell_count = 1L) {
   .check_counts(counts)
-  if (!startsWith(counts$accession, "GSE")) {
+  h <- .handle(counts)
+  accession <- h$accession
+  if (!startsWith(accession, "GSE")) {
     cli::cli_abort(c(
-      "{counts$accession} is a single sample.",
+      "{accession} is a single sample.",
       i = "Give {.fn seqout_counts} a GSE to select within it."
     ))
   }
   rows <- sample_search(
-    study_accession = counts$accession, ...,
-    min_cell_count = min_cell_count, con = counts$con
+    study_accession = accession, ...,
+    min_cell_count = min_cell_count, con = h$con
   )
   if (nrow(rows) == 0 && !is.null(min_cell_count)) {
     # bulk samples record no cell count, so the single-cell default drops them
     rows <- sample_search(
-      study_accession = counts$accession, ...,
-      min_cell_count = NULL, con = counts$con
+      study_accession = accession, ...,
+      min_cell_count = NULL, con = h$con
     )
     if (nrow(rows) > 0) {
       cli::cli_inform(
-        "No sample in {counts$accession} records a cell count; ignoring {.arg min_cell_count}."
+        "No sample in {accession} records a cell count; ignoring {.arg min_cell_count}."
       )
     }
   }
@@ -301,7 +314,7 @@ counts_samples <- function(counts, ..., min_cell_count = 1L) {
   if (nrow(out) == 0 && nrow(rows) > 0) {
     cli::cli_warn(c(
       "{nrow(rows)} sample{?s} matched the filters, but none ships a counts file.",
-      i = "Inspect the table from {.fn seqout_counts} to see what {counts$accession} ships."
+      i = "Inspect the table from {.fn seqout_counts} to see what {accession} ships."
     ))
   }
   out
@@ -501,7 +514,7 @@ seqout_seurat <- function(x, sample = NULL, max_cells = NULL, multimodal = TRUE,
 #' }
 seqout_sce <- function(x, assay_name = "counts", sample = NULL, max_cells = NULL,
                        multimodal = TRUE, sample_metadata = FALSE, ...) {
-  .need("SingleCellExperiment", "Converting to a SingleCellExperiment", bioc = TRUE)
+  .need("SingleCellExperiment", "Converting to a SingleCellExperiment", repo = "bioc")
   if (!rlang::is_string(assay_name)) {
     cli::cli_abort("{.arg assay_name} must be one name.")
   }
@@ -554,21 +567,22 @@ seqout_sce <- function(x, assay_name = "counts", sample = NULL, max_cells = NULL
 #' @noRd
 .counts_as_seqout_matrix <- function(counts, sample = NULL, max_cells = NULL) {
   .check_counts(counts)
+  accession <- .handle(counts)$accession
   units <- .select_units(counts, sample)
   if (length(units) == 0) {
     cli::cli_abort(c(
-      "{counts$accession} has no selected count-matrix units.",
+      "{accession} has no selected count-matrix units.",
       i = "Inspect the table from {.fn seqout_counts}."
     ))
   }
-  if (startsWith(counts$accession, "GSE") || length(units) > 1) {
+  if (startsWith(accession, "GSE") || length(units) > 1) {
     cli::cli_inform(
-      "Reading {length(units)} count-matrix unit{?s} for {counts$accession}."
+      "Reading {length(units)} count-matrix unit{?s} for {accession}."
     )
   }
   mats <- matrices(counts, sample = sample)
   if (length(mats) == 0) {
-    cli::cli_abort("{counts$accession}: no selected units could be read.")
+    cli::cli_abort("{accession}: no selected units could be read.")
   }
   .bind_units(mats, max_cells = max_cells)
 }
@@ -923,7 +937,7 @@ matrices <- function(counts, sample = NULL) {
 .prefetch_units <- function(counts, units) {
   urls <- unique(unlist(lapply(units, .unit_urls), use.names = FALSE))
   if (length(urls) > 0) {
-    .download_files(urls, counts$cache_dir)
+    .download_files(urls, .handle(counts)$cache_dir)
   }
   invisible(urls)
 }
@@ -960,13 +974,14 @@ matrices <- function(counts, sample = NULL) {
 
 #' @noRd
 .select_unit <- function(counts, sample) {
+  accession <- .handle(counts)$accession
   all_units <- .counts_units(counts, preferred_only = FALSE)
   preferred <- vapply(all_units, function(u) isTRUE(u$preferred), logical(1))
   if (is.null(sample)) {
     preferred_units <- all_units[preferred]
     if (length(preferred_units) != 1) {
       cli::cli_abort(c(
-        "{counts$accession} has {length(preferred_units)} units.",
+        "{accession} has {length(preferred_units)} units.",
         "i" = "Pass {.arg sample}, or use {.fn matrices}. Inspect the table from {.fn seqout_counts}."
       ))
     }
@@ -1015,7 +1030,7 @@ matrices <- function(counts, sample = NULL) {
       cli::cli_abort("{basename(tar_path)}: no readable matrix inside.")
     }
     # extract to scratch and rename; partial dest must fail cache trust
-    tmp <- tempfile("untar", tmpdir = counts$cache_dir)
+    tmp <- tempfile("untar", tmpdir = .handle(counts)$cache_dir)
     utils::untar(tar_path, files = members, exdir = tmp)
     file.rename(tmp, dest)
   }
@@ -1039,7 +1054,8 @@ matrices <- function(counts, sample = NULL) {
     )
   })
 
-  units <- .group_units(.records_to_tibble(rows), counts$accession, counts$assay)
+  handle <- .handle(counts)
+  units <- .group_units(.records_to_tibble(rows), handle$accession, handle$assay)
   if (length(units) == 0) {
     cli::cli_abort("{basename(tar_path)}: no readable matrix inside.")
   }
@@ -1066,13 +1082,13 @@ matrices <- function(counts, sample = NULL) {
 
 #' @noRd
 .unit_paths <- function(counts, urls) {
-  ifelse(.is_local_path(urls), urls, file.path(counts$cache_dir, basename(urls)))
+  ifelse(.is_local_path(urls), urls, file.path(.handle(counts)$cache_dir, basename(urls)))
 }
 
 #' @noRd
 .fetch_unit <- function(counts, unit) {
   urls <- .unit_urls(unit)
-  .download_files(urls[!.is_local_path(urls)], counts$cache_dir)
+  .download_files(urls[!.is_local_path(urls)], .handle(counts)$cache_dir)
 }
 
 #' @noRd
@@ -1081,6 +1097,7 @@ matrices <- function(counts, sample = NULL) {
     return(.read_unit(counts, .expand_tar(counts, unit)))
   }
   .fetch_unit(counts, unit)
+  h <- .handle(counts)
   file_roles <- vapply(unit$files, function(f) f$role, character(1))
   file_urls <- vapply(unit$files, function(f) f$url, character(1))
   file_names <- vapply(unit$files, function(f) f$name, character(1))
@@ -1091,17 +1108,20 @@ matrices <- function(counts, sample = NULL) {
   parsed <- switch(unit$fmt,
     "10x_mtx" = .read_10x_mtx(
       by_role[["mtx"]], by_role[["barcodes"]], by_role[["features"]],
-      feature_type = counts$feature_type
+      feature_type = h$feature_type
     ),
-    "10x_h5" = .read_10x_h5(by_role[["h5"]], feature_type = counts$feature_type),
-    "h5ad" = .read_h5ad(by_role[["h5ad"]]),
-    "rds" = .read_rds(by_role[["rds"]], assay = counts$assay),
+    "10x_h5" = .read_10x_h5(
+      by_role[["h5"]],
+      feature_type = h$feature_type, label = unit$label
+    ),
+    "h5ad" = .read_h5ad(by_role[["h5ad"]], label = unit$label),
+    "rds" = .read_rds(by_role[["rds"]], assay = h$assay),
     "table" = .read_table(by_role[["table"]]),
     cli::cli_abort("{unit$label}: no reader for format {.val {unit$fmt}}.")
   )
 
-  n_samples <- if (exists("n_samples", envir = counts$cache, inherits = FALSE)) {
-    base::get("n_samples", envir = counts$cache)
+  n_samples <- if (exists("n_samples", envir = h$cache, inherits = FALSE)) {
+    base::get("n_samples", envir = h$cache)
   } else {
     0L
   }
@@ -1118,7 +1138,7 @@ matrices <- function(counts, sample = NULL) {
     list(
       X = X, obs = parsed$obs, var = parsed$var,
       kind = decided$kind, evidence = decided$evidence,
-      fmt = unit$fmt, accession = unit$sample %||% counts$accession,
+      fmt = unit$fmt, accession = unit$sample %||% h$accession,
       sample = unit$sample %||% NA_character_, unit = unit$label,
       source = paste(file_names, collapse = ", ")
     ),
@@ -1304,11 +1324,11 @@ print.seqout_matrix <- function(x, ...) {
 #' `.counts_files()` fetches this table for a GSE; reuse avoids another request.
 #' @noRd
 .sample_rows <- function(counts) {
-  cached <- counts$cache
-  rows <- if (!is.null(cached) && exists("samples", envir = cached, inherits = FALSE)) {
-    base::get("samples", envir = cached)
+  h <- .handle(counts)
+  rows <- if (!is.null(h$cache) && exists("samples", envir = h$cache, inherits = FALSE)) {
+    base::get("samples", envir = h$cache)
   } else {
-    seqout_get(counts$accession, con = counts$con)$samples
+    seqout_get(h$accession, con = h$con)$samples
   }
   # both paths spread the characteristics, so callers see one shape either way
   .unnest_characteristics(rows)
@@ -1397,6 +1417,8 @@ print.seqout_matrix <- function(x, ...) {
 #' }
 seqout_fragments <- function(counts, sample = NULL, download = FALSE) {
   .check_counts(counts)
+  h <- .handle(counts)
+  accession <- h$accession
   rows <- .counts_files(counts)
   keep <- .is_fragments(rows$name)
   if (!is.null(sample)) {
@@ -1410,15 +1432,15 @@ seqout_fragments <- function(counts, sample = NULL, download = FALSE) {
   out <- out[order(out$sample, out$file), , drop = FALSE]
   if (nrow(out) == 0) {
     cli::cli_warn(c(
-      "{counts$accession} lists no fragments file.",
+      "{accession} lists no fragments file.",
       i = "Only ATAC and multiome studies ship one."
     ))
     return(out)
   }
   if (isTRUE(download)) {
-    .download_files(out$url, counts$cache_dir)
+    .download_files(out$url, h$cache_dir)
     # .dest_paths holds downloaded names in request order.
-    out$path <- .dest_paths(out$url, counts$cache_dir)
+    out$path <- .dest_paths(out$url, h$cache_dir)
   }
   if (!any(out$indexed)) {
     cli::cli_inform(

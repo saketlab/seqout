@@ -1,5 +1,4 @@
-# Only data = "matrix" is a server-side filter, so offset counts server rows
-# while limit counts the rows surviving the filter.
+# offset counts server rows; limit counts rows kept by the local filter.
 
 kinds <- c("matrix_and_reads", "matrix_reads_unscanned", "matrix_only", "reads_only")
 
@@ -105,8 +104,7 @@ test_that("data = 'both' keeps only the studies confirmed to have each", {
 })
 
 test_that("limit counts rows that survive the filter, not rows fetched", {
-  # filtering after the page is read makes every page look short; a naive loop
-  # stops at the first
+  # local filtering makes every page look short; a naive loop stops after one
   mock_studies()
   out <- single_cell_studies(con = api(), data = "fastq", limit = 150)
   expect_equal(nrow(out), 150)

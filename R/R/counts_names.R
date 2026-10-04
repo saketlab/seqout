@@ -289,9 +289,21 @@ is_filtered <- function(name) {
   out
 }
 
+#' `assay` is the one requested modality; a per-unit vector here means a
+#' caller read the units table's column instead of the handle.
+#' @noRd
+.check_assay <- function(assay) {
+  if (!is.null(assay) && !(length(assay) == 1L && (is.character(assay) || is.na(assay)))) {
+    cli::cli_abort(
+      "{.arg assay} must be one modality name or {.code NULL}, not length {length(assay)}."
+    )
+  }
+}
+
 #' @noRd
 .modality_rank <- function(text, assay) {
   found <- .modality_in_vec(text)
+  .check_assay(assay)
   if (is.null(assay) || is.na(assay)) {
     return(rep(1L, length(found)))
   }

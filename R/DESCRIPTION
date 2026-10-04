@@ -1,12 +1,14 @@
 Package: seqout
 Title: Client for Querying the 'Seqout' Genomics Metadata Database
-Version: 0.2.4
+Version: 0.2.6
 Authors@R: c(
-    person("Aniruddha", "Mukherjee", role = "aut"),
+    person("Aniruddha", "Mukherjee", role = "aut",
+           comment = c(ORCID = "0009-0008-1350-6787")),
     person("Mukesh", "Reddy", role = "aut"),
     person("Saket", "Choudhary", role = c("aut", "cre"),
            email = "saketc@iitb.ac.in",
-           comment = c(ORCID = "0000-0001-5202-7633")))
+           comment = c(ORCID = "0000-0001-5202-7633")),
+    person("Saket Lab", role = "cph"))
 Description: Search and download genomics study metadata from 'Seqout'
     <https://seqout.org>, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ
     (DRA and GEA), ArrayExpress and GSA.
@@ -33,20 +35,24 @@ Suggests:
     DESeq2,
     DT,
     duckdb,
+    genevintage (>= 0.1.2),
     ggplot2,
     hdf5r,
     Matrix,
     Rsamtools,
     scales,
+    SexSeek,
     Seurat,
     SeuratObject,
     SingleCellExperiment,
     SummarizedExperiment,
     testthat (>= 3.0.0),
     knitr,
+    rhdf5filters,
     rmarkdown,
     withr
 Config/testthat/edition: 3
+Additional_repositories: https://saketlab.r-universe.dev
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr

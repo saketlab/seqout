@@ -34,14 +34,16 @@ Flattens the \code{microbes} list column from \code{\link[=sample_search]{sample
 per (sample, organism, run).
 }
 \examples{
-\dontrun{
-hpv <- SampleSearch(disease_ontology_id = "MONDO:0002974", microbe = "HPV")
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+hpv <- SampleSearch(
+  disease_ontology_id = "MONDO:0002974", microbe = "HPV", limit = 10
+)
 d <- MicrobeDetections(hpv)
 sort(table(d$organism), decreasing = TRUE)
 
 # only the detections that pass the gates
 MicrobeDetections(hpv, validated_only = TRUE)
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=sample_search]{sample_search()}} for the samples, \code{\link[=sample_microbes]{sample_microbes()}} for every

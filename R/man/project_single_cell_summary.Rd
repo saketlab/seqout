@@ -22,11 +22,11 @@ A one-row tibble, empty when the study is not in the Pentimento.
 Study-level single-cell summary: cells, reads scanned, microbes
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 s <- ProjectSingleCellSummary("GSE168652")
 s$study_cells
 s$microbe_measured
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=project_single_cell_status]{project_single_cell_status()}} when you need an answer even for a

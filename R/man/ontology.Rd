@@ -37,7 +37,7 @@ A term absent from the graph returns an empty tibble.
 Reads REST. The ontology graph is absent from the dump.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 Ontology("liver")
 
 # The identifiers alone, without the hierarchy query
@@ -46,7 +46,7 @@ Ontology("breast cancer", children = FALSE)$xrefs
 # Terms one level down that expand further
 onto <- Ontology("liver")
 onto[onto$relation == "child" & onto$has_children, "name"]
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=seqout_search]{seqout_search()}}, which expands a plain query through this graph.

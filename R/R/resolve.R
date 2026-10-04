@@ -7,11 +7,9 @@
 #'
 #' @return The study accession, or `NA_character_` when nothing links back.
 #'
-#' @keywords internal
-#' @examples
-#' \dontrun{
+#' @export
+#' @examplesIf SeqoutOnline()
 #' resolve_study("SRR13927092")
-#' }
 resolve_study <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
@@ -122,7 +120,7 @@ resolve_study <- function(accession, con = .con()) {
 #'
 #' @return The GSE accession, or `NA_character_`.
 #'
-#' @keywords internal
+#' @export
 gsm_series <- function(gsm, con = .con()) {
   .check_connection(con)
   rlang::check_required(gsm)
@@ -162,17 +160,14 @@ gsm_series <- function(gsm, con = .con()) {
 #'
 #' @return The linked study accession, or `NA_character_`.
 #'
-#' @keywords internal
+#' @export
 linked_study <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
 
-  xref <- tryCatch(project_xref(accession, con = con), error = function(e) NULL)
-  if (!is.null(xref) && nrow(xref) > 0) {
-    hit <- xref[vapply(xref$accession, .in_archive, logical(1), .study_archives), , drop = FALSE]
-    if (nrow(hit) > 0) {
-      return(hit$accession[1])
-    }
+  hit <- .first_xref_in(con, accession, .study_archives)
+  if (!is.na(hit)) {
+    return(hit)
   }
 
   meta <- tryCatch(project(accession, con = con), error = function(e) NULL)
@@ -192,17 +187,17 @@ linked_study <- function(accession, con = .con()) {
 #'
 #' @return The linked series accession, or `NA_character_`.
 #'
-#' @keywords internal
+#' @export
 linked_geo <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
 
-  xref <- tryCatch(project_xref(accession, con = con), error = function(e) NULL)
-  if (!is.null(xref) && nrow(xref) > 0) {
-    hit <- xref[vapply(xref$accession, .in_archive, logical(1), .geo_archives), , drop = FALSE]
-    if (nrow(hit) > 0) {
-      return(hit$accession[1])
-    }
-  }
-  NA_character_
+  .first_xref_in(con, accession, .geo_archives)
+}
+
+#' The first cross-reference of `accession` held in one of `archives`, or `NA`
+#' @noRd
+.first_xref_in <- function(con, accession, archives) {
+  hit <- .xrefs_in(con, accession, archives)
+  if (length(hit)) hit[1] else NA_character_
 }

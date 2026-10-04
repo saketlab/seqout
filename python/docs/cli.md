@@ -241,10 +241,8 @@ seqout download GSE12345
 | Option | Description |
 | --- | --- |
 | `--fastq` | Downloads raw sequencing reads in FASTQ format. |
-| `--sra` | Downloads raw sequencing reads in SRA format. |
+| `--sra` | Downloads NCBI's full-quality SRA copy, from the anonymous AWS mirror when there is one. |
 | `--sra-lite` | Downloads raw sequencing reads in SRA Lite format (binned quality scores). |
-| `--s3` | Downloads reads directly from AWS S3 mirrors. |
-| `--gcs` | Downloads reads directly from Google Cloud Storage mirrors. |
 | `--supplementary` | Downloads study-level processed supplementary files. |
 | `--sample-supplementary` | Downloads per-sample processed supplementary files. |
 | `-o`, `--out` | Specifies the output destination directory or file path. |

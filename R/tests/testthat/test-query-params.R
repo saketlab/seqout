@@ -1,5 +1,4 @@
-# Check query parameter validation.
-# The API ignores unknown parameters and returns an unfiltered result.
+# Query parameter validation; the API silently ignores unknown ones.
 
 test_that("an unknown parameter is refused, not passed on", {
   expect_error(

@@ -24,9 +24,9 @@ platform; \code{studies_long_read_only} did not; the remainder have no
 experiment rows to judge by (GEO-only entries).
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 LongreadSummary()
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=longread_facets]{longread_facets()}} for the filter values, \code{\link[=longread_projects]{longread_projects()}}

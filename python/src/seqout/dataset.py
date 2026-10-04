@@ -348,6 +348,130 @@ class ShortNames:
         """Every PacBio/Oxford Nanopore run for a study."""
         return _call(self, "fetch_longread_chemistry", accession)
 
+    def country_summary(self, code: str) -> Any:
+        """Corpus-wide totals for studies submitted from one country."""
+        return _call(self, "fetch_country_summary", code)
+
+    def country_facets(self, code: str) -> Any:
+        """Study counts per organism, assay, archive, year for one country."""
+        return _call(self, "fetch_country_facets", code)
+
+    def country_projects(self, code: str, **kwargs: Any) -> Any:
+        """Studies submitted from one country."""
+        return _call(self, "fetch_country_projects", code, **kwargs)
+
+    def singlecell_summary(self) -> Any:
+        """Corpus-wide totals for studies with single-cell evidence."""
+        return _call(self, "fetch_singlecell_summary")
+
+    def singlecell_facets(self) -> Any:
+        """Study counts per chemistry, organism, tissue and modality."""
+        return _call(self, "fetch_singlecell_facets")
+
+    def singlecell_projects(self, **kwargs: Any) -> Any:
+        """Studies with matrix or read-derived single-cell evidence."""
+        return _call(self, "fetch_singlecell_projects", **kwargs)
+
+    def perturbation_summary(self) -> Any:
+        """Corpus-wide totals for single-cell studies with perturbation evidence."""
+        return _call(self, "fetch_perturbation_summary")
+
+    def perturbation_facets(self) -> Any:
+        """Study counts per perturbation type, confidence, method, compound."""
+        return _call(self, "fetch_perturbation_facets")
+
+    def perturbation_projects(self, **kwargs: Any) -> Any:
+        """Single-cell studies with genetic or chemical perturbation evidence."""
+        return _call(self, "fetch_perturbation_projects", **kwargs)
+
+    def spatial_summary(self) -> Any:
+        """Corpus-wide totals for studies flagged spatial transcriptomics."""
+        return _call(self, "fetch_spatial_summary")
+
+    def spatial_facets(self) -> Any:
+        """Study counts per platform, resolution, organism, tissue."""
+        return _call(self, "fetch_spatial_facets")
+
+    def spatial_projects(self, **kwargs: Any) -> Any:
+        """Studies flagged single-cell modality Spatial Transcriptomics."""
+        return _call(self, "fetch_spatial_projects", **kwargs)
+
+    def disease_summary(self, collection: str) -> Any:
+        """Corpus-wide totals for a disease collection or free-text MONDO term."""
+        return _call(self, "fetch_disease_summary", collection)
+
+    def disease_facets(self, collection: str) -> Any:
+        """Study counts per facet for a disease collection or free-text term."""
+        return _call(self, "fetch_disease_facets", collection)
+
+    def disease_projects(self, collection: str, **kwargs: Any) -> Any:
+        """Studies with a sample in a disease collection, or matching a MONDO term."""
+        return _call(self, "fetch_disease_projects", collection, **kwargs)
+
+    def disease_aliases(self, q: str, limit: int = 20) -> Any:
+        """Resolve a GARD or NORD disease name to its MONDO ids."""
+        return _call(self, "fetch_disease_aliases", q, limit=limit)
+
+    def tissue_summary(self, term: str) -> Any:
+        """Corpus-wide totals for a free-text UBERON tissue term."""
+        return _call(self, "fetch_tissue_summary", term)
+
+    def tissue_facets(self, term: str) -> Any:
+        """Study counts per organism, assay, source, journal, country and year."""
+        return _call(self, "fetch_tissue_facets", term)
+
+    def tissue_projects(self, term: str, **kwargs: Any) -> Any:
+        """Studies with a sample in a tissue matching `term`."""
+        return _call(self, "fetch_tissue_projects", term, **kwargs)
+
+    def search_suggest(self, query: str) -> Any:
+        """Suggest spelling corrections for a query; empty when it needs none."""
+        return _call(self, "fetch_search_suggest", query)
+
+    def search_facets(self, query: str, **kwargs: Any) -> Any:
+        """Count a search's full match set by facet, with `total` and `max_rank`."""
+        return _call(self, "fetch_search_facets", query, **kwargs)
+
+    def list_organisms(self, *, common_names: bool = False) -> Any:
+        """Every organism recorded across archives."""
+        return _call(self, "fetch_organisms", common_names=common_names)
+
+    def list_library_strategies(self) -> Any:
+        """Values `library_strategy` accepts, with record counts."""
+        return _call(self, "fetch_library_strategies")
+
+    def list_instrument_models(self) -> Any:
+        """Values `instrument_model` accepts, with record counts."""
+        return _call(self, "fetch_instrument_models")
+
+    def list_platforms(self) -> Any:
+        """Sequencing platforms, with record counts per archive."""
+        return _call(self, "fetch_platforms")
+
+    def list_centers(self, limit: int = 500) -> Any:
+        """List submitting centers, most records first."""
+        return _call(self, "fetch_centers", limit=limit)
+
+    def list_journals(self, limit: int = 500) -> Any:
+        """Values `journal` accepts, most records first."""
+        return _call(self, "fetch_journals", limit=limit)
+
+    def list_assays(self, country: str | None = None) -> Any:
+        """Assay values at both levels, with study counts."""
+        return _call(self, "fetch_assays", country=country)
+
+    def single_cell_studies(self, **kwargs: Any) -> Any:
+        """Studies with single-cell evidence, one row each."""
+        return _call(self, "fetch_single_cell_studies", **kwargs)
+
+    def single_cell_status(self, accession: str) -> Any:
+        """Whether a study is single-cell, and the evidence behind the call."""
+        return _call(self, "fetch_single_cell_status", accession)
+
+    def single_cell_summary(self, accession: str) -> Any:
+        """Study-level single-cell rollup: cells, reads scanned, microbes."""
+        return _call(self, "fetch_single_cell_summary", accession)
+
     def citations(
         self,
         accession: str,

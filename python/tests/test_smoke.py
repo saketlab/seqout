@@ -1,14 +1,4 @@
-"""Smoke tests: catch refactor breakages (missing exports/methods, moved models)
-and basic per-accession-kind fetch failures.
-
-  uv run pytest                  # all
-  uv run pytest -m "not network" # offline: import + wiring checks only
-
-The import/wiring tests need no network and would have caught every refactor
-breakage we hit (Seqout alias, ProjectMetadataResult location, the dropped
-fetch_geo_sample_detailed_metadata). The `network` tests hit the live API and
-skip if it's unreachable.
-"""
+"""Smoke tests for missing exports, moved models and per-kind fetches."""
 
 import importlib
 

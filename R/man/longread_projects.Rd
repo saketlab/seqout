@@ -87,19 +87,19 @@ no experiment rows to judge by (GEO-only entries). Filter values come from
 locally.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 # long-read-only datasets
-LongreadProjects(long_read_only = TRUE, limit = 100)
+LongreadProjects(long_read_only = TRUE, limit = 10)
 
 # long-read AND single-cell
-LongreadProjects(single_cell = TRUE, limit = 100)
+LongreadProjects(single_cell = TRUE, limit = 10)
 
 # Oxford Nanopore human studies, newest first
 LongreadProjects(
   technology = "Oxford Nanopore", organism = "Homo sapiens",
-  sort = "first_published"
+  sort = "first_published", limit = 10
 )
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=longread_summary]{longread_summary()}}, \code{\link[=longread_facets]{longread_facets()}},

@@ -14,13 +14,14 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-The `seqout` package provides four functions to search and filter database records:
+Four functions search the index:
+
 *   `SeqoutSearch()`: Searches for studies matching text queries or filters.
 *   `SampleSearch()`: Searches for individual samples to compile cohorts.
 *   `Paper()`: Locates datasets linked to a specific publication.
 *   `Author()`: Locates datasets linked to a specific researcher.
 
-All search functions read data from the REST API.
+All four use the REST API.
 
 ```{r setup}
 library(seqout)
@@ -36,6 +37,19 @@ SeqoutSearch("liver cancer scRNA", limit = 5)
 
 The `source` column indicates which archive hosts each study.
 
+A misspelled query still searches, but `SearchSuggest()` shows what the server
+corrects it to. `SearchFacets()` counts the matches per organism, platform,
+country and more without fetching a single row, so you can size a query before
+you run it:
+
+```{r suggest-facets}
+SearchSuggest("hepatocelular carcinoma")
+
+f <- SearchFacets("hepatocellular carcinoma")
+attr(f, "total")
+head(f[f$facet == "organism", ], 5)
+```
+
 ### Apply search filters
 
 Filters narrow results and can be used without query text.
@@ -44,7 +58,7 @@ Filters narrow results and can be used without query text.
 SeqoutSearch(organism = "Mus musculus", assay_l1 = "Transcriptomic", limit = 5)
 ```
 
-You can combine a search query with filters:
+Combine a query with filters:
 
 ```{r filters}
 SeqoutSearch(
@@ -57,37 +71,61 @@ SeqoutSearch(
 
 ### Supported search filters
 
-You can combine any of the following filters in a query:
-
 | Filter | Selection Criteria |
 | --- | --- |
-| `db` or `source` | Limit results to a specific archive (e.g., `geo`, `sra`). |
+| `db` or `source` | One archive (e.g., `geo`, `sra`). |
 | `organism` | Scientific name of the target organism. |
-| `library_strategy`, `library_source`, `platform`, `instrument_model` | Methodological details of library preparation and sequencing. |
-| `assay_l1`, `assay_l2` | High-level assay category and specific protocol method. |
+| `library_strategy`, `library_source`, `platform`, `instrument_model` | Library preparation and sequencing. |
+| `assay_l1`, `assay_l2` | Assay category and specific protocol. |
 | `country`, `geo_country_code_iso2`, `geo_lat`, `geo_lng`, `geo_radius_km` | Geographic origin of the study. |
-| `journal` | Publishing journal of the linked publication. |
+| `journal` | Journal of the linked publication. |
 | `multi_platform` | Mapped studies that use more than one sequencing platform. |
-| `date_from`, `date_to` | Date range of the last database modification (`yyyy-mm-dd`). |
+| `date_from`, `date_to` | Range of the last modification date (`yyyy-mm-dd`). |
 
 > [!WARNING]
-> You cannot combine the `library_source` filter with `assay_l1`, `assay_l2`, or any geographic (`geo_*`) filters because the underlying search indexes are incompatible.
+> You cannot combine `library_source` with `assay_l1`, `assay_l2` or any `geo_*` filter, because their search indexes are incompatible.
 
-If you specify `db` or `source` on its own, you must supply at least one other search term or filter:
+`db` or `source` needs at least one other search term or filter:
 
 ```{r one-archive}
 SeqoutSearch("hepatocellular carcinoma", db = "geo", limit = 5)
 ```
 
-The `assay_l1` filter represents broad strategies (e.g., `"Transcriptomic"`), whereas `assay_l2` represents specific assay protocols (e.g., `"ATAC-seq"`):
+`assay_l1` is a broad category (`"Transcriptomic"`); `assay_l2` is a protocol (`"ATAC-seq"`):
 
 ```{r assay}
 SeqoutSearch("liver", assay_l2 = "ATAC-seq", limit = 5)
 ```
 
-### Date filtering
+### Browse filter vocabularies
 
-To retrieve studies updated within a specific timeframe, use the `date_from` and `date_to` filters:
+Filter values must match the server's spelling. Each vocabulary has a `List*()`
+function to look values up.
+
+`ListOrganisms()` returns every organism the index holds, over 300,000 names, so filter it rather than print it:
+
+```{r organisms, eval = FALSE}
+organisms <- ListOrganisms()
+organisms[grepl("^Mus ", organisms$scientific_name), ]
+```
+
+```{r vocabularies}
+ListLibraryStrategies()
+head(ListInstrumentModels())
+ListPlatforms()[, c("platform", "display_name", "total")]
+head(ListAssays())
+ListCenters(limit = 5)
+ListJournals(limit = 5)
+```
+
+Country names and ISO 3166-1 alpha-3 codes convert both ways, offline:
+
+```{r countries}
+CountryCodeToName(c("IND", "USA"))
+CountryNameToCode("India")
+```
+
+### Date filtering
 
 ```{r dates}
 SeqoutSearch("liver cancer",
@@ -101,17 +139,13 @@ nrow(SeqoutSearch("liver", assay_l1 = "Transcriptomic", date_from = "2025-01-01"
 
 ## Structured boolean searches
 
-To construct complex queries, write boolean search expressions. You can group terms using parentheses `()`, search for exact phrases using double quotes `""`, use `*` for prefix wildcard matching, and join terms using the uppercase operators `AND`, `OR`, and `NOT`.
+Group terms with parentheses `()`, match exact phrases in double quotes `""`, match prefixes with `*`, and join terms with the uppercase operators `AND`, `OR` and `NOT`.
 
 ```{r boolean}
 SeqoutSearch('("aging" OR "aged") (gut OR colon) immun*', limit = 5)
 ```
 
-By default, adjacent terms are joined with an implicit `AND` operator. 
-
-Structured search matches terms exactly, with synonym expansion and spelling correction disabled.
-
-`structured = TRUE` disables synonym expansion and typo correction for queries without boolean operators:
+Adjacent terms are joined by an implicit `AND`. A boolean query matches terms exactly, without synonym expansion or spelling correction. `structured = TRUE` does the same for a query without boolean operators:
 
 ```{r boolean-forced}
 SeqoutSearch("liver cancer", limit = 3)$accession
@@ -127,29 +161,28 @@ SeqoutSearch("liver NOT mouse", assay_l1 = "Transcriptomic")
 
 ## Control term expansion
 
-A query expands before it runs. The server adds the synonyms of each term from
-eight ontologies: `MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO` and
-`CVCL`. This is why a search for `"masld"` also finds "nafld".
+The server expands each query term with its synonyms from eight ontologies:
+`MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO` and `CVCL`. A search for
+`"masld"` also finds "nafld".
 
-Set `expand = FALSE` to search the words as you typed them. This is the same
-request that `structured = TRUE` makes:
+`expand = FALSE` searches the words as typed, the same request `structured = TRUE`
+makes:
 
 ```{r expand-off}
 nrow(SeqoutSearch("spinal muscular atrophy"))
 nrow(SeqoutSearch("spinal muscular atrophy", expand = FALSE))
 ```
 
-To keep one source out of the synonyms, and keep the other sources, name it in
-`exclude_ontology`:
+To drop one source's synonyms and keep the rest, name it in `exclude_ontology`:
 
 ```{r exclude-ontology}
 nrow(SeqoutSearch("spinal muscular atrophy", exclude_ontology = c("MeSH", "CVCL")))
 ```
 
-A term that two ontologies know stays while one of the two is on. The graph
-holds one node for each name, and that node carries the identifiers of every
-ontology that supplies the name. A name outside the eight causes an error,
-because the server ignores a name it does not know.
+A synonym that two ontologies supply stays while either is on, because the graph
+holds one node per name carrying the identifiers of every ontology that supplies
+it. A name outside the eight raises an error, because the server ignores a name
+it does not know.
 
 ## Case-sensitive search
 
@@ -169,44 +202,40 @@ and `geo_*` have no case-sensitive match, so combining them with
 
 ## Explore ontology mappings
 
-Standard searches query ontology concepts. A search for `"masld"` matches studies containing `"nonalcoholic fatty liver disease"` when both labels map to the same concept node. 
-
-To inspect the synonyms and child terms linked to a search query in the ontology graph, call `Ontology()`:
+`Ontology()` returns a query term, its synonyms and its child terms in the graph:
 
 ```{r ontology}
 onto <- Ontology("liver")
 onto
 ```
 
-The returned table contains the query term, its synonyms, and its child nodes in the ontology hierarchy.
-
-The `xrefs` column contains ontology identifiers (CURIEs) from standard ontologies (such as UBERON, MeSH, MONDO, and HGNC):
+The `xrefs` column holds each row's ontology CURIEs (UBERON, MeSH, MONDO, HGNC and others):
 
 ```{r ontology-xrefs}
 onto$xrefs[[1]]
 ```
 
-To find sub-terms, filter for child nodes where `has_children` is `TRUE`:
+A child with `has_children` set has sub-terms of its own:
 
 ```{r ontology-children}
 kids <- onto[onto$relation == "child" & onto$has_children, "name"]
 head(kids, 5)
 ```
 
-The server caps synonym returns at 500 and child returns at 300. You can check if the results were truncated using the attributes:
+The server returns at most 500 synonyms and 300 children. The attributes report the totals and truncation:
 
 ```{r ontology-attrs}
 attr(onto, "synonym_total")
 attr(onto, "children_truncated")
 ```
 
-The `max_hops` argument (values 1 to 4, default 2) controls the depth of the synonym search walk. If you only need ontology identifiers and want to skip child terms, set `children = FALSE` to reduce query overhead:
+`max_hops` (1 to 4, default 2) sets the depth of the synonym walk. `children = FALSE` skips child terms, a cheaper call when you need only identifiers:
 
 ```{r ontology-cheap}
 Ontology("breast cancer", children = FALSE)$xrefs[[1]]
 ```
 
-If a term is not present in the ontology graph, the function returns an empty data frame:
+A term missing from the graph returns an empty data frame:
 
 ```{r ontology-missing}
 nrow(Ontology("not a real term at all"))
@@ -223,16 +252,14 @@ meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
 MapToOntology(meta, "celltype")
 ```
 
-Give `ontology` to keep one source only. Give more than one column name to map
-more than one column:
+`ontology` keeps one source. Pass several column names to map several columns:
 
 ```{r map-to-ontology-cl}
 MapToOntology(meta, "celltype", ontology = "CL")
 ```
 
-A label that the graph does not have becomes `NA`. Only the identifiers of the
-label itself are read. Set `use_synonyms = TRUE` to let a label that carries no
-identifier take the identifiers of its synonyms:
+A label missing from the graph becomes `NA`. Only the label's own identifiers are
+read; `use_synonyms = TRUE` lets a label with none take its synonyms' identifiers:
 
 ```{r map-to-ontology-synonyms}
 MapToOntology(data.frame(celltype = "nbc"), "celltype", use_synonyms = TRUE)
@@ -242,7 +269,7 @@ Synonym links can join narrower concepts. Each distinct label requires one reque
 
 ## Sort results and manage limits
 
-By default, the server returns search results ranked by relevance. You can sort results using the `sortby` argument (`"citations"`, `"journal"`, or `"year"`) and set the sort direction using `order` (`"desc"` or `"asc"`):
+Results are ranked by relevance. `sortby` (`"citations"`, `"journal"` or `"year"`) and `order` (`"desc"` or `"asc"`) change that:
 
 ```{r sortby}
 SeqoutSearch("hepatocellular carcinoma", sortby = "citations", limit = 5)
@@ -250,7 +277,7 @@ SeqoutSearch("hepatocellular carcinoma", sortby = "citations", limit = 5)
 
 ### Retrieve total match counts
 
-The server processes search results in pages of 200 rows. The returned object contains the total match count in the `total` attribute and the server execution time in `took_ms`:
+The server returns results in pages of 200 rows. The `total` attribute holds the match count and `took_ms` the server time:
 
 ```{r all-rows}
 result <- SeqoutSearch("hepatocellular carcinoma scRNA")
@@ -258,7 +285,7 @@ nrow(result)
 attr(result, "took_ms")
 ```
 
-If you only need a subset of results, set the `limit` argument to reduce the number of pages retrieved:
+`limit` caps the rows, and so the pages fetched:
 
 ```{r limit}
 nrow(SeqoutSearch("hepatocellular carcinoma scRNA", limit = 50))
@@ -266,7 +293,7 @@ nrow(SeqoutSearch("hepatocellular carcinoma scRNA", limit = 50))
 
 ## Query datasets from search results
 
-After identifying studies using search, pass their accession IDs to `SeqoutGet()` to retrieve their full metadata:
+`SeqoutGet()` returns a study's full metadata:
 
 ```{r dataset}
 top <- SeqoutSearch("hepatocellular carcinoma", sortby = "citations", limit = 1)
@@ -276,29 +303,29 @@ d$meta$title
 c(samples = nrow(d$samples), runs = nrow(d$runs))
 ```
 
-For more details on dataset exploration, see [Metadata](metadata.html).
+See [Metadata](metadata.html) for more.
 
 ## Find datasets by publication and author
 
-To find datasets linked to a specific research paper, call `Paper()` and pass either its PubMed ID (`pmid`) or DOI (`doi`):
+`Paper()` finds the datasets linked to a paper by PubMed ID (`pmid`) or DOI (`doi`):
 
 ```{r paper-pmid}
 Paper(pmid = "34764296")
 ```
 
-The `via` column indicates whether the link was declared in the archive deposit or identified by `seqout`.
+The `via` column says whether the archive deposit declared the link or `seqout` found it.
 
 ```{r paper-doi}
 Paper(doi = "10.1038/s41467-021-26864-x")
 ```
 
-If the paper is not linked to any datasets in the database, the function returns an empty data frame:
+A paper with no linked datasets returns an empty data frame:
 
 ```{r paper-unknown}
 nrow(Paper(pmid = "999999999"))
 ```
 
-To retrieve all datasets associated with a specific researcher, call `Author()` and pass their full name:
+`Author()` finds a researcher's datasets by full name:
 
 ```{r author}
 regev <- Author("Aviv Regev")
@@ -307,21 +334,76 @@ nrow(regev)
 head(regev[, c("accession", "title", "journal", "citation_count")], 5)
 ```
 
-The name argument must match the spelling in the publication record. Initialized formats (such as `"Regev A"`) are not matched:
+The name must match the publication record's spelling. Initials (`"Regev A"`) do not match:
 
 ```{r author-initials}
 nrow(Author("Regev A"))
 ```
 
-Use `limit` to cap the number of records retrieved (default is 200):
+`limit` caps the records returned (default 200):
 
 ```{r author-limit}
 nrow(Author("Aviv Regev", limit = 5))
 ```
 
+## Corpus-wide collections
+
+Each collection has a `*_summary()` (corpus totals), `*_facets()` (filter
+values) and `*_projects()` (the studies; `limit = NULL` reads every page):
+
+```{r collections}
+# single-cell studies with genetic or chemical perturbation evidence
+PerturbationSummary()
+pf <- PerturbationFacets()
+pf[pf$facet == "perturbation_type", ]
+PerturbationProjects(min_confidence = "medium", data_availability = "both", limit = 10)
+
+# spatial transcriptomics studies, by named platform
+SpatialSummary()
+sf <- SpatialFacets()
+head(sf[sf$facet == "platform", ])
+SpatialProjects(platform = "Xenium", organism = "Homo sapiens", limit = 10)
+
+# single-cell corpus, any archive
+SingleCellSummary()
+scf <- SingleCellFacets()
+head(scf[scf$facet == "chemistry", ])
+SingleCellProjects(chemistry = "10x 3' v3", organism = "Homo sapiens", limit = 10)
+
+# PacBio / Oxford Nanopore studies
+LongreadSummary()
+lf <- LongreadFacets()
+lf[lf$facet == "technology", ]
+LongreadProjects(technology = "Oxford Nanopore", limit = 10)
+
+# studies submitted from one country (ISO2 code)
+CountrySummary("IN")
+cf <- CountryFacets("IN")
+head(cf[cf$facet == "organism", ])
+CountryProjects("IN", organism = "Homo sapiens", limit = 10)
+```
+
+Tissue and disease take a free-text term, resolved against UBERON or MONDO
+and expanded to its descendants. `"rare"` and `"nord"` name curated disease
+catalogues instead:
+
+```{r ontology-collections}
+TissueSummary("liver")
+tf <- TissueFacets("liver")
+head(tf[tf$facet == "organism", ])
+TissueProjects("liver", limit = 10)
+
+DiseaseAliases("marfan", limit = 3) # a colloquial name -> its MONDO ids
+
+DiseaseSummary("rare")
+df <- DiseaseFacets("rare")
+head(df[df$facet == "category", ])
+DiseaseProjects("rare", organism = "Homo sapiens", limit = 10) # or a MONDO term
+```
+
 ## Construct sample cohorts
 
-To search for individual samples across all studies using harmonized metadata, use `SampleSearch()`. You must supply at least one filter argument.
+`SampleSearch()` finds samples across all studies by harmonized metadata. It needs at least one filter.
 
 ```{r cohort}
 liver <- SampleSearch(
@@ -334,15 +416,13 @@ liver <- SampleSearch(
 head(liver[, c("sample", "study_accession", "tissue", "disease", "assay", "age")])
 ```
 
-The total number of matching samples is stored in the `total` attribute:
+The `total` attribute holds the match count:
 
 ```{r cohort-total}
 attr(liver, "total")
 ```
 
 ### Cohort search filters
-
-You can filter samples using the following argument groups:
 
 | Filter Group | Arguments |
 | --- | --- |
@@ -351,17 +431,17 @@ You can filter samples using the following argument groups:
 | Value Ranges | `age_min_years`, `age_max_years`, `min_cell_count`, `max_cell_count`, `min_gene_count`, `max_gene_count`. |
 | Read-Derived Metrics | `single_cell_only`, `has_viral_reads`, `has_bacterial_reads`, `hpv_type`, `microbe`, `microbe_class`, `microbe_min_breadth`, `microbe_min_kmer_mass`, `microbe_validated_only`. |
 
-Setting `age_min_years = 0` filters for samples that have a recorded age. Samples without age metadata are excluded.
+`age_min_years = 0` keeps every sample with a recorded age.
 
 ### Query by ontology ID and descendants
 
-To query samples using ontology CURIEs, pass the ID. The search automatically includes samples mapped to descendant subtypes in the ontology graph:
+An ontology ID also matches samples mapped to its descendant subtypes:
 
 ```{r cohort-ontology}
 nrow(SampleSearch(disease_ontology_id = "MONDO:0005061", limit = 200))
 ```
 
-To restrict the search to the exact ontology term and exclude descendant subtypes, set `include_descendants = FALSE`:
+`include_descendants = FALSE` matches the exact term only:
 
 ```{r cohort-exact}
 nrow(SampleSearch(
@@ -372,7 +452,7 @@ nrow(SampleSearch(
 
 ### Filter by read-derived microbial screen
 
-You can filter samples based on the presence of specific microbial reads. Specifying the `microbe` argument filters the cohort and attaches the microbial detection counts to the return data frame:
+`microbe` keeps samples whose reads carry that microbe and attaches the detection counts:
 
 ```{r cohort-microbes}
 hpv <- SampleSearch(
@@ -387,7 +467,7 @@ hpv[, c("sample", "study_accession", "cells", "hpv_top_type", "microbe_n_detecti
 ```
 
 > [!NOTE]
-> Query using the name of the target organism (e.g., `"HPV"`). General terms like `"papillomavirus"` are not matched.
+> Use the organism's name (`"HPV"`). Broader terms like `"papillomavirus"` do not match.
 
 ### A worked cohort: HPV16 in single-cell cervical cancer
 
@@ -405,7 +485,7 @@ sc <- SampleSearch(
 attr(sc, "total")
 ```
 
-`MONDO:0002974` is cervical cancer, and `include_descendants` is `TRUE` by default, so the subtypes come along. Adding `hpv_type` restricts the cohort to the samples whose reads the Pentimento screen called as that strain:
+`MONDO:0002974` is cervical cancer; its subtypes are included by default. `hpv_type` keeps the samples whose reads the Pentimento screen called as that strain:
 
 ```{r cohort-hpv16}
 hpv16 <- SampleSearch(
@@ -429,7 +509,7 @@ hpv <- SampleSearch(
 MicrobeDetections(hpv)
 ```
 
-Age filters exclude samples without recorded ages. Check age coverage before filtering:
+Any age filter drops samples without a recorded age, so check coverage first:
 
 ```{r cohort-age-coverage}
 # age_min_years = 0 means "has a recorded age at all"
@@ -442,7 +522,7 @@ with_age <- SampleSearch(
 attr(with_age, "total")
 ```
 
-Age comes back harmonised in `age_days`; the `age` column is the submitter's own string, in whatever unit they used.
+`age_days` holds the harmonized age; `age` is the submitter's string, in their own unit.
 
 ### The distribution of HPV types across cervical cancer
 
@@ -456,7 +536,7 @@ all_types <- sort(table(MicrobeDetections(hpv_all)$organism), decreasing = TRUE)
 all_types
 ```
 
-Every k-mer hit counts in that table, down to a few unitigs against a mostly uncovered genome. `is_viral_evidence` is the screen gate:
+That table counts every k-mer hit, down to a few unitigs against a mostly uncovered genome. `is_viral_evidence` is the screen gate:
 
 ```{r cohort-hpv-gated}
 gated <- MicrobeDetections(hpv_all, validated_only = TRUE)
@@ -486,11 +566,11 @@ ggplot2::ggplot(dist, ggplot2::aes(stats::reorder(type, Freq), Freq, fill = set)
 
 The denominator includes only screened samples with detections, so these counts cannot estimate HPV prevalence.
 
-From here, `SeqoutGet()` opens the study behind any row and `SeqoutListCounts()` reads its matrices.
+`SeqoutGet()` opens the study behind any row and `SeqoutListCounts()` reads its matrices.
 
 ## Execute SQL queries offline
 
-The search and cohort lookup functions require the REST API backend. If you need to perform custom aggregation or query the entire database offline, connect to the Parquet dump backend and write SQL queries directly:
+Search and cohort functions need the REST API. For custom aggregation, or offline queries over the whole index, connect to the Parquet backend and write SQL:
 
 ```{r parquet}
 con <- SeqoutConnect("parquet", quiet = TRUE)
@@ -505,8 +585,28 @@ Query("
 ", con = con)
 ```
 
+`Tables()` lists what the dump holds. `Query()` registers the tables a query
+names on the fly; `RegisterTables()` does it up front, so dplyr can reach them
+through `con$db`:
+
+```{r tables}
+head(Tables(con))
+con |> RegisterTables("unified_metadata")
+dplyr::tbl(con$db, "unified_metadata") |> head(3)
+```
+
+Every query re-reads the remote Parquet. `CacheTable()` reads one table once
+into the connection as `<table>_local`, so queries against that name skip the
+network; `ClearCache()` drops those copies:
+
+```{r cache, eval = FALSE}
+CacheTable("geo_series", con = con)
+Query("SELECT count(*) FROM geo_series_local", con = con)
+ClearCache(con)
+```
+
 ```{r close}
 SeqoutClose(con)
 ```
 
-To download the database dump and configure local connections, see [Downloads](downloads.html).
+To download the dump and set up local connections, see [Downloads](downloads.html).

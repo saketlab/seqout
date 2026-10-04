@@ -10,6 +10,8 @@
     instrument_model = .pnt_chr,
     chemistry = .pnt_chr,
     chemistry_confidence = .pnt_chr,
+    # display spelling of chemistry_confidence; sort and filter on that instead
+    chemistry_confidence_label = .pnt_chr,
     chemistry_source = .pnt_chr,
     basecaller_software = .pnt_chr,
     basecaller_software_version = .pnt_chr,
@@ -41,17 +43,14 @@
 #'   for the studies themselves.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' LongreadSummary()
-#' }
 longread_summary <- function(con = .con()) {
   .need_api(con, "longread_summary",
     why = "There is no long-read collection table in the dump."
   )
-  res <- .api_get(con, "/longread/summary")
-  .pnt_tibble(
-    list(res),
+  .simple_summary(
+    con, "/longread/summary",
     list(
       studies = .pnt_int,
       experiments = .pnt_int,
@@ -82,23 +81,14 @@ longread_summary <- function(con = .con()) {
 #' @seealso [longread_projects()].
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' f <- LongreadFacets()
 #' f[f$facet == "technology", ]
-#' }
 longread_facets <- function(con = .con()) {
   .need_api(con, "longread_facets",
     why = "There is no long-read collection table in the dump."
   )
-  res <- .api_get(con, "/longread/facets")
-  rows <- unlist(
-    lapply(names(res), function(facet) {
-      lapply(res[[facet]], function(v) list(facet = facet, value = v$value, studies = v$studies))
-    }),
-    recursive = FALSE
-  )
-  .pnt_tibble(rows, list(facet = .pnt_chr, value = .pnt_chr, studies = .pnt_int))
+  .simple_facets(con, "/longread/facets")
 }
 
 #' @noRd
@@ -135,10 +125,6 @@ longread_facets <- function(con = .con()) {
   )
 }
 
-#' /longread/projects caps a page at 200 rows.
-#' @noRd
-.lr_page <- 200L
-
 #' Studies with a PacBio or Oxford Nanopore experiment, any archive
 #'
 #' One row per study; a study mirrored in more than one archive counts once.
@@ -170,20 +156,18 @@ longread_facets <- function(con = .con()) {
 #'   [project_longread_chemistry()] for one study's per-run detail.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' # long-read-only datasets
-#' LongreadProjects(long_read_only = TRUE, limit = 100)
+#' LongreadProjects(long_read_only = TRUE, limit = 10)
 #'
 #' # long-read AND single-cell
-#' LongreadProjects(single_cell = TRUE, limit = 100)
+#' LongreadProjects(single_cell = TRUE, limit = 10)
 #'
 #' # Oxford Nanopore human studies, newest first
 #' LongreadProjects(
 #'   technology = "Oxford Nanopore", organism = "Homo sapiens",
-#'   sort = "first_published"
+#'   sort = "first_published", limit = 10
 #' )
-#' }
 longread_projects <- function(technology = NULL, platform = NULL,
                               instrument_model = NULL, library_strategy = NULL,
                               organism = NULL, archive = NULL, chemistry = NULL,
@@ -205,51 +189,14 @@ longread_projects <- function(technology = NULL, platform = NULL,
     has_exact_chemistry = has_exact_chemistry,
     sort = sort, order = order
   ))
-  # survivor count is unknown, so want can't shrink toward limit
-  walk_all <- !is.null(single_cell)
-
-  pages <- list()
-  kept <- 0L
-  at <- offset
-  total <- 0L
-  repeat {
-    want <- .lr_page
-    if (!walk_all && !is.null(limit)) want <- min(limit - kept, .lr_page)
-    if (want <= 0) break
-
-    res <- do.call(.api_get, c(
-      list(con = con, path = "/longread/projects"),
-      params, list(limit = want, offset = at)
-    ))
-    total <- res$total
-    rows <- .as_record_list(res$results)
-    got <- length(rows)
-    at <- at + got
-
-    if (!is.null(single_cell)) {
-      rows <- Filter(function(r) isTRUE(r$is_single_cell) == single_cell, rows)
-    }
-    if (length(rows)) {
-      pages[[length(pages) + 1L]] <- rows
-      kept <- kept + length(rows)
-    }
-    # a stale total would otherwise page forever
-    if (got == 0 || at >= total) break
-    # later pages can't outrank kept rows: results arrive in sort order
-    if (!is.null(limit) && kept >= limit) break
+  keep <- NULL
+  if (!is.null(single_cell)) {
+    keep <- function(r) isTRUE(r$is_single_cell) == single_cell
   }
-
-  if (length(pages) == 0) {
-    out <- .pnt_tibble(list(), .lr_project_spec())
-  } else {
-    records <- unlist(pages, recursive = FALSE, use.names = FALSE)
-    if (!is.null(limit) && length(records) > limit) {
-      records <- records[seq_len(limit)]
-    }
-    out <- .pnt_tibble(records, .lr_project_spec())
-  }
-  attr(out, "total") <- total
-  out
+  .walk_pages(
+    con, "/longread/projects", params, .lr_project_spec(), limit, offset,
+    keep = keep
+  )
 }
 
 #' Get PacBio/Oxford Nanopore chemistry calls for a study
@@ -270,10 +217,8 @@ longread_projects <- function(technology = NULL, platform = NULL,
 #'   samples.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' ProjectLongreadChemistry("GSE297547")
-#' }
 project_longread_chemistry <- function(accession, con = .con()) {
   .need_api(con, "project_longread_chemistry",
     why = "There is no long-read chemistry table in the dump."

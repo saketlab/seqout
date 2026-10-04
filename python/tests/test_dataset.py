@@ -1,8 +1,4 @@
-"""Offline tests for the accession-first facade (`sq.get(...)` -> Dataset).
-
-The routing — which archive answers which attribute, and when to hop the link —
-runs against a fake client, so a broken hop fails here without touching the API.
-"""
+"""Routing for the accession-first facade (`sq.get`)."""
 
 from types import SimpleNamespace
 
@@ -15,8 +11,7 @@ from seqout.exception import SeqoutError
 class FakeSq(ShortNames):
     """GSE1 <-> SRP1 are the same study; GSM1 is a sample of GSE1.
 
-    GSE1 lists samples, SRP1 lists none — so `sq.get("SRP1").samples` must hop
-    back to GSE1.
+    GSE1 lists samples and SRP1 none, so `sq.get("SRP1").samples` hops to GSE1.
     """
 
     def __init__(self):
@@ -184,7 +179,7 @@ def test_detail_dispatches_on_the_accession_kind():
 
 
 def test_missing_backend_method_says_so():
-    """The message must name the field and the way out, not just fail."""
+    """The error names the field and the way out."""
     sq = FakeSq()
     with pytest.raises(SeqoutError, match="not available on the parquet backend"):
         _ = sq.get("GSE1").links
@@ -217,10 +212,9 @@ def test_channel_accepts_one_or_many_organisms():
 
 
 def test_not_found_degrades_to_an_empty_result(monkeypatch):
-    """A 404 must return an empty result, not raise.
+    """A 404 returns an empty result.
 
-    `requests.Response` is falsy on any error status, so guarding with
-    `if exc.response` silently skipped this path.
+    `requests.Response` is falsy on any error status; `if exc.response` skips this.
     """
     import requests
 
@@ -242,7 +236,7 @@ def test_not_found_degrades_to_an_empty_result(monkeypatch):
 
 
 def test_experiments_are_empty_for_array_data():
-    """AE/GEA series have no sequencing experiments; that is not an error."""
+    """AE/GEA series have no sequencing experiments: empty, no error."""
     sq = FakeSq()
     assert len(sq.get("E-MTAB-9").experiments) == 0
 

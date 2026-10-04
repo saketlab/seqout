@@ -6,38 +6,23 @@ Requires Python 3.13 or newer.
 
 ## Installation
 
-Install directly from GitHub using `uv` or `pip` (specifying the `python/` subdirectory):
-
-### Standalone command-line tool (CLI)
-
 ```bash
-# Install as a global CLI tool using uv
-uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
-
-# With counts-matrix reading support enabled
-uv tool install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
-
-# Or install using pip / pipx
-pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pip install seqout            # library + CLI
+pip install "seqout[counts]"  # also read GEO supplementary files as counts matrices
 ```
 
-To run the CLI tool without a permanent installation, use `uvx`:
+As a standalone CLI, or as a project dependency, with `uv`:
+
 ```bash
-uvx --from "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python" seqout --help
+uv tool install seqout
+uvx seqout --help             # run once without installing
+uv add "seqout[counts]"
 ```
 
-### Python library
+The development version installs from GitHub:
 
 ```bash
-# Add as a project dependency with uv
-uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
-
-# Add with counts-matrix reading support
-uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
-
-# Or install using pip in your active virtual environment
-pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
-pip install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pip install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ## Quick start
@@ -75,13 +60,13 @@ The `Dataset` object evaluates fields lazily. It fetches data from the API only 
 
 ### Parse processed single-cell matrices
 
-To parse supplementary files into cell-by-gene expression matrices along with harmonized donor covariates, use `seqout_counts`. This feature requires the `counts` installation extra:
+To parse supplementary files into cell-by-gene expression matrices along with harmonized donor covariates, use `SeqoutListCounts`. This feature requires the `counts` installation extra:
 
 ```python
-from seqout import seqout_counts
+from seqout import SeqoutListCounts
 
 # Query the file manifest without downloading the files
-counts = seqout_counts(gse="GSE297547")
+counts = SeqoutListCounts(gse="GSE297547")
 print(counts.manifest())
 
 # Download and parse a specific sample unit into an AnnData object

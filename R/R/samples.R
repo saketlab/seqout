@@ -7,10 +7,6 @@
 #' @inheritParams project
 #' @return A tibble with detailed metadata.
 #' @keywords internal
-#' @examples
-#' \dontrun{
-#' sample_detail("GSM5677584")
-#' }
 sample_detail <- function(accession, con = .con()) {
   .check_connection(con)
   check_required(accession)

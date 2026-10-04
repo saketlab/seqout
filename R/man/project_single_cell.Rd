@@ -37,12 +37,12 @@ barcodes, so the number is an upper bound and sums overcount.
 \code{flags} preserves the same distinction.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 sc <- ProjectSingleCell("GSE168652")
 sc[, c("sample_accession", "cells", "genes")]
 attr(sc, "study")$study_cells
 attr(sc, "longread_chemistry")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=sample_microbes]{sample_microbes()}} for the per-organism detections behind the

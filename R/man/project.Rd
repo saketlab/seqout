@@ -22,9 +22,4 @@ A tibble with project metadata, or a \code{field}/\code{value} tibble when
 \description{
 Get project metadata
 }
-\examples{
-\dontrun{
-project("GSE297547", transpose = TRUE)
-}
-}
 \keyword{internal}

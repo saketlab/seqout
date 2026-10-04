@@ -1,8 +1,4 @@
-"""The harmonised cohort and the read-derived screen.
-
-Offline: the endpoints are mocked, so what is checked here is the filter
-vocabulary, the paging, and the attributes carried beside the rows.
-"""
+"""Harmonised cohort filters, paging and attributes."""
 
 from __future__ import annotations
 
@@ -149,8 +145,7 @@ class TestSupplementary:
 
     @pytest.fixture(autouse=True)
     def _patch(self, monkeypatch):
-        # monkeypatch, not a bare assignment: Dataset is shared, and a property
-        # left on the class leaks into every other test in the run.
+        # monkeypatch: a property left on the shared Dataset leaks into other tests.
         self._monkeypatch = monkeypatch
 
     def _dataset(self, accession, *, meta=None, samples=None, detail=None):
@@ -183,7 +178,7 @@ class TestSupplementary:
         )
         out = d.supplementary
         assert [f.file for f in out] == ["series.tar", "a.gz", "b.gz"]
-        # None on the series' own files is what tells them apart.
+        # None marks the series' own files.
         assert [f.sample for f in out.series] == [None]
         assert [f.sample for f in out.per_sample] == ["GSM1", "GSM2"]
 

@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: If you use seqout, please cite it as below.
+title: "seqout: Python and R clients for the Seqout genomics metadata index"
+type: software
+authors:
+  - given-names: Aniruddha
+    family-names: Mukherjee
+    orcid: "https://orcid.org/0009-0008-1350-6787"
+  - given-names: Mukesh
+    family-names: Reddy
+  - given-names: Saket
+    family-names: Choudhary
+    email: saketc@iitb.ac.in
+    orcid: "https://orcid.org/0000-0001-5202-7633"
+license: BSD-3-Clause
+url: "https://seqout.org"
+repository-code: "https://github.com/saketlab/seqout"
+keywords:
+  - genomics
+  - bioinformatics
+  - metadata
+  - GEO
+  - SRA
+  - ENA

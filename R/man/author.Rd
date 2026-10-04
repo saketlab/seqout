@@ -23,7 +23,7 @@ A tibble of projects.
 Datasets named by an author's publications.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 Author("Aviv Regev")
-}
+\dontshow{\}) # examplesIf}
 }

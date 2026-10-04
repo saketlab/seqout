@@ -21,10 +21,10 @@ Study counts per technology, platform, instrument model, library strategy,
 organism, archive, chemistry and year.
 }
 \examples{
-\dontrun{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
 f <- LongreadFacets()
 f[f$facet == "technology", ]
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=longread_projects]{longread_projects()}}.

@@ -45,7 +45,11 @@ def _socks_socket() -> Iterator[None]:
         yield
         return
 
-    import socks  # noqa: PLC0415
+    try:
+        import socks  # noqa: PLC0415
+    except ImportError as e:
+        msg = "SEQOUT_SOCKS_PROXY needs pysocks: pip install 'seqout[socks]'"
+        raise ImportError(msg) from e
 
     host, _, port = proxy.partition(":")
     original = socket.socket

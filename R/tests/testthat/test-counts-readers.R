@@ -281,3 +281,108 @@ test_that("the txt triplet spelling classifies and groups as one unit", {
   )
   expect_equal(length(unique(keys)), 1L)
 })
+
+test_that("an LZF-compressed h5ad reads through the rhdf5filters plugin", {
+  skip_if_no("hdf5r")
+  skip_if_no("Matrix")
+  skip_if_no("rhdf5filters")
+  # fixtures/lzf.h5ad comes from fixtures/make-lzf-h5ad.py; hdf5r cannot write LZF
+  withr::local_envvar(HDF5_PLUGIN_PATH = Sys.getenv("HDF5_PLUGIN_PATH"))
+  res <- seqout:::.read_h5ad(test_path("fixtures", "lzf.h5ad"))
+  expect_equal(dim(res$X), c(40L, 30L))
+  expect_equal(sum(res$X), 600)
+  expect_equal(rownames(res$obs)[1:2], c("cell0", "cell1"))
+  expect_equal(rownames(res$var)[1:2], c("gene0", "gene1"))
+})
+
+test_that("a missing HDF5 filter aborts with the file and a fix, not the HDF5 stack", {
+  local_mocked_bindings(.h5_plugins = function() invisible(FALSE), .has_rhdf5filters = function() FALSE)
+  hdf5_stack <- paste(
+    "HDF5-API Errors:",
+    "    error #000: ../../../src/H5Dio.c in H5Dread(): line 185: can't read data",
+    "    error #004: ../../../src/H5Z.c in H5Z_pipeline(): line 1359: required filter 'lzf' is not registered",
+    sep = "\n"
+  )
+  err <- expect_error(
+    seqout:::.with_h5_filters("/tmp/GSM1_x.h5ad", "GSM1", stop(hdf5_stack)),
+    class = "rlang_error"
+  )
+  msg <- conditionMessage(err)
+  expect_match(msg, "GSM1_x.h5ad", fixed = TRUE)
+  expect_match(msg, "lzf", ignore.case = TRUE)
+  expect_match(msg, "rhdf5filters", fixed = TRUE)
+  expect_match(msg, "gzip", fixed = TRUE)
+  expect_no_match(msg, "H5Dio.c", fixed = TRUE)
+
+  blosc <- expect_error(seqout:::.with_h5_filters(
+    "x.h5ad", "GSM1", stop("required filter 'blosc' is not registered")
+  ))
+  expect_match(conditionMessage(blosc), "blosc", fixed = TRUE)
+
+  expect_error(seqout:::.with_h5_filters("x.h5", "x", stop("unrelated")), "unrelated")
+})
+
+test_that("an h5ad with nullable-string-array indexes reads, masked values as NA", {
+  skip_if_no("hdf5r")
+  skip_if_no("Matrix")
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "a.h5ad")
+  h5 <- hdf5r::H5File$new(path, mode = "w")
+  x <- h5$create_group("X")
+  hdf5r::h5attr(x, "encoding-type") <- "csr_matrix"
+  x[["data"]] <- c(1, 2)
+  x[["indices"]] <- as.integer(c(0, 1))
+  x[["indptr"]] <- as.integer(c(0, 1, 2))
+  nullable <- function(grp, values, mask) {
+    hdf5r::h5attr(grp, "_index") <- "_index"
+    idx <- grp$create_group("_index")
+    hdf5r::h5attr(idx, "encoding-type") <- "nullable-string-array"
+    idx[["values"]] <- values
+    idx[["mask"]] <- mask
+  }
+  nullable(h5$create_group("obs"), c("cell1", "cell2"), c(FALSE, FALSE))
+  var <- h5$create_group("var")
+  nullable(var, c("G1", "G2"), c(FALSE, FALSE))
+  donor <- var$create_group("note")
+  hdf5r::h5attr(donor, "encoding-type") <- "nullable-string-array"
+  donor[["values"]] <- c("a", "b")
+  donor[["mask"]] <- c(FALSE, TRUE)
+  h5$close_all()
+
+  res <- seqout:::.read_h5ad(path)
+  expect_equal(rownames(res$obs), c("cell1", "cell2"))
+  expect_equal(rownames(res$var), c("G1", "G2"))
+  expect_equal(res$var$note, c("a", NA))
+})
+
+test_that("an h5ad indexed only by row numbers warns that orientation is unknown", {
+  skip_if_no("hdf5r")
+  skip_if_no("Matrix")
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "a.h5ad")
+  h5 <- hdf5r::H5File$new(path, mode = "w")
+  x <- h5$create_group("X")
+  hdf5r::h5attr(x, "encoding-type") <- "csr_matrix"
+  x[["data"]] <- c(1, 2)
+  x[["indices"]] <- as.integer(c(0, 1))
+  x[["indptr"]] <- as.integer(c(0, 1, 2))
+  for (nm in c("obs", "var")) {
+    g <- h5$create_group(nm)
+    hdf5r::h5attr(g, "_index") <- "_index"
+    g[["_index"]] <- c("0", "1")
+  }
+  h5$close_all()
+
+  expect_warning(seqout:::.read_h5ad(path, label = "GSM1"), "row number")
+})
+
+test_that("GSE300265's LZF h5ad reads, warning that its indexes are row numbers", {
+  skip_unless_live()
+  skip_if(!identical(Sys.getenv("SEQOUT_TEST_DOWNLOADS"), "true"), "downloads 108 MB")
+  skip_unless_readable("h5ad")
+  skip_if_no("rhdf5filters")
+  counts <- seqout_counts("GSE300265")
+  expect_warning(m <- seqout_matrix(counts, sample = "GSM9056718"), "row number")
+  # the file stores genes as obs, so seqout's cells-are-obs read swaps the axes
+  expect_equal(dim(m$X), c(19326L, 36601L))
+})

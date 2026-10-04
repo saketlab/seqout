@@ -26,8 +26,13 @@ Useful links:
 Authors:
 \itemize{
   \item Saket Choudhary \email{saketc@iitb.ac.in} (\href{https://orcid.org/0000-0001-5202-7633}{ORCID})
-  \item Aniruddha Mukherjee
+  \item Aniruddha Mukherjee (\href{https://orcid.org/0009-0008-1350-6787}{ORCID})
   \item Mukesh Reddy
+}
+
+Other contributors:
+\itemize{
+  \item Saket Lab [copyright holder]
 }
 
 }

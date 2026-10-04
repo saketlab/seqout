@@ -12,3 +12,17 @@
 ^vignettes/articles$
 ^figure$
 ^\.positai$
+^seqout_.*\.tar\.gz$
+^cran-comments\.md$
+^\.pytest_cache$
+^.*\.Rcheck$
+^CRAN-SUBMISSION$
+^\.Renviron$
+^\.Rprofile$
+^revdep$
+^\.cache$
+^\.vscode$
+^\.idea$
+(^|/)\.DS_Store$
+^man/figures/og-image\.png$
+^vignettes/_

@@ -19,4 +19,10 @@ R client use.
 
 ::: seqout.counts.bind_counts
 
+::: seqout.counts_names.file_role
+
+::: seqout.counts_names.group_key
+
+::: seqout.counts_names.is_filtered
+
 ::: seqout.annotate.quick_annotation

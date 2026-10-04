@@ -48,8 +48,7 @@
 #' @seealso [seqout_search()], which expands a plain query through this graph.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' Ontology("liver")
 #'
 #' # The identifiers alone, without the hierarchy query
@@ -58,7 +57,6 @@
 #' # Terms one level down that expand further
 #' onto <- Ontology("liver")
 #' onto[onto$relation == "child" & onto$has_children, "name"]
-#' }
 ontology <- function(term, max_hops = 2, children = TRUE, con = .con()) {
   .need_api(
     con, "ontology",
@@ -116,8 +114,7 @@ ontology <- function(term, max_hops = 2, children = TRUE, con = .con()) {
 #' @seealso [ontology()] for what the graph holds about one term.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
 #' MapToOntology(meta, "celltype")
 #'
@@ -126,7 +123,6 @@ ontology <- function(term, max_hops = 2, children = TRUE, con = .con()) {
 #'
 #' # allow synonym IDs
 #' MapToOntology(meta, "celltype", use_synonyms = TRUE)
-#' }
 map_to_ontology <- function(x, columns, ontology = NULL, use_synonyms = FALSE,
                             max_hops = 1, con = .con()) {
   .need_api(

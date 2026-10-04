@@ -201,7 +201,7 @@ test_that('join = "outer" keeps the union and fills absent features with zero', 
     dimnames = list(c("g2", "g3", "g4"), c("c1", "c2"))
   ))
 
-  # nothing is dropped, so nothing is warned about
+  # no drops, no warning
   expect_silent(out <- bind_counts(list(A = a, B = b), join = "outer"))
 
   expect_identical(rownames(out), c("g1", "g2", "g3", "g4"))

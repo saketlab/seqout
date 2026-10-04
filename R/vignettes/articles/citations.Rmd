@@ -13,9 +13,7 @@ seqout::SeqoutDefault(NULL)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-Cite the original publications linked to datasets used in your research.
-
-`Citations()` retrieves publication records and formats them as BibTeX entries.
+`Citations()` returns BibTeX entries for the papers linked to a dataset.
 
 ```{r setup}
 library(seqout)
@@ -29,9 +27,9 @@ Pass a project accession to `Citations()`:
 cat(Citations("GSE151530"))
 ```
 
-The generated citation key uses the format `[FirstAuthorFamilyName][Year]`. 
+The citation key is `[FirstAuthorFamilyName][Year]`.
 
-To save the BibTeX citation directly to a file, use the `writeLines()` function:
+Write it to a file with `writeLines()`:
 
 ```{r write, eval = FALSE}
 writeLines(Citations("GSE151530"), "GSE151530.bib")
@@ -39,9 +37,8 @@ writeLines(Citations("GSE151530"), "GSE151530.bib")
 
 ## Distinguish original papers from reanalyses
 
-By default, `Citations()` retrieves the original dataset paper (`type = "original"`). 
-
-Set `type = "all"` to include reanalysis publications:
+By default `Citations()` returns the original dataset paper (`type = "original"`).
+`type = "all"` adds reanalyses:
 
 ```{r all}
 cat(Citations("GSE168652", type = "all"))
@@ -50,9 +47,8 @@ cat(Citations("GSE168652", type = "all"))
 
 ## Handle datasets without publications
 
-Many datasets are deposited before publication, and some have no linked paper. 
-
-For datasets without a recorded publication, `Citations()` returns `character(0)`. Batch loops can drop empty results:
+Many datasets are deposited before publication, and some have no linked paper.
+`Citations()` then returns `character(0)`:
 
 ```{r none}
 length(Citations("CRA027437"))
@@ -60,7 +56,8 @@ length(Citations("CRA027437"))
 
 ## Compile a bibliography
 
-`Citations()` returns plain text, so multiple accessions can be concatenated into one bibliography file:
+Given several accessions, `Citations()` returns one character vector, each entry
+named for its accession:
 
 ```{r many}
 accessions <- c("GSE151530", "GSE168652", "SRP267291", "CRA027437")
@@ -69,15 +66,14 @@ bib <- Citations(accessions)
 length(bib)
 ```
 
-`unlist()` drops `character(0)` results.
-
-Write the bibliography with `writeLines()`:
+An accession without a paper adds no entry. Write the bibliography with
+`writeLines()`:
 
 ```{r many-write, eval = FALSE}
 writeLines(bib, "study-bibliography.bib")
 ```
 
-Check return lengths to see which accessions produced a citation:
+The names show which accessions produced a citation:
 
 ```{r many-named}
 table(names(bib))
@@ -85,14 +81,14 @@ table(names(bib))
 
 ## Access publication metadata as data frames
 
-The `pubs` field of `SeqoutGet()` returns publication records as a data frame:
+`SeqoutGet()` returns publication records as a data frame in `pubs`:
 
 ```{r pubs}
 d <- SeqoutGet("GSE168652")
 d$pubs[, c("pmid", "title", "journal", "citation_count")]
 ```
 
-For more details on dataset metadata, see [Metadata](metadata.html#publications). To search for datasets using a specific author name or publication identifier, see [Search](search.html).
+See [Metadata](metadata.html#mapped-publications) for more, and [Search](search.html) to find datasets by author or paper.
 
 ## Backend support
 
@@ -108,4 +104,4 @@ SeqoutClose(con)
 ```
 
 > [!NOTE]
-> The database dump lacks reanalysis publications and many release years. `Citations()` uses the REST API for complete citation metadata.
+> The dump lacks reanalysis publications and many release years, so `Citations()` needs the REST API.

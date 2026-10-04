@@ -1,5 +1,4 @@
-# Building multimodal objects from real series. These download, so each one
-# caps the cells it keeps.
+# Multimodal objects from real series; each download caps its cells.
 
 test_that("a CITE-seq h5ad series builds paired Seurat assays and metadata", {
   skip_unless_live()

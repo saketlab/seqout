@@ -1,4 +1,7 @@
+"""Supplementary-file grouping and count-matrix readers."""
+
 import logging
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -1078,7 +1081,7 @@ def test_bind_counts_outer_keeps_the_union_and_fills_zero(caplog):
         out = bind_counts(mats, join="outer")
     assert list(out.var_names) == ["g1", "g2", "g3"]
     assert out.n_obs == 4
-    # nothing is dropped, so nothing is warned about
+    # no drops, no warning
     assert "feature space" not in caplog.text
     frame = pd.DataFrame(out.X, index=out.obs_names, columns=out.var_names)
     assert frame.loc["c0-A", "g3"] == 0
@@ -1141,3 +1144,16 @@ def test_read_table_keeps_a_late_gc_column_as_a_sample(tmp_path):
     assert list(obs.index) == ["WT", "GC"]
     assert list(var.columns) == ["Length"]
     assert x.shape == (2, 2)
+
+
+def test_reads_the_lzf_h5ad_the_r_client_needs_a_plugin_for():
+    pytest.importorskip("anndata")
+    from seqout.counts_readers import read_h5ad
+
+    fixture = Path(__file__).parents[2] / "R/tests/testthat/fixtures/lzf.h5ad"
+    if not fixture.exists():
+        pytest.skip("R client not checked out")
+    adata = read_h5ad(fixture)
+    assert adata.shape == (40, 30)
+    assert adata.X.sum() == 600
+    assert list(adata.obs_names[:2]) == ["cell0", "cell1"]

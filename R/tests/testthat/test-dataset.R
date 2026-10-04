@@ -118,8 +118,8 @@ test_that("supplementary of a sample reads its own record, not its series", {
   assign("detail", tibble::tibble(supplementary_data = list(list(
     list(`#text` = "ftp://x/GSM1_matrix.mtx.gz", `@type` = "MTX")
   ))), envir = d$cache)
-  # No project in the cache: resolving one would be a request, and GEO does not
-  # always serve a parent for a GSM.
+  # Resolving an uncached project costs a request, and a GSM may have no
+  # GEO parent.
   s <- d$supplementary
   expect_equal(s$sample, "GSM1")
   expect_equal(s$file, "GSM1_matrix.mtx.gz")
@@ -224,7 +224,7 @@ test_that("$detail reads like a row of $samples, with attributes as columns", {
   d <- seqout_get("SRS3425205", con = fake_con(backend = "api"))$detail
   expect_equal(d$sex, "female")
   expect_equal(d$tissue, "gut")
-  # The nested column it came from is spent, so it does not linger beside them.
+  # The source nested column is dropped.
   expect_false("attributes_json" %in% names(d))
   expect_equal(d$accession, "SRS1")
 })

@@ -1,9 +1,4 @@
-"""The search params models must refuse what they cannot send.
-
-Pydantic drops an undeclared field by default, which made
-``search("liver", assay_l1="…")`` return an unfiltered search that looked
-filtered. Every model here sets ``extra="forbid"`` so that fails loudly.
-"""
+"""Search params models reject fields they cannot send."""
 
 from __future__ import annotations
 
@@ -53,8 +48,7 @@ def test_the_full_text_filters_survive_the_dump():
 
 
 def test_structured_reads_the_query_as_a_boolean_expression():
-    # Unrelated to the /search/structured endpoint: this is boolean parsing of
-    # q, forced on a query that carries no operators of its own.
+    # Forces boolean parsing of q on a query with no operators.
     assert (
         SearchParams(q="liver cancer", structured=True).model_dump(exclude_none=True)[
             "structured"
@@ -64,9 +58,8 @@ def test_structured_reads_the_query_as_a_boolean_expression():
 
 
 def test_the_endpoint_only_declares_what_it_answers():
-    # /search/structured has no sortby, order, date_from, date_to or db.
-    # FastAPI drops a query parameter it does not declare, so accepting these
-    # here would move the silent failure to the server rather than fix it.
+    # /search/structured has no sortby, order, date_from, date_to or db, and
+    # FastAPI silently drops undeclared parameters.
     for name, value in (
         ("sortby", "citations"),
         ("order", "asc"),
@@ -101,8 +94,7 @@ def test_the_structured_filters_survive_the_dump():
 
 
 def test_the_cli_builds_a_params_object_that_validates():
-    # Mirrors cli.py's construction, so a new forbid cannot break the CLI
-    # without breaking this first.
+    # Mirrors cli.py's construction, so a new forbid breaks this first.
     SearchParams(
         q="liver",
         db="geo",
@@ -117,7 +109,7 @@ def test_the_cli_builds_a_params_object_that_validates():
 
 
 class TestPlan:
-    """The filters pick the endpoint, and the client does what it cannot."""
+    """Filters pick the endpoint; the client applies what the server cannot."""
 
     def test_a_shared_filter_stays_on_the_full_text_search(self):
         plan = plan_search("liver", country=["Japan"], journal=["Nature"])
@@ -133,8 +125,7 @@ class TestPlan:
         assert plan_search("liver", db="geo", assay_l1="X").params.source == "geo"
 
     def test_the_day_bounds_are_kept_back_rather_than_dropped(self):
-        # The structured endpoint has no date_from, and FastAPI drops a query
-        # parameter it does not declare, so sending it would fail in silence.
+        # The structured endpoint has no date_from; FastAPI would drop it silently.
         plan = plan_search("liver", assay_l1="X", date_from="2024-01-01")
         assert "date_from" not in plan.params.model_dump(exclude_none=True)
         assert plan.date_from == "2024-01-01"
@@ -233,13 +224,13 @@ class TestApplyPlan:
 
 
 class TestOneSearchFunction:
-    """search() is the only one, and it answers in full."""
+    """search() is the single search entry point."""
 
     def test_iter_search_is_gone(self):
         from seqout.clients.api import SeqoutAPIClient
 
         assert not hasattr(SeqoutAPIClient, "iter_search")
-        # The correction is a command-line need, not a second search.
+        # Correction is CLI-only.
         assert not hasattr(SeqoutAPIClient, "search_with_correction")
         assert hasattr(SeqoutAPIClient, "_search_with_correction")
 
@@ -303,7 +294,7 @@ class TestCitations:
 
 
 class TestBams:
-    """Alignment files: list before fetching, and keep the paid ones honest."""
+    """Alignment files: list before fetching, flag requester-pays."""
 
     def _files(self):
         from seqout.models.api_models import BamFile, BamFiles
@@ -477,7 +468,7 @@ class TestPager:
 
 
 class TestBamsSaveTo:
-    """--save-to writes the URLs so the fetching can be someone else's job."""
+    """--save-to writes the URLs for another tool to fetch."""
 
     def _bams(self):
         from seqout.models.api_models import BamFile, BamFiles
@@ -526,7 +517,7 @@ class TestBamsSaveTo:
         cli._save_bams(self._bams(), {}, out)
         rows = csvmod.DictReader(out.open())
         paid = next(r for r in rows if r["filename"] == "big.bam")
-        # Their s3_url is the whole reason to ask for the file.
+        # Requester-pays files are only reachable by s3_url.
         assert paid["s3_url"] == "s3://pays/big.bam"
         assert paid["requester_pays"] == "True"
 
@@ -574,8 +565,7 @@ class TestBamsNarrowing:
             def fetch_bams(self, study):
                 return rows
 
-        # monkeypatch would be cleaner, but this class is only ever read here;
-        # the subclass keeps the patch off the shared Dataset.
+        # The subclass keeps the patch off the shared Dataset.
         class Narrowed(Dataset):
             sra = property(lambda self: "SRP1")
 
@@ -602,8 +592,8 @@ class TestBamsNarrowing:
 
 
 def test_expansion_off_asks_for_the_words_as_typed():
-    # The website's term expansion switch and the server's `structured` are the
-    # same wire flag, so `expand=False` has to arrive as that flag.
+    # `expand` is the website's term-expansion switch; the server calls it
+    # `structured`.
     sent = plan_search("liver cancer", expand=False).params.model_dump(
         exclude_none=True
     )
@@ -629,8 +619,7 @@ def test_an_ontology_is_switched_off_by_name_whatever_the_capitals():
 
 
 def test_an_unknown_ontology_is_refused():
-    # The server ignores an id it does not know, so a typo would filter nothing
-    # and look like a switch that does not work.
+    # The server ignores unknown ids, so a typo would silently filter nothing.
     with pytest.raises(ValidationError) as excinfo:
         SearchParams(q="liver", exclude_ontology=["MESHY"])
     assert "MESHY" in str(excinfo.value)

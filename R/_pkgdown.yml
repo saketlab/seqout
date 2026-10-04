@@ -94,6 +94,7 @@ articles:
   navbar: ~
   contents:
   - getting-started
+  - gene-names
   - articles/search
   - articles/metadata
   - articles/counts
@@ -107,6 +108,7 @@ reference:
   - seqout_connect
   - seqout_default
   - seqout_close
+  - seqout_online
   - tables
   - register_tables
   - cache_table
@@ -138,6 +140,32 @@ reference:
   - longread_projects
   - project_longread_chemistry
 
+- title: Collections
+  desc: >
+    Corpus-wide totals, facets and study listings scoped to a country, the
+    single-cell corpus, the single-cell perturbation studies, a disease
+    collection or free-text term, or a free-text tissue term.
+  contents:
+  - country_summary
+  - country_facets
+  - country_projects
+  - singlecell_summary
+  - singlecell_facets
+  - singlecell_projects
+  - perturbation_summary
+  - perturbation_facets
+  - perturbation_projects
+  - spatial_summary
+  - spatial_facets
+  - spatial_projects
+  - disease_summary
+  - disease_facets
+  - disease_projects
+  - disease_aliases
+  - tissue_summary
+  - tissue_facets
+  - tissue_projects
+
 - title: Datasets
   desc: >
     One accession and everything below it. `SeqoutGet()` returns a lazy
@@ -147,6 +175,11 @@ reference:
   - seqout_get
   - accession_kind
   - summaries
+  - resolve_study
+  - gsm_series
+  - linked_study
+  - linked_geo
+  - country_code_to_name
 
 - title: Counts matrices
   desc: Read GEO supplementary files as a counts matrix
@@ -163,6 +196,11 @@ reference:
   - quick_annotation
   - seqout_counts_files
   - seqout_fragments
+  - seqout_gene_names
+  - seqout_correct_names
+  - seqout_gene_report
+  - seqout_sex
+  - seqout_sex_plot
   - file_role
   - group_key
   - is_filtered
@@ -172,6 +210,8 @@ reference:
   contents:
   - download_supplementary
   - download_runs
+  - run_files
+  - supplementary_files
   - download_bams
   - download_dump
 

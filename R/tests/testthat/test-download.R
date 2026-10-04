@@ -57,7 +57,7 @@ test_that("a failing https url is asked again, but never rewritten", {
     suppressMessages(seqout:::.curl_download(url, file.path(dir, "a.gz"))),
     "Download failed"
   )
-  # One first ask and two retries; no scheme fallback, there is nowhere to go.
+  # One attempt and two retries; no scheme to fall back to.
   expect_length(log$calls, 3)
   expect_true(all(vapply(log$calls, identical, logical(1), url)))
 })
@@ -107,7 +107,7 @@ test_that("download_supplementary refuses a run rather than widening to its stud
     seqout_get = function(accession, con = NULL) list(project = "SRP123456")
   )
   expect_error(
-    download_supplementary("SRR13927092", con = fake_con()),
+    download_supplementary("SRR13927092", "d", con = fake_con()),
     "belong to its project"
   )
 })
@@ -136,14 +136,20 @@ test_that("a GSA study reaches its files through every linked GEO twin", {
       tibble::tibble(accession = c("SRP111", "GSE1", "GSE2"))
     }
   )
-  expect_equal(seqout:::.geo_twins(fake_con(), "CRA027437"), c("GSE1", "GSE2"))
+  expect_equal(
+    seqout:::.xrefs_in(fake_con(), "CRA027437", seqout:::.geo_archives),
+    c("GSE1", "GSE2")
+  )
 })
 
 test_that("a study with no GEO twin reaches no files", {
   local_mocked_bindings(
     project_xref = function(accession, con = NULL) tibble::tibble()
   )
-  expect_equal(seqout:::.geo_twins(fake_con(), "CRA027437"), character(0))
+  expect_equal(
+    seqout:::.xrefs_in(fake_con(), "CRA027437", seqout:::.geo_archives),
+    character(0)
+  )
 })
 
 fake_runs <- function(..., n = 2) {
@@ -172,7 +178,7 @@ test_that("auto falls through to the NCBI copy when ENA has no fastq", {
     fastq_ftp = c(NA, NA),
     ncbi_sra_lite_url = c("https://h/SRR1.lite.1", "https://h/SRR2.lite.1")
   ))
-  warnings <- testthat::capture_warnings(download_runs("SRP1", quiet = TRUE))
+  warnings <- testthat::capture_warnings(download_runs("SRP1", "d", quiet = TRUE))
   expect_true(any(grepl("first copy each run offers", warnings)))
   expect_equal(got$names, c("SRR1.sra", "SRR2.sra"))
 })
@@ -181,14 +187,14 @@ test_that("ENA fastq keeps the names downstream tools glob for", {
   got <- mock_runs(fake_runs(
     fastq_ftp = c("ftp://h/SRR1_1.fastq.gz;ftp://h/SRR1_2.fastq.gz", "ftp://h/SRR2_1.fastq.gz")
   ))
-  suppressWarnings(download_runs("SRP1", quiet = TRUE))
+  suppressWarnings(download_runs("SRP1", "d", quiet = TRUE))
   expect_equal(got$names, c("SRR1_1.fastq.gz", "SRR1_2.fastq.gz", "SRR2_1.fastq.gz"))
 })
 
 test_that("naming a mode silences the mode warning but not the study one", {
   mock_runs(fake_runs(fastq_ftp = c("ftp://h/a.gz", "ftp://h/b.gz")))
   warnings <- testthat::capture_warnings(
-    download_runs("SRP1", mode = "fastq", quiet = TRUE)
+    download_runs("SRP1", "d", mode = "fastq", quiet = TRUE)
   )
   expect_false(any(grepl("No `mode` given", warnings)))
   expect_true(any(grepl("is a study", warnings)))
@@ -196,27 +202,27 @@ test_that("naming a mode silences the mode warning but not the study one", {
 
 test_that("a run accession downloads its own files, with no study warning", {
   mock_runs(fake_runs(fastq_ftp = "ftp://h/a.gz", n = 1))
-  warnings <- testthat::capture_warnings(download_runs("SRR1", quiet = TRUE))
+  warnings <- testthat::capture_warnings(download_runs("SRR1", "d", quiet = TRUE))
   expect_false(any(grepl("is a study", warnings)))
 })
 
 test_that("runs with no downloadable copy are counted, not dropped in silence", {
   got <- mock_runs(fake_runs(fastq_ftp = c("ftp://h/a.gz", NA)))
-  warnings <- testthat::capture_warnings(download_runs("SRP1", quiet = TRUE))
+  warnings <- testthat::capture_warnings(download_runs("SRP1", "d", quiet = TRUE))
   expect_true(any(grepl("1 of 2 runs has no downloadable copy", warnings)))
   expect_length(got$urls, 1)
 })
 
 test_that("cloud modes are refused before anything is fetched", {
   expect_error(
-    download_runs("SRP1", mode = "s3", con = fake_con()),
+    download_runs("SRP1", "d", mode = "s3", con = fake_con()),
     "requester-pays"
   )
 })
 
 test_that("a study serving no copy at all errors rather than downloading nothing", {
   mock_runs(fake_runs(library_layout = c("PAIRED", "PAIRED")))
-  expect_error(download_runs("SRP1", quiet = TRUE), "No run of SRP1 is served")
+  expect_error(download_runs("SRP1", "d", quiet = TRUE), "No run of SRP1 is served")
 })
 
 test_that("a body that does not match its checksum is a failure, not a file", {
@@ -261,7 +267,7 @@ test_that("the sra mode prefers the anonymous AWS mirror over the NCBI host", {
   )
   picked <- seqout:::.pick_run_files(runs, seqout:::.run_auto_order)
   expect_equal(picked$source, "sra")
-  expect_equal(picked$column, "ncbi_sra_url_aws")
+  expect_equal(picked$urls[[1]], "https://sra-pub-run-odp/full")
 })
 
 test_that("ENA's scheme-less paths are fetched over https, not guessed as ftp", {
@@ -296,7 +302,7 @@ test_that("requester-pays alignments are named, not silently skipped", {
     s3_url = c(NA, "s3://sra-pub-src-5/SRR2/b.bam"),
     md5 = c("aaa", "bbb")
   ))
-  warnings <- testthat::capture_warnings(download_bams("SRP1", quiet = TRUE))
+  warnings <- testthat::capture_warnings(download_bams("SRP1", "d", quiet = TRUE))
   expect_true(any(grepl("requester-pays", warnings)))
   expect_true(any(grepl("--request-payer requester", warnings)))
   expect_equal(got$urls, "https://h/a.bam")
@@ -307,7 +313,7 @@ test_that("a study whose alignments are all requester-pays downloads nothing", {
     run_accession = "SRR1", filename = "a.bam", url = "", https_url = NA,
     s3_url = "s3://b/a.bam", md5 = "aaa"
   ))
-  expect_equal(suppressWarnings(download_bams("SRP1", quiet = TRUE)), character(0))
+  expect_equal(suppressWarnings(download_bams("SRP1", "d", quiet = TRUE)), character(0))
 })
 
 test_that("submitters reusing a filename get it qualified by run", {
@@ -325,7 +331,7 @@ test_that("a study with no alignments says so rather than erroring", {
   mock_bams(tibble::tibble())
   # cli_alert_warning signals a message, not a warning condition.
   expect_message(
-    expect_equal(download_bams("SRP1", quiet = TRUE), character(0)),
+    expect_equal(download_bams("SRP1", "d", quiet = TRUE), character(0)),
     "no submitted alignment files"
   )
 })
@@ -407,4 +413,43 @@ test_that("download_dump reads the connection's own dump location", {
   con$data_url <- "/mnt/mirror"
   download_dump(dest_dir = "dump", tables = "geo_series", quiet = TRUE, con = con)
   expect_equal(seen, "/mnt/mirror/geo_series.parquet")
+})
+
+test_that("run_files lists one row per file, with size and checksum per mate", {
+  runs <- fake_runs(
+    fastq_ftp = c("ftp/SRR1_1.fastq.gz;ftp/SRR1_2.fastq.gz", NA),
+    fastq_bytes = c("100;200", NA),
+    fastq_md5 = c("m1;m2", NA),
+    ncbi_sra_lite_url = c(NA, "https://h/SRR2.lite.1"),
+    ncbi_sra_lite_bytes = c(NA, "50")
+  )
+  out <- run_files(runs)
+  expect_equal(out$run, c("SRR1", "SRR1", "SRR2"))
+  expect_equal(out$mode, c("fastq", "fastq", "sra_lite"))
+  expect_equal(out$name, c("SRR1_1.fastq.gz", "SRR1_2.fastq.gz", "SRR2.sra"))
+  expect_equal(out$bytes, c(100, 200, 50))
+  expect_equal(out$md5, c("m1", "m2", NA))
+})
+
+test_that("run_files with a mode drops runs not served that way; none gives an empty table", {
+  runs <- fake_runs(fastq_ftp = c("ftp/SRR1.fastq.gz", NA), fastq_bytes = c("7", NA))
+  expect_equal(run_files(runs, mode = "fastq")$run, "SRR1")
+  empty <- run_files(runs, mode = "sra")
+  expect_equal(nrow(empty), 0)
+  expect_named(empty, c("run", "mode", "url", "name", "bytes", "md5"))
+})
+
+test_that("run_files takes an accession and matches what download_runs would fetch", {
+  runs <- fake_runs(fastq_ftp = c("ftp/a.fastq.gz", "ftp/b.fastq.gz"))
+  got <- mock_runs(runs)
+  expect_equal(run_files("SRP1", mode = "fastq")$url, c("ftp/a.fastq.gz", "ftp/b.fastq.gz"))
+  suppressWarnings(download_runs("SRP1", "d", mode = "fastq", quiet = TRUE))
+  expect_equal(got$urls, run_files("SRP1", mode = "fastq")$url)
+})
+
+test_that("downloads never pick a directory on their own", {
+  for (f in list(download_supplementary, download_runs, download_bams)) {
+    expect_error(f("GSE1", con = fake_con()), "dest_dir")
+  }
+  expect_error(download_dump(con = fake_con()), "dest_dir")
 })

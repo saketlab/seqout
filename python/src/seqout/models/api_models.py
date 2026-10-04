@@ -178,6 +178,10 @@ class LinkedProject(BaseModel):
     via: str | None = None  # the table the publication link came from
 
 
+class LinkedProjects(BaseContainer[LinkedProject]):
+    pass
+
+
 class InstituteFacet(BaseModel):
     name: str
     count: int = 0
@@ -190,7 +194,7 @@ class PublicationLookupResult(BaseModel):
     doi: str | None = None
     title: str | None = None
     journal: str | None = None
-    projects: list[LinkedProject] = []
+    projects: LinkedProjects = Field(default_factory=lambda: LinkedProjects([]))
     total_projects: int = 0
 
     @field_validator("pmid", mode="before")
@@ -543,6 +547,44 @@ class ProjectSummaryResultList(BaseContainer[ProjectSummaryResult]):
     pass
 
 
+class GeneCorruptionInfo(BaseModel):
+    """
+    Excel gene-symbol-to-date autocorrupt scan result for one file.
+
+    A file absent from SupplementaryFile.gene_corruption is unscanned, not
+    clean.
+    """
+
+    n_hits: int
+    kinds: dict[str, int] | None = None
+    examples: list[list[Any]] | None = None
+    checked_at: str | None = None
+
+
+class ScannedSupplementaryFile(BaseModel):
+    """
+    One row of GET /project/{accession}/supplementary.
+
+    Named apart from `SupplementaryFile`, which is built from raw GEO/AE
+    archive XML and has different fields.
+    """
+
+    accession: str
+    source: str
+    url: str
+    filename: str
+    path: str
+    download_command: str
+    gene_corruption: GeneCorruptionInfo | None = None
+
+
+class SupplementaryFilesResult(BaseModel):
+    accession: str
+    source: str
+    total_files: int
+    files: list[ScannedSupplementaryFile] = []
+
+
 class ProjectMetadataRelation(BaseModel):
     type: str | None = Field(alias="@type", default=None)
     target: str | None = Field(alias="@target", default=None)
@@ -744,6 +786,57 @@ class AccessionClassification(BaseModel):
     archive: str | None = None
 
 
+# best host first; mirrors the R client's .run_modes
+RUN_MODES: dict[str, tuple[str, ...]] = {
+    "fastq": ("fastq_ftp",),
+    "sra": ("ncbi_sra_url_aws", "ncbi_sra_normalized_url", "sra_ftp"),
+    "sra_lite": ("ncbi_sra_lite_url", "ncbi_sra_url"),
+}
+# fastq needs no conversion; SRA lite bins quality scores
+RUN_AUTO_ORDER = ("fastq", "sra", "sra_lite")
+# requester-pays buckets bill the caller
+_REQUESTER_PAYS = ("s3", "gcs")
+# archive-owned copies publish checksums; NCBI SRA copies do not
+_RUN_MD5_OF = {"fastq_ftp": "fastq_md5", "sra_ftp": "sra_md5"}
+_RUN_BYTES_OF = {
+    "fastq_ftp": "fastq_bytes",
+    "sra_ftp": "sra_bytes",
+    "ncbi_sra_url_aws": "ncbi_sra_normalized_bytes",
+    "ncbi_sra_normalized_url": "ncbi_sra_normalized_bytes",
+    "ncbi_sra_lite_url": "ncbi_sra_lite_bytes",
+    "ncbi_sra_url": "ncbi_sra_lite_bytes",
+}
+
+
+def check_run_mode(mode: str | None) -> None:
+    """Raise unless `mode` is a download mode, or None for the automatic choice."""
+    if mode is None or mode in RUN_MODES:
+        return
+    if mode in _REQUESTER_PAYS:
+        msg = (
+            f"{mode!r} names the same reads in a requester-pays bucket, which an "
+            "anonymous download cannot fetch. Use 'sra' for the same copy over HTTPS."
+        )
+    else:
+        msg = f"mode must be one of {', '.join(RUN_MODES)}, or None; not {mode!r}."
+    raise ValueError(msg)
+
+
+def _split_run_field(value: object) -> list[str]:
+    return [part.strip() for part in str(value).split(";")] if value else []
+
+
+class RunFile(BaseModel):
+    """One file of one run: where it is served, its name on disk, size, checksum."""
+
+    run: str
+    mode: str
+    url: str
+    name: str
+    bytes: int | None = None
+    md5: str | None = None
+
+
 class StudyRunsResult(BaseModel):
     run_accession: str
     experiment_accession: str
@@ -765,9 +858,70 @@ class StudyRunsResult(BaseModel):
     ncbi_sra_lite_s3_url: str | None = None
     ncbi_sra_lite_gs_url: str | None = None
 
+    def _per_file(self, column: str | None, n: int) -> list[str | None]:
+        # trust a per-file list only where it lines up with the URL list
+        parts = _split_run_field(getattr(self, column)) if column else []
+        return list(parts) if len(parts) == n else [None] * n
+
+    def files(self, mode: str | None = None) -> list[RunFile]:
+        """
+        Return the files this run downloads as in `mode`, `[]` if not served so.
+
+        `mode=None` takes the first of fastq, sra and sra_lite the run offers.
+        A paired run lists both mates. `bytes`/`md5` are `None` where the archive
+        publishes none; NCBI copies carry no checksum.
+        """
+        check_run_mode(mode)
+        for m in (mode,) if mode else RUN_AUTO_ORDER:
+            for column in RUN_MODES[m]:
+                urls = _split_run_field(getattr(self, column))
+                if not urls:
+                    continue
+                n = len(urls)
+                sizes = self._per_file(_RUN_BYTES_OF.get(column), n)
+                md5s = self._per_file(_RUN_MD5_OF.get(column), n)
+                if m == "fastq":
+                    names = [u.rsplit("/", 1)[-1] for u in urls]
+                elif n == 1:
+                    names = [f"{self.run_accession}.sra"]
+                else:
+                    names = [f"{self.run_accession}_{i}.sra" for i in range(1, n + 1)]
+                return [
+                    RunFile(
+                        run=self.run_accession,
+                        mode=m,
+                        url=url,
+                        name=name,
+                        bytes=int(size) if size and size.isdigit() else None,
+                        md5=md5 or None,
+                    )
+                    for url, name, size, md5 in zip(
+                        urls, names, sizes, md5s, strict=True
+                    )
+                ]
+        return []
+
 
 class StudyRunsResults(BaseContainer[StudyRunsResult]):
-    pass
+    def files(self, mode: str | None = None) -> list[RunFile]:
+        """Return every run's files in `mode`; runs not served that way add none."""
+        return [f for r in self for f in r.files(mode)]
+
+    def total_bytes(self, mode: str | None = None) -> int:
+        """Bytes across every run's files in `mode`; files without a size add 0."""
+        return sum(f.bytes or 0 for f in self.files(mode))
+
+    def formats(self) -> dict[str, int]:
+        """How many runs are served in each download mode."""
+        # a set URL column is enough; skips building RunFiles
+        return {
+            m: sum(
+                1
+                for r in self
+                if any(_split_run_field(getattr(r, c)) for c in RUN_MODES[m])
+            )
+            for m in RUN_MODES
+        }
 
 
 class StudyRunsResponse(BaseModel):

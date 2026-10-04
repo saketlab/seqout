@@ -1,12 +1,14 @@
 import contextlib
 import datetime
 import json
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, NoReturn, Self, get_args
 
 import duckdb
+import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from seqout.constants import (
@@ -45,10 +47,9 @@ from seqout.models.parquet_models import (
 )
 from seqout.utils import (
     StudyRunDownloadMode,
-    _extract_download_info_for_study_run,
     _normalize_num_workers,
-    _normalize_url,
-    _validate_study_runs_data,
+    _run_files_to_fetch,
+    _url_destinations,
 )
 
 _STUDY_PREFIXES = ("SRP", "ERP", "DRP", "CRA", "HRA", "PRJ")
@@ -779,77 +780,38 @@ class SeqoutParquetClient(ShortNames):
         urls: list[str],
         out_dir: Path,
         *,
+        names: list[str] | None = None,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
         with_pbar: bool = False,
     ) -> None:
-        """Download a bare list of URLs into out_dir."""
+        """Download a bare list of URLs into out_dir, as `names` when given."""
         out_dir.mkdir(parents=True, exist_ok=True)
-        url_to_dest: dict[str, Path] = {}
-        for url in urls:
-            normalized_url = _normalize_url(url)
-            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
+        url_to_dest = _url_destinations(urls, out_dir, names)
         self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
 
-    def sample_search(self, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because the harmonised sample table lives behind the REST API."""
-        msg = (
-            "sample_search reads the REST API; this client is Parquet. "
-            "The harmonised sample table is not in the dump."
-        )
-        raise SeqoutError(msg)
+    def tables(self) -> pd.DataFrame:
+        """
+        List the dump's tables and any tables made in this DuckDB session.
 
-    def fetch_single_cell(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because Pentimento data lives behind the REST API."""
-        msg = (
-            "fetch_single_cell reads the REST API; this client is Parquet. "
-            "There is no Pentimento table in the dump."
+        `registered` is False for a dump table, which is read from Parquet on
+        each query rather than held in DuckDB.
+        """
+        live = self._conn.execute(
+            "SELECT table_name, table_type FROM information_schema.tables "
+            "WHERE table_schema = 'main'"
+        ).df()
+        live["registered"] = True
+        made = set(live["table_name"])
+        remote = pd.DataFrame(
+            {
+                "table_name": [t for t in _ALL_PARQUET_FILES if t not in made],
+                "table_type": "VIEW",
+                "registered": False,
+            }
         )
-        raise SeqoutError(msg)
-
-    def fetch_microbes(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because Pentimento data lives behind the REST API."""
-        msg = (
-            "fetch_microbes reads the REST API; this client is Parquet. "
-            "There is no Pentimento table in the dump."
-        )
-        raise SeqoutError(msg)
-
-    def fetch_longread_summary(self, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because the long-read collection lives behind the REST API."""
-        _rest_only(
-            "fetch_longread_summary",
-            "There is no long-read collection table in the dump.",
-        )
-
-    def fetch_longread_facets(self, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because the long-read collection lives behind the REST API."""
-        _rest_only(
-            "fetch_longread_facets",
-            "There is no long-read collection table in the dump.",
-        )
-
-    def fetch_longread_projects(self, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because the long-read collection lives behind the REST API."""
-        _rest_only(
-            "fetch_longread_projects",
-            "There is no long-read collection table in the dump.",
-        )
-
-    def fetch_longread_chemistry(self, accession: str, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because per-run chemistry calls live behind the REST API."""
-        _rest_only(
-            "fetch_longread_chemistry",
-            "There is no long-read chemistry table in the dump.",
-        )
-
-    def fetch_ontology_term(self, term: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ARG002
-        """Raise because the ontology graph lives behind the REST API."""
-        msg = (
-            "fetch_ontology_term reads the REST API; this client is Parquet. "
-            "The ontology graph is a separate database and is not in the dump."
-        )
-        raise SeqoutError(msg)
+        out = pd.concat([live, remote], ignore_index=True)
+        return out.sort_values(["table_type", "table_name"], ignore_index=True)
 
     def fetch_bams(self, accession: str) -> BamFiles:  # noqa: ARG002
         """
@@ -858,11 +820,7 @@ class SeqoutParquetClient(ShortNames):
         `run_download_links` lacks the ArrayExpress side, so Parquet would be
         partial.
         """
-        msg = (
-            "fetch_bams reads the REST API; this client is Parquet. "
-            "Open an API client for it: connect().get(...).bams"
-        )
-        raise SeqoutError(msg)
+        _rest_only("fetch_bams", "Open an API client for it: connect().get(...).bams")
 
     def fetch_citations(
         self,
@@ -874,11 +832,7 @@ class SeqoutParquetClient(ShortNames):
 
         The dump lacks reanalysis-paper records, so Parquet would be partial.
         """
-        msg = (
-            "citations reads the REST API; this client is Parquet. "
-            "Open an API client for it: connect().citations(...)"
-        )
-        raise SeqoutError(msg)
+        _rest_only("citations", "Open an API client for it: connect().citations(...)")
 
     def download_project_supplementary_data(
         self,
@@ -890,18 +844,19 @@ class SeqoutParquetClient(ShortNames):
         with_pbar: bool = False,
     ) -> None:
         """Download a project's supplementary files into out_dir."""
-        out_dir.mkdir(parents=True, exist_ok=True)
-        url_to_dest: dict[str, Path] = {}
-        for url, _ in metadata.supplementary_data:
-            normalized_url = _normalize_url(url)
-            url_to_dest[normalized_url] = out_dir / Path(normalized_url.split("/")[-1])
-        self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
+        self.download_files(
+            [url for url, _ in metadata.supplementary_data],
+            out_dir,
+            num_workers=num_workers,
+            chunk_size=chunk_size,
+            with_pbar=with_pbar,
+        )
 
     def download_study_runs_data(
         self,
         runs: StudyRunsResults,
         out_dir: Path,
-        mode: StudyRunDownloadMode,
+        mode: StudyRunDownloadMode | None = None,
         *,
         num_workers: int | None = None,
         chunk_size: int = DEFAULT_DOWNLOAD_CHUNK_SIZE,
@@ -910,32 +865,34 @@ class SeqoutParquetClient(ShortNames):
         """
         Download the read files of every run into out_dir.
 
+        Takes the same copy per run as the R client's `download_runs()`, and the
+        same files `runs.files(mode)` lists. Runs not served in `mode` are
+        skipped with a warning.
+
         Args:
-            runs: The runs to fetch. Pass a filtered list to fetch a subset.
+            runs: The runs to fetch, from fetch_study_runs or Dataset.runs. Pass a
+                filtered list to fetch a subset.
             out_dir: Created if it does not exist.
-            mode: Which copy to take: fastq, sra, sra_lite, s3, or gcs.
-            num_workers: Parallel downloads.
+            mode: Which copy to take: "fastq", "sra" (NCBI's full-quality copy)
+                or "sra_lite" (binned quality scores). None takes the first each
+                run offers, in that order.
+            num_workers: Parallel downloads. Defaults to the core count less two.
             chunk_size: Bytes per read from the socket.
             with_pbar: Show a per-file progress bar.
 
+        Raises:
+            ValueError: If no run is served in `mode`, or `mode` is not one.
+
         """
-        _validate_study_runs_data(runs, mode)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        url_to_dest: dict[str, Path] = {}
-        for r in runs:
-            run_urls, run_bytes, run_md5s = _extract_download_info_for_study_run(
-                r, mode
-            )
-            if not run_urls or not run_bytes or not run_md5s:
-                raise ValueError(
-                    f"failed to extract download info for {r.run_accession}"
-                )
-            for url in run_urls:
-                normalized_url = _normalize_url(url)
-                url_to_dest[normalized_url] = out_dir / Path(
-                    normalized_url.split("/")[-1]
-                )
-        self._download_many(url_to_dest, num_workers, chunk_size, with_pbar=with_pbar)
+        files = _run_files_to_fetch(runs, mode)
+        self.download_files(
+            [f.url for f in files],
+            out_dir,
+            names=[f.name for f in files],
+            num_workers=num_workers,
+            chunk_size=chunk_size,
+            with_pbar=with_pbar,
+        )
 
     def close(self) -> None:
         """Release client resources. The DuckDB connection is closed on exit."""
@@ -945,3 +902,61 @@ class SeqoutParquetClient(ShortNames):
 
     def __exit__(self, *args: object) -> None:
         self.close()
+
+
+def _collection(name: str) -> tuple[str, ...]:
+    return tuple(f"fetch_{name}_{part}" for part in ("summary", "facets", "projects"))
+
+
+# REST-only methods, keyed by the message to raise
+_REST_ONLY_BY_REASON: dict[str, tuple[str, ...]] = {
+    "The harmonised sample table is not in the dump.": ("sample_search",),
+    "There is no Pentimento table in the dump.": (
+        "fetch_single_cell",
+        "fetch_microbes",
+        "fetch_single_cell_studies",
+        "fetch_single_cell_status",
+        "fetch_single_cell_summary",
+    ),
+    "There is no long-read collection table in the dump.": _collection("longread"),
+    "There is no long-read chemistry table in the dump.": ("fetch_longread_chemistry",),
+    "There is no country collection table in the dump.": _collection("country"),
+    "There is no single-cell collection table in the dump.": _collection("singlecell"),
+    "There is no perturbation collection table in the dump.": _collection(
+        "perturbation"
+    ),
+    "There is no spatial collection table in the dump.": _collection("spatial"),
+    "There is no disease collection table in the dump.": _collection("disease"),
+    "There is no disease alias table in the dump.": ("fetch_disease_aliases",),
+    "There is no tissue collection table in the dump.": _collection("tissue"),
+    "The search index is not in the dump.": ("fetch_search_suggest",),
+    "The search index is not in the dump; group with execute_query instead.": (
+        "fetch_search_facets",
+    ),
+    "Count values with execute_query instead.": (
+        "fetch_organisms",
+        "fetch_library_strategies",
+        "fetch_instrument_models",
+        "fetch_platforms",
+        "fetch_centers",
+        "fetch_journals",
+        "fetch_assays",
+    ),
+    "The ontology graph is a separate database and is not in the dump.": (
+        "fetch_ontology_term",
+    ),
+}
+_REST_ONLY = {m: why for why, methods in _REST_ONLY_BY_REASON.items() for m in methods}
+
+
+def _rest_only_stub(method: str, reason: str) -> Callable[..., NoReturn]:
+    def stub(self: SeqoutParquetClient, *args: Any, **kwargs: Any) -> NoReturn:  # noqa: ARG001
+        _rest_only(method, reason)
+
+    stub.__name__ = stub.__qualname__ = method
+    stub.__doc__ = f"Raise: {method} reads the REST API. {reason}"
+    return stub
+
+
+for _name, _reason in _REST_ONLY.items():
+    setattr(SeqoutParquetClient, _name, _rest_only_stub(_name, _reason))

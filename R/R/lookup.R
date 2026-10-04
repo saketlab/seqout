@@ -8,11 +8,9 @@
 #' @return A tibble of linked projects, empty when the publication is unknown.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' Paper("34764296")
 #' Paper(doi = "10.1038/s41467-021-26864-x")
-#' }
 paper <- function(id = NULL, pmid = NULL, doi = NULL, con = .con()) {
   .check_connection(con)
   if (!is.null(id)) {
@@ -58,10 +56,8 @@ paper <- function(id = NULL, pmid = NULL, doi = NULL, con = .con()) {
 #' @return A tibble of projects.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' Author("Aviv Regev")
-#' }
 author <- function(name, limit = 200, con = .con()) {
   .check_connection(con)
   rlang::check_required(name)
@@ -90,15 +86,13 @@ author <- function(name, limit = 200, con = .con()) {
 #'   to go the other way, from a paper to the datasets.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' cat(Citations("GSE151530"))
 #'
 #' # include reanalysis papers
 #' cat(Citations("GSE168652", type = "all"))
 #'
-#' writeLines(Citations("GSE151530"), "GSE151530.bib")
-#' }
+#' writeLines(Citations("GSE151530"), file.path(tempdir(), "GSE151530.bib"))
 citations <- function(accession, type = "original", con = .con()) {
   .need_api(
     con, "citations",
@@ -127,10 +121,8 @@ citations <- function(accession, type = "original", con = .con()) {
 #' @return A tibble, one row per project.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf SeqoutOnline()
 #' Summaries(c("GSE168652", "GSE100379"))
-#' }
 summaries <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)
