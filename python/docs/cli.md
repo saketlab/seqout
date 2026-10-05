@@ -4,7 +4,7 @@ description: "Detailed reference for seqout CLI commands: search, metadata inspe
 
 # Command-Line Interface
 
-The `seqout` command-line interface (CLI) provides commands to search repositories, inspect metadata, download sequencing reads, map accessions, and run SQL queries against Parquet dumps.
+The `seqout` command-line interface (CLI) provides commands to search repositories, inspect metadata, download sequencing reads, and run SQL queries against Parquet dumps.
 
 To view the help menu and available options for any command or subcommand, append the `--help` flag:
 
@@ -70,51 +70,31 @@ seqout search '("aging" OR "aged") (gut OR colon) immun*'
 
 Structured searches match terms exactly with no synonym expansion or spelling correction. 
 
-To force an exact term match on queries that do not contain explicit boolean operators, add the `--exact` flag:
-
-```bash
-seqout search "liver cancer" --exact
-```
-
 ### Term expansion
 
-By default a query expands: the server adds each term's synonyms from eight ontologies (`MONDO`, `MeSH`, `HGNC`, `CHEBI`, `UBERON`, `CL`, `EFO`, `CVCL`), so a search for `masld` also finds `nafld`. `--no-expand` turns that off for one search. It is the same flag as `--exact`:
+By default a search query is expanded with synonyms from nine ontologies (MONDO, Uberon, EFO, NCBI MeSH, HGNC, Cellosaurus, Cell Ontology, NCBI Taxonomy and ChEBI), therefore a search for `masld` also finds `nafld`. 
+
+Use the `--exact` subcommand to search strictly for the query terms, without any synonyms. 
 
 ```bash
-seqout search "spinal muscular atrophy" --no-expand
+seqout search "spinal muscular atrophy" --exact
 ```
 
-To keep one source out of the synonyms while the rest stay on, name it. The flag repeats:
+To keep one source of synonyms out while accepting synonymous terms from others, use the `--exclude-ontology` subcommand.
 
 ```bash
 seqout search "spinal muscular atrophy" --exclude-ontology MeSH --exclude-ontology CVCL
 ```
 
-A term that two ontologies know survives while either one is on, because the graph holds one node per name.
-
 ### Case-sensitive search
 
-Search ignores case, so `LINE` also finds every "cell line". `--case-sensitive` keeps only the studies whose title or summary has each query word as a whole word, in the case you typed:
+By default search ignores case. The `--case-sensitive` subcommand executes the search in the exact case of your query.
 
 ```bash
 seqout search LINE --case-sensitive
 ```
 
-The words still follow the query's `OR`, `AND` and `NOT`, and a trailing `*` still matches a prefix. Spelling correction is off. The flag works with the full-text filters, but not with `--assay` or `--assay-class`.
-
-### Interactive page navigation
-
-In interactive terminal mode, the search results display with a paging header showing the total number of hits:
-
-```
-'liver cancer': page 1/27 · 537 results
-```
-
-*   Use the **Left** and **Right** arrow keys to page through results.
-*   Press **q** to exit the interactive viewer.
-
-
-## onto
+## Ontology
 
 Use the `onto` command to query terms in the ontology graph. Standard searches query concepts. A search for `"masld"` matches studies containing `"nonalcoholic fatty liver disease"` when both labels map to the same concept node. The `onto` command displays these mappings and source identifiers.
 
@@ -153,9 +133,9 @@ seqout onto liver hpv16 "breast cancer"
 | `-m`, `--max` | Limits the number of synonyms and children displayed per term (default is 25). |
 
 
-## bams
+## BAM files
 
-`bams` lists submitted alignments against the authors' chosen reference genome, including deposited barcode tags, methylation marks, and structural annotations.
+The `bams` subcommand, when available, lists submitted alignments against the authors' chosen reference genome, including deposited barcode tags, methylation marks, and structural annotations.
 
 ```bash
 seqout bams ERP117016
@@ -173,8 +153,6 @@ The command lists alignment files and their access requirements before downloadi
 └────────────┴────────────┴────────────────────────┴───────────────────────┴──────┴─────────┴──────────┘
 ← prev · → next · q quit: -o DIR to download
 ```
-
-The interactive table lists files by size and pages using the arrow keys. 
 
 ### BAM command options
 
@@ -215,12 +193,9 @@ seqout bams ERR3507860
 ```
 
 
-## show
+## View dataset and sample metadata
 
-Use the `show` command to display study-level tables or detailed sample attributes. The command automatically identifies the input accession type and displays the corresponding view:
-*   **GEO Series / ArrayExpress accession:** Displays a table of study samples.
-*   **SRA / ENA Study accession:** Displays a table of study experiments.
-*   **Single Sample or Run accession:** Displays detailed metadata attributes for that specific record.
+Use the `show` command to display study-level tables or detailed sample attributes. The command automatically identifies the input accession type and displays the corresponding view.
 
 ```bash
 seqout show GSE12345
@@ -228,7 +203,7 @@ seqout show GSM5155196
 ```
 
 
-## download
+## Download metadata or data files
 
 Use the `download` command to save metadata or data files to your local system. Running the command without arguments downloads study metadata as a JSON file:
 
@@ -252,7 +227,7 @@ If you pass a run accession (e.g., `SRR13711483`), the command resolves its pare
 When you run `download` interactively in a terminal without option arguments, the CLI displays an interactive menu listing all available resources for the accession, allowing you to select which files to download.
 
 
-## convert
+## Accession format conversions
 
 Use the `convert` command to map accessions to related accession types using the database metadata index.
 
@@ -277,10 +252,10 @@ seqout srr-to-srp SRR13711483
 seqout srp-to-gsm SRP123456
 ```
 
-Available subcommands cover mappings between GEO, SRA, ENA (`er*`), DDBJ (`dr*`), GSA (`cr*`), PMIDs, and DOIs. To save mapped accessions to a file, use the `-o` or `--saveto` option.
+To save mapped accessions to a file, use the `-o` or `--saveto` option.
 
 
-## pmid
+## Search datasets via publication
 
 Use the `pmid` command to list all datasets linked to a publication. You can specify a PubMed ID or a DOI:
 
@@ -290,7 +265,7 @@ seqout pmid 10.1038/ng.2214
 ```
 
 
-## author
+## Search datasets via authors
 
 Use the `author` command to list all datasets linked to a researcher:
 
@@ -319,12 +294,13 @@ seqout pmid 34764296 --parquet https://seqout.org/data
 For more details on configuring Parquet sources, see [Parquet Backend](parquet.md).
 
 
-## parquet
+## Parquet backend
 
 Use the `parquet` command to manage local database files and run offline SQL queries. The subcommand supports the following actions:
-*   `download`: Downloads the published Parquet files.
-*   `query`: Executes custom SQL queries using DuckDB.
-*   `show`: Displays study records offline.
-*   `set-source`: Saves a default Parquet source path.
+
+-   `download`: Downloads the published Parquet files.
+-   `query`: Executes custom SQL queries using DuckDB.
+-   `show`: Displays study records offline.
+-   `set-source`: Saves a default Parquet source path.
 
 For more details, see [Parquet Backend](parquet.md).

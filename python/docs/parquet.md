@@ -7,15 +7,17 @@ description: "Configure and query the seqout Parquet dump offline using DuckDB. 
 The Parquet backend queries local or remote metadata files using DuckDB.
 
 Use the Parquet backend to:
-*   Work offline with local copies of the database tables.
-*   Execute high-throughput batch queries without API rate limits or network latency.
-*   Run custom analytical queries using standard SQL.
+
+-   Work offline with local copies of the database tables.
+-   Execute high-throughput batch queries without API rate limits or network latency.
+-   Run custom analytical queries using standard SQL.
 
 ## Data sources
 
 The backend reads data from a designated source, which can be:
-*   **A remote URL:** (e.g., `https://seqout.org/data`). The backend queries Parquet files over HTTP, downloading only the required byte ranges.
-*   **A local directory:** (e.g., `/data/seqout`). The backend reads tables directly from disk, providing the fastest query execution.
+
+-   **A remote URL:** (e.g., `https://seqout.org/data`). The backend queries Parquet files over HTTP, downloading only the required byte ranges.
+-   **A local directory:** (e.g., `/data/seqout`). The backend reads tables directly from disk, providing the fastest query execution.
 
 The package points to `https://seqout.org/data` by default. You can browse and download individual table files (such as `geo_series.parquet`) directly from this address using your browser, command-line tools like `wget`, or the `parquet download` command.
 
@@ -23,11 +25,28 @@ To host the Parquet dump on your own server, see [Host your own Parquet dump](#h
 
 ## Source selection order
 
-The Parquet backend selects the active data source using the following priority order:
+The CLI selects the active Parquet source using the following priority order:
 1.  The `--source` option passed to the command (or the directory path specified after `--parquet`).
 2.  The `SEQOUT_PARQUET_SOURCE` environment variable.
 3.  The saved default source path configured using `parquet set-source`.
 4.  The public default source: `https://seqout.org/data`.
+
+## Set the source in Python
+
+The Python library ignores `SEQOUT_PARQUET_SOURCE` and the source saved with `parquet set-source`. It reads from `https://seqout.org/data` unless you pass a source explicitly, either as `base_url` when connecting or with `set_source()`:
+
+```python
+from seqout import connect
+
+# Set the source when connecting
+with connect(backend="parquet", base_url="/data/seqout") as pq:
+    dataset = pq.get("GSE169470")
+
+# Or change it on an open client
+with connect(backend="parquet") as pq:
+    pq.set_source("https://example.org/seqout-data")
+    dataset = pq.get("GSE169470")
+```
 
 ## Configure a default source
 

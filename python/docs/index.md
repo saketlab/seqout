@@ -4,28 +4,26 @@ description: "Python library and command-line client for seqout.org: query and d
 
 # Home
 
-`seqout` is a Python client for [seqout.org](https://seqout.org). It searches and downloads metadata and datasets from public genomic archives:
-*   Gene Expression Omnibus (GEO)
-*   Sequence Read Archive (SRA)
-*   European Nucleotide Archive (ENA)
-*   ArrayExpress
-*   DNA Data Bank of Japan (DDBJ DRA and GEA)
-*   Genome Sequence Archive (GSA)
+`seqout` is a Python client for [seqout.org](https://seqout.org). It can search and download datasets from seven public genomic archives: GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress.
 
-The package provides two components:
-1.  **Command-Line Interface (CLI):** A terminal tool (`seqout`) for interactive search, metadata inspection, accession mapping, and batch downloads.
-2.  **Python Library:** A programmatic API (`import seqout`) for integrating metadata queries and matrix parsing into your analysis scripts.
+
+This package provides two components:
+
+-  **Command-Line Interface (CLI):** A terminal tool (`seqout`) for interactive search, metadata inspection, accession mapping, and batch downloads.
+-  **Python Library:** A programmatic API (`import seqout`) for integrating metadata queries and matrix parsing into your analysis scripts.
+
+Installation instructions are documented in its [dedicated page](installation.md).
 
 ## Choose a backend
 
-The package supports two data retrieval backends:
+This package supports two data retrieval backends:
 
 | Backend | Mechanism | Best Use Cases |
 | --- | --- | --- |
 | **API** (Default) | Queries the `seqout.org` REST API over HTTP. | Queries against the live index. |
 | **Parquet** | Queries the published Parquet database dump using DuckDB. | Offline workflows, large batch queries, and custom SQL analytics. |
 
-The Parquet backend executes queries locally without sending HTTP requests to the REST API. You can read database files directly from a local directory or a remote static server. For more details, see [Parquet backend](parquet.md).
+The Parquet backend executes queries locally without sending HTTP requests to the REST API. You can read database files directly from a local directory or a remote static server. For more details, read [Parquet backend](parquet.md).
 
 ## Quick start
 
@@ -50,7 +48,14 @@ with connect() as sq:
         print(r.accession, r.title)
 ```
 
-To load study details, pass any supported archive accession (such as a GSE series or SRP study ID) to the `get` method. The client automatically resolves linked records across different archives:
+### View dataset details
+
+To load dataset details, use the `show` subcommand on the CLI:
+
+```bash
+seqout show GSE168652
+```
+or pass the accession ID to the `get` method. 
 
 ```python
 with connect() as sq:
@@ -59,6 +64,8 @@ with connect() as sq:
     print(f"Samples: {len(dataset.samples)}")
     print(f"Runs: {len(dataset.runs)}")
 ```
+
+`seqout` automatically resolves the archive from the accession identifier, so this works for any accession.
 
 ## Next steps
 

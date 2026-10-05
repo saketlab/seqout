@@ -4,8 +4,6 @@ description: "Programmatic data access, filtered search, matrix parsing, and fil
 
 # Python Library
 
-`seqout` searches metadata, retrieves study designs, parses expression matrices, and downloads raw or processed files.
-
 ## Connect to a backend
 
 The `connect()` function initializes a client connection. Specify the target backend using the `backend` argument:
@@ -28,9 +26,6 @@ from seqout import connect
 with connect() as sq:
     results = sq.search("lung cancer", db="geo")
 ```
-
-> [!NOTE]
-> `connect_to_seqout` is an alias for `connect`. Both names perform the same initialization.
 
 ## Retrieve study datasets
 
