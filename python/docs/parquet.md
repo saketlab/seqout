@@ -32,8 +32,8 @@ The CLI selects the active Parquet source using the following priority order:
 4.  The public default source: `https://seqout.org/data`.
 
 ## Set the source in Python
-
-The Python library ignores `SEQOUT_PARQUET_SOURCE` and the source saved with `parquet set-source`. It reads from `https://seqout.org/data` unless you pass a source explicitly, either as `base_url` when connecting or with `set_source()`:
+ 
+By default, the Python library's parquet backend reads from `https://seqout.org/data` unless a source is explicitly passed, either as `base_url` when connecting or with `set_source()`:
 
 ```python
 from seqout import connect
