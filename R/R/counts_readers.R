@@ -506,8 +506,22 @@ NULL
 .var_cols <- c(
   "length", "genelength", "gene_length", "exonlength", "effective_length",
   "efflength", "merged_length", "start", "end", "start_position",
-  "end_position", "width", "gc", "gc_content"
+  "end_position", "width", "gc", "gc_content",
+  # vendor (Novogene, BGI) numeric annotation
+  "gene_start", "gene_end", "gene_dbxref", "dbxref", "entrezid", "entrez_id", "entrez"
 )
+
+#' Which columns hold a length-normalised value beside raw counts
+#'
+#' Vendor tables mix FPKM.S1 and count.S1; keep the counts, else each sample appears twice.
+#' @noRd
+.normalised_cols <- function(x) {
+  x <- tolower(x)
+  tok <- function(w) grepl(paste0("(^|[._ -])(", w, ")([._ -]|$)"), x)
+  norm <- tok("fpkm|rpkm|tpm|cpm")
+  raw <- tok("count|counts|readcount|reads")
+  if (any(norm) && any(raw & !norm)) norm else rep(FALSE, length(x))
+}
 
 # htseq-count appends its summary rows to the counts; STAR does the same in
 # ReadsPerGene.out.tab. Drop summary rows to preserve library-size estimates.
@@ -533,8 +547,19 @@ NULL
   } else {
     strsplit(line, sep, fixed = TRUE)[[1]]
   }
-  length(fields) >= 2L && !anyNA(suppressWarnings(as.numeric(fields[-1])))
+  # numeric sample ids make a header look like counts
+  first <- tolower(gsub('^"|"$', "", fields[1]))
+  length(fields) >= 2L && !anyNA(suppressWarnings(as.numeric(fields[-1]))) &&
+    !first %in% .index_names
 }
+
+#' First-column names that only a header row carries
+#' @noRd
+.index_names <- c(
+  "key", "id", "gene", "genes", "gene_id", "geneid", "gene_ids", "gene_name",
+  "gene_symbol", "symbol", "ensembl", "ensembl_id", "ensembl_gene_id", "feature",
+  "feature_id", "name", "transcript_id", "probe", "probe_id", "id_ref", ""
+)
 
 #' Name the unnamed count columns after the file they came from
 #' @noRd
@@ -557,10 +582,21 @@ NULL
 
   con <- .open_maybe_gz(path)
   on.exit(close(con), add = TRUE)
+  # symbol-keyed tables repeat names for distinct loci
   df <- utils::read.delim(
     con,
-    sep = sep, row.names = 1, check.names = FALSE, header = !headerless
+    sep = sep, row.names = NULL, check.names = FALSE, header = !headerless
   )
+  ids <- as.character(df[[1]])
+  df <- df[-1]
+  n_dup <- sum(duplicated(ids))
+  if (n_dup > 0L) {
+    ids <- make.unique(ids)
+    cli::cli_inform(
+      "{.path {basename(path)}}: {n_dup} repeated feature name{?s} made unique ({.code make.unique()})."
+    )
+  }
+  rownames(df) <- ids
   if (headerless) {
     names(df) <- .headerless_names(path, ncol(df))
   }
@@ -573,8 +609,12 @@ NULL
     df <- df[!qc, , drop = FALSE]
   }
 
+  # trailing delimiters parse as all-NA columns
+  empty <- vapply(df, function(v) all(is.na(v)), logical(1))
+  df <- df[, !empty, drop = FALSE]
   is_ann <- !vapply(df, is.numeric, logical(1)) |
-    tolower(trimws(names(df))) %in% .var_cols
+    tolower(trimws(names(df))) %in% .var_cols |
+    .normalised_cols(names(df))
   var <- df[, is_ann, drop = FALSE]
   df <- df[, !is_ann, drop = FALSE]
   m <- t(as.matrix(df))
@@ -604,4 +644,59 @@ NULL
     return(character(0))
   }
   .column_of(split, column)
+}
+
+#' Read a NanoString nCounter RCC file
+#'
+#' One lane, one observation. CodeClass goes to var for housekeeping and spike-in normalisation.
+#'
+#' @param path An .RCC or .RCC.gz file.
+#' @param label Observation name; a trailing .RCC or .RCC.gz is dropped.
+#' @noRd
+.read_rcc <- function(path, label = basename(path)) {
+  con <- .open_maybe_gz(path)
+  lines <- sub("\r$", "", readLines(con, warn = FALSE))
+  close(con)
+  section <- function(tag) {
+    from <- match(paste0("<", tag, ">"), lines)
+    to <- match(paste0("</", tag, ">"), lines)
+    if (is.na(from) || is.na(to) || to <= from + 1L) {
+      return(character(0))
+    }
+    lines[(from + 1L):(to - 1L)]
+  }
+  code <- section("Code_Summary")
+  if (length(code) < 2L || !startsWith(code[1], "CodeClass")) {
+    cli::cli_abort("{.path {basename(path)}}: no {.code <Code_Summary>} table; not an nCounter RCC file.")
+  }
+  tab <- utils::read.csv(text = code, colClasses = "character", check.names = FALSE)
+  names(tab) <- tolower(names(tab))
+  counts <- suppressWarnings(as.numeric(tab$count))
+  if (anyNA(counts)) {
+    cli::cli_abort("{.path {basename(path)}}: {sum(is.na(counts))} non-numeric count{?s} in {.code <Code_Summary>}.")
+  }
+  # a probe name can recur across code classes
+  id <- tab$name
+  dup <- id %in% id[duplicated(id)]
+  id[dup] <- paste(id[dup], tab$codeclass[dup], sep = "|")
+
+  attrs <- function(tag, prefix) {
+    kv <- strsplit(section(tag), ",", fixed = TRUE)
+    kv <- kv[lengths(kv) >= 1L]
+    vals <- vapply(kv, function(x) if (length(x) > 1L) paste(x[-1], collapse = ",") else NA_character_, "")
+    stats::setNames(as.list(vals), paste0(prefix, vapply(kv, `[`, "", 1L)))
+  }
+  label <- sub("\\.rcc(\\.gz)?$", "", label, ignore.case = TRUE)
+  obs <- data.frame(row.names = label)
+  a <- c(attrs("Sample_Attributes", "sample_"), attrs("Lane_Attributes", "lane_"))
+  obs[names(a)] <- a
+  for (k in intersect(c("lane_FovCount", "lane_FovCounted", "lane_BindingDensity"), names(obs))) {
+    obs[[k]] <- suppressWarnings(as.numeric(obs[[k]]))
+  }
+
+  list(
+    X = matrix(counts, nrow = 1L, dimnames = list(label, id)),
+    obs = obs,
+    var = data.frame(code_class = tab$codeclass, accession = tab$accession, row.names = id)
+  )
 }

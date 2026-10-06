@@ -1117,6 +1117,7 @@ matrices <- function(counts, sample = NULL) {
     "h5ad" = .read_h5ad(by_role[["h5ad"]], label = unit$label),
     "rds" = .read_rds(by_role[["rds"]], assay = h$assay),
     "table" = .read_table(by_role[["table"]]),
+    "rcc" = .read_rcc(by_role[["rcc"]], label = unit$label),
     cli::cli_abort("{unit$label}: no reader for format {.val {unit$fmt}}.")
   )
 
@@ -1125,8 +1126,8 @@ matrices <- function(counts, sample = NULL) {
   } else {
     0L
   }
-  decided <- if (unit$fmt %in% c("10x_mtx", "10x_h5", "h5ad")) {
-    list(kind = "single_cell", evidence = paste(unit$fmt, "file"))
+  decided <- if (unit$fmt %in% names(.fmt_kind)) {
+    list(kind = .fmt_kind[[unit$fmt]], evidence = paste(unit$fmt, "file"))
   } else {
     .infer_kind(rownames(parsed$obs), n_samples)
   }

@@ -1,5 +1,5 @@
 mock_curl <- function(fail_on = character(0), status_404 = character(0),
-                      env = parent.frame()) {
+                      status_503_once = character(0), env = parent.frame()) {
   testthat::local_mocked_bindings(.retry_pause = function(attempt) invisible(), .env = env)
   log <- new.env(parent = emptyenv())
   log$calls <- list()
@@ -11,9 +11,12 @@ mock_curl <- function(fail_on = character(0), status_404 = character(0),
       # error leaves the server's error page.
       writeLines(if (is.na(error[i])) "x" else "partial", destfiles[i])
     }
+    busy <- urls %in% status_503_once & !urls %in% log$served_503
+    log$served_503 <- c(log$served_503, urls[busy])
+    for (i in which(busy)) writeLines("<html>503</html>", destfiles[i])
     data.frame(
       url = urls, error = error,
-      status_code = ifelse(urls %in% status_404, 404L, 200L),
+      status_code = ifelse(busy, 503L, ifelse(urls %in% status_404, 404L, 200L)),
       stringsAsFactors = FALSE
     )
   }
@@ -452,4 +455,21 @@ test_that("downloads never pick a directory on their own", {
     expect_error(f("GSE1", con = fake_con()), "dest_dir")
   }
   expect_error(download_dump(con = fake_con()), "dest_dir")
+})
+
+test_that("a 503 is retried, not reported as a failure", {
+  url <- "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM1/suppl/GSM1.RCC.gz"
+  log <- mock_curl(status_503_once = url)
+  dir <- withr::local_tempdir()
+  dest <- file.path(dir, "GSM1.RCC.gz")
+  suppressMessages(seqout:::.curl_download(url, dest))
+  expect_length(log$calls, 2)
+  expect_equal(readLines(dest), "x")
+})
+
+test_that("only 408, 429 and 5xx count as transient HTTP errors", {
+  expect_equal(
+    seqout:::.is_transient(c(NA, "refused", "HTTP 404", "HTTP 403", "HTTP 429", "HTTP 503", "HTTP 408")),
+    c(FALSE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE)
+  )
 })

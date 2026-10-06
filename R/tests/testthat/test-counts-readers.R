@@ -386,3 +386,102 @@ test_that("GSE300265's LZF h5ad reads, warning that its indexes are row numbers"
   # the file stores genes as obs, so seqout's cells-are-obs read swaps the axes
   expect_equal(dim(m$X), c(19326L, 36601L))
 })
+
+test_that("vendor annotation, empty and normalised columns stay out of X", {
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "counts.txt")
+  writeLines(c(
+    "gene\tFPKM.S1\tFPKM.S2\tcount.S1\tcount.S2\tgene_start\tgene_Dbxref\t\t",
+    "A\t1.5\t2.5\t10\t20\t100\t71661\t\t",
+    "B\t3.5\t4.5\t30\t40\t200\t66050\t\t"
+  ), path)
+  res <- seqout:::.read_table(path)
+  expect_equal(rownames(res$obs), c("count.S1", "count.S2"))
+  expect_true(all(c("FPKM.S1", "gene_start", "gene_Dbxref") %in% names(res$var)))
+  expect_equal(as.vector(res$X), c(10, 20, 30, 40))
+})
+
+test_that("a table of only FPKM columns is still read", {
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "fpkm.txt")
+  writeLines(c("gene\tFPKM.S1\tFPKM.S2", "A\t1.5\t2.5"), path)
+  expect_equal(dim(seqout:::.read_table(path)$X), c(2L, 1L))
+})
+
+write_rcc <- function(path, sample_id = "1", endogenous = c(VTN = 66375, KIT = 32)) {
+  con <- gzfile(path, "wt")
+  writeLines(c(
+    "<Header>", "FileVersion,1.7", "</Header>", "",
+    "<Sample_Attributes>", paste0("ID,", sample_id), "Owner,Lab", "Date,20170426",
+    "GeneRLF,NS_Immunology_v2", "</Sample_Attributes>", "",
+    "<Lane_Attributes>", "ID,1", "FovCount,555", "FovCounted,542",
+    "BindingDensity,1.23", "CartridgeBarcode,", "</Lane_Attributes>", "",
+    "<Code_Summary>", "CodeClass,Name,Accession,Count",
+    paste0("Endogenous,", names(endogenous), ",NM_0", seq_along(endogenous), ",", endogenous),
+    "Endogenous,ALAS1,NM_000688.4,10",
+    "Housekeeping,ALAS1,NM_000688.4,1524",
+    "Positive,POS_A(128),ERCC_00117.1,41234",
+    "Negative,NEG_A(0),ERCC_00096.1,9",
+    "</Code_Summary>", "", "<Messages>", "</Messages>"
+  ), con)
+  close(con)
+  path
+}
+
+test_that("an nCounter RCC reads as one observation with probe classes and lane QC", {
+  path <- write_rcc(file.path(withr::local_tempdir(), "GSM9_01_NAS5.RCC.gz"))
+  res <- seqout:::.read_rcc(path)
+  expect_equal(rownames(res$X), "GSM9_01_NAS5")
+  # a name in two code classes keeps both rows, told apart by class
+  expect_equal(colnames(res$X), c("VTN", "KIT", "ALAS1|Endogenous", "ALAS1|Housekeeping", "POS_A(128)", "NEG_A(0)"))
+  expect_equal(as.vector(res$X), c(66375, 32, 10, 1524, 41234, 9))
+  expect_equal(res$var$code_class, c("Endogenous", "Endogenous", "Endogenous", "Housekeeping", "Positive", "Negative"))
+  expect_equal(res$obs$lane_FovCounted, 542)
+  expect_equal(res$obs$lane_BindingDensity, 1.23)
+  expect_true(is.na(res$obs$lane_CartridgeBarcode))
+  expect_equal(seqout:::.read_rcc(path, label = "GSM9")$obs |> rownames(), "GSM9")
+})
+
+test_that("CRLF line endings read the same", {
+  dir <- withr::local_tempdir()
+  unix <- write_rcc(file.path(dir, "a.RCC.gz"))
+  crlf <- file.path(dir, "b.RCC")
+  writeBin(charToRaw(paste0(paste(readLines(gzfile(unix)), collapse = "\r\n"), "\r\n")), crlf)
+  expect_equal(seqout:::.read_rcc(crlf)$X, seqout:::.read_rcc(unix, label = "b")$X)
+})
+
+test_that("a file without a Code_Summary is refused", {
+  path <- file.path(withr::local_tempdir(), "x.RCC")
+  writeLines(c("<Header>", "FileVersion,1.7", "</Header>"), path)
+  expect_error(seqout:::.read_rcc(path), "Code_Summary")
+})
+
+test_that("a header of numeric sample ids is still a header", {
+  path <- file.path(withr::local_tempdir(), "counts.txt")
+  writeLines(c("key\t2683\t2685", "ENSG1\t5\t7", "ENSG2\t1\t0"), path)
+  res <- seqout:::.read_table(path)
+  expect_equal(rownames(res$obs), c("2683", "2685"))
+  expect_equal(rownames(res$var), c("ENSG1", "ENSG2"))
+})
+
+test_that("an htseq file without a header is still read as headerless", {
+  path <- file.path(withr::local_tempdir(), "GSM1_htseq.txt")
+  writeLines(c("ENSG1\t5", "ENSG2\t7"), path)
+  expect_equal(rownames(seqout:::.read_table(path)$var), c("ENSG1", "ENSG2"))
+})
+
+test_that("repeated feature names keep every row instead of failing", {
+  path <- file.path(withr::local_tempdir(), "counts.txt")
+  writeLines(c("gene\tS1\tS2", "Y_RNA\t1\t2", "TP53\t5\t7", "Y_RNA\t3\t4"), path)
+  expect_message(res <- seqout:::.read_table(path), "1 repeated feature name")
+  expect_equal(rownames(res$var), c("Y_RNA", "TP53", "Y_RNA.1"))
+  expect_equal(as.vector(res$X[, "Y_RNA.1"]), c(3, 4))
+})
+
+test_that("repeated names in an R-written table (short header) stay aligned", {
+  path <- file.path(withr::local_tempdir(), "counts.txt")
+  writeLines(c("S1\tS2", "Y_RNA\t1\t2", "Y_RNA\t3\t4"), path)
+  res <- suppressMessages(seqout:::.read_table(path))
+  expect_equal(rownames(res$obs), c("S1", "S2"))
+  expect_equal(as.vector(res$X[, "Y_RNA.1"]), c(3, 4))
+})

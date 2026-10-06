@@ -72,3 +72,20 @@ test_that("filtered output is recognised, unfiltered is not", {
   expect_false(is_filtered("GSM1_raw_feature_bc_matrix.h5"))
   expect_false(is_filtered("GSM1_unfiltered_matrix.h5"))
 })
+
+test_that("NanoString RCC files have their own role", {
+  expect_equal(
+    file_role(c("GSM4567420_01_NAS5.RCC.gz", "x.rcc", "GSE1_RAW.tar", "rcc_notes.txt")),
+    c("rcc", "rcc", "tar", "table")
+  )
+})
+
+test_that("normalised file names are recognised, raw and abnormal ones are not", {
+  expect_equal(
+    seqout:::.is_normalised(c(
+      "GSM1_B-SITTA3-norm_counts.csv.gz", "GSM1_normalized.tsv", "GSM1_lognorm.h5ad",
+      "GSM1_B-SITTA3-raw_counts.csv.gz", "GSM1_abnormal_tissue_counts.csv", "GSM1_raw_norm.csv"
+    )),
+    c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE)
+  )
+})

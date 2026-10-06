@@ -94,7 +94,7 @@ NULL
 #' @param name A file name or URL.
 #'
 #' @return One of `"mtx"`, `"barcodes"`, `"features"`, `"h5"`, `"h5ad"`,
-#'   `"rds"`, `"table"`, `"tar"`, `"metadata"` or `"skip"`.
+#'   `"rds"`, `"rcc"`, `"table"`, `"tar"`, `"metadata"` or `"skip"`.
 #'
 #' @export
 #' @examples
@@ -102,6 +102,7 @@ NULL
 #' FileRole("GSM123_barcodes.tsv.gz")
 #' FileRole("GSE1_cell_metadata.csv.gz")
 #' FileRole("GSM1_fragments.tsv.gz")
+#' FileRole("GSM4567420_01_NAS5.RCC.gz")
 file_role <- function(name) {
   low <- tolower(basename(name))
   stem <- .strip_compression(low)
@@ -141,6 +142,11 @@ file_role <- function(name) {
 
   hit <- todo & .ends_any(stem, c(".rds", ".rda", ".rdata"))
   role[hit] <- "rds"
+  todo[hit] <- FALSE
+
+  # NanoString nCounter: one lane per file
+  hit <- todo & .ends_any(stem, ".rcc")
+  role[hit] <- "rcc"
   todo[hit] <- FALSE
 
   hit <- todo & (.has_any(stem, ".tar") | .ends_any(stem, ".tgz"))
@@ -207,6 +213,14 @@ group_key <- function(name) {
 is_filtered <- function(name) {
   low <- tolower(name)
   grepl("filtered", low, fixed = TRUE) & !grepl("unfiltered", low, fixed = TRUE)
+}
+
+#' Whether a file name marks a normalised matrix; raw wins when both appear
+#' @noRd
+.is_normalised <- function(name) {
+  low <- tolower(basename(name))
+  grepl("norm|scaled", low) & !grepl("(^|[._-])raw([._-]|$)", low) &
+    !grepl("abnorm|nonnorm|unnorm", low)
 }
 
 #' @noRd

@@ -102,3 +102,20 @@ test_that("a short line falls back to its first field", {
 test_that("no lines means no column", {
   expect_equal(seqout:::.column_of(list(), 1L), character(0))
 })
+
+test_that("raw counts rank ahead of normalised counts of the same format", {
+  ranks <- seqout:::.unit_ranks(
+    list(unit_of("GSM1_B-SITTA3-norm_counts.csv.gz"), unit_of("GSM1_B-SITTA3-raw_counts.csv.gz")),
+    "rna"
+  )
+  expect_lt(ranks[2], ranks[1])
+})
+
+test_that("normalised still loses to nothing stronger than format", {
+  # filtered state outranks the raw/normalised tie-break
+  ranks <- seqout:::.unit_ranks(
+    list(unit_of("GSM1_filtered_norm.csv"), unit_of("GSM1_counts.csv")),
+    "rna"
+  )
+  expect_lt(ranks[1], ranks[2])
+})

@@ -14,7 +14,7 @@ FileRole(name)
 }
 \value{
 One of \code{"mtx"}, \code{"barcodes"}, \code{"features"}, \code{"h5"}, \code{"h5ad"},
-\code{"rds"}, \code{"table"}, \code{"tar"}, \code{"metadata"} or \code{"skip"}.
+\code{"rds"}, \code{"rcc"}, \code{"table"}, \code{"tar"}, \code{"metadata"} or \code{"skip"}.
 }
 \description{
 Names the role from the filename, before download.
@@ -24,4 +24,5 @@ FileRole("GSM123_matrix.mtx.gz")
 FileRole("GSM123_barcodes.tsv.gz")
 FileRole("GSE1_cell_metadata.csv.gz")
 FileRole("GSM1_fragments.tsv.gz")
+FileRole("GSM4567420_01_NAS5.RCC.gz")
 }

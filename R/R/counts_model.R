@@ -12,10 +12,14 @@ NULL
 .triplet_roles <- c("mtx", "barcodes", "features")
 
 #' @noRd
-.role_fmt <- c(h5 = "10x_h5", h5ad = "h5ad", rds = "rds", tar = "tar", table = "table")
+.role_fmt <- c(h5 = "10x_h5", h5ad = "h5ad", rds = "rds", tar = "tar", rcc = "rcc", table = "table")
 
 #' @noRd
-.fmt_rank <- c("10x_mtx" = 0L, "10x_h5" = 1L, h5ad = 2L, rds = 3L, tar = 4L, table = 5L)
+.fmt_rank <- c("10x_mtx" = 0L, "10x_h5" = 1L, h5ad = 2L, rds = 3L, tar = 4L, rcc = 5L, table = 5L)
+
+#' Formats whose kind the format alone settles
+#' @noRd
+.fmt_kind <- c("10x_mtx" = "single_cell", "10x_h5" = "single_cell", h5ad = "single_cell", rcc = "bulk")
 
 #' @noRd
 .bulk_max_obs <- 32L
@@ -204,7 +208,9 @@ NULL
     vapply(names_by_unit, paste, character(1), collapse = " "), assay
   )
   fmts <- vapply(units, function(u) u$fmt, character(1))
-  modality * 100 + (!any_filtered) * 10 + unname(.fmt_rank[fmts])
+  # prefer raw
+  normalised <- vapply(names_by_unit, function(n) any(.is_normalised(n)), logical(1))
+  modality * 100 + (!any_filtered) * 10 + unname(.fmt_rank[fmts]) + normalised * 0.5
 }
 
 #' Whether per-cell annotation is available for a unit

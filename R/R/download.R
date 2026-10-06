@@ -75,15 +75,16 @@
     reason[retry] <- .fetch_batched(urls[retry], parts[retry], resume = FALSE, quiet = quiet)
   }
 
-  # throttled connect failures can succeed after a pause
   for (attempt in seq_len(2)) {
-    again <- which(!is.na(reason) & !startsWith(reason, "HTTP "))
+    again <- which(.is_transient(reason))
     if (length(again) == 0) {
       break
     }
     if (!quiet) {
       cli::cli_alert_info("Retrying {length(again)} file{?s} the archive did not serve")
     }
+    # resuming would append to the error page left in .part
+    unlink(parts[again][startsWith(reason[again], "HTTP ")])
     .retry_pause(attempt)
     reason[again] <- .fetch_batched(urls[again], parts[again], resume = TRUE, quiet = quiet)
   }
@@ -115,6 +116,14 @@
     ))
   }
   invisible(paths)
+}
+
+#' Whether a failure may clear on its own
+#'
+#' NCBI answers 503 when many files are requested at once.
+#' @noRd
+.is_transient <- function(reason) {
+  !is.na(reason) & (!startsWith(reason, "HTTP ") | grepl("^HTTP (408|429|5[0-9]{2})$", reason))
 }
 
 #' Fetch in groups to bound queued work
