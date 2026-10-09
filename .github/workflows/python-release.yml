@@ -79,7 +79,7 @@ jobs:
       - name: Install the built wheel and import it
         shell: bash
         run: |
-          uv venv
+          uv venv --python 3.13
           uv pip install "$(echo dist/*.whl)${{ matrix.extras }}"
           uv run --no-project python python/scripts/check_imports.py \
             ${{ matrix.extras == '[counts]' && '--counts' || '--base' }}
