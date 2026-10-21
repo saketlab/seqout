@@ -244,8 +244,10 @@ test_that("a body that does not match its checksum is a failure, not a file", {
 test_that("a matching checksum lets the file through", {
   mock_curl()
   dir <- withr::local_tempdir()
-  # mock_curl writes "x\n" for every successful download.
-  want <- unname(tools::md5sum(withr::local_tempfile(lines = "x")))
+  # written as mock_curl writes it, so Windows' CRLF line ending matches too
+  ref <- withr::local_tempfile()
+  writeLines("x", ref)
+  want <- unname(tools::md5sum(ref))
   paths <- .download_files("https://example.org/a.gz", dir, md5 = want, quiet = TRUE)
   expect_true(file.exists(paths))
 })
