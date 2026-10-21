@@ -54,6 +54,7 @@ Reads REST. The ontology graph is absent from the dump.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 meta <- data.frame(celltype = c("T cell", "hepatocyte", "HeLa"))
 MapToOntology(meta, "celltype")
 
@@ -62,6 +63,7 @@ MapToOntology(meta, "celltype", ontology = "CL")
 
 # allow synonym IDs
 MapToOntology(meta, "celltype", use_synonyms = TRUE)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

@@ -23,6 +23,8 @@ Resolves a run, experiment or sample to its study or series.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 resolve_study("SRR13927092")
+}
 \dontshow{\}) # examplesIf}
 }

@@ -28,6 +28,8 @@ no data, not a clean result.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 supplementary_files("GSE139368")
+}
 \dontshow{\}) # examplesIf}
 }

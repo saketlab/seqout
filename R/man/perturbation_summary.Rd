@@ -24,7 +24,9 @@ rely on; \code{studies} also counts weak single-signal calls.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 PerturbationSummary()
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

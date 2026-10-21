@@ -113,6 +113,7 @@ comparison) collapses both columns to whichever group is checked first
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 # Xenium studies in human
 SpatialProjects(platform = "Xenium", organism = "Homo sapiens", limit = 10)
 
@@ -120,6 +121,7 @@ SpatialProjects(platform = "Xenium", organism = "Homo sapiens", limit = 10)
 SpatialProjects(
   resolution = "single-cell", data_availability = "both", limit = 10
 )
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

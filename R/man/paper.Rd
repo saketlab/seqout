@@ -26,7 +26,9 @@ Find projects linked to a publication
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 Paper("34764296")
 Paper(doi = "10.1038/s41467-021-26864-x")
+}
 \dontshow{\}) # examplesIf}
 }

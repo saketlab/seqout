@@ -205,9 +205,12 @@
 #' @examples
 #' \dontrun{
 #' # two common tables
-#' DownloadDump(dest_dir = "~/seqout-dump", tables = c("unified_metadata", "geo_series"))
+#' DownloadDump(
+#'   dest_dir = file.path(tempdir(), "seqout-dump"),
+#'   tables = c("unified_metadata", "geo_series")
+#' )
 #'
-#' con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+#' con <- SeqoutConnect("parquet", data_dir = file.path(tempdir(), "seqout-dump"))
 #' Query("SELECT count(*) FROM unified_metadata", con = con)
 #' }
 download_dump <- function(con = .con(), dest_dir, tables = NULL,
@@ -385,7 +388,9 @@ download_supplementary <- function(accession, dest_dir, quiet = FALSE, con = .co
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' supplementary_files("GSE139368")
+#' }
 supplementary_files <- function(accession, con = .con()) {
   .need_api(con, "supplementary_files",
     why = "There is no supplementary-file scan table in the dump."
@@ -606,9 +611,11 @@ download_runs <- function(accession, dest_dir, mode = NULL,
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' files <- RunFiles("SRP148597", mode = "fastq")
 #' sum(files$bytes, na.rm = TRUE) / 1e9 # GB to fetch
 #' "SRR7191948" |> RunFiles()
+#' }
 run_files <- function(x, mode = NULL, con = .con()) {
   rlang::check_required(x)
   if (!is.null(mode)) mode <- match.arg(mode, names(.run_modes))

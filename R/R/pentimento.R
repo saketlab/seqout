@@ -161,9 +161,11 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' st <- ProjectSingleCellStatus("GSE168652")
 #' st$single_cell_status
 #' st$n_independent_evidence
+#' }
 project_single_cell_status <- function(accession, con = .con()) {
   .need_api(con, "project_single_cell_status",
     why = "There is no Pentimento table in the dump."
@@ -205,9 +207,11 @@ project_single_cell_status <- function(accession, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' s <- ProjectSingleCellSummary("GSE168652")
 #' s$study_cells
 #' s$microbe_measured
+#' }
 project_single_cell_summary <- function(accession, con = .con()) {
   .need_api(con, "project_single_cell_summary",
     why = "There is no Pentimento table in the dump."
@@ -272,6 +276,7 @@ project_single_cell_summary <- function(accession, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' # unrestricted, with matrix warning
 #' sc <- SingleCellStudies(limit = 100)
 #'
@@ -280,6 +285,7 @@ project_single_cell_summary <- function(accession, con = .con()) {
 #'
 #' # linked reads
 #' SingleCellStudies(data = "fastq", limit = 100)
+#' }
 single_cell_studies <- function(con = .con(),
                                 min_evidence = 1,
                                 data = c("any", "matrix", "fastq", "both"),
@@ -407,10 +413,12 @@ single_cell_studies <- function(con = .con(),
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' sc <- ProjectSingleCell("GSE168652")
 #' sc[, c("sample_accession", "cells", "genes")]
 #' attr(sc, "study")$study_cells
 #' attr(sc, "longread_chemistry")
+#' }
 project_single_cell <- function(accession, limit = NULL, offset = 0, con = .con()) {
   .need_api(con, "project_single_cell",
     why = "There is no Pentimento table in the dump."
@@ -536,10 +544,12 @@ project_single_cell <- function(accession, limit = NULL, offset = 0, con = .con(
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' m <- SampleMicrobes("GSM5155196", kind = "viral")
 #' m[, c("organism", "n_unitigs", "max_breadth_frac")]
 #' attr(m, "measurable")
 #' attr(m, "detections")
+#' }
 sample_microbes <- function(accession, kind = c("all", "viral", "bacterial", "both"),
                             min_breadth = NULL, min_kmer_mass = NULL,
                             validated_only = FALSE, include_background = FALSE,

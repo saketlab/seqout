@@ -44,13 +44,14 @@ Python:
 from seqout import connect, SeqoutListCounts
 
 sq = connect()
-sq.seqout_search("liver cancer scRNA", organism="Homo sapiens")
-sq.seqout_get("GSE151530").samples
+sq.search("liver cancer scRNA", organism="Homo sapiens")
+sq.get("GSE151530").samples
 
 counts = SeqoutListCounts(gse="GSE297547")
 counts.manifest()                        # readable units, nothing downloaded yet
 counts.matrix(sample="GSM8994520")       # AnnData, cells by genes
 counts.design                            # one row per sample
+counts.fragments()                       # ATAC fragments files; download=True fetches them
 ```
 
 R:

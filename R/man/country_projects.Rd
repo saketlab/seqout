@@ -70,8 +70,10 @@ One row per study submitted from \code{code}. Filter values come from
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 # single-cell studies submitted from India, newest first
 CountryProjects("IN", is_single_cell = TRUE, limit = 100)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

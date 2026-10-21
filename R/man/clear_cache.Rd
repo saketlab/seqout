@@ -18,3 +18,11 @@ Number of tables removed (invisibly).
 \description{
 Removes \verb{*_local} tables created by \code{\link[=cache_table]{cache_table()}}.
 }
+\examples{
+\dontrun{
+con <- SeqoutConnect("parquet", quiet = TRUE)
+CacheTable("geo_series", con = con)
+ClearCache(con)
+SeqoutClose(con)
+}
+}

@@ -32,7 +32,9 @@ A term with no match 404s.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 TissueSummary("liver")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

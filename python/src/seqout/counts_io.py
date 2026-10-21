@@ -83,9 +83,11 @@ def _is_gzip(path: Path) -> bool:
 
 def _open(path: Path, mode: str = "rt") -> Any:
     """Open a possibly-gzipped file transparently."""
+    # text mode reads UTF-8 on every OS; Windows would default to cp1252
+    encoding = None if "b" in mode else "utf-8"
     if _is_gzip(path):
-        return _gzip.open(path, mode)
-    return path.open(mode)
+        return _gzip.open(path, mode, encoding=encoding)
+    return path.open(mode, encoding=encoding)
 
 
 _SNIFF_BYTES = 8192

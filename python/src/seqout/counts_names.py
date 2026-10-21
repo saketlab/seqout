@@ -82,7 +82,6 @@ _COUNTS_NAME_HINTS = (
 _EMBEDDED_METADATA_FORMATS = frozenset({"rds", "h5ad"})
 
 _SIDECARS = (
-    "fragments.tsv",
     "readme",
     "md5sum",
     # visium/spatial sidecars are auxiliary tables
@@ -91,6 +90,20 @@ _SIDECARS = (
     "web_summary",
     "metrics_summary",
 )
+
+_FRAGMENTS_SUFFIX = re.compile(r"\.(tsv|bed|txt)(\.(gz|bgz))?$")
+
+
+def is_fragments(name: str) -> bool:
+    """
+    Whether a file is an ATAC fragments file.
+
+    Submitters spell it fragments.tsv.gz, atac_fragments.tsv.gz,
+    filtered-fragments.tsv.gz and .atac.fragments.bed.gz.
+    """
+    low = name.lower()
+    return "fragments" in low and _FRAGMENTS_SUFFIX.search(low) is not None
+
 
 _BARCODE_NAMES = ("barcodes.tsv", "barcodes.csv", "barcodes.txt", "_barcodes.")
 # Accessibility atlas triplets use .txt. Consensus peak lists also use peaks.bed,
@@ -141,7 +154,8 @@ def classify(name: str) -> Role:  # noqa: PLR0911
         and not any(h in low for h in _COUNTS_NAME_HINTS)
     ):
         return Role.Metadata
-    if any(s in low for s in _SIDECARS):
+    # fragments go through is_fragments so the two spellings cannot diverge
+    if is_fragments(low) or any(s in low for s in _SIDECARS):
         return Role.Skip
     if stem.endswith(".h5ad"):
         return Role.H5ad

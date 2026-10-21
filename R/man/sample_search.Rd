@@ -92,6 +92,7 @@ Requires REST. The harmonised sample table is absent from the Parquet dump.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 # single-cell samples by assay text
 SampleSearch(tissue = "liver", disease = "steato", single_cell = "assay", limit = 10)
 
@@ -120,6 +121,7 @@ SampleSearch(
   disease_ontology_id = "MONDO:0005061",
   include_descendants = FALSE, limit = 10
 )
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

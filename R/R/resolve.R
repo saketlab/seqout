@@ -9,7 +9,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' resolve_study("SRR13927092")
+#' }
 resolve_study <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
@@ -121,6 +123,10 @@ resolve_study <- function(accession, con = .con()) {
 #' @return The GSE accession, or `NA_character_`.
 #'
 #' @export
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' GSMSeries("GSM8994520")
+#' }
 gsm_series <- function(gsm, con = .con()) {
   .check_connection(con)
   rlang::check_required(gsm)
@@ -161,6 +167,10 @@ gsm_series <- function(gsm, con = .con()) {
 #' @return The linked study accession, or `NA_character_`.
 #'
 #' @export
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' LinkedStudy("GSE168652")
+#' }
 linked_study <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)
@@ -188,6 +198,10 @@ linked_study <- function(accession, con = .con()) {
 #' @return The linked series accession, or `NA_character_`.
 #'
 #' @export
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' LinkedGEO("SRP151530")
+#' }
 linked_geo <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)

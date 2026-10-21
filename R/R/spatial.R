@@ -36,7 +36,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' SpatialSummary()
+#' }
 spatial_summary <- function(con = .con()) {
   .need_api(con, "spatial_summary",
     why = "There is no spatial collection table in the dump."
@@ -57,8 +59,10 @@ spatial_summary <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' f <- SpatialFacets()
 #' f[f$facet == "platform", ]
+#' }
 spatial_facets <- function(con = .con()) {
   .need_api(con, "spatial_facets",
     why = "There is no spatial collection table in the dump."
@@ -119,6 +123,7 @@ spatial_facets <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' # Xenium studies in human
 #' SpatialProjects(platform = "Xenium", organism = "Homo sapiens", limit = 10)
 #'
@@ -126,6 +131,7 @@ spatial_facets <- function(con = .con()) {
 #' SpatialProjects(
 #'   resolution = "single-cell", data_availability = "both", limit = 10
 #' )
+#' }
 spatial_projects <- function(platform = NULL, resolution = NULL,
                              technology = NULL,
                              data_availability = NULL,

@@ -24,7 +24,9 @@ MERFISH, ...); the rest only say "spatial transcriptomics" generically.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 SpatialSummary()
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

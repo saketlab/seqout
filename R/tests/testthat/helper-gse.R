@@ -113,9 +113,20 @@ gse_catalogue <- list(
     "primary breast tumor", c("table", "tar"), 29L, 26L, "rna"
   ),
   gse_record(
-    "GSE60931", "skeletal muscle bulk RNA-seq tables", "Mus musculus",
-    "extensor digitorum longus muscle", c("table", "tar"), 31L, 30L,
+    "GSE60931", "Agilent Feature Extraction microarray files, not counts",
+    "Mus musculus", "extensor digitorum longus muscle", c("table", "tar"),
+    31L, 30L,
     only_na_assay = TRUE
+  ),
+  gse_record(
+    "GSE135251", "bulk RNA-seq, one htseq table per GSM", "Homo sapiens",
+    "liver", c("table", "tar"), 217L, 216L,
+    only_na_assay = TRUE
+  ),
+  gse_record(
+    "GSE126848", "bulk RNA-seq, one series-level matrix", "Homo sapiens",
+    "liver", "table", 1L, 0L,
+    modal = "series", only_na_assay = TRUE
   ),
   gse_record(
     "GSE157377", "mouse lung lipofibroblast-like cells", "Mus musculus",

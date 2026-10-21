@@ -128,6 +128,7 @@ as in sci-Plex, so a named method with no compounds is expected.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 # studies to rely on that have both a matrix and FASTQ
 PerturbationProjects(
   min_confidence = "medium", data_availability = "both", limit = 100
@@ -141,6 +142,7 @@ PerturbationProjects(
 
 # drug studies that name trametinib
 PerturbationProjects(compound = "trametinib", has_matrix = TRUE, limit = 10)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

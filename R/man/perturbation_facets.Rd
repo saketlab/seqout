@@ -23,8 +23,10 @@ year. Each facet holds its top 100 values.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- PerturbationFacets()
 f[f$facet == "perturbation_method", ]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

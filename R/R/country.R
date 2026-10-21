@@ -45,7 +45,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' CountrySummary("US")
+#' }
 country_summary <- function(code, con = .con()) {
   .need_api(con, "country_summary",
     why = "There is no country collection table in the dump."
@@ -66,8 +68,10 @@ country_summary <- function(code, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' f <- CountryFacets("IN")
 #' f[f$facet == "organism", ]
+#' }
 country_facets <- function(code, con = .con()) {
   .need_api(con, "country_facets",
     why = "There is no country collection table in the dump."
@@ -101,8 +105,10 @@ country_facets <- function(code, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' # single-cell studies submitted from India, newest first
 #' CountryProjects("IN", is_single_cell = TRUE, limit = 100)
+#' }
 country_projects <- function(code, organism = NULL, assay_l1 = NULL,
                              source = NULL, has_fastq = NULL, has_sra = NULL,
                              is_single_cell = NULL, q = NULL,

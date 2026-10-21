@@ -24,7 +24,9 @@ case-insensitive. A code that isn't two letters, or matches nothing, 404s.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 CountrySummary("US")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

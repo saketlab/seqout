@@ -120,8 +120,10 @@ to see what that excludes.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 DiseaseProjects("rare", category = "Cancers", limit = 100)
 DiseaseProjects("fatty liver disease", organism = "Homo sapiens", limit = 10)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

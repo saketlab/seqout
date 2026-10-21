@@ -22,6 +22,8 @@ Batches project lookup.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 Summaries(c("GSE168652", "GSE100379"))
+}
 \dontshow{\}) # examplesIf}
 }

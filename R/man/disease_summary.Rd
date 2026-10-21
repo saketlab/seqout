@@ -34,8 +34,10 @@ A free-text term with no MONDO match 404s.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 DiseaseSummary("rare")
 DiseaseSummary("fatty liver disease")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

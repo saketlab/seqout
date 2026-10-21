@@ -26,7 +26,9 @@ organism/assay/journal/country/year/status (a free-text term); see
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 DiseaseFacets("rare")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

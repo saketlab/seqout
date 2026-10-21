@@ -20,3 +20,10 @@ The paths of the downloaded files.
 \description{
 Download a unit's files without parsing them
 }
+\examples{
+\dontrun{
+# downloads the files of one unit from NCBI GEO
+counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
+SeqoutCountsFiles(counts, sample = "GSM3998167")
+}
+}

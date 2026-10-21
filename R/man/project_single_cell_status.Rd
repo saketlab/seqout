@@ -31,9 +31,11 @@ call has confirmed yet}
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 st <- ProjectSingleCellStatus("GSE168652")
 st$single_cell_status
 st$n_independent_evidence
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

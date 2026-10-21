@@ -577,6 +577,14 @@ NULL
   con <- .open_maybe_gz(path)
   head_lines <- readLines(con, n = 4L, warn = FALSE)
   close(con)
+  # Agilent FE output: TYPE row, then FEPARAMS
+  if (length(head_lines) >= 2L && startsWith(head_lines[1], "TYPE\t") &&
+    startsWith(head_lines[2], "FEPARAMS\t")) {
+    cli::cli_abort(c(
+      "{.path {basename(path)}} is Agilent Feature Extraction microarray output, not a counts table.",
+      i = "Its signal is in the {.field gProcessedSignal} column of the FEATURES block."
+    ))
+  }
   sep <- .sniff_sep(head_lines)
   headerless <- .headerless(head_lines[1], sep)
 

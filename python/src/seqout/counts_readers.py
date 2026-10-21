@@ -234,6 +234,34 @@ def _is_qc_row(label: object) -> bool:
     return name.startswith("__") or name.strip("_").lower() in _QC_ROWS
 
 
+# first-column names that only a header row carries; R's .index_names
+_INDEX_NAMES = frozenset(
+    {
+        "key",
+        "id",
+        "gene",
+        "genes",
+        "gene_id",
+        "geneid",
+        "gene_ids",
+        "gene_name",
+        "gene_symbol",
+        "symbol",
+        "ensembl",
+        "ensembl_id",
+        "ensembl_gene_id",
+        "feature",
+        "feature_id",
+        "name",
+        "transcript_id",
+        "probe",
+        "probe_id",
+        "id_ref",
+        "",
+    }
+)
+
+
 def _headerless(line: str, delim: str) -> bool:
     """
     Whether the first line contains counts.
@@ -243,6 +271,9 @@ def _headerless(line: str, delim: str) -> bool:
     """
     fields = [f for f in line.rstrip("\n").split(delim) if f]
     if len(fields) < 2:  # noqa: PLR2004
+        return False
+    # numeric sample ids (key 0869 0872 ...) make a header look like counts
+    if fields[0].strip('"').lower() in _INDEX_NAMES:
         return False
     for v in fields[1:]:
         try:
@@ -289,6 +320,15 @@ def read_table(path: Path) -> tuple[Any, pd.DataFrame, pd.DataFrame]:
     """
     with _open(path) as f:
         first = f.readline()
+        second = f.readline()
+    # Agilent FE output: TYPE row, then FEPARAMS
+    if first.startswith("TYPE\t") and second.startswith("FEPARAMS\t"):
+        msg = (
+            f"{path.name} is Agilent Feature Extraction microarray output, not a "
+            "counts table; its signal is in the gProcessedSignal column of the "
+            "FEATURES block"
+        )
+        raise ValueError(msg)
     delim = _sniff_delim(first)
 
     header: int | None = None if _headerless(first, delim) else 0

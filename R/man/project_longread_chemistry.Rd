@@ -27,7 +27,9 @@ the depositor's own protocol text, \code{bucket} when inferred from
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 ProjectLongreadChemistry("GSE297547")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

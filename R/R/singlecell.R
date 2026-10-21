@@ -41,7 +41,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' SingleCellSummary()
+#' }
 singlecell_summary <- function(con = .con()) {
   .need_api(con, "singlecell_summary",
     why = "There is no single-cell collection table in the dump."
@@ -61,8 +63,10 @@ singlecell_summary <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' f <- SingleCellFacets()
 #' f[f$facet == "chemistry", ]
+#' }
 singlecell_facets <- function(con = .con()) {
   .need_api(con, "singlecell_facets",
     why = "There is no single-cell collection table in the dump."
@@ -105,7 +109,9 @@ singlecell_facets <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' SingleCellProjects(tissue = "liver", has_matrix = TRUE, limit = 100)
+#' }
 singlecell_projects <- function(chemistry = NULL, organism = NULL, tissue = NULL,
                                 cell_or_nucleus = NULL, perturbation_method = NULL,
                                 intervention_kind = NULL, modality = NULL,

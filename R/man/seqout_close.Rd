@@ -18,3 +18,7 @@ SeqoutClose(con = .con())
 \description{
 Parquet closes its DuckDB handle; REST has no handle.
 }
+\examples{
+con <- SeqoutConnect(quiet = TRUE)
+SeqoutClose(con)
+}

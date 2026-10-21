@@ -1,8 +1,8 @@
 ---
 title: "Gene names: old identifiers and Excel errors"
 description: >
-  Convert original Ensembl IDs from a 2014 single-cell study and repair
-  Excel-damaged gene symbols with annotation-specific mappings.
+  Change the original Ensembl IDs of a 2014 single-cell study to gene names,
+  and repair gene symbols that Excel changed.
 output:
   rmarkdown::html_vignette:
     self_contained: true
@@ -25,13 +25,14 @@ read_example <- function(name, ...) {
 }
 ```
 
-`SeqoutGeneNames()` converts gene IDs to names using **genevintage**.
+`SeqoutGeneNames()` uses the **genevintage** package to change gene IDs to gene names.
 `SeqoutCorrectNames()` repairs gene symbols that Excel changed into dates.
-Both accept the result of `SeqoutMatrix()` or a numeric matrix with genes on rows.
-They preserve expression values and row order, keep feature metadata aligned,
-and record the original labels and conversion status.
+The two functions accept the result of `SeqoutMatrix()`.
+They also accept a numeric matrix that has one gene in each row.
+They do not change the expression values or the order of the rows.
+They keep the feature metadata aligned, and they record the original labels and the status of each change.
 
-Install seqout and its genevintage dependency from Saket Lab's r-universe:
+Install seqout and genevintage from the r-universe of Saket Lab:
 
 ```{r install, eval=FALSE}
 install.packages("seqout", repos = c(
@@ -39,19 +40,23 @@ install.packages("seqout", repos = c(
 ))
 ```
 
-The full-data commands below download GEO files and annotation tables on first
-use. The evaluated examples use small, unaltered excerpts bundled with seqout,
-so they also run offline. Their source URLs and extraction details are in
-`extdata/gene-names/README.md` inside the installed package.
+The commands for the full data download GEO files and annotation tables when you use them for the first time.
+The examples that run in this vignette use small excerpts that seqout includes.
+The excerpts have no changes from the original files, and they run offline.
+The source URLs and the method of extraction are in
+`extdata/gene-names/README.md` in the installed package.
 
 ## Old Ensembl IDs from a 2014 single-cell experiment
 
-[GSE52529](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52529), the
-Monocle myoblast differentiation study, became public on 23 March 2014.
-Its single-cell file has 47,192 gene rows and 372 cells, with the original
-versioned Ensembl IDs such as `ENSG00000000003.10`. The values are FPKM, not raw
-counts. Select `GSE52529_fpkm_matrix.txt.gz`; the separate
-`truseq` file contains bulk measurements.
+[GSE52529](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE52529) is the
+Monocle study of myoblast differentiation.
+It became public on 23 March 2014.
+Its single-cell file has 47,192 gene rows and 372 cells.
+The rows have the original Ensembl IDs with versions, for example `ENSG00000000003.10`.
+
+The values are FPKM, not raw counts.
+Select `GSE52529_fpkm_matrix.txt.gz`.
+The `truseq` file is a different file, and it has bulk measurements.
 
 ```{r old-study-download, eval=FALSE}
 old <- SeqoutListCounts("GSE52529") |>
@@ -64,13 +69,18 @@ automatic <- old |> SeqoutGeneNames()
 automatic$gene_annotation[[1]]$annotation
 ```
 
-Automatic release selection is a ranked estimate: filtered gene sets can fit
-several references, adjacent releases can share identical gene sets, and
-versioned IDs do not uniquely identify the annotation used. For this file the
-detector selects GENCODE 17 on GRCh37, matching the
-[sample's processing record](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM1268960).
-You do not need to supply the release or assembly. All 47,192 deposited IDs,
-including their version suffixes, match that reference exactly.
+The automatic selection of a release is an estimate with a rank.
+These conditions can make it incorrect:
+
+*   A filtered set of genes can agree with more than one reference.
+*   Two adjacent releases can have the same set of genes.
+*   The ID versions do not identify only one annotation.
+
+For this file, the function selects GENCODE 17 on GRCh37.
+This agrees with the
+[GEO record of the sample](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM1268960).
+It is not necessary to give the release or the assembly.
+All 47,192 IDs in the file agree accurately with that reference, and their version suffixes also agree.
 
 ```{r automatic-audit, eval=FALSE}
 head(SeqoutGeneReport(automatic))
@@ -80,9 +90,9 @@ stopifnot(
 )
 ```
 
-Ranking releases needs no annotation download. It uses the complete original ID
-vector, bundled separately from the expression excerpt, because ranking only the
-displayed genes would change the evidence.
+The rank of the releases does not download an annotation.
+It uses the full vector of the original IDs, which seqout includes as a different file from the expression excerpt.
+If the rank uses only the genes in the excerpt, the result can be different.
 
 ```{r old-study-ranking}
 id_file <- gzfile(file.path(example_dir, "GSE52529-gene-ids.txt.gz"))
@@ -91,11 +101,8 @@ close(id_file)
 head(genevintage::detect_release(old_ids), 3)
 ```
 
-Update genevintage if your installation still ranks release 25 first for this
-file.
-
-The first 12 genes and first three cells of the deposited file, converted with
-the matching GENCODE 17 excerpt:
+The example that follows uses the first 12 genes and the first three cells of the file.
+It changes the IDs with the related excerpt of GENCODE 17:
 
 ```{r old-study-offline}
 old_excerpt <- as.matrix(read_example("GSE52529-excerpt.tsv.gz", row.names = 1))
@@ -105,21 +112,26 @@ SeqoutGeneReport(old_named)[, c("input", "name", "status")]
 stopifnot(identical(as.vector(old_excerpt), as.vector(old_named)))
 ```
 
-Version suffixes are ignored for matching but retained in the audit. For example,
-`ENSG00000000003.10` becomes `TSPAN6`. An ID without a name in the selected
-annotation stays as its input ID. Duplicate symbols receive distinct row labels;
-the audit's `name` column preserves the unsuffixed symbol. No rows are summed.
+The function does not use the version suffixes to find a match.
+But the record of changes keeps the suffixes.
+For example, `ENSG00000000003.10` becomes `TSPAN6`.
 
-## Correct Excel-damaged names in a real deposited matrix
+If an ID has no name in the selected annotation, the ID does not change.
+If two rows have the same symbol, each row gets a different label.
+The `name` column of the record keeps the symbol without the suffix.
+The function does not add rows together.
+
+## Repair Excel errors in a real matrix from GEO
 
 [GSE101942](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE101942) has
-Excel-damaged gene names. We verified that the
-original `GSE101942_IPSC_rawCounts.txt.gz` has 56,637 rows (five of them
-counting-summary rows) and six samples, with `1-Mar`, `9-Sep`, and `15-Sep`
-among the row labels.
+gene names that Excel changed.
+We examined the original file `GSE101942_IPSC_rawCounts.txt.gz`.
+It has 56,637 rows and six samples.
+Five of the rows are summary rows from the count tool.
+The row labels include `1-Mar`, `9-Sep`, and `15-Sep`.
 
-Select the raw-count file explicitly; the study also deposits differential
-expression result tables, which are not count matrices.
+Give the name of the raw-count file to `SeqoutMatrix()`.
+The study also has tables of differential expression results, and these tables are not count matrices.
 
 ```{r excel-study-download, eval=FALSE}
 damaged <- SeqoutListCounts("GSE101942") |>
@@ -132,13 +144,13 @@ report[report$status != "unchanged", c("input", "name", "status")]
 stopifnot(identical(unname(damaged$X), unname(repaired$X)))
 ```
 
-Against Ensembl 116, 25 labels are corrected. `15-Sep` stays unresolved because
-this annotation has no matching candidate for it.
+With Ensembl 116, the function repairs 25 labels.
+`15-Sep` stays unresolved, because this annotation has no candidate for it.
 
-The bundled excerpt contains all 26 damaged labels plus `TP53` as an unchanged
-control, with the original six sample columns and their counts. The
-annotation excerpt spans the reference's complete month-related candidate
-vocabulary.
+The excerpt in seqout has all the 26 damaged labels.
+It also has `TP53` as a control that does not change.
+It has the six original sample columns and their counts.
+The annotation excerpt has all the candidates in the reference that relate to month names.
 
 ```{r excel-study-offline}
 excel_excerpt <- as.matrix(read_example("GSE101942-excerpt.tsv.gz", row.names = 1))
@@ -153,11 +165,11 @@ table(excel_report$status)
 stopifnot(identical(as.vector(excel_excerpt), as.vector(excel_fixed)))
 ```
 
-### Historical versus newer symbols
+### Old symbols and new symbols
 
-The same damaged labels resolve differently against human Ensembl 95 and 116.
-This compares two reference vocabularies; it does not infer which release
-GSE101942 used.
+Human Ensembl 95 and Ensembl 116 give different results for the same damaged labels.
+This example compares the two references.
+It does not find the release that GSE101942 used.
 
 ```{r excel-vintages}
 human95 <- read_example("ensembl95-excel.tsv.gz")
@@ -171,15 +183,22 @@ data.frame(
 )
 ```
 
-`1-Mar` resolves to `MARCH1` in Ensembl 95 and `MARCHF1` in 116; `9-Sep` to
-`SEPT9` and `SEPTIN9`. Names alone cannot tell seqout which species or vintage to
-choose, so Excel correction requires either an annotation table or both
-`species` and `release`. Ambiguous dates are retained and marked `ambiguous`;
-tokens without candidates are marked `unresolved`. genevintage cannot repair
-some formats or losses of numeric precision. Review the report before analysis,
-and correct only columns known to hold gene labels.
+With Ensembl 95, `1-Mar` becomes `MARCH1`.
+With Ensembl 116, `1-Mar` becomes `MARCHF1`.
+With the same references, `9-Sep` becomes `SEPT9` with Ensembl 95 and `SEPTIN9` with Ensembl 116.
 
-If the damaged symbols are in feature metadata, pass that column explicitly:
+The names do not tell seqout the species or the release.
+For the repair of Excel errors, you must give an annotation table.
+Or, you must give the two arguments `species` and `release`.
+
+The function does not change a date that has more than one candidate.
+It gives the status `ambiguous` to that date.
+It gives the status `unresolved` to a value that has no candidate.
+genevintage cannot repair some formats, and it cannot repair numbers that lost precision.
+Before your analysis, examine the report.
+Repair only the columns that you know contain gene labels.
+
+If the damaged symbols are in the feature metadata, give that column with the `ids` argument:
 
 ```{r feature-column, eval=FALSE}
 repaired <- SeqoutCorrectNames(
@@ -188,7 +207,8 @@ repaired <- SeqoutCorrectNames(
 )
 ```
 
-The original `var$symbol` column is retained. The repaired labels become the row
-names of both `X` and `var`, and each call appends its audit to
-`gene_annotation`. Save the corrected `seqout_matrix` if you need to retain
-this audit alongside a later Seurat or SingleCellExperiment conversion.
+The function keeps the original `var$symbol` column.
+The repaired labels become the row names of `X` and of `var`.
+Each call adds its record of changes to `gene_annotation`.
+To keep this record after you change the data to a Seurat or SingleCellExperiment object,
+save the corrected `seqout_matrix`.

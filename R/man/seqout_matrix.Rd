@@ -22,3 +22,11 @@ A \code{seqout_matrix}: a list with \code{X} (features by observations),
 \description{
 Read one unit as a counts matrix
 }
+\examples{
+\dontrun{
+# downloads the series matrix from NCBI GEO
+counts <- SeqoutListCounts("GSE126848", cache_dir = tempdir())
+m <- SeqoutMatrix(counts)
+dim(m$X)
+}
+}

@@ -45,9 +45,12 @@ HEAD sizes are reported before transfer when available.
 \examples{
 \dontrun{
 # two common tables
-DownloadDump(dest_dir = "~/seqout-dump", tables = c("unified_metadata", "geo_series"))
+DownloadDump(
+  dest_dir = file.path(tempdir(), "seqout-dump"),
+  tables = c("unified_metadata", "geo_series")
+)
 
-con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+con <- SeqoutConnect("parquet", data_dir = file.path(tempdir(), "seqout-dump"))
 Query("SELECT count(*) FROM unified_metadata", con = con)
 }
 }

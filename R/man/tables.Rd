@@ -18,3 +18,11 @@ A tibble with \code{table_name}, \code{table_type} and \code{registered} columns
 \description{
 \code{registered} is \code{FALSE} until a remote view is created in DuckDB.
 }
+\examples{
+\dontrun{
+# DuckDB installs its httpfs extension under the home directory
+con <- SeqoutConnect("parquet", quiet = TRUE)
+Tables(con)
+SeqoutClose(con)
+}
+}

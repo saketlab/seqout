@@ -750,7 +750,8 @@ class ProjectLLMEnrichedSampleMetadataResults(
 
 class ProjectLLMEnrichedSampleMetadataResponse(BaseModel):
     accession: str
-    title: str
+    # GSA projects carry no title
+    title: str | None = None
     n_samples: int
     single_cell_modality: str | None = None
     version: str
@@ -759,7 +760,7 @@ class ProjectLLMEnrichedSampleMetadataResponse(BaseModel):
 
 class StudyExperimentsResult(BaseModel):
     accession: str
-    title: str
+    title: str | None = None
     design_description: str | None = None
     # library/platform fields are null for some archives (e.g. GSA experiments)
     library_layout: str | None = None

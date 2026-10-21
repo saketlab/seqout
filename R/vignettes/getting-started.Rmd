@@ -18,7 +18,9 @@ online <- (identical(Sys.getenv("NOT_CRAN"), "true") ||
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = online)
 ```
 
-`seqout` is an R client for [seqout.org](https://seqout.org). It queries study-level and sample-level metadata from public genomic archives:
+`seqout` is an R client for [seqout.org](https://seqout.org).
+It finds the metadata of studies and samples in these public genomic archives:
+
 *   Gene Expression Omnibus (GEO)
 *   Sequence Read Archive (SRA)
 *   European Nucleotide Archive (ENA)
@@ -28,14 +30,15 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = online)
 
 ## Installation
 
-Install with `pak`:
+Install the package with `pak`:
 
 ```{r install, eval = FALSE}
 # install.packages("pak")
 pak::pak("saketlab/seqout/R")
 ```
 
-The default backend is the REST API, which needs no API key or local setup.
+The default backend is the REST API.
+An API key or a local setup is not necessary for the REST API.
 
 ```{r setup}
 library(seqout)
@@ -43,17 +46,19 @@ library(seqout)
 
 ## Search the archives
 
-### Query studies
+### Find studies
 
-`SeqoutSearch()` searches all archives with free text, filters, or both.
+`SeqoutSearch()` finds studies in all the archives.
+You can give free text, filters, or the two together.
 
 ```{r search}
 SeqoutSearch("cervical cancer single cell", db = "geo", limit = 5)
 ```
 
-### Query samples (cohorts)
+### Find samples (cohorts)
 
-`SampleSearch()` searches individual samples, filtering on harmonized metadata such as tissue, disease, and age across studies.
+`SampleSearch()` finds samples in all the studies.
+It uses the harmonized metadata as filters, for example tissue, disease, and age.
 
 ```{r cohort}
 liver <- SampleSearch(
@@ -65,13 +70,15 @@ liver <- SampleSearch(
 liver[, c("sample", "study_accession", "tissue", "disease", "sex", "age")]
 ```
 
-For query operators and filters, see [Search](articles/search.html).
+For the query operators and the filters, refer to
+[Search](https://seqout.org/cli/R/articles/search.html).
 
-### Everything pipes
+### Use the pipe
 
-Each function takes its subject first (an accession, a `seqout_counts` table, a
-list of cohort filters, or the connection when the call has no other subject),
-so calls chain with R's native pipe.
+The first argument of each function is its subject.
+The subject is an accession, a `seqout_counts` table, or a list of cohort filters.
+If a function has no other subject, the subject is the connection.
+You can connect the calls with the native pipe of R.
 
 ```{r pipes}
 # A PubMed ID or a DOI, told apart by the value, to the datasets that cite it
@@ -84,13 +91,14 @@ list(tissue = "liver", organism = "Homo sapiens") |>
   subset(select = c(sample, study_accession, disease))
 ```
 
-`con` is the last argument everywhere else.
+In all the other functions, `con` is the last argument.
 
-## Retrieve study metadata
+## Get the metadata of a study
 
-`SeqoutGet()` fetches metadata for a study, sample, or run accession and maps it to related records in other archives.
+`SeqoutGet()` gets the metadata for the accession of a study, a sample, or a run.
+It also shows the related records in the other archives.
 
-The returned dataset is lazy: each field is fetched from the API and cached on first read.
+When you read a field for the first time, `seqout` gets it from the API and keeps a copy.
 
 ```{r dataset}
 d <- SeqoutGet("GSE168652")
@@ -104,21 +112,26 @@ c(samples = nrow(d$samples), runs = nrow(d$runs), papers = nrow(d$pubs))
 
 ### Harmonized sample attributes
 
-The `enriched` field holds harmonized sample-level and cell-level labels:
+The `enriched` field shows the harmonized labels for each sample and each cell:
 
 ```{r enriched}
 d$enriched[, c("sample", "tissue", "disease", "assay")]
 ```
 
-For metadata fields, see [Metadata](articles/metadata.html).
+For the metadata fields, refer to
+[Metadata](https://seqout.org/cli/R/articles/metadata.html).
 
-## Read counts matrices
+## Read the counts matrices
 
-`seqout` resolves, downloads, and parses processed GEO supplementary files into R matrices.
+`seqout` finds the processed supplementary files of GEO.
+It downloads these files and reads them into R matrices.
 
-### List counts files
+### Show the counts files
 
-`SeqoutListCounts()` lists the matrix units for a GEO accession without downloading any matrix files. A unit is the smallest file group that `seqout` can parse as one matrix, such as a 10x triplet, `.h5`, `.h5ad`, or `.rds` file.
+`SeqoutListCounts()` shows the matrix units for a GEO accession.
+It does not download the matrix files.
+A unit is the smallest group of files that `seqout` can read as one matrix.
+Examples are a 10x triplet, or one `.h5`, `.h5ad`, or `.rds` file.
 
 ```{r counts-table}
 counts <- SeqoutListCounts("GSE297547")
@@ -128,7 +141,7 @@ nrow(m)
 head(m[, c("unit", "sample", "format", "preferred", "has_metadata")], 4)
 ```
 
-### Load a matrix
+### Read a matrix
 
 `SeqoutMatrix()` reads one unit into a list of `X`, `obs`, and `var`.
 
@@ -137,21 +150,32 @@ rna <- SeqoutMatrix(counts, sample = "GSM8994520")
 dim(rna$X)
 ```
 
-### Convert to Seurat
+### Make a Seurat object
 
-`Seqout2Seurat()` accepts a matrix unit, GSM accession, GSE accession, or `SeqoutListCounts()` table. Extra arguments go to `CreateSeuratObject()`.
+`Seqout2Seurat()` accepts one of these inputs:
+
+*   A matrix unit
+*   A GSM accession
+*   A GSE accession
+*   A table from `SeqoutListCounts()`
+
+It sends the other arguments to `CreateSeuratObject()`.
 
 ```{r counts-seurat, eval = FALSE}
 obj <- Seqout2Seurat("GSE297547", sample = "GSM8994520", min.cells = 3, min.features = 200)
 ```
 
-For unit selection and Seurat workflows, see [Counts](articles/counts.html).
+For the selection of units and for Seurat workflows, refer to
+[Counts](https://seqout.org/cli/R/articles/counts.html).
 
-### Convert old gene IDs and repair Excel errors
+### Change old gene IDs and repair Excel errors
 
-`SeqoutGeneNames()` uses genevintage to select an annotation and convert IDs.
-`SeqoutCorrectNames()` repairs Excel-damaged symbols against a specified reference.
-Both preserve expression values and keep an audit; `SeqoutGeneReport()` reads it.
+`SeqoutGeneNames()` uses the genevintage package.
+It selects an annotation and changes the gene IDs to gene names.
+`SeqoutCorrectNames()` repairs the gene symbols that Excel changed.
+It compares the symbols with a reference that you give.
+The two functions do not change the expression values.
+They keep a record of each change, and `SeqoutGeneReport()` shows this record.
 
 ```{r gene-names-demo, eval = FALSE}
 # GSE52529: original Ensembl IDs, FPKM not raw counts
@@ -168,20 +192,25 @@ report <- SeqoutGeneReport(repaired)
 report[report$status != "unchanged", ]
 ```
 
-genevintage selects GENCODE 17 on GRCh37 for GSE52529 without a version argument.
-See [Gene names: old identifiers and Excel errors](gene-names.html) for runnable
-excerpts and a comparison of historical and newer symbols.
+For GSE52529, genevintage selects GENCODE 17 on GRCh37.
+A version argument is not necessary.
+For examples that you can run, and to compare old symbols with new symbols, refer to
+[Gene names: old identifiers and Excel errors](gene-names.html).
 
-## Download data files
+## Download the data files
 
-Three functions download raw and processed files:
-* `DownloadSupplementary()`: processed dataset files, such as counts matrices, annotations, and archives.
-* `DownloadRuns()`: raw sequencing reads in FASTQ or SRA format.
-* `DownloadBAMs()`: submitted BAM alignment files.
+Three functions download raw files and processed files:
 
-Each saves files in a directory named after the accession, verifies checksums, and skips files already on disk.
+*   `DownloadSupplementary()` downloads the processed files of a dataset.
+    Examples are counts matrices, annotations, and archives.
+*   `DownloadRuns()` downloads the raw sequence reads in FASTQ or SRA format.
+*   `DownloadBAMs()` downloads the BAM alignment files of the submitter.
 
-Check the `supplementary` field before downloading:
+Each function puts the files in a directory with the name of the accession.
+It does a check of the checksums.
+It does not download a file again if the file is on the disk.
+
+Before you download, look at the `supplementary` field:
 
 ```{r supplementary}
 head(d$supplementary, 4)
@@ -193,16 +222,18 @@ DownloadRuns("SRR12012336", "SRR12012336")
 DownloadBAMs("ERP117016", "ERP117016")
 ```
 
-For download modes and checksums, see [Downloads](articles/downloads.html).
+For the download modes and the checksums, refer to
+[Downloads](https://seqout.org/cli/R/articles/downloads.html).
 
-## Choose a backend
+## Select a backend
 
-| Backend | Mechanism | Best Use Cases |
+| Backend | Method | Use |
 | --- | --- | --- |
-| `"api"` (default) | Queries the `seqout.org` REST API over HTTP. | Standard workflows. |
-| `"parquet"` | Queries the published Parquet dump using DuckDB. | Offline workflows, large batch queries, and SQL analytics. |
+| `"api"` (default) | Sends queries to the REST API of `seqout.org` over HTTP. | Usual workflows. |
+| `"parquet"` | Sends queries to the published Parquet dump with DuckDB. | Offline workflows, large batch queries, and SQL analysis. |
 
-Configure the Parquet backend explicitly to avoid accidental dump scans.
+To use the Parquet backend, you must give `"parquet"` to `SeqoutConnect()`.
+A query to the REST API does not scan the full dump.
 
 ```{r parquet}
 con <- SeqoutConnect("parquet", quiet = TRUE)
@@ -210,19 +241,25 @@ con <- SeqoutConnect("parquet", quiet = TRUE)
 Query("SELECT count(*) AS n FROM geo_series", con = con)
 ```
 
-Pass the connection through `con`, or make it the session default with `SeqoutDefault(con)`.
+Give the connection to `con`.
+Or, to make it the default for the session, use `SeqoutDefault(con)`.
 
-Close the Parquet connection with `SeqoutClose()`:
+To close the Parquet connection, use `SeqoutClose()`:
 
 ```{r close}
 SeqoutClose(con)
 ```
 
-For Parquet downloads, see [Downloads](articles/downloads.html).
+For downloads of the Parquet dump, refer to
+[Downloads](https://seqout.org/cli/R/articles/downloads.html).
 
 ## Next steps
 
-* [Search](articles/search.html): query operators, filters, and sample cohort construction.
-* [Metadata](articles/metadata.html): dataset structures, publication records, and read-derived metrics.
-* [Counts](articles/counts.html): GEO supplementary file parsing and Seurat object construction.
-* [Downloads](articles/downloads.html): raw reads, alignments, and database dumps.
+*   [Search](https://seqout.org/cli/R/articles/search.html): query operators,
+    filters, and sample cohorts.
+*   [Metadata](https://seqout.org/cli/R/articles/metadata.html): dataset
+    structures, publication records, and metrics from the reads.
+*   [Counts](https://seqout.org/cli/R/articles/counts.html): GEO supplementary
+    files and Seurat objects.
+*   [Downloads](https://seqout.org/cli/R/articles/downloads.html): raw reads,
+    alignments, and database dumps.

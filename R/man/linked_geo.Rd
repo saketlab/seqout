@@ -21,3 +21,10 @@ The linked series accession, or \code{NA_character_}.
 \description{
 Resolves a sequencing study to its GEO or ArrayExpress series.
 }
+\examples{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+LinkedGEO("SRP151530")
+}
+\dontshow{\}) # examplesIf}
+}

@@ -21,3 +21,11 @@ A named list of \code{seqout_matrix} objects, keyed by unit label.
 \description{
 Broken units are skipped with a warning.
 }
+\examples{
+\dontrun{
+# downloads two count files from NCBI GEO
+counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
+mats <- Matrices(counts, sample = c("GSM3998167", "GSM3998168"))
+names(mats)
+}
+}

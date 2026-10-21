@@ -40,9 +40,11 @@ text read into one vocabulary, with ontology IDs}
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 d <- SeqoutGet("GSE168652")
 d$meta$title
 nrow(d$samples)
 nrow(d$runs)
+}
 \dontshow{\}) # examplesIf}
 }

@@ -31,12 +31,14 @@ Reads REST. The dump lacks reanalysis papers and often publication dates.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 cat(Citations("GSE151530"))
 
 # include reanalysis papers
 cat(Citations("GSE168652", type = "all"))
 
 writeLines(Citations("GSE151530"), file.path(tempdir(), "GSE151530.bib"))
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

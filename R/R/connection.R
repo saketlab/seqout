@@ -64,7 +64,7 @@
 #' SeqoutClose(con)
 #'
 #' # local dump
-#' con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+#' con <- SeqoutConnect("parquet", data_dir = file.path(tempdir(), "seqout-dump"))
 #' Query("SELECT count(*) FROM geo_series", con = con)
 #' SeqoutClose(con)
 #' }
@@ -311,6 +311,9 @@ register_tables <- function(con = .con(), tables = NULL,
 #' @return `NULL`, invisibly. Called for its side effect.
 #'
 #' @export
+#' @examples
+#' con <- SeqoutConnect(quiet = TRUE)
+#' SeqoutClose(con)
 seqout_close <- function(con = .con()) {
   .check_connection(con)
   if (!is.null(con$state$db)) {

@@ -38,7 +38,7 @@ class BaseContainer[T: BaseModel](RootModel[list[T]]):
     def to_csv(self, path: Path | str) -> None:
         """Write the records to a CSV file. An empty container writes nothing."""
         path_obj = Path(path)
-        with path_obj.open("w", newline="") as f:
+        with path_obj.open("w", newline="", encoding="utf-8") as f:
             if not self.root:
                 return
 

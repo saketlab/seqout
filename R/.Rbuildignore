@@ -26,3 +26,5 @@
 (^|/)\.DS_Store$
 ^man/figures/og-image\.png$
 ^vignettes/_
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$

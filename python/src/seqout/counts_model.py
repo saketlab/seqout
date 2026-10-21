@@ -32,6 +32,39 @@ _BARCODE_RE = re.compile(r"^[ACGTN]{12,}(-\d+)?$")
 
 Kind = Literal["single_cell", "bulk", "unknown"]
 
+_DIGITS = re.compile(r"[0-9]+")
+
+
+def _gsm_key(value: object) -> str | None:
+    if value is None or pd.isna(value):
+        return None
+    text = str(value).strip().lower()
+    # GEO strips leading zeros: header 0869, record 869
+    if _DIGITS.fullmatch(text):
+        return text.lstrip("0") or "0"
+    return text
+
+
+def match_gsm(columns: list[str], fields: pd.DataFrame) -> list[str] | None:
+    """
+    Map series-level column names to GSMs, or None without a one-to-one match.
+
+    fields holds title, description and characteristics, indexed by GSM, in
+    the order to try them.
+    """
+    if len(columns) > len(fields.index):
+        return None
+    want = [_gsm_key(c) for c in columns]
+    for name in fields.columns:
+        seen: dict[str, list[str]] = {}
+        for gsm, value in zip(fields.index, fields[name], strict=True):
+            if (key := _gsm_key(value)) is not None:
+                seen.setdefault(key, []).append(str(gsm))
+        hits = [seen.get(k, []) for k in want]
+        if all(len(h) == 1 for h in hits) and len({h[0] for h in hits}) == len(hits):
+            return [h[0] for h in hits]
+    return None
+
 
 @dataclass(frozen=True)
 class SuppFile:

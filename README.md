@@ -68,8 +68,8 @@ and use in your scripts:
 from seqout import connect
 
 sq = connect()
-sq.seqout_search("liver cancer scRNA", organism="Homo sapiens")
-sq.seqout_get("GSE151530").samples
+sq.search("liver cancer scRNA", organism="Homo sapiens")
+sq.get("GSE151530").samples
 ```
 
 Learn more here: [seqout.org/cli/python](https://seqout.org/cli/python/)

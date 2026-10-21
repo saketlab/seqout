@@ -23,9 +23,11 @@ Study-level single-cell summary: cells, reads scanned, microbes
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 s <- ProjectSingleCellSummary("GSE168652")
 s$study_cells
 s$microbe_measured
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

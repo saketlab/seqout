@@ -40,7 +40,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' PerturbationSummary()
+#' }
 perturbation_summary <- function(con = .con()) {
   .need_api(con, "perturbation_summary",
     why = "There is no perturbation collection table in the dump."
@@ -61,8 +63,10 @@ perturbation_summary <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' f <- PerturbationFacets()
 #' f[f$facet == "perturbation_method", ]
+#' }
 perturbation_facets <- function(con = .con()) {
   .need_api(con, "perturbation_facets",
     why = "There is no perturbation collection table in the dump."
@@ -130,6 +134,7 @@ perturbation_facets <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' # studies to rely on that have both a matrix and FASTQ
 #' PerturbationProjects(
 #'   min_confidence = "medium", data_availability = "both", limit = 100
@@ -143,6 +148,7 @@ perturbation_facets <- function(con = .con()) {
 #'
 #' # drug studies that name trametinib
 #' PerturbationProjects(compound = "trametinib", has_matrix = TRUE, limit = 10)
+#' }
 perturbation_projects <- function(perturbation_type = NULL, confidence = NULL,
                                   min_confidence = NULL, data_availability = NULL,
                                   genetic_subtype = NULL, perturbation_method = NULL,

@@ -37,7 +37,7 @@ writeLines(Citations("GSE151530"), "GSE151530.bib")
 
 ## Distinguish original papers from reanalyses
 
-By default `Citations()` returns the original dataset paper (`type = "original"`).
+The default, `type = "original"`, returns the original dataset paper.
 `type = "all"` adds reanalyses:
 
 ```{r all}
@@ -48,7 +48,7 @@ cat(Citations("GSE168652", type = "all"))
 ## Handle datasets without publications
 
 Many datasets are deposited before publication, and some have no linked paper.
-`Citations()` then returns `character(0)`:
+For these datasets, `Citations()` returns `character(0)`:
 
 ```{r none}
 length(Citations("CRA027437"))
@@ -56,8 +56,8 @@ length(Citations("CRA027437"))
 
 ## Compile a bibliography
 
-Given several accessions, `Citations()` returns one character vector, each entry
-named for its accession:
+If you give more than one accession, `Citations()` returns one character vector.
+Each entry has the name of its accession:
 
 ```{r many}
 accessions <- c("GSE151530", "GSE168652", "SRP267291", "CRA027437")
@@ -88,7 +88,8 @@ d <- SeqoutGet("GSE168652")
 d$pubs[, c("pmid", "title", "journal", "citation_count")]
 ```
 
-See [Metadata](metadata.html#mapped-publications) for more, and [Search](search.html) to find datasets by author or paper.
+For more information, refer to [Metadata](metadata.html#mapped-publications).
+To find datasets by author or paper, refer to [Search](search.html).
 
 ## Backend support
 
@@ -104,4 +105,5 @@ SeqoutClose(con)
 ```
 
 > [!NOTE]
-> The dump lacks reanalysis publications and many release years, so `Citations()` needs the REST API.
+> The dump does not have the reanalysis publications or many release years.
+> Thus, `Citations()` must use the REST API.

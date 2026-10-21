@@ -24,8 +24,10 @@ status for one country. Each facet holds its top 40 values.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- CountryFacets("IN")
 f[f$facet == "organism", ]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

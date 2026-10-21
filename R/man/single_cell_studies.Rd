@@ -59,6 +59,7 @@ may contain a matrix readable by \code{\link[=seqout_counts]{seqout_counts()}}.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 # unrestricted, with matrix warning
 sc <- SingleCellStudies(limit = 100)
 
@@ -67,5 +68,6 @@ SingleCellStudies(data = "matrix", limit = 100)
 
 # linked reads
 SingleCellStudies(data = "fastq", limit = 100)
+}
 \dontshow{\}) # examplesIf}
 }

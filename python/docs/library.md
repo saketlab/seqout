@@ -503,6 +503,14 @@ adata_sample = counts.matrix(sample="GSM8994520")
 adata_cohort = counts.anndata()
 ```
 
+ATAC and multiome studies deposit fragments files. `fragments()` lists them and
+downloads them only with `download=True`:
+
+```python
+frags = SeqoutListCounts("GSE156478").fragments(sample="GSM5065524", download=True)
+frags.loc[0, "path"]
+```
+
 The study's sample-level covariates are available as `design`, indexed by accession. Reading it costs no extra request, and the same values are broadcast onto `obs`:
 
 ```python

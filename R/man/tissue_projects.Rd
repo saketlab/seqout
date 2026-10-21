@@ -75,7 +75,9 @@ sample the study has any resolved tissue for; \code{\link[=tissue_summary]{tissu
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 TissueProjects("liver", organism = "Homo sapiens", limit = 100)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

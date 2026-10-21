@@ -17,18 +17,18 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 Three functions download files to disk:
 
 *   `DownloadSupplementary()`: processed supplementary files (counts matrices, annotations, archives).
-*   `DownloadRuns()`: raw sequencing reads.
+*   `DownloadRuns()`: raw reads.
 *   `DownloadBAMs()`: submitted alignment files (BAMs).
 
-Each saves into a subdirectory named after the accession unless `dest_dir` names another. All three verify checksums and skip files already on disk.
+You must give `dest_dir` to each function. The function writes the files into that directory. If the directory does not exist, the function makes it. The examples in this article use the accession as the directory name. The three functions verify checksums and skip the files that are already on disk.
 
 ```{r setup}
 library(seqout)
 ```
 
-## Inspect files before downloading
+## Examine the files before you download them
 
-Datasets often run to tens of gigabytes, so inspect the files first. The `supplementary` field of `SeqoutGet()` lists processed supplementary files without downloading them:
+A dataset can have a size of tens of gigabytes. Thus, examine the files first. The `supplementary` field of `SeqoutGet()` lists the processed supplementary files. `SeqoutGet()` does not download these files:
 
 ```{r listing}
 d <- SeqoutGet("GSE168652")
@@ -36,16 +36,16 @@ d <- SeqoutGet("GSE168652")
 head(d$supplementary, 4)
 ```
 
-Files associated directly with the series have `NA` in the `sample` column. Other files belong to specific samples.
+A file that is directly related to the series has `NA` in the `sample` column. Each other file is related to one sample.
 
-For GEO, ArrayExpress and DDBJ GEA projects, `SupplementaryFiles()` lists the same files with a ready-made download command and the result of seqout's scan for Excel gene-name damage (`"SEPT1"` turned into `"1-Sep"`). A `NULL` `gene_corruption` means the file has not been scanned yet, not that it is clean:
+For GEO, ArrayExpress and DDBJ GEA projects, `SupplementaryFiles()` lists the same files. For each file, the result also gives a download command and the result of the seqout scan for gene names that Excel damaged. For example, Excel changes `"SEPT1"` to `"1-Sep"`. If `gene_corruption` is `NULL`, seqout did not scan the file, and the file can contain gene names that Excel damaged:
 
 ```{r supp-files}
 sf <- SupplementaryFiles("GSE168652")
 sf[, c("filename", "download_command")]
 ```
 
-The `runs` field lists raw sequencing reads, including a URL column for each archive mirror:
+The `runs` field lists the raw reads. It has one URL column for each archive mirror:
 
 ```{r runs-listing}
 runs <- SeqoutGet("SRP150719")$runs
@@ -54,9 +54,9 @@ nrow(runs)
 head(runs[, c("run_accession", "library_layout", "fastq_bytes", "fastq_ftp")], 3)
 ```
 
-Paired-end runs pack both read files into one cell, separated by a semicolon. Checksums follow the same format.
+For a paired-end run, one cell holds the two read files with a semicolon between them. The checksum cells use the same format.
 
-`RunFiles()` unpacks those cells into one row per file, with its size and checksum. It picks the same copy `DownloadRuns()` would fetch, so you can total a download before you start it:
+`RunFiles()` divides those cells into one row for each file, with the size and the checksum of the file. It selects the same copy that `DownloadRuns()` will download. Thus, you can calculate the total size of a download before you start it:
 
 ```{r run-files}
 files <- RunFiles(runs, mode = "fastq")
@@ -66,13 +66,13 @@ sprintf("%d files, %.1f GB", nrow(files), sum(files$bytes, na.rm = TRUE) / 1e9)
 
 ## Download processed files
 
-`DownloadSupplementary()` fetches the processed files uploaded by the authors:
+`DownloadSupplementary()` downloads the processed files that the authors uploaded:
 
 ```{r supp, eval = FALSE}
 DownloadSupplementary("GSE168652", "GSE168652")
 ```
 
-The accession type sets the scope:
+The type of accession sets the scope:
 
 | Accession Type | Download Scope |
 | --- | --- |
@@ -80,25 +80,25 @@ The accession type sets the scope:
 | GEO Sample (GSM) | That sample only. |
 | Experiment, Run, or BioSample | An error. These accessions host no processed files. |
 
-The error asks for the parent project accession, so a whole study never lands in a directory named after one sample or run.
+The error message asks for the accession of the parent project. Thus, a full study does not go into a directory that has the name of one sample or one run.
 
 ```{r supp-error, error = TRUE}
 DownloadSupplementary("SRR12012336", "SRR12012336")
 ```
 
-SRA, ENA, DDBJ, and GSA host no processed supplementary files; those live in the linked GEO or ArrayExpress records. `DownloadSupplementary()` follows the link and downloads them.
+SRA, ENA, DDBJ, and GSA do not hold processed supplementary files. The linked GEO or ArrayExpress records hold these files. `DownloadSupplementary()` follows the link and downloads them.
 
 ```{r supp-ae, eval = FALSE}
 DownloadSupplementary("E-MTAB-11467", "E-MTAB-11467") # Downloads processed archives and raw files
 ```
 
-## Download sequencing reads
+## Download raw reads
 
-`DownloadRuns()` downloads raw sequencing reads. The accession sets the scope:
+`DownloadRuns()` downloads raw reads. The accession sets the scope:
 
-*   A run accession (SRR) downloads only that run.
-*   An experiment (SRX) or sample (SRS) accession downloads all runs linked to it.
-*   A study or series accession (SRP/GSE) downloads all runs for the entire study.
+*   For a run accession (SRR), the function downloads only that run.
+*   For an experiment (SRX) or sample (SRS) accession, the function downloads all the runs linked to it.
+*   For a study or series accession (SRP/GSE), the function downloads all the runs of the full study.
 
 ```{r runs, eval = FALSE}
 DownloadRuns("SRR12012336", "SRR12012336")
@@ -106,7 +106,7 @@ DownloadRuns("SRR12012336", "SRR12012336")
 
 ### Choose a download mode
 
-Archives distribute reads in several formats; `mode` picks one:
+The archives supply reads in different formats. The `mode` argument selects one format:
 
 | Mode | Format Details |
 | --- | --- |
@@ -114,38 +114,38 @@ Archives distribute reads in several formats; `mode` picks one:
 | `"sra"` | NCBI's SRA format with full-quality data. |
 | `"sra_lite"` | NCBI's SRA format with binned quality scores. |
 
-Without `mode`, the function downloads the first available format in the order above and prints a warning. Set it explicitly:
+If you do not set `mode`, the function downloads the first available format in the order of the table. It also gives an R warning. Always set `mode`:
 
 ```{r runs-mode, eval = FALSE}
 DownloadRuns("SRP150719", "SRP150719", mode = "fastq")
 ```
 
 > [!WARNING]
-> Binned quality scores lose detail. Use `"sra_lite"` only to trade that detail for smaller files.
+> Binned quality scores have less detail. Use `"sra_lite"` only if smaller files are more important to you than that detail.
 
-For a study accession, the function prints the run count and estimated size before starting:
+For a study accession, the function shows the number of runs and the estimated size before the download starts:
 
 ```{r runs-study, eval = FALSE}
 DownloadRuns("SRP267291", "SRP267291") # Downloads 34 runs
 ```
 
-Some runs are hosted only in requester-pays cloud buckets (AWS S3 or Google Cloud Storage), which bill the caller. `mode = "s3"` and `mode = "gcs"` are refused under anonymous access; the function raises an error and suggests an openly readable mirror when one exists.
+Some runs are only in requester-pays cloud buckets (AWS S3 or Google Cloud Storage). These buckets send the bill to the caller. The function refuses `mode = "s3"` and `mode = "gcs"` for anonymous access and stops with an error. If a mirror that all users can read exists, the error message gives that mirror.
 
-### File naming and integrity
+### File names and integrity
 
-FASTQ downloads keep ENA's file names (e.g., the `_1` and `_2` suffixes of paired-end runs), which downstream tools expect.
+FASTQ downloads keep the file names from ENA, for example the `_1` and `_2` suffixes of paired-end runs. Downstream tools expect these names.
 
-NCBI serves SRA files without extensions; `DownloadRuns` appends one (e.g., `SRR12012336.sra` or `SRR12012336_1.sra` for multi-file runs).
+NCBI supplies SRA files without extensions. `DownloadRuns` adds an extension, for example `SRR12012336.sra`, or `SRR12012336_1.sra` for multi-file runs.
 
-When the archive publishes a checksum (all ENA FASTQ files have one), the function verifies the file before moving it to its final destination and deletes it if verification fails.
+If the archive publishes a checksum, the function verifies the file before it moves the file to its final destination. All ENA FASTQ files have a checksum. If the verification fails, the function deletes the file.
 
-Downloads write to a temporary `.part` file, so an interrupted download never overwrites a complete one.
+Each download writes to a temporary `.part` file. Thus, an interrupted download cannot overwrite a complete file.
 
 ## Download alignment files
 
-`DownloadBAMs()` fetches the BAM files uploaded by the authors. These hold the authors' alignments to their chosen reference and often keep metadata absent from raw reads, such as barcode tags, methylation marks, or structural variant details.
+`DownloadBAMs()` downloads the BAM files that the authors uploaded. These files hold the alignments that the authors made against their selected reference. The files frequently keep metadata that the raw reads do not have. Examples are barcode tags, methylation marks, and structural variant details.
 
-The `bams` field lists them before download:
+The `bams` field lists the files before you download them:
 
 ```{r bams-listing}
 b <- SeqoutGet("ERP117016")$bams
@@ -158,7 +158,7 @@ head(b[, c("filename", "size", "md5")], 3)
 DownloadBAMs("ERP117016", "ERP117016")
 ```
 
-Many alignment files sit in requester-pays cloud storage, which `DownloadBAMs()` cannot fetch anonymously. For those it lists the filenames and prints the `aws` commands to download them with your own credentials:
+Many alignment files are in requester-pays cloud storage. `DownloadBAMs()` cannot download these files with anonymous access. For these files, it lists the filenames. It also prints the `aws` commands that download the files with your own credentials:
 
 ```{r bams-paid}
 paid <- SeqoutGet("SRP071083")$bams
@@ -169,7 +169,7 @@ head(paid[, c("filename", "size", "s3_url")], 3)
 
 ## Download the database dump
 
-The Parquet backend reads the published dump remotely. For fully offline work, `DownloadDump()` fetches the tables to disk; it reports the total size first. `Tables()` names what you can ask for:
+The Parquet backend reads the published dump remotely. For work that is fully offline, `DownloadDump()` downloads the tables to disk. It shows the total size first. `Tables()` gives the names of the tables that you can request:
 
 ```{r dump, eval = FALSE}
 DownloadDump(dest_dir = "~/seqout-dump", tables = c("unified_metadata", "geo_series"))
@@ -187,4 +187,4 @@ Query("SELECT count(*) FROM unified_metadata", con = con)
 | SRA, ENA, DDBJ | No | Yes | Sometimes |
 | GSA | No | Yes | Sometimes |
 
-`SeqoutGet()` resolves the cross-references between these archives, so one accession reaches all associated files.
+`SeqoutGet()` resolves the cross-references between these archives. Thus, one accession gives access to all the related files.

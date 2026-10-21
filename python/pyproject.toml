@@ -1,6 +1,6 @@
 [project]
 name = "seqout"
-version = "0.2.7"
+version = "0.2.8"
 description = "Search genomics datasets across GEO, SRA, ENA, DDBJ, ArrayExpress, GEA and GSA. Read GEO supplementary files as counts matrices."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Typing :: Typed",
 ]
@@ -54,12 +55,13 @@ Homepage = "https://seqout.org"
 Documentation = "https://seqout.org/cli/python/"
 Repository = "https://github.com/saketlab/seqout"
 Issues = "https://github.com/saketlab/seqout/issues"
+Changelog = "https://github.com/saketlab/seqout/blob/main/python/CHANGELOG.md"
 
 [project.scripts]
 seqout = "seqout.cli.cli:main"
 
 [build-system]
-requires = ["uv_build>=0.10.12,<0.11.0"]
+requires = ["uv_build>=0.13.4,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
