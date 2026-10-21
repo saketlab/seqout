@@ -51,6 +51,8 @@ def test_agilent_feature_extraction_output_is_named(tmp_path):
 
 
 def test_a_one_column_bulk_unit_is_not_renamed_twice_by_bind():
+    pytest.importorskip("anndata")
+
     def one(gsm: str) -> CountMatrix:
         obs = pd.DataFrame({"label": [f"{gsm}_S1"]}, index=[gsm])
         var = pd.DataFrame(index=["g1", "g2"])
@@ -65,6 +67,7 @@ def test_a_one_column_bulk_unit_is_not_renamed_twice_by_bind():
 
 @pytest.mark.network
 def test_per_sample_bulk_series_names_columns_by_gsm():
+    pytest.importorskip("anndata")
     with SeqoutCounts("GSE135251", progress=False) as c:
         a = c.anndata(sample=["GSM3998167", "GSM3998168"])
     assert a.shape == (2, 64253)
@@ -78,6 +81,7 @@ def test_per_sample_bulk_series_names_columns_by_gsm():
 
 @pytest.mark.network
 def test_series_level_bulk_matrix_maps_columns_to_gsms():
+    pytest.importorskip("anndata")
     with SeqoutCounts("GSE126848", progress=False) as c:
         a = c.anndata()
     # the R client asserts the same dims and names

@@ -28,3 +28,4 @@
 ^vignettes/_
 ^tests/testthat/_problems$
 ^tests/testthat/testthat-problems\.rds$
+^Rplots\.pdf$
