@@ -65,7 +65,12 @@ seqout_sex <- function(x, sample = NULL, species = NULL,
       cli::cli_abort("Species could not be inferred from these gene identifiers or accession metadata; pass {.arg species}.")
     }
   }
-  annotation <- tryCatch(SexSeek::SexChromosomeGenes(species), error = function(e) NULL)
+  sci <- SexSeek::ResolveSpecies(species)
+  annotation <- if (!is.null(sci) && sci %in% SexSeek::SexPanels()$scientific_name) {
+    NULL
+  } else {
+    tryCatch(SexSeek::SexChromosomeGenes(species), error = function(e) NULL)
+  }
   out <- SexSeek::EstimateSex(x,
     species = species, annotation = annotation,
     model = model, ...
