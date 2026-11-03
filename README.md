@@ -26,20 +26,18 @@ Seqout searches every database, resolves an accession to its records in every ar
 
 ## CLI
 
-The CLI searches metadata and downloads data files.
-
 Install using `uv`:
 
 ```bash
-uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv tool install seqout
 ```
 
 or using `pip`:
 
 ```bash
-pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pipx install seqout
 ```
-
+The CLI can be used for performing search, downloading data, looking up similar datasets and more. 
 
 ```bash
 seqout search "liver cancer scRNA" --organism "Homo sapiens"
@@ -50,19 +48,15 @@ Learn more about the CLI here: [https://seqout.org/cli/python/cli](https://seqou
 
 ## Python client
 
-Install using `uv`:
+The python package can be installed via both `uv` and `pip`.
 
 ```bash
-uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv add seqout
+
+pip install seqout
 ```
 
-or using `pip`:
-
-```bash
-pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
-```
-
-and use in your scripts:
+To use in your scripts:
 
 ```python
 from seqout import connect
