@@ -56,7 +56,7 @@
 #' @examples
 #' \dontrun{
 #' # REST API default
-#' project("GSE297547")
+#' SeqoutGet("GSE297547")
 #'
 #' # Parquet for SQL and local dumps
 #' con <- SeqoutConnect("parquet")
@@ -125,7 +125,7 @@ seqout_connect <- function(backend = c("api", "parquet"),
 #' @examples
 #' \dontrun{
 #' SeqoutDefault(SeqoutConnect("parquet"))
-#' project("GSE297547") # now reads Parquet
+#' SeqoutGet("GSE297547") # now reads Parquet
 #' SeqoutDefault(NULL) # back to REST
 #' }
 seqout_default <- function(con) {

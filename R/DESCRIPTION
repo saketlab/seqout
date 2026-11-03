@@ -10,8 +10,18 @@ Authors@R: c(
            comment = c(ORCID = "0000-0001-5202-7633")),
     person("Saket Lab", role = "cph"))
 Description: Search and download genomics study metadata from 'Seqout'
-    <https://seqout.org>, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ
-    (DRA and GEA), ArrayExpress and GSA.
+    <https://seqout.org>, through its REST (Representational State
+    Transfer) web service <https://seqout.org/api/> or its Parquet data dump
+    <https://seqout.org/data>. 'Seqout' indexes the National Center for
+    Biotechnology Information (NCBI) Gene Expression Omnibus (GEO)
+    <https://www.ncbi.nlm.nih.gov/geo/> and Sequence Read Archive (SRA)
+    <https://www.ncbi.nlm.nih.gov/sra>, the European Bioinformatics
+    Institute (EBI) European Nucleotide Archive (ENA)
+    <https://www.ebi.ac.uk/ena/browser/>, the DNA Data Bank of Japan (DDBJ)
+    Sequence Read Archive (DRA) and Genomic Expression Archive (GEA)
+    <https://www.ddbj.nig.ac.jp>, ArrayExpress
+    <https://www.ebi.ac.uk/biostudies/arrayexpress>, and the Genome
+    Sequence Archive (GSA) <https://ngdc.cncb.ac.cn/gsa/>.
 License: BSD_3_clause + file LICENSE
 URL: https://github.com/saketlab/seqout, https://seqout.org, https://seqout.org/cli/R/
 BugReports: https://github.com/saketlab/seqout/issues
@@ -52,8 +62,7 @@ Suggests:
     rmarkdown,
     withr
 Config/testthat/edition: 3
-Additional_repositories: https://saketlab.r-universe.dev
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1

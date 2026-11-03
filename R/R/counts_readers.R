@@ -8,17 +8,13 @@ NULL
 #' Abort unless `pkg` is installed, naming where to install it from
 #' @noRd
 .need <- function(pkg, what = "Reading this format",
-                  repo = c("cran", "bioc", "universe")) {
+                  repo = c("cran", "bioc")) {
   if (requireNamespace(pkg, quietly = TRUE)) {
     return(invisible(TRUE))
   }
   install <- switch(match.arg(repo),
     cran = 'install.packages("{pkg}")',
-    bioc = 'BiocManager::install("{pkg}")',
-    universe = paste0(
-      'install.packages("{pkg}", ',
-      'repos = c("https://saketlab.r-universe.dev", getOption("repos")))'
-    )
+    bioc = 'BiocManager::install("{pkg}")'
   )
   cli::cli_abort(c(
     "{what} needs the {.pkg {pkg}} package.",

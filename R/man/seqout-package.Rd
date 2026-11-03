@@ -8,7 +8,7 @@
 \description{
 \if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
 
-Search and download genomics study metadata from 'Seqout' \url{https://seqout.org}, which indexes NCBI GEO, NCBI SRA, EBI ENA, DDBJ (DRA and GEA), ArrayExpress and GSA.
+Search and download genomics study metadata from 'Seqout' \url{https://seqout.org}, through its REST (Representational State Transfer) web service \url{https://seqout.org/api/} or its Parquet data dump \url{https://seqout.org/data}. 'Seqout' indexes the National Center for Biotechnology Information (NCBI) Gene Expression Omnibus (GEO) \url{https://www.ncbi.nlm.nih.gov/geo/} and Sequence Read Archive (SRA) \url{https://www.ncbi.nlm.nih.gov/sra}, the European Bioinformatics Institute (EBI) European Nucleotide Archive (ENA) \url{https://www.ebi.ac.uk/ena/browser/}, the DNA Data Bank of Japan (DDBJ) Sequence Read Archive (DRA) and Genomic Expression Archive (GEA) \url{https://www.ddbj.nig.ac.jp}, ArrayExpress \url{https://www.ebi.ac.uk/biostudies/arrayexpress}, and the Genome Sequence Archive (GSA) \url{https://ngdc.cncb.ac.cn/gsa/}.
 }
 \seealso{
 Useful links:

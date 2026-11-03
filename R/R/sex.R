@@ -22,7 +22,7 @@
 #' calls[, c("unit", "verdict", "confidence")]
 seqout_sex <- function(x, sample = NULL, species = NULL,
                        model = "ratio", symbol_index = NULL, ...) {
-  .need("SexSeek", "Sex inference", repo = "universe")
+  .need("SexSeek", "Sex inference", repo = "cran")
   accession_hint <- NULL
   if (is.character(x) && length(x) == 1L) {
     accession_hint <- x

@@ -59,7 +59,7 @@ Select Parquet explicitly; one lookup can become a dump scan.
 \examples{
 \dontrun{
 # REST API default
-project("GSE297547")
+SeqoutGet("GSE297547")
 
 # Parquet for SQL and local dumps
 con <- SeqoutConnect("parquet")

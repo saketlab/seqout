@@ -22,7 +22,7 @@ Set the process-wide default connection
 \examples{
 \dontrun{
 SeqoutDefault(SeqoutConnect("parquet"))
-project("GSE297547") # now reads Parquet
+SeqoutGet("GSE297547") # now reads Parquet
 SeqoutDefault(NULL) # back to REST
 }
 }
