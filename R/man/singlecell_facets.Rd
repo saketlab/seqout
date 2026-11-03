@@ -22,8 +22,10 @@ year, and has_matrix/has_fastq/is_long_read status.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- SingleCellFacets()
 f[f$facet == "chemistry", ]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

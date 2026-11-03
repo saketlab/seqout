@@ -23,10 +23,12 @@ Suggest spelling corrections for a query
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 SearchSuggest("livre cancr")
 
 # already spelled correctly
 SearchSuggest("liver cancer")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

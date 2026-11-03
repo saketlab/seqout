@@ -23,8 +23,10 @@ its top 100 values.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- SpatialFacets()
 f[f$facet == "platform", ]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

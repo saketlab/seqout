@@ -92,7 +92,9 @@ from which method matched. Filter values come from \code{\link[=singlecell_facet
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 SingleCellProjects(tissue = "liver", has_matrix = TRUE, limit = 100)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

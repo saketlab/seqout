@@ -25,6 +25,8 @@ R/docs/
 
 # Test output
 tests/testthat/Rplots.pdf
+R/tests/testthat/_problems/
+R/tests/testthat/testthat-problems.rds
 
 # Locally cached DuckDB files
 *.duckdb
@@ -35,6 +37,11 @@ tests/testthat/Rplots.pdf
 .venv/
 __pycache__
 .DS_Store
+python/dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # mkdocs build output
 python/site/

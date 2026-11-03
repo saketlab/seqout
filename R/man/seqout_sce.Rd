@@ -41,7 +41,10 @@ all cells.}
 \code{FALSE} reads the preferred unit of each sample.}
 
 \item{sample_metadata}{Join the study's sample record onto every cell, by the
-accession the cell came from. A column already in the cell metadata wins.}
+accession the cell came from. A column already in the cell metadata wins.
+The columns of a series-level matrix are matched to GSMs by the sample
+title, description or a characteristic; without a one-to-one match the
+join is skipped with a warning.}
 
 \item{...}{Passed to \code{\link[SingleCellExperiment:SingleCellExperiment]{SingleCellExperiment::SingleCellExperiment()}}.}
 }
@@ -52,6 +55,12 @@ A \code{SingleCellExperiment} object.
 \code{X} becomes \code{counts}; \code{obs} becomes \code{colData}; \code{var} becomes \code{rowData}.
 A GSE or GSM accession is resolved through \code{\link[=seqout_counts]{seqout_counts()}}.
 Requires SingleCellExperiment.
+}
+\details{
+Use it for bulk RNA-seq too: a \code{SingleCellExperiment} is a
+\code{SummarizedExperiment}, so DESeq2 and other bulk tools accept it as it is.
+A bulk column is named for its GSM. The submitter's own name for it, such
+as the header of a series-level matrix, is kept in \code{colData()$label}.
 }
 \examples{
 \dontrun{

@@ -19,7 +19,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' TissueSummary("liver")
+#' }
 tissue_summary <- function(term, con = .con()) {
   .ontology_term_summary(con, "tissue", term, "tissue_summary")
 }
@@ -37,8 +39,10 @@ tissue_summary <- function(term, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' f <- TissueFacets("liver")
 #' f[f$facet == "organism", ]
+#' }
 tissue_facets <- function(term, con = .con()) {
   .ontology_term_facets(con, "tissue", term, "tissue_facets")
 }
@@ -73,7 +77,9 @@ tissue_facets <- function(term, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' TissueProjects("liver", organism = "Homo sapiens", limit = 100)
+#' }
 tissue_projects <- function(term, organism = NULL, assay_l1 = NULL,
                             source = NULL, has_fastq = NULL, has_sra = NULL,
                             is_single_cell = NULL, is_long_read = NULL,

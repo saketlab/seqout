@@ -22,3 +22,10 @@ The linked study accession, or \code{NA_character_}.
 GEO and ArrayExpress runs live under linked sequencing studies.
 GEA resolves through BioProject.
 }
+\examples{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+LinkedStudy("GSE168652")
+}
+\dontshow{\}) # examplesIf}
+}

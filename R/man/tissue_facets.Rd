@@ -25,8 +25,10 @@ country, year, and FASTQ/single-cell/long-read status for studies matching
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- TissueFacets("liver")
 f[f$facet == "organism", ]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

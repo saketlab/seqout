@@ -21,3 +21,10 @@ The GSE accession, or \code{NA_character_}.
 \description{
 Find the GEO series a sample belongs to
 }
+\examples{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+GSMSeries("GSM8994520")
+}
+\dontshow{\}) # examplesIf}
+}

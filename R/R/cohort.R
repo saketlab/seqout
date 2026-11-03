@@ -147,6 +147,7 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' # single-cell samples by assay text
 #' SampleSearch(tissue = "liver", disease = "steato", single_cell = "assay", limit = 10)
 #'
@@ -175,6 +176,7 @@
 #'   disease_ontology_id = "MONDO:0005061",
 #'   include_descendants = FALSE, limit = 10
 #' )
+#' }
 sample_search <- function(filters = NULL, ..., single_cell = NULL,
                           include_descendants = TRUE,
                           sort = "sample", order = "asc", limit = NULL,
@@ -334,6 +336,7 @@ sample_search <- function(filters = NULL, ..., single_cell = NULL,
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' hpv <- SampleSearch(
 #'   disease_ontology_id = "MONDO:0002974", microbe = "HPV", limit = 10
 #' )
@@ -342,6 +345,7 @@ sample_search <- function(filters = NULL, ..., single_cell = NULL,
 #'
 #' # only the detections that pass the gates
 #' MicrobeDetections(hpv, validated_only = TRUE)
+#' }
 microbe_detections <- function(x, validated_only = FALSE,
                                columns = c(
                                  "organism", "class", "kingdom",

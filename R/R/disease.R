@@ -76,8 +76,10 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' DiseaseSummary("rare")
 #' DiseaseSummary("fatty liver disease")
+#' }
 disease_summary <- function(collection, con = .con()) {
   .need_api(con, "disease_summary",
     why = "There is no disease collection table in the dump."
@@ -105,7 +107,9 @@ disease_summary <- function(collection, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' DiseaseFacets("rare")
+#' }
 disease_facets <- function(collection, con = .con()) {
   .need_api(con, "disease_facets",
     why = "There is no disease collection table in the dump."
@@ -166,8 +170,10 @@ disease_facets <- function(collection, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' DiseaseProjects("rare", category = "Cancers", limit = 100)
 #' DiseaseProjects("fatty liver disease", organism = "Homo sapiens", limit = 10)
+#' }
 disease_projects <- function(collection, category = NULL, specialty = NULL,
                              group = NULL, nord_type = NULL, ancestry = NULL,
                              inheritance = NULL, disease = NULL,
@@ -238,7 +244,9 @@ disease_projects <- function(collection, category = NULL, specialty = NULL,
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' DiseaseAliases("marfan")
+#' }
 disease_aliases <- function(q, limit = 20, con = .con()) {
   .need_api(con, "disease_aliases",
     why = "There is no disease alias table in the dump."

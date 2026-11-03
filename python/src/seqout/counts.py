@@ -26,8 +26,9 @@ from seqout.counts_model import (
     group,
     gsm_in,
     infer_kind,
+    match_gsm,
 )
-from seqout.counts_names import Role, _require, classify
+from seqout.counts_names import Role, _require, classify, is_fragments
 from seqout.counts_rds import read_rds
 from seqout.counts_readers import read_10x_h5, read_10x_mtx, read_h5ad, read_table
 from seqout.utils import sample_frame
@@ -215,9 +216,12 @@ class SeqoutCounts:
             ]
         )
 
-    def _select(self, sample: str | None) -> list[Unit]:
+    def _select(self, sample: str | list[str] | None) -> list[Unit]:
         if sample is None:
             return self.units()
+        if not isinstance(sample, str):
+            picked = {u.label: u for s in sample for u in self._select(s)}
+            return list(picked.values())
         key = sample.strip()
         # exact unit labels have selection priority within a sample
         want = key.upper()
@@ -246,7 +250,7 @@ class SeqoutCounts:
 
     def raw(
         self,
-        sample: str | None = None,
+        sample: str | list[str] | None = None,
         *,
         refresh: bool = False,
         progress: bool | None = None,
@@ -255,6 +259,55 @@ class SeqoutCounts:
         return self._fetch(
             self._urls(self._select(sample)), refresh=refresh, progress=progress
         )
+
+    def fragments(
+        self,
+        sample: str | list[str] | None = None,
+        *,
+        download: bool = False,
+        refresh: bool = False,
+        progress: bool | None = None,
+    ) -> pd.DataFrame:
+        """
+        ATAC fragments files; download=True fetches them.
+
+        Columns: sample, file, url, indexed (GEO holds a .tbi) and path (None
+        until downloaded). To index one: sort -k1,1 -k2,2n, bgzip, then
+        pysam.tabix_index(path, preset="bed").
+        """
+        files = self.files()
+        urls = {f.url for f in files}
+        picked = [sample] if isinstance(sample, str) else sample
+        want = None if picked is None else {s.strip().upper() for s in picked}
+        hits = sorted(
+            (
+                f
+                for f in files
+                if is_fragments(f.name)
+                and (want is None or (f.sample or "").upper() in want)
+            ),
+            key=lambda f: (f.sample or "", f.name),
+        )
+        out = pd.DataFrame(
+            {
+                "sample": [f.sample for f in hits],
+                "file": [f.name for f in hits],
+                "url": [f.url for f in hits],
+                "indexed": [f"{f.url}.tbi" in urls for f in hits],
+                "path": [None] * len(hits),
+            }
+        )
+        if out.empty:
+            logger.warning(
+                "%s lists no fragments file; only ATAC and multiome studies ship one",
+                self.accession,
+            )
+            return out
+        if download:
+            out["path"] = self._fetch(
+                list(out["url"]), refresh=refresh, progress=progress
+            )
+        return out
 
     @staticmethod
     def _urls(units: list[Unit]) -> list[str]:
@@ -298,7 +351,7 @@ class SeqoutCounts:
         return list(want.values())
 
     def matrices(
-        self, sample: str | None = None, *, progress: bool | None = None
+        self, sample: str | list[str] | None = None, *, progress: bool | None = None
     ) -> dict[str, CountMatrix]:
         """Every selected unit read into a CountMatrix, keyed by unit label."""
         units = self._select(sample)
@@ -331,7 +384,9 @@ class SeqoutCounts:
         self._fetch(unit.urls, progress=progress)
         return self._read(unit)
 
-    def anndata(self, sample: str | None = None, *, concat: bool = True) -> Any:
+    def anndata(
+        self, sample: str | list[str] | None = None, *, concat: bool = True
+    ) -> Any:
         """
         Read selected units as AnnData.
 
@@ -390,6 +445,11 @@ class SeqoutCounts:
             raise ValueError(msg)
 
         obs = self._merge_metadata(unit, obs)
+        if unit.sample and unit.sample.startswith("GSM") and len(obs) == 1:
+            # one-column bulk unit: name it the GSM, keep the submitter name as label
+            if "label" not in obs.columns:
+                obs = obs.assign(label=[str(obs.index[0])])
+            obs.index = pd.Index([unit.sample])
         if self.sample_metadata:
             obs = self._attach_sample_metadata(unit, obs)
         kind, ev = (
@@ -490,7 +550,10 @@ class SeqoutCounts:
 
         shared = obs.index.intersection(design.index)
         if shared.empty:
-            return obs
+            mapped = self._columns_to_gsm(unit, obs)
+            if mapped is None:
+                return obs
+            obs = mapped
         new = [c for c in design.columns if c not in obs.columns]
         logger.info(
             "%s: attached %d sample column(s) to %d/%d observations",
@@ -500,6 +563,35 @@ class SeqoutCounts:
             len(obs),
         )
         return obs.join(design[new], how="left")
+
+    def _columns_to_gsm(self, unit: Unit, obs: pd.DataFrame) -> pd.DataFrame | None:
+        """Name series-level columns after their GSMs; None when none map."""
+        design = self.design
+        description = pd.Series(
+            {s.accession: getattr(s, "description", None) for s in self._samples},
+            name="description",
+        )
+        fields = (
+            design[["title"]]
+            .join(description)
+            .join(design.drop(columns="title"))
+            .select_dtypes(include=["object", "str"])
+        )
+        gsm = match_gsm([str(i) for i in obs.index], fields)
+        if gsm is None:
+            logger.warning(
+                "%s: sample metadata not joined; no sample field names the %d "
+                "column(s) one-to-one",
+                unit.label,
+                len(obs),
+            )
+            return None
+        obs = obs.copy()
+        if "label" not in obs.columns:
+            obs["label"] = obs.index.astype(str)
+        obs.index = pd.Index(gsm)
+        obs["sample"] = gsm
+        return obs
 
     def _merge_metadata(self, unit: Unit, obs: pd.DataFrame) -> pd.DataFrame:
         """
@@ -716,11 +808,14 @@ def bind_counts(
                 for a in adatas
             ]
 
-    return ad.concat(
-        adatas,
-        keys=keys,
-        join=join,
-        fill_value=0,
-        label="sample",
-        index_unique="-",
+    # a unit already named by its GSM is not suffixed again
+    names = [
+        n if n == k else f"{n}-{k}"
+        for a, k in zip(adatas, keys, strict=True)
+        for n in a.obs_names
+    ]
+    out = ad.concat(
+        adatas, keys=keys, join=join, fill_value=0, label="sample", index_unique=None
     )
+    out.obs_names = names
+    return out

@@ -29,7 +29,9 @@ can then filter on.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 DiseaseAliases("marfan")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

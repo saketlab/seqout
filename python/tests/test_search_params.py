@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import os
 
 import pytest
 from pydantic import ValidationError
@@ -392,7 +393,7 @@ class TestPager:
 
         with (
             patch.object(cli, "_read_key", side_effect=keys),
-            open("/dev/null", "w") as devnull,
+            open(os.devnull, "w", encoding="utf-8") as devnull,
         ):
             cli._paged(
                 Console(file=devnull),

@@ -102,3 +102,11 @@ test_that("data_dir on the api backend says so instead of being ignored", {
   )
   expect_equal(con$data_url, "https://seqout.org/data")
 })
+
+test_that("an unreachable API informs and returns NULL", {
+  # port 9 refuses at once; no network needed
+  con <- seqout_connect(base_url = "http://127.0.0.1:9", quiet = TRUE)
+  expect_message(out <- seqout:::.api_get(con, "/project/GSE1"), "did not answer")
+  expect_null(out)
+  expect_message(expect_null(seqout:::.api_post(con, "/x", list())), "did not answer")
+})

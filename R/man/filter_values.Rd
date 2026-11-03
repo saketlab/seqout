@@ -71,6 +71,7 @@ These functions read REST; \code{\link[=query]{query()}} can count from the dump
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 ListLibraryStrategies()
 
 # instrument_model values
@@ -79,7 +80,6 @@ ListInstrumentModels()
 # connection-first call
 SeqoutConnect("api") |> ListJournals(limit = 20)
 
-\dontrun{
 # pass a value into search
 top <- ListLibraryStrategies()$value[1]
 SeqoutSearch("liver", library_strategy = top, limit = 10)

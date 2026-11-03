@@ -25,7 +25,9 @@ experiment rows to judge by (GEO-only entries).
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 LongreadSummary()
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

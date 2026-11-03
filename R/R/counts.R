@@ -25,10 +25,14 @@
 #' @return A tibble, one row per readable unit.
 #'
 #' @export
-#' @examples
-#' \dontrun{
-#' counts <- SeqoutListCounts("GSE297547")
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' counts <- SeqoutListCounts("GSE297547", cache_dir = tempdir())
 #' counts[, c("unit", "sample", "format", "preferred")]
+#' }
+#'
+#' \dontrun{
+#' # downloads the matrix from NCBI GEO
 #' m <- SeqoutMatrix(counts, sample = "GSM8994520")
 #'
 #' "GSE297547" |>
@@ -350,9 +354,9 @@ counts_samples <- function(counts, ..., min_cell_count = 1L) {
 #' @seealso [counts_samples()] for the harmonised cohort fields.
 #'
 #' @export
-#' @examples
-#' \dontrun{
-#' counts <- SeqoutListCounts("GSE135251")
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
 #' col_data <- CountsDesign(counts)
 #' }
 counts_design <- function(counts) {
@@ -362,15 +366,33 @@ counts_design <- function(counts) {
 
 #' The readable units behind a counts table
 #'
+#' Nothing is downloaded. A unit is the smallest group of files that reads as
+#' one matrix.
+#'
 #' @param counts A `seqout_counts` tibble from [seqout_counts()].
 #' @param preferred_only Return only the preferred unit per sample.
 #'
-#' @return A list of units.
+#' @return A tibble, one row per unit, with `unit`, `sample`, `platform`,
+#'   `format`, `assay`, `preferred`, `has_metadata`, `n_files`, `files` and
+#'   `metadata_files`.
 #'
 #' @export
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' counts <- SeqoutListCounts("GSE126848", cache_dir = tempdir())
+#' SeqoutUnits(counts)
+#' }
 seqout_units <- function(counts, preferred_only = TRUE) {
   .check_counts(counts)
-  .counts_units(counts, preferred_only = preferred_only)
+  units <- .counts_units(counts, preferred_only = preferred_only)
+  names_of <- function(files) paste(vapply(files, function(f) f$name, character(1)), collapse = ", ")
+  out <- .units_tibble(units)
+  out <- tibble::add_column(out,
+    platform = vapply(units, function(u) u$platform %||% NA_character_, character(1)),
+    .after = "sample"
+  )
+  out$metadata_files <- vapply(units, function(u) names_of(u$metadata_files), character(1))
+  out
 }
 
 #' Download a unit's files without parsing them
@@ -381,6 +403,12 @@ seqout_units <- function(counts, preferred_only = TRUE) {
 #' @return The paths of the downloaded files.
 #'
 #' @export
+#' @examples
+#' \dontrun{
+#' # downloads the files of one unit from NCBI GEO
+#' counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
+#' SeqoutCountsFiles(counts, sample = "GSM3998167")
+#' }
 seqout_counts_files <- function(counts, sample = NULL) {
   .check_counts(counts)
   unit <- .select_unit(counts, sample)
@@ -397,6 +425,13 @@ seqout_counts_files <- function(counts, sample = NULL) {
 #'   `obs`, `var`, `kind`, `fmt` and `evidence`.
 #'
 #' @export
+#' @examples
+#' \dontrun{
+#' # downloads the series matrix from NCBI GEO
+#' counts <- SeqoutListCounts("GSE126848", cache_dir = tempdir())
+#' m <- SeqoutMatrix(counts)
+#' dim(m$X)
+#' }
 seqout_matrix <- function(counts, sample = NULL) {
   .check_counts(counts)
   unit <- .select_unit(counts, sample)
@@ -486,6 +521,11 @@ seqout_seurat <- function(x, sample = NULL, max_cells = NULL, multimodal = TRUE,
 #' A GSE or GSM accession is resolved through [seqout_counts()].
 #' Requires SingleCellExperiment.
 #'
+#' Use it for bulk RNA-seq too: a `SingleCellExperiment` is a
+#' `SummarizedExperiment`, so DESeq2 and other bulk tools accept it as it is.
+#' A bulk column is named for its GSM. The submitter's own name for it, such
+#' as the header of a series-level matrix, is kept in `colData()$label`.
+#'
 #' @param x A `seqout_matrix` from [seqout_matrix()], one GSE/GSM accession,
 #'   or a `seqout_counts` tibble from [seqout_counts()].
 #' @param sample Unit labels or sample accessions to read when `x` is a GSE or
@@ -497,6 +537,9 @@ seqout_seurat <- function(x, sample = NULL, max_cells = NULL, multimodal = TRUE,
 #'   `FALSE` reads the preferred unit of each sample.
 #' @param sample_metadata Join the study's sample record onto every cell, by the
 #'   accession the cell came from. A column already in the cell metadata wins.
+#'   The columns of a series-level matrix are matched to GSMs by the sample
+#'   title, description or a characteristic; without a one-to-one match the
+#'   join is skipped with a warning.
 #' @param ... Passed to [SingleCellExperiment::SingleCellExperiment()].
 #'
 #' @return A `SingleCellExperiment` object.
@@ -584,7 +627,9 @@ seqout_sce <- function(x, assay_name = "counts", sample = NULL, max_cells = NULL
   if (length(mats) == 0) {
     cli::cli_abort("{accession}: no selected units could be read.")
   }
-  .bind_units(mats, max_cells = max_cells)
+  # lone series unit keeps its header ids for .columns_to_gsm
+  lone_series <- length(mats) == 1L && is.na(mats[[1]]$sample %||% NA_character_)
+  .bind_units(mats, max_cells = max_cells, keep_names = lone_series)
 }
 
 #' Bind counts matrices across samples
@@ -612,10 +657,10 @@ seqout_sce <- function(x, assay_name = "counts", sample = NULL, max_cells = NULL
 #'
 #' @examples
 #' \dontrun{
-#' counts <- SeqoutCounts("GSE291735")
-#' merged <- BindCounts(Matrices(counts, sample = wt$sample),
-#'   labels = wt$stage, max_cells = 1200
-#' )
+#' # downloads two count files from NCBI GEO
+#' counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
+#' picked <- c("GSM3998167", "GSM3998168")
+#' merged <- BindCounts(Matrices(counts, sample = picked), labels = picked)
 #' }
 #'
 #' @export
@@ -715,7 +760,7 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL, strict = FALSE,
 
 #' @noRd
 .bind_units <- function(x, labels = NULL, max_cells = NULL, strict = FALSE,
-                        join = c("inner", "outer")) {
+                        join = c("inner", "outer"), keep_names = FALSE) {
   join <- match.arg(join)
   if (!is.list(x) || length(x) == 0) {
     cli::cli_abort("{.arg x} must be a non-empty list of {.cls seqout_matrix} objects.")
@@ -787,7 +832,9 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL, strict = FALSE,
       X <- X[, i, drop = FALSE]
     }
     X <- .align_rows(X, genes, complete = whole, sparse = as_sparse)
-    new_names <- paste0(label, "_", cell_names[i])
+    named <- cell_names[i]
+    # a unit already named by its GSM is not prefixed again
+    new_names <- if (keep_names) named else ifelse(named == label, named, paste0(label, "_", named))
     colnames(X) <- new_names
     rownames(obs) <- new_names
     list(X = X, obs = obs)
@@ -925,6 +972,13 @@ bind_counts <- function(x, labels = NULL, max_cells = NULL, strict = FALSE,
 #' @return A named list of `seqout_matrix` objects, keyed by unit label.
 #'
 #' @export
+#' @examples
+#' \dontrun{
+#' # downloads two count files from NCBI GEO
+#' counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
+#' mats <- Matrices(counts, sample = c("GSM3998167", "GSM3998168"))
+#' names(mats)
+#' }
 matrices <- function(counts, sample = NULL) {
   .check_counts(counts)
   units <- .select_units(counts, sample)
@@ -1134,10 +1188,16 @@ matrices <- function(counts, sample = NULL) {
 
   X <- .transpose(parsed$X)
   dimnames(X) <- list(rownames(parsed$var), rownames(parsed$obs))
+  obs <- parsed$obs
+  # one-column bulk unit: name it the GSM, keep the submitter name as label
+  if (ncol(X) == 1L && grepl("^GSM[0-9]+$", unit$sample %||% "")) {
+    if (!"label" %in% names(obs)) obs[["label"]] <- colnames(X)
+    colnames(X) <- rownames(obs) <- unit$sample
+  }
 
   structure(
     list(
-      X = X, obs = parsed$obs, var = parsed$var,
+      X = X, obs = obs, var = parsed$var,
       kind = decided$kind, evidence = decided$evidence,
       fmt = unit$fmt, accession = unit$sample %||% h$accession,
       sample = unit$sample %||% NA_character_, unit = unit$label,
@@ -1310,6 +1370,13 @@ print.seqout_matrix <- function(x, ...) {
     return(m)
   }
   rows <- as.data.frame(rows)
+  if (!any(m$obs$sample %in% rows$accession)) {
+    mapped <- .columns_to_gsm(m, rows)
+    if (is.null(mapped)) {
+      return(m)
+    }
+    m <- mapped
+  }
   add <- setdiff(names(rows), c(names(m$obs), "accession"))
   i <- match(m$obs$sample, rows$accession)
   for (nm in add) {
@@ -1318,6 +1385,54 @@ print.seqout_matrix <- function(x, ...) {
     if (!is.list(value)) m$obs[[nm]] <- value
   }
   m
+}
+
+#' Name series-level columns after their GSMs
+#'
+#' Submitter ids sit in a sample's title, description or a characteristic;
+#' only a one-to-one match maps, otherwise the join is skipped with a warning.
+#' @noRd
+.columns_to_gsm <- function(m, rows) {
+  gsm <- .match_gsm(colnames(m$X), rows)
+  if (is.null(gsm)) {
+    cli::cli_warn(c(
+      "Sample metadata not joined: no sample field names the {ncol(m$X)} column{?s} one-to-one.",
+      i = "Columns: {.val {utils::head(colnames(m$X), 3)}}{if (ncol(m$X) > 3) ', ...'}"
+    ))
+    return(NULL)
+  }
+  if (!"label" %in% names(m$obs)) {
+    m$obs[["label"]] <- colnames(m$X)
+  }
+  m$obs[["sample"]] <- gsm
+  colnames(m$X) <- gsm
+  rownames(m$obs) <- gsm
+  m
+}
+
+#' @noRd
+.match_gsm <- function(cols, rows) {
+  if (length(cols) > nrow(rows)) {
+    return(NULL)
+  }
+  # GEO strips leading zeros: header 0869, record 869
+  key <- function(v) {
+    v <- tolower(trimws(as.character(v)))
+    digits <- !is.na(v) & grepl("^[0-9]+$", v)
+    v[digits] <- sub("^0+(?=.)", "", v[digits], perl = TRUE)
+    v
+  }
+  text <- names(rows)[vapply(rows, is.character, logical(1))]
+  fields <- union(intersect(c("title", "description"), text), setdiff(text, "accession"))
+  want <- key(cols)
+  for (f in fields) {
+    have <- key(rows[[f]])
+    i <- match(want, have)
+    if (!anyNA(i) && !anyDuplicated(i) && all(table(have)[want] == 1L)) {
+      return(rows$accession[i])
+    }
+  }
+  NULL
 }
 
 #' The study's sample table, reusing the counts handle's cache
@@ -1408,11 +1523,14 @@ print.seqout_matrix <- function(x, ...) {
 #'   unit's own files.
 #'
 #' @export
-#' @examples
-#' \dontrun{
-#' counts <- SeqoutListCounts("GSE156478")
+#' @examplesIf SeqoutOnline()
+#' \donttest{
+#' counts <- SeqoutListCounts("GSE156478", cache_dir = tempdir())
 #' SeqoutFragments(counts)
+#' }
 #'
+#' \dontrun{
+#' # downloads a fragments file from NCBI GEO
 #' frags <- SeqoutFragments(counts, sample = "GSM5065524", download = TRUE)
 #' Rsamtools::indexTabix(frags$path[1], format = "bed")
 #' }

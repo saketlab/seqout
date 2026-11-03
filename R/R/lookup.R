@@ -9,8 +9,10 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' Paper("34764296")
 #' Paper(doi = "10.1038/s41467-021-26864-x")
+#' }
 paper <- function(id = NULL, pmid = NULL, doi = NULL, con = .con()) {
   .check_connection(con)
   if (!is.null(id)) {
@@ -57,7 +59,9 @@ paper <- function(id = NULL, pmid = NULL, doi = NULL, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' Author("Aviv Regev")
+#' }
 author <- function(name, limit = 200, con = .con()) {
   .check_connection(con)
   rlang::check_required(name)
@@ -87,12 +91,14 @@ author <- function(name, limit = 200, con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' cat(Citations("GSE151530"))
 #'
 #' # include reanalysis papers
 #' cat(Citations("GSE168652", type = "all"))
 #'
 #' writeLines(Citations("GSE151530"), file.path(tempdir(), "GSE151530.bib"))
+#' }
 citations <- function(accession, type = "original", con = .con()) {
   .need_api(
     con, "citations",
@@ -122,7 +128,9 @@ citations <- function(accession, type = "original", con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' Summaries(c("GSE168652", "GSE100379"))
+#' }
 summaries <- function(accessions, con = .con()) {
   .check_connection(con)
   rlang::check_required(accessions)

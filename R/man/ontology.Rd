@@ -38,6 +38,7 @@ Reads REST. The ontology graph is absent from the dump.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 Ontology("liver")
 
 # The identifiers alone, without the hierarchy query
@@ -46,6 +47,7 @@ Ontology("breast cancer", children = FALSE)$xrefs
 # Terms one level down that expand further
 onto <- Ontology("liver")
 onto[onto$relation == "child" & onto$has_children, "name"]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

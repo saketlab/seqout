@@ -47,3 +47,11 @@ sex-chromosome markers are obtained from the same annotation registry used by
 SexSeek. The returned table contains the dual-evidence coordinates
 (\code{y_percent} and \code{x_percent}) used by \code{\link[=seqout_sex_plot]{seqout_sex_plot()}}.
 }
+\examples{
+\dontshow{if (requireNamespace("SexSeek", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+path <- system.file("extdata", "sex", "GSE135251-liver-excerpt.tsv.gz", package = "seqout")
+liver <- as.matrix(read.delim(path, row.names = 1, check.names = FALSE))
+calls <- SeqoutSex(liver, group = colnames(liver), species = "human")
+calls[, c("unit", "verdict", "confidence")]
+\dontshow{\}) # examplesIf}
+}

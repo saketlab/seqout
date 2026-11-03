@@ -39,13 +39,18 @@ continuous". Sort and recompress first:
 \verb{sort -k1,1 -k2,2n}, then \code{Rsamtools::bgzip()}, then \code{indexTabix()}.
 }
 \examples{
-\dontrun{
-counts <- SeqoutListCounts("GSE156478")
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+counts <- SeqoutListCounts("GSE156478", cache_dir = tempdir())
 SeqoutFragments(counts)
+}
 
+\dontrun{
+# downloads a fragments file from NCBI GEO
 frags <- SeqoutFragments(counts, sample = "GSM5065524", download = TRUE)
 Rsamtools::indexTabix(frags$path[1], format = "bed")
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=seqout_counts]{seqout_counts()}} for the matrices, \code{\link[=seqout_counts_files]{seqout_counts_files()}} for a

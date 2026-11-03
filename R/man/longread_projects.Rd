@@ -88,6 +88,7 @@ locally.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 # long-read-only datasets
 LongreadProjects(long_read_only = TRUE, limit = 10)
 
@@ -99,6 +100,7 @@ LongreadProjects(
   technology = "Oxford Nanopore", organism = "Homo sapiens",
   sort = "first_published", limit = 10
 )
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

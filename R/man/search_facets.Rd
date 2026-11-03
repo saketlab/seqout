@@ -48,6 +48,7 @@ Values order by \code{score}, the summed match rank. \code{score} is 0 without a
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- SearchFacets("liver cancer")
 attr(f, "total")
 
@@ -56,6 +57,7 @@ f[f$facet == "organism", ]
 
 # count within a narrower set
 SearchFacets("liver cancer", organism = "Homo sapiens")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

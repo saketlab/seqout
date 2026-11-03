@@ -27,9 +27,15 @@ jobs:
       fail-fast: false
       matrix:
         config:
+          - { os: ubuntu-latest, r: devel }
           - { os: ubuntu-latest, r: release }
           - { os: ubuntu-latest, r: oldrel-1 }
           - { os: macos-latest, r: release }
+          - { os: windows-latest, r: release }
+          # Depends floor; current Bioconductor Suggests need a newer R
+          - { os: ubuntu-latest, r: "4.1", deps: '"hard"' }
+    # R-devel breaks on its own schedule; a red devel leg must not block docs
+    continue-on-error: ${{ matrix.config.r == 'devel' }}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
@@ -37,8 +43,9 @@ jobs:
       # Tests that would call seqout.org skip themselves. The vignette is built
       # live, and falls back to code-only output if seqout.org is unreachable.
       NOT_CRAN: false
+      _R_CHECK_FORCE_SUGGESTS_: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -51,7 +58,8 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: R
-          extra-packages: any::rcmdcheck
+          dependencies: ${{ matrix.config.deps || '"all"' }}
+          extra-packages: any::rcmdcheck, any::testthat, any::knitr, any::rmarkdown, any::withr
           needs: check
           cache: always
 
@@ -77,7 +85,7 @@ jobs:
       R_KEEP_PKG_SOURCE: yes
       MAKEFLAGS: -j4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -97,7 +105,7 @@ jobs:
       # Keyed on the vignettes so it refreshes when they change; restore-keys
       # still reuses the old copy meanwhile, since payloads are keyed by accession.
       - name: Cache what the vignettes download
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/R/seqout
           key: seqout-vignette-data-${{ hashFiles('R/vignettes/**/*.Rmd') }}
@@ -112,14 +120,14 @@ jobs:
       - name: The build has to have produced a landing page
         run: test -f R/docs/index.html
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: r-site
           path: R/docs/
           retention-days: 7
 
       - name: Make room for the new release
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
@@ -132,7 +140,7 @@ jobs:
             mkdir -p site-incoming site-releases
 
       - name: Upload the built site
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
@@ -143,13 +151,12 @@ jobs:
           strip_components: 2
 
       - name: Swap it in
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: ${{ secrets.HOSTINGER_PORT || 22 }}
-          script_stop: true
           script: |
             set -euo pipefail
             cd /var/www/sramap/seqoutDB/R

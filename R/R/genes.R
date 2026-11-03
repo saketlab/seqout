@@ -41,7 +41,7 @@
 seqout_gene_names <- function(x, ids = NULL, species = NULL, release = NULL,
                               assembly = NULL, source = NULL, mapping = NULL,
                               quiet = FALSE) {
-  .need("genevintage", "Gene-name conversion", repo = "universe")
+  .need("genevintage", "Gene-name conversion", repo = "cran")
   input <- .gene_input(x, ids)
   nm <- .gene_mapping_warnings(if (!is.null(mapping)) {
     genevintage::gene_names(input$ids, mapping, warn = !quiet)
@@ -91,7 +91,11 @@ seqout_gene_names <- function(x, ids = NULL, species = NULL, release = NULL,
 seqout_correct_names <- function(x, ids = NULL, species = NULL, release = NULL,
                                  assembly = NULL, source = NULL, mapping = NULL,
                                  quiet = FALSE) {
-  .need("genevintage", "Gene-name repair", repo = "universe")
+  .need("genevintage", "Gene-name repair", repo = "cran")
+  # species alone lets genevintage pick the newest release (SEPT9 -> SEPTIN9)
+  if (is.null(mapping) && (is.null(species) || is.null(release))) {
+    cli::cli_abort("Supply {.arg mapping}, or both {.arg species} and {.arg release}.")
+  }
   input <- .gene_input(x, ids)
   nm <- genevintage::correct_genenames(input$ids,
     species = species,

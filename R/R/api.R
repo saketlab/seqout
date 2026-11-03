@@ -43,8 +43,8 @@ NULL
   }
   resp <- .build_request(con, path) |>
     httr2::req_url_query(!!!params, .multi = "explode") |>
-    httr2::req_perform()
-  if (httr2::resp_status(resp) %in% null_on) {
+    .perform(path)
+  if (is.null(resp) || httr2::resp_status(resp) %in% null_on) {
     return(NULL)
   }
   .check_resp(resp, path)
@@ -57,8 +57,8 @@ NULL
   .check_connection(con)
   resp <- .build_request(con, path) |>
     httr2::req_url_query(..., .multi = "explode") |>
-    httr2::req_perform()
-  if (httr2::resp_status(resp) %in% null_on) {
+    .perform(path)
+  if (is.null(resp) || httr2::resp_status(resp) %in% null_on) {
     return(NULL)
   }
   .check_resp(resp, path)
@@ -70,12 +70,37 @@ NULL
   .check_connection(con)
   resp <- .build_request(con, path, timeout = 120) |>
     httr2::req_body_json(body) |>
-    httr2::req_perform()
+    .perform(path)
+  if (is.null(resp)) {
+    return(NULL)
+  }
   .check_resp(resp, path)
   if (raw) {
     return(httr2::resp_body_raw(resp))
   }
   httr2::resp_body_json(resp)
+}
+
+#' Perform a request; NULL when the service cannot answer
+#'
+#' CRAN: a down web resource must not fail a check. A 4xx still aborts in .check_resp().
+#' @noRd
+.perform <- function(req, path) {
+  resp <- tryCatch(httr2::req_perform(req), httr2_failure = function(e) e)
+  why <- if (inherits(resp, "httr2_failure")) {
+    conditionMessage(resp$parent %||% resp)
+  } else if (httr2::resp_status(resp) >= 500) {
+    paste("HTTP", httr2::resp_status(resp))
+  }
+  if (is.null(why)) {
+    return(resp)
+  }
+  cli::cli_inform(c(
+    "!" = "The Seqout API did not answer {.path {path}}; returning {.code NULL}.",
+    i = "{why}",
+    i = "Try again later, or use {.code SeqoutConnect(\"parquet\")}."
+  ))
+  NULL
 }
 
 #' @noRd

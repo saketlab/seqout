@@ -15,6 +15,7 @@
 #'
 #' @name filter_values
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' ListLibraryStrategies()
 #'
 #' # instrument_model values
@@ -23,7 +24,6 @@
 #' # connection-first call
 #' SeqoutConnect("api") |> ListJournals(limit = 20)
 #'
-#' \dontrun{
 #' # pass a value into search
 #' top <- ListLibraryStrategies()$value[1]
 #' SeqoutSearch("liver", library_strategy = top, limit = 10)

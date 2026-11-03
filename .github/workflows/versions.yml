@@ -1,0 +1,32 @@
+name: versions
+
+# the R and Python packages release under one version number
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "python/pyproject.toml"
+      - "R/DESCRIPTION"
+      - ".github/workflows/versions.yml"
+  pull_request:
+    paths:
+      - "python/pyproject.toml"
+      - "R/DESCRIPTION"
+      - ".github/workflows/versions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: pyproject.toml and DESCRIPTION carry the same version
+        run: |
+          python=$(python3 -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("python/pyproject.toml").read_text())["project"]["version"])')
+          r=$(sed -n 's/^Version: *//p' R/DESCRIPTION)
+          if [ "$python" != "$r" ]; then
+            echo "python/pyproject.toml says $python, R/DESCRIPTION says $r" >&2
+            exit 1
+          fi

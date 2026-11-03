@@ -292,3 +292,12 @@ def test_linked_study_prefers_a_cross_reference_over_the_bioproject(monkeypatch)
 
     monkeypatch.setattr(sq, "fetch_project_metadata", unexpected)
     assert sq.linked_study("E-MTAB-16863") == "ERP191813"
+
+
+@pytest.mark.network
+def test_gsa_enriched_metadata_reads_without_a_title():
+    from seqout import connect
+
+    # GSA projects return a null title
+    df = connect().get("CRA001160").enriched.to_df()
+    assert len(df) == 35

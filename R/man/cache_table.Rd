@@ -20,3 +20,11 @@ The local table name (invisibly).
 \description{
 Queries against the cached table use local storage.
 }
+\examples{
+\dontrun{
+# copies a remote Parquet table into the local DuckDB session
+con <- SeqoutConnect("parquet", quiet = TRUE)
+CacheTable("geo_series", con = con)
+SeqoutClose(con)
+}
+}

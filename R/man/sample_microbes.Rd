@@ -72,10 +72,12 @@ Spike-in, negative-control and background classes are excluded from totals.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 m <- SampleMicrobes("GSM5155196", kind = "viral")
 m[, c("organism", "n_unitigs", "max_breadth_frac")]
 attr(m, "measurable")
 attr(m, "detections")
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

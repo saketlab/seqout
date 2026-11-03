@@ -24,7 +24,9 @@ is unfiltered (raw 10x barcodes, not real cells).
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 SingleCellSummary()
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

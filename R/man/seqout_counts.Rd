@@ -72,13 +72,19 @@ A unit is a 10x triplet, CellRanger \code{.h5}, \code{.h5ad}, \code{.rds}, tar, 
 10x feature class follows \code{assay}; \code{feature_type} overrides it.
 }
 \examples{
-\dontrun{
-counts <- SeqoutListCounts("GSE297547")
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+counts <- SeqoutListCounts("GSE297547", cache_dir = tempdir())
 counts[, c("unit", "sample", "format", "preferred")]
+}
+
+\dontrun{
+# downloads the matrix from NCBI GEO
 m <- SeqoutMatrix(counts, sample = "GSM8994520")
 
 "GSE297547" |>
   SeqoutListCounts() |>
   SeqoutMatrix(sample = "GSM8994520")
 }
+\dontshow{\}) # examplesIf}
 }

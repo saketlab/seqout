@@ -6,6 +6,13 @@
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return The local table name (invisibly).
 #' @export
+#' @examples
+#' \dontrun{
+#' # copies a remote Parquet table into the local DuckDB session
+#' con <- SeqoutConnect("parquet", quiet = TRUE)
+#' CacheTable("geo_series", con = con)
+#' SeqoutClose(con)
+#' }
 cache_table <- function(table, con = .con()) {
   .need_parquet(con, "cache_table")
   check_required(table)
@@ -70,6 +77,13 @@ query <- function(sql, params = NULL, con = .con()) {
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return A tibble with `table_name`, `table_type` and `registered` columns.
 #' @export
+#' @examples
+#' \dontrun{
+#' # DuckDB installs its httpfs extension under the home directory
+#' con <- SeqoutConnect("parquet", quiet = TRUE)
+#' Tables(con)
+#' SeqoutClose(con)
+#' }
 tables <- function(con = .con()) {
   .need_parquet(con, "tables")
   live <- .db_query(con, "
@@ -95,6 +109,13 @@ tables <- function(con = .con()) {
 #' @param con A Parquet `seqout_connection` from [seqout_connect()].
 #' @return Number of tables removed (invisibly).
 #' @export
+#' @examples
+#' \dontrun{
+#' con <- SeqoutConnect("parquet", quiet = TRUE)
+#' CacheTable("geo_series", con = con)
+#' ClearCache(con)
+#' SeqoutClose(con)
+#' }
 clear_cache <- function(con = .con()) {
   .need_parquet(con, "clear_cache")
 

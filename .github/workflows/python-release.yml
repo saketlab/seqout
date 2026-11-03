@@ -1,7 +1,6 @@
 # Publishes the Python package to PyPI when a python-v* tag is pushed.
 #
-# The repo holds an R package and a Python package with independent versions, so
-# the tag is prefixed rather than a bare v* which would be ambiguous:
+# R releases through CRAN, so the tag carries a python- prefix:
 #
 #     git tag python-v1.0.1 && git push origin python-v1.0.1
 #
@@ -33,8 +32,8 @@ jobs:
       run:
         working-directory: python
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: true
 
@@ -49,11 +48,16 @@ jobs:
             echo "tag $GITHUB_REF_NAME implies $tagged, pyproject says $packaged" >&2
             exit 1
           fi
+          r=$(sed -n 's/^Version: *//p' ../R/DESCRIPTION)
+          if [ "$r" != "$packaged" ]; then
+            echo "pyproject says $packaged, R/DESCRIPTION says $r" >&2
+            exit 1
+          fi
 
       - run: uv build
       - run: uvx twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: python/dist/
@@ -70,9 +74,9 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         extras: ["", "[counts]"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
@@ -91,7 +95,7 @@ jobs:
     permissions:
       id-token: write # mints the OIDC token Trusted Publishing needs
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist

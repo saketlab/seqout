@@ -52,10 +52,10 @@ elements use sparse storage to bound memory when features barely overlap.
 }
 \examples{
 \dontrun{
-counts <- SeqoutCounts("GSE291735")
-merged <- BindCounts(Matrices(counts, sample = wt$sample),
-  labels = wt$stage, max_cells = 1200
-)
+# downloads two count files from NCBI GEO
+counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
+picked <- c("GSM3998167", "GSM3998168")
+merged <- BindCounts(Matrices(counts, sample = picked), labels = picked)
 }
 
 }

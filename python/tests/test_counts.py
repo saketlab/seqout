@@ -16,7 +16,7 @@ from seqout.counts_model import (
     group,
     infer_kind,
 )
-from seqout.counts_names import Role, classify, group_key, is_filtered
+from seqout.counts_names import Role, classify, group_key, is_filtered, is_fragments
 
 FTP = "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8207nnn/GSM8207499/suppl"
 _R_WITHOUT_PKGS = 42  # R is present and Seurat/SCE packages are absent
@@ -1157,3 +1157,39 @@ def test_reads_the_lzf_h5ad_the_r_client_needs_a_plugin_for():
     assert adata.shape == (40, 30)
     assert adata.X.sum() == 600
     assert list(adata.obs_names[:2]) == ["cell0", "cell1"]
+
+
+def test_fragments_names_match_the_r_client():
+    for name in (
+        "GSM1_fragments.tsv.gz",
+        "GSM1_atac_fragments.tsv.gz",
+        "X061_perm-cells_ds125M_filtered-fragments.tsv.gz",
+        "GSM4156590_GM12878.rep1.atac.fragments.bed.gz",
+        "GSM1_fragments.tsv",
+    ):
+        assert is_fragments(name), name
+        assert classify(name) is Role.Skip, name
+    for name in (
+        "GSM1_fragments.tsv.gz.tbi",
+        "GSM1_per_barcode_metrics.csv.gz",
+        "GSM1_matrix.mtx.gz",
+        "fragments_summary.pdf",
+    ):
+        assert not is_fragments(name), name
+
+
+def test_fragments_lists_without_downloading():
+    c = SeqoutCounts("GSE1")
+    c._files = [
+        SuppFile(f"{FTP}/GSM2_atac_fragments.tsv.gz", Role.Skip, "GSM2"),
+        SuppFile(f"{FTP}/GSM2_atac_fragments.tsv.gz.tbi", Role.Skip, "GSM2"),
+        SuppFile(f"{FTP}/GSM1_fragments.tsv.gz", Role.Skip, "GSM1"),
+        *_triplet("GSM1", "GSM1"),
+    ]
+    frags = c.fragments()
+    assert list(frags.columns) == ["sample", "file", "url", "indexed", "path"]
+    assert list(frags["sample"]) == ["GSM1", "GSM2"]
+    assert list(frags["indexed"]) == [False, True]
+    assert frags["path"].isna().all()
+    assert list(c.fragments("gsm2")["file"]) == ["GSM2_atac_fragments.tsv.gz"]
+    assert c.fragments("GSM9").empty

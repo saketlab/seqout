@@ -24,6 +24,8 @@ Datasets named by an author's publications.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 Author("Aviv Regev")
+}
 \dontshow{\}) # examplesIf}
 }

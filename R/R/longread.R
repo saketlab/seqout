@@ -44,7 +44,9 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' LongreadSummary()
+#' }
 longread_summary <- function(con = .con()) {
   .need_api(con, "longread_summary",
     why = "There is no long-read collection table in the dump."
@@ -82,8 +84,10 @@ longread_summary <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' f <- LongreadFacets()
 #' f[f$facet == "technology", ]
+#' }
 longread_facets <- function(con = .con()) {
   .need_api(con, "longread_facets",
     why = "There is no long-read collection table in the dump."
@@ -157,6 +161,7 @@ longread_facets <- function(con = .con()) {
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' # long-read-only datasets
 #' LongreadProjects(long_read_only = TRUE, limit = 10)
 #'
@@ -168,6 +173,7 @@ longread_facets <- function(con = .con()) {
 #'   technology = "Oxford Nanopore", organism = "Homo sapiens",
 #'   sort = "first_published", limit = 10
 #' )
+#' }
 longread_projects <- function(technology = NULL, platform = NULL,
                               instrument_model = NULL, library_strategy = NULL,
                               organism = NULL, archive = NULL, chemistry = NULL,
@@ -218,7 +224,9 @@ longread_projects <- function(technology = NULL, platform = NULL,
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' ProjectLongreadChemistry("GSE297547")
+#' }
 project_longread_chemistry <- function(accession, con = .con()) {
   .need_api(con, "project_longread_chemistry",
     why = "There is no long-read chemistry table in the dump."

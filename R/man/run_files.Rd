@@ -30,8 +30,10 @@ One row per file: a paired run gives two. Uses the same choice of copy as
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 files <- RunFiles("SRP148597", mode = "fastq")
 sum(files$bytes, na.rm = TRUE) / 1e9 # GB to fetch
 "SRR7191948" |> RunFiles()
+}
 \dontshow{\}) # examplesIf}
 }

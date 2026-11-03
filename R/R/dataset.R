@@ -26,10 +26,12 @@
 #'
 #' @export
 #' @examplesIf SeqoutOnline()
+#' \donttest{
 #' d <- SeqoutGet("GSE168652")
 #' d$meta$title
 #' nrow(d$samples)
 #' nrow(d$runs)
+#' }
 seqout_get <- function(accession, con = .con()) {
   .check_connection(con)
   rlang::check_required(accession)

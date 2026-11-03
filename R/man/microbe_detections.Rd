@@ -35,6 +35,7 @@ per (sample, organism, run).
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 hpv <- SampleSearch(
   disease_ontology_id = "MONDO:0002974", microbe = "HPV", limit = 10
 )
@@ -43,6 +44,7 @@ sort(table(d$organism), decreasing = TRUE)
 
 # only the detections that pass the gates
 MicrobeDetections(hpv, validated_only = TRUE)
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

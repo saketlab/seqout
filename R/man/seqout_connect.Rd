@@ -67,7 +67,7 @@ Query("SELECT * FROM geo_series LIMIT 5", con = con)
 SeqoutClose(con)
 
 # local dump
-con <- SeqoutConnect("parquet", data_dir = "~/seqout-dump")
+con <- SeqoutConnect("parquet", data_dir = file.path(tempdir(), "seqout-dump"))
 Query("SELECT count(*) FROM geo_series", con = con)
 SeqoutClose(con)
 }

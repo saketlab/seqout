@@ -18,3 +18,10 @@ A ggplot object.
 \description{
 Plot dual sex-chromosome evidence
 }
+\examples{
+\dontshow{if (rlang::is_installed(c("SexSeek", "ggplot2"))) withAutoprint(\{ # examplesIf}
+path <- system.file("extdata", "sex", "GSE135251-liver-excerpt.tsv.gz", package = "seqout")
+liver <- as.matrix(read.delim(path, row.names = 1, check.names = FALSE))
+SeqoutSexPlot(SeqoutSex(liver, group = colnames(liver), species = "human"))
+\dontshow{\}) # examplesIf}
+}

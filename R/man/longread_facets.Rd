@@ -22,8 +22,10 @@ organism, archive, chemistry and year.
 }
 \examples{
 \dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
 f <- LongreadFacets()
 f[f$facet == "technology", ]
+}
 \dontshow{\}) # examplesIf}
 }
 \seealso{

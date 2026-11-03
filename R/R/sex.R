@@ -15,6 +15,11 @@
 #' @return A data frame of per-unit calls with inferred species and evidence
 #'   coordinates.
 #' @export
+#' @examplesIf requireNamespace("SexSeek", quietly = TRUE)
+#' path <- system.file("extdata", "sex", "GSE135251-liver-excerpt.tsv.gz", package = "seqout")
+#' liver <- as.matrix(read.delim(path, row.names = 1, check.names = FALSE))
+#' calls <- SeqoutSex(liver, group = colnames(liver), species = "human")
+#' calls[, c("unit", "verdict", "confidence")]
 seqout_sex <- function(x, sample = NULL, species = NULL,
                        model = "ratio", symbol_index = NULL, ...) {
   .need("SexSeek", "Sex inference", repo = "universe")
@@ -44,7 +49,7 @@ seqout_sex <- function(x, sample = NULL, species = NULL,
   if (is.null(ids) || !length(ids)) cli::cli_abort("Counts matrix must have gene row names.")
 
   if (is.null(species)) {
-    .need("genevintage", "Species detection", repo = "universe")
+    .need("genevintage", "Species detection", repo = "cran")
     hit <- genevintage::detect_species(ids)
     if (nrow(hit) && max(hit$frac, na.rm = TRUE) >= 0.5) {
       species <- gsub("_", " ", hit$species[[which.max(hit$frac)]])
@@ -77,6 +82,10 @@ seqout_sex <- function(x, sample = NULL, species = NULL,
 #' @param x A result from [seqout_sex()].
 #' @return A ggplot object.
 #' @export
+#' @examplesIf rlang::is_installed(c("SexSeek", "ggplot2"))
+#' path <- system.file("extdata", "sex", "GSE135251-liver-excerpt.tsv.gz", package = "seqout")
+#' liver <- as.matrix(read.delim(path, row.names = 1, check.names = FALSE))
+#' SeqoutSexPlot(SeqoutSex(liver, group = colnames(liver), species = "human"))
 seqout_sex_plot <- function(x) {
   if (!inherits(x, "seqout_sex")) cli::cli_abort("Pass the result of {.fn seqout_sex}.")
   if (!requireNamespace("ggplot2", quietly = TRUE)) cli::cli_abort("Install {.pkg ggplot2} to plot evidence.")

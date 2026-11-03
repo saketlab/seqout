@@ -15,8 +15,19 @@ SeqoutUnits(counts, preferred_only = TRUE)
 \item{preferred_only}{Return only the preferred unit per sample.}
 }
 \value{
-A list of units.
+A tibble, one row per unit, with \code{unit}, \code{sample}, \code{platform},
+\code{format}, \code{assay}, \code{preferred}, \code{has_metadata}, \code{n_files}, \code{files} and
+\code{metadata_files}.
 }
 \description{
-The readable units behind a counts table
+Nothing is downloaded. A unit is the smallest group of files that reads as
+one matrix.
+}
+\examples{
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+counts <- SeqoutListCounts("GSE126848", cache_dir = tempdir())
+SeqoutUnits(counts)
+}
+\dontshow{\}) # examplesIf}
 }

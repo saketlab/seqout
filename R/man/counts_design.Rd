@@ -20,10 +20,12 @@ The submitter's characteristics spread into one column each. Reuses the
 sample record \code{\link[=seqout_counts]{seqout_counts()}} fetched.
 }
 \examples{
-\dontrun{
-counts <- SeqoutListCounts("GSE135251")
+\dontshow{if (SeqoutOnline()) withAutoprint(\{ # examplesIf}
+\donttest{
+counts <- SeqoutListCounts("GSE135251", cache_dir = tempdir())
 col_data <- CountsDesign(counts)
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=counts_samples]{counts_samples()}} for the harmonised cohort fields.
