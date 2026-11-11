@@ -10,15 +10,13 @@ description: "Install the seqout Python library and CLI tool from GitHub using u
 ### Using `uv`
 
 ```bash
-uv tool install "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv tool install seqout
 ```
-
-> Seqout will be available via PyPI soon!
 
 ### Using `pipx`
 
 ```bash
-pipx install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pipx install seqout
 ```
 
 ## Install as a library
@@ -28,13 +26,19 @@ To add the `seqout` library as a dependency to your local Python project, run:
 ### Using `uv`
 
 ```bash
-uv add "seqout @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv add seqout
 ```
 
 ### Using `pip`
 
 ```bash
-pip install "git+https://github.com/saketlab/seqout.git#subdirectory=python"
+pip install seqout
+```
+
+To download the latest developmental build, get `seqout` directly from GitHub:
+
+```bash
+uv add "git+https://github.com/saketlab/seqout.git#subdirectory=python"
 ```
 
 ### Optional components
@@ -44,12 +48,6 @@ Parsing supplementary processed counts matrices requires the following optional 
 To install `seqout` with these counts-matrix parsing dependencies enabled, specify the `counts` extra:
 
 ```bash
-# For global CLI usage
-uv tool install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
-
-# For project library development
-uv add "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
-
-# Using pip
-pip install "seqout[counts] @ git+https://github.com/saketlab/seqout.git#subdirectory=python"
+uv add "seqout[counts]"
 ```
+These dependencies are used in the [`SeqoutListCounts`](/reference/counts/) routine for directly getting count matrices in AnnData format from the dataset accession number, without the need for manual preprocessing.

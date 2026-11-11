@@ -7,10 +7,7 @@ description: "Python library and command-line client for seqout.org: query and d
 `seqout` is a Python client for [seqout.org](https://seqout.org). It can search and download datasets from seven public genomic archives: GEO, SRA, ENA, DRA, GEA, GSA & ArrayExpress.
 
 
-This package provides two components:
-
--  **Command-Line Interface (CLI):** A terminal tool (`seqout`) for interactive search, metadata inspection, accession mapping, and batch downloads.
--  **Python Library:** A programmatic API (`import seqout`) for integrating metadata queries and matrix parsing into your analysis scripts.
+This package provides two components: a **CLI tool** and a **library** that can be used in scripts.
 
 Installation instructions are documented in its [dedicated page](installation.md).
 
@@ -23,7 +20,7 @@ This package supports two data retrieval backends:
 | **API** (Default) | Queries the `seqout.org` REST API over HTTP. | Queries against the live index. |
 | **Parquet** | Queries the published Parquet database dump using DuckDB. | Offline workflows, large batch queries, and custom SQL analytics. |
 
-The Parquet backend executes queries locally without sending HTTP requests to the REST API. You can read database files directly from a local directory or a remote static server. For more details, read [Parquet backend](parquet.md).
+The Parquet backend executes queries locally without sending HTTP requests to [Seqout's REST API](https://seqout.org/api-docs). You can also read database files directly from a local directory or a remote static server. For more details, read [Parquet backend](parquet.md).
 
 ## Quick start
 
