@@ -41,8 +41,6 @@ theme:
 
 plugins:
   - search
-  - mkdocs-jupyter:
-      execute: false
   - mkdocstrings:
       handlers:
         python:
@@ -61,15 +59,6 @@ plugins:
 
 extra:
   home_title: seqout - genomics metadata for Python and the shell
-  # notebooks cannot carry front matter, a leading raw cell renders as page
-  # body, so their descriptions live here
-  descriptions:
-    examples/01_getting_started/: Connecting to the API, searching with filters, and reading a dataset.
-    examples/02_working_with_a_dataset/: Every field a Dataset holds, from the project record to runs, publications and cross-references.
-    examples/03_accessions_and_archives/: How an accession from any of the seven archives resolves to its study, and what happens when it cannot.
-    examples/04_offline_with_parquet/: Reading the same data through DuckDB with no API request, and where that backend stops.
-    examples/05_counts_and_metadata/: From a GEO accession to a counts matrix, with per-cell annotation and study metadata joined in.
-    examples/06_ontology/: Looking terms up in the ontology graph, controlling synonym expansion in search, and mapping free-text labels to ontology IDs.
   analytics:
     provider: google
     property: G-QJ6EBEJ38X
@@ -105,9 +94,9 @@ nav:
   - Examples:
       - Overview: examples/index.md
       - Command-line examples: examples/command-line.md
-      - Get started: examples/01_getting_started.ipynb
-      - Explore a dataset: examples/02_working_with_a_dataset.ipynb
-      - Accessions and archives: examples/03_accessions_and_archives.ipynb
-      - Offline with Parquet: examples/04_offline_with_parquet.ipynb
-      - Counts and metadata: examples/05_counts_and_metadata.ipynb
-      - Ontologies: examples/06_ontology.ipynb
+      - Get started: examples/01_getting_started.md
+      - Explore a dataset: examples/02_working_with_a_dataset.md
+      - Accessions and archives: examples/03_accessions_and_archives.md
+      - Offline with Parquet: examples/04_offline_with_parquet.md
+      - Counts and metadata: examples/05_counts_and_metadata.md
+      - Ontologies: examples/06_ontology.md

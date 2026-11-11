@@ -1,12 +1,5 @@
 {% extends "base.html" %}
 
-{% block site_meta %}
-  {% if page and page.meta is mapping and not page.meta.description %}
-    {% set _ = page.meta.update({"description": config.extra.descriptions.get(page.url, "")}) %}
-  {% endif %}
-  {{ super() }}
-{% endblock %}
-
 {% block htmltitle %}
   {% if page and page.is_homepage %}
     <title>{{ config.extra.home_title }}</title>

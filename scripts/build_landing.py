@@ -195,6 +195,9 @@ def build_llms_full(root: Path) -> str:
     sources += sorted((root / "R" / "vignettes").glob("*.Rmd"))
 
     for src in sources:
+        # nav names the Markdown that scripts/render_notebooks.py generates
+        if not src.exists() and src.with_suffix(".ipynb").exists():
+            src = src.with_suffix(".ipynb")  # noqa: PLW2901
         if not src.exists():
             msg = f"documented page is missing: {src}"
             raise FileNotFoundError(msg)

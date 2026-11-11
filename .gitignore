@@ -43,8 +43,9 @@ python/dist/
 .ruff_cache/
 .mypy_cache/
 
-# mkdocs build output
+# docs build output, and notebooks rendered to Markdown for Zensical
 python/site/
+python/docs/examples/0*_*.md
 
 # assistant instructions, local only
 CLAUDE.md
