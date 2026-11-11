@@ -69,6 +69,7 @@ extra:
     examples/03_accessions_and_archives/: How an accession from any of the seven archives resolves to its study, and what happens when it cannot.
     examples/04_offline_with_parquet/: Reading the same data through DuckDB with no API request, and where that backend stops.
     examples/05_counts_and_metadata/: From a GEO accession to a counts matrix, with per-cell annotation and study metadata joined in.
+    examples/06_ontology/: Looking terms up in the ontology graph, controlling synonym expansion in search, and mapping free-text labels to ontology IDs.
   analytics:
     provider: google
     property: G-QJ6EBEJ38X
@@ -109,3 +110,4 @@ nav:
       - Accessions and archives: examples/03_accessions_and_archives.ipynb
       - Offline with Parquet: examples/04_offline_with_parquet.ipynb
       - Counts and metadata: examples/05_counts_and_metadata.ipynb
+      - Ontologies: examples/06_ontology.ipynb
