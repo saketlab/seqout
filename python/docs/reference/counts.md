@@ -6,7 +6,7 @@ description: "SeqoutCounts and CountMatrix: GEO supplementary files read as a si
 
 Reading counts needs the `counts` extra: `uv add 'seqout[counts]'`.
 
-The class is also exported as `SeqoutListCounts`, the spelling the docs and the
+The class is also exported as `SeqoutListCounts`.
 R client use.
 
 ::: seqout.counts.SeqoutCounts
