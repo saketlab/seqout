@@ -84,13 +84,6 @@ nav:
   - Command line: cli.md
   - Python library: library.md
   - Parquet backend: parquet.md
-  - Reference:
-      - Overview: reference/index.md
-      - Client: reference/client.md
-      - Dataset: reference/dataset.md
-      - Search: reference/search.md
-      - Counts matrices: reference/counts.md
-      - Utilities: reference/utilities.md
   - Examples:
       - Overview: examples/index.md
       - Command-line examples: examples/command-line.md
@@ -100,3 +93,10 @@ nav:
       - Offline with Parquet: examples/04_offline_with_parquet.md
       - Counts and metadata: examples/05_counts_and_metadata.md
       - Ontologies: examples/06_ontology.md
+  - Reference:
+      - Overview: reference/index.md
+      - Client: reference/client.md
+      - Dataset: reference/dataset.md
+      - Search: reference/search.md
+      - Counts matrices: reference/counts.md
+      - Utilities: reference/utilities.md
