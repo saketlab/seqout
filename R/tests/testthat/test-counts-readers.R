@@ -491,3 +491,22 @@ test_that("repeated names in an R-written table (short header) stay aligned", {
   expect_equal(rownames(res$obs), c("S1", "S2"))
   expect_equal(as.vector(res$X[, "Y_RNA.1"]), c(3, 4))
 })
+
+
+test_that(".unwrap_single_tar gives the member of a one-file archive", {
+  dir <- withr::local_tempdir()
+  inner <- file.path(dir, "matrix.mtx")
+  writeLines(c("%%MatrixMarket matrix coordinate integer general", "1 1 1", "1 1 5"), inner)
+  arc <- file.path(dir, "GSM1_matrix.mtx.tar.gz")
+  withr::with_dir(dir, utils::tar(arc, "matrix.mtx", compression = "gzip"))
+
+  out <- .unwrap_single_tar(arc)
+  expect_match(readLines(out)[1], "MatrixMarket")
+  expect_identical(.unwrap_single_tar(arc), out)
+
+  expect_identical(.unwrap_single_tar(inner), inner)
+  writeLines("x", file.path(dir, "second.tsv"))
+  bundle <- file.path(dir, "two.tar.gz")
+  withr::with_dir(dir, utils::tar(bundle, c("matrix.mtx", "second.tsv"), compression = "gzip"))
+  expect_identical(.unwrap_single_tar(bundle), bundle)
+})

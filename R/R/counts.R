@@ -1145,6 +1145,29 @@ matrices <- function(counts, sample = NULL) {
   .download_files(urls[!.is_local_path(urls)], .handle(counts)$cache_dir)
 }
 
+#' Unwrap a tar file of a single file
+#'
+#' @noRd
+.unwrap_single_tar <- function(path) {
+  if (!.ends_any(.strip_compression(tolower(path)), c(".tar", ".tgz"))) {
+    return(path)
+  }
+  dest <- paste0(path, ".unwrapped")
+  if (!dir.exists(dest)) {
+    # extract to scratch and rename; partial dest must fail cache trust
+    tmp <- tempfile("untar", tmpdir = dirname(path))
+    ok <- tryCatch(utils::untar(path, exdir = tmp), error = function(e) 1L)
+    if (!identical(as.integer(ok), 0L)) {
+      unlink(tmp, recursive = TRUE)
+      return(path)
+    }
+    file.rename(tmp, dest)
+  }
+  members <- list.files(dest, recursive = TRUE, full.names = TRUE)
+  members <- members[file_role(members) != "skip"]
+  if (length(members) == 1L) members else path
+}
+
 #' @noRd
 .read_unit <- function(counts, unit) {
   if (identical(unit$fmt, "tar")) {
@@ -1158,6 +1181,7 @@ matrices <- function(counts, sample = NULL) {
   first_role <- !duplicated(file_roles)
   by_role <- as.list(.unit_paths(counts, file_urls[first_role]))
   names(by_role) <- file_roles[first_role]
+  by_role <- lapply(by_role, .unwrap_single_tar)
 
   parsed <- switch(unit$fmt,
     "10x_mtx" = .read_10x_mtx(
